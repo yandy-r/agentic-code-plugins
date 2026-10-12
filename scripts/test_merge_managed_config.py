@@ -21,7 +21,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 HELPER = REPO_ROOT / "scripts" / "merge_managed_config.py"
 
 
-class MergeHelperTestCase(unittest.TestCase):
+class MergeBase(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
@@ -64,6 +64,8 @@ class MergeHelperTestCase(unittest.TestCase):
         path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
         return path
 
+
+class MergeHelperTestCase(MergeBase):
     # -- JSON merge ------------------------------------------------------
 
     def test_creates_missing_destination(self) -> None:
@@ -384,7 +386,10 @@ class MergeHelperTestCase(unittest.TestCase):
         parsed = tomllib.loads(destination.read_text())
         self.assertEqual(parsed["model"], "gpt-6-astra")
         self.assertEqual(parsed["agents"]["default_subagent_reasoning_effort"], "high")
-        self.assertEqual(parsed["mcp_servers"]["github"]["url"], "https://api.githubcopilot.com/mcp")
+        self.assertEqual(
+            parsed["mcp_servers"]["github"]["command"],
+            "github-mcp-server",
+        )
         self.assertEqual(parsed["projects"]["/home/me/work"]["trust_level"], "trusted")
 
     def test_provider_credentials_survive_model_variant_merge(self) -> None:
@@ -817,6 +822,229 @@ class MergeHelperTestCase(unittest.TestCase):
 
         self.assertIn("removed empty file", result.stdout)
         self.assertFalse(destination.exists())
+
+
+class GithubMcpMigrationTestCase(MergeBase):
+    NATIVE = {"command": "github-mcp-server", "args": ["stdio"]}
+    NPM = {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-github"],
+        "envFile": "${userHome}/.config/env/github-env-mcp",
+        "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_API_TOKEN}", "KEEP": "1"},
+        "autoApprove": ["x"],
+    }
+    SERVERS = {"mcpServers": {"github": NATIVE, "linear": {"type": "http", "url": "https://l"}}}
+
+    def sync(
+        self, profile: str, source: Path, dest: Path, groups: str = "mcp", **kw
+    ) -> subprocess.CompletedProcess[str]:
+        return self.run_merge(profile, source, dest, groups, **kw)
+
+    def load(self, path: Path) -> dict:
+        return json.loads(path.read_text())
+
+    def claude(self, github: dict, **extra: object) -> tuple[Path, Path]:
+        source = self.write_json(self.tmp / "src.json", self.SERVERS)
+        dest = self.write_json(self.tmp / "dest.json", {"keep": 1, "mcpServers": {"github": github, **extra}})
+        return source, dest
+
+    def test_claude_npm_migrates_without_state_and_is_idempotent(self) -> None:
+        source, dest = self.claude(self.NPM, mine={"url": "https://mine"})
+        self.sync("claude-mcp", source, dest)
+        data = self.load(dest)
+        self.assertEqual(data["mcpServers"]["github"], {**self.NATIVE, "env": {"KEEP": "1"}, "autoApprove": ["x"]})
+        self.assertEqual(data["mcpServers"]["mine"], {"url": "https://mine"})
+        self.assertEqual(data["keep"], 1)
+        before = (dest.read_text(), self.state.read_text())
+        result = self.sync("claude-mcp", source, dest)
+        self.assertIn("up-to-date", result.stdout)
+        self.assertEqual(before, (dest.read_text(), self.state.read_text()))
+
+    def test_cursor_remote_migrates_and_drops_headers(self) -> None:
+        remote = {"type": "http", "url": "https://api.githubcopilot.com/mcp/", "headers": {"Authorization": "Bearer x"}}
+        source, dest = self.claude(remote)
+        self.sync("cursor-mcp", source, dest)
+        self.assertEqual(self.load(dest)["mcpServers"]["github"], self.NATIVE)
+
+    def test_tracked_state_npm_migrates(self) -> None:
+        old = self.write_json(
+            self.tmp / "old.json",
+            {"mcpServers": {"github": {k: v for k, v in self.NPM.items() if k not in ("env", "autoApprove")}}},
+        )
+        dest = self.tmp / "dest.json"
+        self.sync("claude-mcp", old, dest)
+        source = self.write_json(self.tmp / "src.json", self.SERVERS)
+        self.sync("claude-mcp", source, dest)
+        self.assertEqual(self.load(dest)["mcpServers"]["github"], self.NATIVE)
+
+    def test_custom_github_untouched_without_force_replaced_with_force(self) -> None:
+        for custom in (
+            {"command": "docker", "args": ["run", "ghcr.io/github/github-mcp-server"]},
+            {"command": "npx", "args": ["-y", "my-github-fork"], "env": {"X": "1"}},
+            {"url": "https://ghe.example.com/mcp", "headers": {"A": "b"}},
+            {**GithubMcpMigrationTestCase.NATIVE, "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": "t"}},
+        ):
+            with self.subTest(custom=custom):
+                source, dest = self.claude(custom)
+                self.sync("claude-mcp", source, dest)
+                self.assertEqual(self.load(dest)["mcpServers"]["github"], custom)
+                self.sync("claude-mcp", source, dest, force=True)
+                expected = dict(self.NATIVE)
+                if "env" in custom and "GITHUB_PERSONAL_ACCESS_TOKEN" not in custom["env"]:
+                    expected["env"] = custom["env"]
+                self.assertEqual(self.load(dest)["mcpServers"]["github"], expected)
+
+    def test_dry_run_and_entry_selection_do_not_migrate(self) -> None:
+        source, dest = self.claude(self.NPM)
+        before = dest.read_text()
+        result = self.sync("claude-mcp", source, dest, extra=("--dry-run",))
+        self.assertIn("would remove /mcpServers/github/envFile", result.stdout)
+        self.assertEqual(dest.read_text(), before)
+        self.assertFalse(self.state.exists())
+        self.sync("claude-mcp", source, dest, extra=("--entries", "linear"))
+        self.assertEqual(self.load(dest)["mcpServers"]["github"], self.NPM)
+        self.assertIn("linear", self.load(dest)["mcpServers"])
+
+    def test_opencode_array_command_migrates(self) -> None:
+        source = self.write_json(
+            self.tmp / "src.json",
+            {
+                "mcp": {
+                    "servers": {
+                        "github": {
+                            "type": "local",
+                            "command": ["github-mcp-server", "stdio"],
+                        }
+                    }
+                }
+            },
+        )
+        dest = self.write_json(
+            self.tmp / "dest.json",
+            {
+                "mcp": {
+                    "servers": {
+                        "github": {
+                            "type": "local",
+                            "command": ["npx", "-y", "@modelcontextprotocol/server-github"],
+                            "environment": {"GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GITHUB_API_TOKEN}", "KEEP": "1"},
+                        }
+                    }
+                }
+            },
+        )
+        self.sync("opencode-config", source, dest)
+        self.assertEqual(
+            self.load(dest)["mcp"]["servers"]["github"],
+            {"type": "local", "command": ["github-mcp-server", "stdio"], "environment": {"KEEP": "1"}},
+        )
+
+    def test_codex_toml_remote_migrates_and_keeps_tools(self) -> None:
+        source = self.tmp / "src.toml"
+        source.write_text('[mcp_servers.github]\ncommand = "github-mcp-server"\nargs = ["stdio"]\n', encoding="utf-8")
+        dest = self.tmp / "dest.toml"
+        dest.write_text(
+            '# keep\nmodel = "m"\n\n[mcp_servers.github]\nurl = "https://api.githubcopilot.com/mcp"\n'
+            'bearer_token_env_var = "GITHUB_API_TOKEN"\n\n'
+            '[mcp_servers.github.tools.create_pull_request]\napproval_mode = "approve"\n',
+            encoding="utf-8",
+        )
+        self.sync("codex-config", source, dest)
+        text = dest.read_text()
+        self.assertIn("# keep", text)
+        parsed = tomllib.loads(text)["mcp_servers"]["github"]
+        self.assertEqual(parsed, {**self.NATIVE, "tools": {"create_pull_request": {"approval_mode": "approve"}}})
+        self.assertIn("up-to-date", self.sync("codex-config", source, dest).stdout)
+
+    GH_TOML_SRC = '[mcp_servers.github]\ncommand = "github-mcp-server"\nargs = ["stdio"]\n'
+
+    def toml_case(self, text: str) -> tuple[Path, Path]:
+        source = self.tmp / "src.toml"
+        source.write_text(self.GH_TOML_SRC, encoding="utf-8")
+        dest = self.tmp / "dest.toml"
+        dest.write_text(text, encoding="utf-8")
+        return source, dest
+
+    def test_codex_toml_auth_subtables_removed_and_tools_kept(self) -> None:
+        source, dest = self.toml_case(
+            '# top\n[mcp_servers.github]\nurl = "https://api.githubcopilot.com/mcp"\n\n'
+            '[mcp_servers.github.http_headers]\nAuthorization = "Bearer x"\n\n'
+            '[mcp_servers.github.env_http_headers]\nA = "B"\n\n'
+            '[mcp_servers.github.tools.create_pull_request]\napproval_mode = "approve"\n\n'
+            '[mcp_servers.other]\nurl = "https://o"\n'
+        )
+        self.sync("codex-config", source, dest)
+        text = dest.read_text()
+        self.assertEqual(
+            tomllib.loads(text)["mcp_servers"],
+            {
+                "github": {**self.NATIVE, "tools": {"create_pull_request": {"approval_mode": "approve"}}},
+                "other": {"url": "https://o"},
+            },
+        )
+        self.assertIn("# top", text)
+        self.assertIn("up-to-date", self.sync("codex-config", source, dest).stdout)
+
+    def test_codex_toml_inline_auth_tables_removed(self) -> None:
+        source, dest = self.toml_case(
+            '[mcp_servers.github]\nurl = "https://api.githubcopilot.com/mcp"\n'
+            'http_headers = { Authorization = "Bearer x" }\nenv_http_headers = { A = "B" }\n'
+        )
+        self.sync("codex-config", source, dest)
+        self.assertEqual(tomllib.loads(dest.read_text())["mcp_servers"]["github"], self.NATIVE)
+
+    def test_codex_toml_inline_env_pat_leaf_keeps_siblings(self) -> None:
+        source, dest = self.toml_case(
+            '[mcp_servers.github]\ncommand = "npx"\nargs = ["-y", "@modelcontextprotocol/server-github"]\n'
+            'env = { GITHUB_PERSONAL_ACCESS_TOKEN = "t", KEEP = "1" }\n\n'
+            '[mcp_servers.github.tools.a]\napproval_mode = "approve"\n'
+        )
+        self.sync("codex-config", source, dest)
+        parsed = tomllib.loads(dest.read_text())["mcp_servers"]["github"]
+        self.assertEqual(parsed, {**self.NATIVE, "env": {"KEEP": "1"}, "tools": {"a": {"approval_mode": "approve"}}})
+
+    def test_codex_toml_inline_env_only_pat_drops_env(self) -> None:
+        source, dest = self.toml_case(
+            '[mcp_servers.github]\ncommand = "npx"\nargs = ["-y", "@modelcontextprotocol/server-github"]\n'
+            'env = { GITHUB_PERSONAL_ACCESS_TOKEN = "t" }\n'
+        )
+        self.sync("codex-config", source, dest)
+        self.assertEqual(tomllib.loads(dest.read_text())["mcp_servers"]["github"], self.NATIVE)
+
+    def test_filtered_env_vars_survive_repeated_state_backed_syncs(self) -> None:
+        source, dest = self.toml_case(
+            '[mcp_servers.github]\ncommand = "npx"\nargs = ["-y", "@modelcontextprotocol/server-github"]\n'
+            'env_vars = ["GITHUB_PERSONAL_ACCESS_TOKEN", "KEEP"]\n'
+        )
+        for _ in range(3):
+            self.sync("codex-config", source, dest)
+            parsed = tomllib.loads(dest.read_text())["mcp_servers"]["github"]
+            self.assertEqual(parsed, {**self.NATIVE, "env_vars": ["KEEP"]})
+        state = json.loads(self.state.read_text())
+        self.assertNotIn("/mcp_servers/github/env_vars", state[f"codex-config:{dest}"])
+
+    def test_json_filtered_env_vars_survive_repeated_syncs(self) -> None:
+        source, dest = self.claude({**self.NPM, "env_vars": ["GITHUB_API_TOKEN", "KEEP"]})
+        for _ in range(3):
+            self.sync("claude-mcp", source, dest)
+            self.assertEqual(self.load(dest)["mcpServers"]["github"]["env_vars"], ["KEEP"])
+
+    def test_force_replaces_non_dict_github_entry(self) -> None:
+        source = self.write_json(self.tmp / "src.json", self.SERVERS)
+        dest = self.write_json(self.tmp / "dest.json", {"mcpServers": {"github": "weird"}})
+        self.sync("claude-mcp", source, dest)
+        self.assertEqual(self.load(dest)["mcpServers"]["github"], "weird")
+        self.sync("claude-mcp", source, dest, force=True)
+        self.assertEqual(self.load(dest)["mcpServers"]["github"], self.NATIVE)
+
+    def test_codex_toml_custom_untouched(self) -> None:
+        source = self.tmp / "src.toml"
+        source.write_text('[mcp_servers.github]\ncommand = "github-mcp-server"\nargs = ["stdio"]\n', encoding="utf-8")
+        dest = self.tmp / "dest.toml"
+        custom = '[mcp_servers.github]\nurl = "https://ghe.example.com/mcp"\n'
+        dest.write_text(custom, encoding="utf-8")
+        self.sync("codex-config", source, dest)
+        self.assertEqual(dest.read_text(), custom)
 
 
 if __name__ == "__main__":

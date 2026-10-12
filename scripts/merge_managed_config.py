@@ -44,6 +44,7 @@ from typing import Any
 
 import tomllib
 from managed_config_entries import available_entries, select_source_entries, selected_state
+from managed_config_legacy import plan_legacy_migration
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -518,6 +519,30 @@ def plan_merge(
         if found and last_applied == value_hash(current_value):
             deletions.append(path)
 
+    # Narrow migration: a recognized legacy GitHub MCP entry (this repo's old
+    # npm/remote defaults) is repo history, not a user edit, so the native
+    # stdio entry wins and its incompatible connection/auth fields are removed.
+    migration_updates, migration_deletions, preserved = plan_legacy_migration(
+        profile, groups, source, destination, force
+    )
+    planned = {pointer(path) for path, _ in updates}
+    removed = {pointer(path) for path in deletions}
+    for path, value in migration_updates:
+        key = pointer(path)
+        if key not in planned:
+            updates.append((path, value))
+            planned.add(key)
+        if key in conflicts:
+            conflicts.remove(key)
+    for path in migration_deletions:
+        key = pointer(path)
+        if key not in removed:
+            deletions.append(path)
+            removed.add(key)
+    # A custom GitHub connection is left wholly untouched (without --force).
+    updates = [(p, v) for p, v in updates if not any(p[: len(b)] == b for b in preserved)]
+    deletions = [p for p in deletions if not any(p[: len(b)] == b for b in preserved)]
+
     return updates, conflicts, deletions, list_additions
 
 
@@ -732,12 +757,44 @@ def table_end_line(lines: list[str], table: list[str]) -> int | None:
     return None
 
 
+def split_inline_deletions(
+    text: str, deletions: list[list[str]], destination: dict[str, Any]
+) -> tuple[list[list[str]], list[tuple[list[str], Any]]]:
+    """Turn deletions inside an inline-table assignment into a rewrite of that assignment.
+
+    Siblings stay; a table left empty is deleted whole. Other deletions pass through.
+    """
+    spans = scan_toml_assignments(text.splitlines(keepends=True))
+    plain: list[list[str]] = []
+    holders: dict[tuple[str, ...], dict[str, Any]] = {}
+    for path in deletions:
+        parent = next((tuple(path[:n]) for n in range(len(path) - 1, 0, -1) if tuple(path[:n]) in spans), None)
+        value = read_nested(destination, list(parent))[1] if parent else None
+        if parent is None or not isinstance(value, dict):
+            plain.append(path)
+            continue
+        holder = holders.setdefault(parent, {"v": json.loads(json.dumps(value))})
+        delete_nested(holder, ["v", *path[len(parent) :]])
+    rewrites: list[tuple[list[str], Any]] = []
+    for parent, holder in holders.items():
+        if "v" in holder:
+            rewrites.append((list(parent), holder["v"]))
+        else:
+            plain.append(list(parent))
+    return plain, rewrites
+
+
 def apply_toml_updates(
     text: str,
     updates: list[tuple[list[str], Any]],
     deletions: list[list[str]] | None = None,
 ) -> str:
-    """Patch managed assignments in place, leaving all other bytes untouched."""
+    """Patch managed assignments in place, leaving all other bytes untouched.
+
+    Deletions drop the assignment or whole table subtree at each path.
+    """
+    if deletions:
+        text = delete_toml_entries(text, deletions)
     lines = text.splitlines(keepends=True)
     if lines and not lines[-1].endswith("\n"):
         lines[-1] += "\n"
@@ -749,11 +806,6 @@ def apply_toml_updates(
     new_tables: dict[tuple[str, ...], list[str]] = {}
 
     spans = scan_toml_assignments(lines)
-
-    for path in deletions or []:
-        span = spans.get(tuple(path))
-        if span is not None:
-            replacements.append((span[0], span[1], ""))
 
     for path, value in updates:
         key = tuple(path)
@@ -979,7 +1031,11 @@ def remove_json(
 
 
 def delete_toml_entries(text: str, entries: list[list[str]]) -> str:
-    """Drop every table and assignment at or below the given entry paths."""
+    """Drop every table and assignment at or below the given paths.
+
+    A path inside an inline-table value is one assignment, so callers route
+    those through split_inline_deletions first.
+    """
     lines = text.splitlines(keepends=True)
     if lines and not lines[-1].endswith("\n"):
         lines[-1] += "\n"
@@ -1113,7 +1169,8 @@ def merge_toml(
     if not updates and not deletions:
         return None, updates, conflicts, deletions, additions
 
-    merged_text = apply_toml_updates(destination_text, updates, deletions)
+    plain_deletions, inline_rewrites = split_inline_deletions(destination_text, deletions, destination)
+    merged_text = apply_toml_updates(destination_text, [*updates, *inline_rewrites], plain_deletions)
 
     # Re-parse so a bad patch can never reach the user's config.
     reparsed = tomllib.loads(merged_text)
@@ -1121,6 +1178,9 @@ def merge_toml(
         found, actual = read_nested(reparsed, path)
         if not found or actual != value:
             raise MergeError(f"TOML merge verification failed for {pointer(path)}")
+    for path in deletions:
+        if read_nested(reparsed, path)[0]:
+            raise MergeError(f"TOML cannot remove {pointer(path)} (inline table?); edit it by hand")
 
     return merged_text, updates, conflicts, deletions, additions
 
@@ -1280,7 +1340,11 @@ def main() -> int:
         print(f"  [!!] kept your local value at {conflict} (re-run with --force to take the repo value)")
 
     if rendered is None:
-        if destination_path.exists() and adopt_matching_values(profile, groups, source, destination_path, state_entry):
+        if (
+            not args.dry_run
+            and destination_path.exists()
+            and adopt_matching_values(profile, groups, source, destination_path, state_entry)
+        ):
             state[state_key] = state_entry
             save_state(state)
         print(f"  [ok] up-to-date: {destination_path} ({args.profile}: {', '.join(groups)})")
@@ -1298,8 +1362,12 @@ def main() -> int:
     # Prepare state before committing the config. If writing state fails after
     # the config rename, restore the original bytes (or remove the new file),
     # keeping config and ownership metadata consistent.
+    managed_keys = {pointer(path) for path, _ in collect_managed_leaves(profile, groups, source)}
     for path, value in updates:
         key = pointer(path)
+        if key not in managed_keys:
+            # Migration rewrites of user-owned extras (e.g. env_vars) stay user-owned.
+            continue
         ownership: dict[str, Any] = {"last_applied_sha256": value_hash(value)}
         if key in additions:
             previous = state_entry.get(key, {}).get(ADDED_ITEMS_KEY, [])

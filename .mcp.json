@@ -1,12 +1,8 @@
 {
   "mcpServers": {
     "github": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
-      "envFile": "${userHome}/.config/env/github-env-mcp",
-      "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_API_TOKEN}"
-      }
+      "command": "github-mcp-server",
+      "args": ["stdio"]
     },
     "linear": {
       "type": "http",

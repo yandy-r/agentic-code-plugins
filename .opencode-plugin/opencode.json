@@ -206,13 +206,9 @@
       "github": {
         "type": "local",
         "command": [
-          "npx",
-          "-y",
-          "@modelcontextprotocol/server-github"
-        ],
-        "environment": {
-          "GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GITHUB_API_TOKEN}"
-        }
+          "github-mcp-server",
+          "stdio"
+        ]
       },
       "stripe": {
         "type": "remote",

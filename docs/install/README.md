@@ -165,6 +165,25 @@ rejected before anything runs: the error is about `settings`, not `mcp`. Drop
 
 ### Selecting MCP Servers
 
+### GitHub MCP prerequisite
+
+Install the official released [`github-mcp-server` binary](https://github.com/github/github-mcp-server/releases)
+and put it on the runtime's `PATH` before enabling GitHub MCP. ycc configures
+`github-mcp-server stdio`; it does not install the binary or require Docker.
+Official release binaries include the OAuth app credentials. On first use the
+server opens a browser automatically and listens on a random loopback port;
+the OAuth token stays in memory only (a new server process may need login again).
+See [OAuth login](https://github.com/github/github-mcp-server/blob/main/docs/oauth-login.md).
+A PAT environment variable overrides OAuth, so remove inherited PATs if you want
+OAuth rather than PAT authentication. No PAT mapping is shipped by ycc.
+
+Normal `ycc sync --intent mcp` migrates recognized legacy `npx
+@modelcontextprotocol/server-github` and `https://api.githubcopilot.com/mcp`
+entries even without ownership state. Obsolete transport/auth fields are removed;
+unrelated settings, servers and tools remain. Custom GitHub connections stay
+untouched unless `--force` is explicit. `--mcps` selection and `--dry-run` apply
+to migration too.
+
 By default the `mcp` step merges every server the repo manages for a target.
 `--mcps <names>` (comma-separated) narrows `install`, `sync`, and `remove` to
 just those servers, for every MCP-capable target (claude, cursor, codex,
