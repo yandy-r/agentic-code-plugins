@@ -16,11 +16,16 @@ npm install
 
 What the hooks do:
 
-| Stage        | Command                                                         | Purpose                                     |
-| ------------ | --------------------------------------------------------------- | ------------------------------------------- |
-| `pre-commit` | `scripts/lint.sh --staged --fix` + `scripts/format.sh --staged` | Lint/format staged Python & shell files     |
-| `pre-push`   | `scripts/validate.sh`                                           | Bundle parity + JSON validation (CI parity) |
-| `commit-msg` | `commitlint --edit`                                             | Reject non-conventional commit messages     |
+| Stage        | Command                                                         | Purpose                                 |
+| ------------ | --------------------------------------------------------------- | --------------------------------------- |
+| `pre-commit` | `scripts/lint.sh --staged --fix` + `scripts/format.sh --staged` | Lint/format staged Python & shell files |
+| `pre-push`   | `scripts/validate.sh --changed`                                 | Validators the unpushed changes affect  |
+| `commit-msg` | `commitlint --edit`                                             | Reject non-conventional commit messages |
+
+`--changed` maps the files changed since the branch's push destination to validate
+targets (rules in `scripts/lib/validate-scope.sh`; unrecognised paths run everything),
+so a docs-only push runs nothing and CI remains the full check. Run
+`./scripts/validate.sh` for the complete local pass.
 
 Bypass a single operation with `git commit --no-verify` or `git push --no-verify`.
 CI is exempt automatically (`CI=true`).

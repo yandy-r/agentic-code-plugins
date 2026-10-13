@@ -6,34 +6,50 @@
 #   ./scripts/validate.sh                       # all targets
 #   ./scripts/validate.sh --only inventory      # single target
 #   ./scripts/validate.sh --only cursor,codex   # comma-separated subset
+#   ./scripts/validate.sh --changed             # only targets the unpushed changes affect
+#   ./scripts/validate.sh --serial              # one target at a time, streamed output
 #
-# Targets: inventory, cursor, codex, opencode, agents, json, config, release, mods, practices
+# Targets run concurrently by default, each with its output buffered and
+# replayed in order. `config` runs last and alone: its install tests regenerate
+# the bundles in this checkout, which the other targets read.
+#
+# Targets: inventory, cursor, codex, opencode, agents, json, config, release, mods, practices, scope
 #   - inventory  validates ycc skill frontmatter and the shared inventory
 #   - json       validates .claude-plugin/marketplace.json plus ycc/.claude-plugin/plugin.json
 #   - config     tests the managed-config merge helper and install.sh sync CLI
 #   - release    runs every scripts/test-release-*.sh (release-model state scripts,
-#                RELEASING.md template, signal collector), stopping at the first failure
+#                RELEASING.md template, signal collector)
 #   - mods       validates the Claude Code mods under ycc/mods and their marketplace
 #   - practices  ratchets skill/agent/rule authoring practices against
 #                scripts/practices-baseline.json (unit tests + validator + optional
 #                `claude plugin validate`)
+#   - scope      tests the changed-path -> target mapping behind --changed
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-VALID_TARGETS=(inventory cursor codex opencode agents json config release mods practices)
+# shellcheck source=scripts/lib/validate-scope.sh
+source "${SCRIPT_DIR}/lib/validate-scope.sh"
+
+VALID_TARGETS=("${VALIDATE_TARGETS[@]}")
 TARGETS=("${VALID_TARGETS[@]}")
+PARALLEL=1
+SCOPE_BASE=""
 
 usage() {
     cat <<EOF
-Usage: $(basename "$0") [--only <targets>]
+Usage: $(basename "$0") [--only <targets>] [--changed | --since <ref>] [--serial]
 
 Run every validator for the ycc source-of-truth directory and its generated
 Cursor / Codex / opencode bundles and managed configuration sync.
 
 Options:
   --only <targets>   Comma-separated subset (valid: ${VALID_TARGETS[*]})
+  --changed          Run only the targets affected by files changed since the
+                     branch's push destination (all targets if none resolves)
+  --since <ref>      Like --changed, measured from <ref>
+  --serial           Run one target at a time with streamed output
   -h, --help         Show this help
 
 Examples:
@@ -42,6 +58,7 @@ Examples:
   $(basename "$0") --only cursor,codex
   $(basename "$0") --only json
   $(basename "$0") --only practices
+  $(basename "$0") --changed
 EOF
 }
 
@@ -51,6 +68,21 @@ while [[ $# -gt 0 ]]; do
             [[ $# -lt 2 ]] && { echo "validate.sh: --only requires an argument" >&2; exit 1; }
             IFS=',' read -r -a TARGETS <<<"$2"
             shift 2
+            ;;
+        --changed)
+            SCOPE_BASE="$(validate_scope_base "${REPO_ROOT}")" \
+                || echo "validate.sh: --changed found no push destination; running every target" >&2
+            shift
+            ;;
+        --since)
+            [[ $# -lt 2 ]] && { echo "validate.sh: --since requires an argument" >&2; exit 1; }
+            SCOPE_BASE="$(git -C "${REPO_ROOT}" rev-parse --verify --quiet "$2^{commit}")" \
+                || { echo "validate.sh: --since: not a commit: $2" >&2; exit 1; }
+            shift 2
+            ;;
+        --serial)
+            PARALLEL=0
+            shift
             ;;
         -h|--help)
             usage
@@ -75,9 +107,85 @@ for target in "${TARGETS[@]}"; do
     fi
 done
 
+if [[ -n "${SCOPE_BASE}" ]]; then
+    mapfile -t affected < <(validate_scope_changed_paths "${REPO_ROOT}" "${SCOPE_BASE}" | validate_scope_select)
+    scoped=()
+    for target in "${TARGETS[@]}"; do
+        [[ " ${affected[*]} " == *" ${target} "* ]] && scoped+=("${target}")
+    done
+    TARGETS=("${scoped[@]}")
+    echo "validate.sh: changes since ${SCOPE_BASE:0:12} affect: ${TARGETS[*]:-nothing}"
+    [[ ${#TARGETS[@]} -gt 0 ]] || exit 0
+fi
+
 fail() {
     echo "validate.sh: FAILED at '$1'" >&2
     exit 1
+}
+
+if [[ "${PARALLEL}" -eq 1 ]]; then
+    LOG_ROOT="$(mktemp -d)"
+    trap 'rm -rf "${LOG_ROOT}"' EXIT
+fi
+
+# run_group <runner> <item>... — run '<runner> <item>' for every item. Serial
+# mode streams output and stops at the first failure. Parallel mode runs the
+# items concurrently with buffered output, replays each log in argument order,
+# then names the failed items and returns 1 if there were any.
+run_group() {
+    local runner="$1"
+    shift
+    local item
+    if [[ "${PARALLEL}" -eq 0 || $# -le 1 ]]; then
+        for item in "$@"; do
+            "${runner}" "${item}" || return 1
+        done
+        return 0
+    fi
+
+    local log_dir i=0
+    local -a items=("$@") pids=() failed=()
+    log_dir="$(mktemp -d "${LOG_ROOT}/group.XXXXXX")"
+    for item in "$@"; do
+        (
+            SECONDS=0
+            trap 'echo "-- ${item##*/}: ${SECONDS}s"' EXIT
+            "${runner}" "${item}"
+        ) >"${log_dir}/${i}.log" 2>&1 &
+        pids+=("$!")
+        i=$((i + 1))
+    done
+    for i in "${!pids[@]}"; do
+        wait "${pids[i]}" || failed+=("${items[i]##*/}")
+        cat "${log_dir}/${i}.log"
+    done
+    [[ ${#failed[@]} -eq 0 ]] && return 0
+    echo "validate.sh: FAILED: ${failed[*]}" >&2
+    return 1
+}
+
+run_release_test() {
+    echo "== validate: $(basename "$1") =="
+    "$1" || fail "$(basename "$1")"
+}
+
+run_config_part() {
+    case "$1" in
+        helpers)
+            echo "== validate: model/effort declarations =="
+            python3 "${REPO_ROOT}/scripts/validate-model-settings.py" || fail "validate-model-settings.py"
+            echo "== validate: managed-config merge helper =="
+            python3 "${REPO_ROOT}/scripts/test_merge_managed_config.py" || fail "test_merge_managed_config.py"
+            python3 "${REPO_ROOT}/scripts/test_managed_config_entries.py" || fail "test_managed_config_entries.py"
+            python3 "${REPO_ROOT}/scripts/test_generate_codex_mcp.py" || fail "test_generate_codex_mcp.py"
+            echo "== validate: codex marketplace helper =="
+            python3 "${REPO_ROOT}/scripts/test_codex_marketplace.py" || fail "test_codex_marketplace.py"
+            ;;
+        install-sync)
+            echo "== validate: install sync CLI =="
+            "${REPO_ROOT}/scripts/test-install-sync.sh" || fail "test-install-sync.sh"
+            ;;
+    esac
 }
 
 run_target() {
@@ -133,24 +241,12 @@ run_target() {
             "${REPO_ROOT}/scripts/validate-agents-install-coverage.sh" || fail "validate-agents-install-coverage.sh"
             ;;
         config)
-            echo "== validate: model/effort declarations =="
-            python3 "${REPO_ROOT}/scripts/validate-model-settings.py" || fail "validate-model-settings.py"
-            echo "== validate: managed-config merge helper =="
-            python3 "${REPO_ROOT}/scripts/test_merge_managed_config.py" || fail "test_merge_managed_config.py"
-            python3 "${REPO_ROOT}/scripts/test_managed_config_entries.py" || fail "test_managed_config_entries.py"
-            python3 "${REPO_ROOT}/scripts/test_generate_codex_mcp.py" || fail "test_generate_codex_mcp.py"
-            echo "== validate: codex marketplace helper =="
-            python3 "${REPO_ROOT}/scripts/test_codex_marketplace.py" || fail "test_codex_marketplace.py"
-            echo "== validate: install sync CLI =="
-            "${REPO_ROOT}/scripts/test-install-sync.sh" || fail "test-install-sync.sh"
+            run_group run_config_part helpers install-sync || fail "config"
             ;;
         release)
-            local release_test
-            for release_test in "${REPO_ROOT}"/scripts/test-release-*.sh; do
-                [[ -e "${release_test}" ]] || fail "no scripts/test-release-*.sh found"
-                echo "== validate: $(basename "${release_test}") =="
-                "${release_test}" || fail "$(basename "${release_test}")"
-            done
+            local -a release_tests=("${REPO_ROOT}"/scripts/test-release-*.sh)
+            [[ -e "${release_tests[0]}" ]] || fail "no scripts/test-release-*.sh found"
+            run_group run_release_test "${release_tests[@]}" || fail "release"
             ;;
         mods)
             echo "== validate: claude mods =="
@@ -172,11 +268,22 @@ run_target() {
             echo "== validate: hooks symlink =="
             "${REPO_ROOT}/scripts/validate-hooks.sh" || fail "validate-hooks.sh"
             ;;
+        scope)
+            echo "== validate: changed-path scoping =="
+            "${REPO_ROOT}/scripts/test-validate-scope.sh" || fail "test-validate-scope.sh"
+            ;;
     esac
 }
 
+# `config` rewrites the generated bundles in place, so it never overlaps the
+# targets that read them.
+shared=()
+exclusive=()
 for target in "${TARGETS[@]}"; do
-    run_target "${target}"
+    if [[ "${target}" == "config" ]]; then exclusive+=("${target}"); else shared+=("${target}"); fi
 done
+
+run_group run_target "${shared[@]}" || exit 1
+run_group run_target "${exclusive[@]}" || exit 1
 
 echo "validate.sh: done (${TARGETS[*]})"

@@ -221,6 +221,8 @@ Examples:
 ./scripts/sync.sh --only opencode
 ```
 
+`validate.sh` runs its targets concurrently (`--serial` streams them one at a time). `--changed` limits a run to the targets affected by files changed since the branch's push destination; the `pre-push` hook uses it.
+
 CI runs `./scripts/validate.sh` via [`.github/workflows/validate.yml`](.github/workflows/validate.yml) and fails the job on any generated drift, so local and CI paths are identical.
 
 ### OpenCode Per-Agent Model Policy

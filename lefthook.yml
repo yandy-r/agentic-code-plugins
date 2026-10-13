@@ -16,10 +16,12 @@ pre-commit:
       run: ./scripts/format.sh --staged --python --docs
       stage_fixed: true
 
+# --changed runs only the validate targets the unpushed changes affect (see
+# scripts/lib/validate-scope.sh); CI still runs every target on push and PR.
 pre-push:
   commands:
     validate:
-      run: ./scripts/validate.sh
+      run: ./scripts/validate.sh --changed
 
 commit-msg:
   commands:
