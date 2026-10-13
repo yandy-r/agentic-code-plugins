@@ -69,18 +69,20 @@ reference needed for the current phase; report any unreadable file.
 **Do not read or paste all persona prompts into orchestrator context.** Each
 persona agent reads its own file. The table gives exact paths and read conditions.
 
-| Reference                              | Read when                                                                      |
-| -------------------------------------- | ------------------------------------------------------------------------------ |
-| `references/persona-historical.md`     | Historian agent starts Phase 1: evolution, failures, forgotten alternatives.   |
-| `references/persona-contrarian.md`     | Contrarian agent starts Phase 1: disconfirming evidence, critiques, failures.  |
-| `references/persona-analogical.md`     | Analogist agent starts Phase 1: structural parallels across domains.           |
-| `references/persona-systems.md`        | Systems Thinker agent starts Phase 1: feedback, stakeholders, causal chains.   |
-| `references/persona-journalistic.md`   | Journalist agent starts Phase 1: current state, players, dated developments.   |
-| `references/persona-archaeological.md` | Archaeologist agent starts Phase 1: obsolete solutions from 10–50 years ago.   |
-| `references/persona-futurist.md`       | Futurist agent starts Phase 1: patents, speculative research, 2030+ forecasts. |
-| `references/persona-negative-space.md` | Negative Space Explorer agent starts Phase 1: omissions, barriers, gaps.       |
-| `references/analysis-prompts.md`       | Crucible or strategic agents start Phases 2–3: use their named mandate.        |
-| `references/synthesis-template.md`     | Orchestrator starts Phase 4: report structure and writing checks.              |
+| Reference                                   | Read when                                                                                                                                    |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `references/persona-historical.md`          | Historian agent starts Phase 1: evolution, failures, forgotten alternatives.                                                                 |
+| `references/persona-contrarian.md`          | Contrarian agent starts Phase 1: disconfirming evidence, critiques, failures.                                                                |
+| `references/persona-analogical.md`          | Analogist agent starts Phase 1: structural parallels across domains.                                                                         |
+| `references/persona-systems.md`             | Systems Thinker agent starts Phase 1: feedback, stakeholders, causal chains.                                                                 |
+| `references/persona-journalistic.md`        | Journalist agent starts Phase 1: current state, players, dated developments.                                                                 |
+| `references/persona-archaeological.md`      | Archaeologist agent starts Phase 1: obsolete solutions from 10–50 years ago.                                                                 |
+| `references/persona-futurist.md`            | Futurist agent starts Phase 1: patents, speculative research, 2030+ forecasts.                                                               |
+| `references/persona-negative-space.md`      | Negative Space Explorer agent starts Phase 1: omissions, barriers, gaps.                                                                     |
+| `references/analysis-prompts.md`            | Crucible or strategic agents start Phases 2–3: use their named mandate.                                                                      |
+| `references/verification-log-template.md`   | Orchestrator verifies critical claims after Phase 2: preserve claimants, sources, verification status, and competing claims with resolution. |
+| `references/completion-summary-template.md` | Orchestrator reports completion after Phase 4: formatted summary with separate counts for all four strategic analyses.                       |
+| `references/synthesis-template.md`          | Orchestrator starts Phase 4: report structure and writing checks.                                                                            |
 
 ## Dispatch Contract (All Batches)
 
@@ -134,7 +136,9 @@ All eight use `research-specialist`. Output paths are relative to `$OUTPUT_DIR`.
 | Futurist                | `futurist`                | `references/persona-futurist.md`       | `persona-findings/futurist.md`        |
 | Negative Space Explorer | `negative-space-explorer` | `references/persona-negative-space.md` | `persona-findings/negative-space.md`  |
 
-**CRITICAL**: Deploy all 8 persona agents in a **SINGLE message** with **MULTIPLE `Task` tool calls**.
+**CRITICAL**: Deploy all 8 persona agents in a **SINGLE message** with **MULTIPLE `Task` tool calls** (standalone mode only).
+
+In `--team` mode, use multiple `Agent` calls in one message instead, following the team dispatch contract.
 
 Even for a small topic, pass each resolved absolute persona file path, not its text.
 Each prompt follows this shape, with concrete values:
@@ -158,7 +162,9 @@ In team mode, shut down Batch 1.
 
 Read all eight persona artifacts and objective.
 
-**CRITICAL**: Deploy both analysis agents in a **SINGLE message** with **MULTIPLE `Task` tool calls**.
+**CRITICAL**: Deploy both analysis agents in a **SINGLE message** with **MULTIPLE `Task` tool calls** (standalone mode only).
+
+In `--team` mode, use multiple `Agent` calls in one message instead, following the team dispatch contract.
 
 Pass the `references/analysis-prompts.md` resolved path and the named mandate,
 subject, output directory, and input artifact paths. Agents read their own section.
@@ -172,14 +178,18 @@ ACH: generate 5+ mutually exclusive hypotheses; weigh disconfirming evidence.
 Contradiction Mapper: preserve disagreements, assess sources, identify patterns.
 After completion, triangulate critical claims: fetch primary sources, document
 confirmations, partial confirmations, confidence, competing evidence, and unresolved
-contradictions in `$OUTPUT_DIR/evidence/verification-log.md`. Claims repeated by
+contradictions in `$OUTPUT_DIR/evidence/verification-log.md`. Read
+`references/verification-log-template.md` when writing this log and preserve its fields.
+Claims repeated by
 multiple personas still need verification, not a vote.
 
 In team mode, shut down Batch 2.
 
 ## Phase 3: Emergent Insights (Batch 3)
 
-**CRITICAL**: Deploy all 4 strategic analysis agents in a **SINGLE message** with **MULTIPLE `Task` tool calls**.
+**CRITICAL**: Deploy all 4 strategic analysis agents in a **SINGLE message** with **MULTIPLE `Task` tool calls** (standalone mode only).
+
+In `--team` mode, use multiple `Agent` calls in one message instead, following the team dispatch contract.
 
 Give each the resolved `references/analysis-prompts.md`
 path, named mandate, objective, all persona findings, both crucible outputs, and
@@ -224,10 +234,11 @@ ${CURSOR_PLUGIN_ROOT}/skills/deep-research/scripts/validate-research.sh "$OUTPUT
 
 Fix missing/empty artifacts, weak citation coverage, and format issues. Report
 actual validation result and any remaining gaps; do not call a failed run complete.
-Completion summary: subject/path/file count, each persona's query/finding counts,
-ACH hypotheses and contradictions, emergent insights, 2–3 discoveries, unresolved
-disagreements, evidence confidence distribution, primary source count, and next steps.
-Point to report, persona findings, synthesis, and verification log.
+Read `references/completion-summary-template.md` when presenting the formatted
+completion summary. Preserve its per-persona counts and separate Phase 3 counts:
+tensions, patterns, research gaps, and novel hypotheses. Report actual counts,
+discoveries, unresolved disagreements, evidence quality, and artifact paths;
+do not collapse the four strategic analyses into a generic emergent-insights count.
 
 ## Method and Phase Checklist
 
