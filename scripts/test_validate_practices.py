@@ -13,6 +13,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import validate_practices as vp  # noqa: E402
@@ -43,7 +44,7 @@ def base_fixture(root: Path) -> None:
 def sk(
     name: str = "demo",
     desc: str = GOOD_DESC,
-    allowed: list | str | None = None,
+    allowed: list[str] | str | None = None,
     extra_fm: list[str] | None = None,
     body: str = "# Demo\n",
 ) -> str:
@@ -59,7 +60,7 @@ def sk(
     return "\n".join(lines) + "\n"
 
 
-def ag(name: str = "helper", extra_fm: list[str] | None = None, tools: list | str | None = None) -> str:
+def ag(name: str = "helper", extra_fm: list[str] | None = None, tools: list[str] | str | None = None) -> str:
     lines = ["---", f"name: {name}", "description: 'Does things.'"]
     if extra_fm:
         lines.extend(extra_fm)
@@ -76,7 +77,7 @@ def ids(rep: vp.Report, rule: str) -> set[str]:
     return {v.vid for v in rep.violations if v.rule == rule}
 
 
-def run_ratchet(rep: vp.Report, baseline: dict) -> int:
+def run_ratchet(rep: vp.Report, baseline: dict[str, dict[str, Any]]) -> int:
     with contextlib.redirect_stdout(io.StringIO()):
         return vp.ratchet(rep, baseline)
 
@@ -91,7 +92,7 @@ class Fixture(unittest.TestCase):
     def rep(self) -> vp.Report:
         return vp.collect(self.root)
 
-    def baseline(self, rep: vp.Report | None = None) -> dict:
+    def baseline(self, rep: vp.Report | None = None) -> dict[str, dict[str, Any]]:
         rep = rep or self.rep()
         return {v.vid: v.to_dict() for v in rep.violations}
 
@@ -327,7 +328,7 @@ class TestRatchet(Fixture):
 
 
 class TestCLI(Fixture):
-    def cli(self, *args: str) -> subprocess.CompletedProcess:
+    def cli(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [sys.executable, str(vp.SCRIPT_DIR / "validate_practices.py"), *args],
             capture_output=True,
@@ -364,7 +365,7 @@ class TestCLI(Fixture):
 
 class TestReviewFixes(Fixture):
     def test_h1_baseline_numeric_rules(self) -> None:
-        def load(violations: list) -> dict:
+        def load(violations: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
             path = self.root / "b.json"
             path.write_text(json.dumps({"version": 1, "violations": violations}))
             return vp.load_baseline(path)
@@ -431,6 +432,49 @@ class TestReviewFixes(Fixture):
             self.assertIn(f"{rule}: 0 violation(s)", out)
 
 
+class TestCodeRabbitFixes(Fixture):
+    def test_duplicate_frontmatter_key_is_hard_error(self) -> None:
+        (self.root / "ycc" / "agents" / "helper.md").write_text(ag(tools=["Read"], extra_fm=["tools:", "  - Grep"]))
+        self.assertTrue(any("duplicate key 'tools'" in h for h in self.rep().hard_errors))
+
+    def test_duplicate_nested_key_is_hard_error(self) -> None:
+        (self.root / "ycc" / "agents" / "helper.md").write_text(ag(extra_fm=["hooks:", "  a: 1", "  a: 2"]))
+        self.assertTrue(any("duplicate key 'a'" in h for h in self.rep().hard_errors))
+
+    def test_merge_keys_match_safe_load(self) -> None:
+        import yaml
+        from practices_parse import load_unique_yaml
+
+        raw = "base: &b\n  x: 1\n  y: 2\nchild:\n  <<: *b\n  x: 3\n"
+        self.assertEqual(load_unique_yaml(raw), yaml.safe_load(raw))
+
+    def test_s8_angle_bracket_reference_destination(self) -> None:
+        d = self.root / "ycc" / "skills" / "demo" / "references"
+        d.mkdir(parents=True)
+        write_skill(self.root, sk())
+        (d / "a.md").write_text("# T\n\n[guide]: <guide.md>\n[ok]: <https://e.com/x.md>\n")
+        got = {v.item for v in self.rep().violations if v.rule == "S8"}
+        self.assertEqual(got, {"links to 'guide.md'"})
+
+    def test_duplicate_violation_deduped_and_baseline_round_trips(self) -> None:
+        (self.root / "ycc" / "agents" / "helper.md").write_text(ag(tools=["Read", "Bogus", "Bogus"]))
+        rep = self.rep()
+        self.assertEqual(len(rep.violations), 2)  # raw: Bogus recorded twice
+        self.assertEqual(len(rep.unique_violations()), 1)  # deduped view
+        out = self.root / "scripts" / "practices-baseline.json"
+        vp.write_baseline(rep, out)
+        entries = json.loads(out.read_text())["violations"]
+        self.assertEqual(len(entries), len({e["id"] for e in entries}))
+        self.assertEqual(run_ratchet(self.rep(), vp.load_baseline(out)), 0)
+
+    def test_duplicate_numeric_keeps_max_size(self) -> None:
+        rep = vp.Report()
+        rep.add("S7", "a.md", "x", 120)
+        rep.add("S7", "a.md", "x", 150)
+        rep.add("S7", "a.md", "x", 130)
+        self.assertEqual([v.size for v in rep.unique_violations().values()], [150])
+
+
 class TestWrapper(Fixture):
     """validate-practices.sh against a fixture root, with a fake `claude` on PATH."""
 
@@ -442,7 +486,7 @@ class TestWrapper(Fixture):
         (self.root / "scripts" / "practices_parse.py").write_text("# placeholder\n")
         write_skill(self.root, sk())
 
-    def run_wrapper(self, claude_exit: int | None) -> subprocess.CompletedProcess:
+    def run_wrapper(self, claude_exit: int | None) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as tmp:
             bindir = Path(tmp)
             for tool in ("python3", "dirname"):

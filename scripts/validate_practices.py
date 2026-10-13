@@ -24,6 +24,7 @@ from practices_parse import (
     RULES,
     S7_ITEM,
     has_early_contents,
+    load_unique_yaml,
     parse_tools,
     validate_baseline_shape,
 )
@@ -62,7 +63,7 @@ MCP_TOOL_RE = re.compile(r"^mcp__([A-Za-z0-9_-]+?)__([^\s()]+)$")
 FENCE_RE = re.compile(r"^\s*(```|~~~)")
 INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
 MD_LINK_RE = re.compile(r"\[[^\]\n]*\]\(\s*(?:<([^>]+)>|([^)\s]+))")
-MD_REFLINK_DEF_RE = re.compile(r"^\s*\[[^\]\n]+\]:\s*(\S+)", re.MULTILINE)
+MD_REFLINK_DEF_RE = re.compile(r"^\s*\[[^\]\n]+\]:\s*(?:<([^>\n]+)>|(\S+))", re.MULTILINE)
 HTML_HREF_RE = re.compile(r"\bhref\s*=\s*(['\"])(.*?)\1", re.IGNORECASE)
 
 ROOT_DOC_RULES: tuple[tuple[str, str], ...] = (
@@ -99,6 +100,15 @@ class Report:
     hard_errors: list[str] = field(default_factory=list)
     violations: list[Violation] = field(default_factory=list)
 
+    def unique_violations(self) -> dict[str, Violation]:
+        """Collapse duplicate IDs, preserving the largest observed numeric size."""
+        result: dict[str, Violation] = {}
+        for v in self.violations:
+            previous = result.get(v.vid)
+            if previous is None or (v.size is not None and (previous.size is None or v.size > previous.size)):
+                result[v.vid] = v
+        return result
+
     def hard(self, rule: str, path: str | Path, msg: str) -> None:
         self.hard_errors.append(f"{rule}:{path}: {msg}")
 
@@ -124,7 +134,7 @@ def load_frontmatter(path: Path, rule: str, rep: Report, rel_root: Path) -> tupl
         return None, []
     raw = "\n".join(lines[1:end])
     try:
-        data = yaml.safe_load(raw)
+        data = load_unique_yaml(raw)
     except yaml.YAMLError as exc:
         rep.hard(rule, rel, f"frontmatter is not parseable YAML: {exc}")
         return None, []
@@ -301,7 +311,7 @@ def check_references(root: Path, rep: Report) -> None:
             clean = strip_code("\n".join(lines))
             for m in MD_LINK_RE.finditer(clean):
                 targets.add(m.group(1) or m.group(2) or "")
-            targets.update(MD_REFLINK_DEF_RE.findall(clean))
+            targets.update(m.group(1) or m.group(2) for m in MD_REFLINK_DEF_RE.finditer(clean))
             targets.update(m.group(2) for m in HTML_HREF_RE.finditer(clean))
             for target in sorted(targets):
                 core = target.split("#", 1)[0].split("?", 1)[0].strip()
@@ -385,7 +395,7 @@ def collect(root: Path) -> Report:
 def print_counts(rep: Report, baseline_size: int | None = None) -> None:
     """Print counts for every rule (including zeros), then the total."""
     counts = dict.fromkeys(RULES, 0)
-    for v in rep.violations:
+    for v in rep.unique_violations().values():
         counts[v.rule] += 1
     for rule in RULES:
         print(f"{rule}: {counts[rule]} violation(s)")
@@ -395,7 +405,7 @@ def print_counts(rep: Report, baseline_size: int | None = None) -> None:
 
 def write_baseline(rep: Report, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    entries = [v.to_dict() for v in sorted(rep.violations, key=lambda v: v.vid)]
+    entries = [v.to_dict() for _, v in sorted(rep.unique_violations().items())]
     payload = {"version": BASELINE_VERSION, "violations": entries}
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
@@ -403,7 +413,7 @@ def write_baseline(rep: Report, path: Path) -> None:
 def ratchet(rep: Report, baseline: dict[str, dict[str, Any]]) -> int:
     """Compare current violations to baseline. Returns process exit code."""
     print_counts(rep, len(baseline))
-    current = {v.vid: v for v in rep.violations}
+    current = rep.unique_violations()
     failures: list[str] = []
     for vid, v in sorted(current.items()):
         entry = baseline.get(vid)

@@ -5,12 +5,43 @@ from __future__ import annotations
 import re
 from typing import Any
 
+import yaml
+
 BASELINE_VERSION = 1
 RULES = tuple(f"S{i}" for i in range(1, 10)) + ("A1", "A2", "R1")
 NUMERIC_RULES = frozenset({"S1", "S2", "S7", "R1"})
 TOOL_ENTRY_RE = re.compile(r"[^()\s]+(\([^()]*\))?")
 HEADING_RE = re.compile(r"^ {0,3}(#{1,6})\s+(.+?)\s*#*\s*$")
 S7_ITEM = "missing '## Contents' immediately after optional frontmatter/title and blank lines"
+
+
+class UniqueKeyLoader(yaml.SafeLoader):
+    """SafeLoader that rejects duplicate mapping keys at any nesting level."""
+
+    def construct_mapping(self, node: yaml.MappingNode, deep: bool = False) -> dict[Any, Any]:
+        seen: set[Any] = set()
+        for key_node, _ in node.value:
+            if key_node.tag == "tag:yaml.org,2002:merge":
+                continue  # `<<` merges are flattened by the base class, as yaml.safe_load does
+            key = self.construct_object(key_node, deep=True)
+            try:
+                duplicate = key in seen
+            except TypeError:  # unhashable key; let the base class raise its own error
+                break
+            if duplicate:
+                raise yaml.constructor.ConstructorError(
+                    "while constructing a mapping",
+                    node.start_mark,
+                    f"found duplicate key {key!r}",
+                    key_node.start_mark,
+                )
+            seen.add(key)
+        return super().construct_mapping(node, deep=deep)
+
+
+def load_unique_yaml(raw: str) -> Any:
+    """yaml.safe_load equivalent that raises yaml.YAMLError on duplicate keys."""
+    return yaml.load(raw, Loader=UniqueKeyLoader)  # noqa: S506 - SafeLoader subclass
 
 
 def parse_tools(value: Any) -> list[str]:
