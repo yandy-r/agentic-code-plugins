@@ -332,7 +332,7 @@ loop watches the release-event workflow run for the published tag, not a PR.
 | Resource watched       | `gh pr checks <pr>` on PR head branch | `gh run list --event=release --workflow <name>` filtered to tag, or `refs/tags/<tag>`                                              |
 | Required args          | `--pr`, `--branch`, `--base`          | `--tag`                                                                                                                            |
 | Auto-detected args     | (none)                                | `--workflow` from `.github/workflows/*release*.yml`; `--repo` from `gh repo view`                                                  |
-| Re-cut on `handoff`    | `git push` to PR head branch          | `gh workflow run <name> --ref <tag>` (preferred) or destructive `gh release delete` (opt-in)                                       |
+| Re-cut on `handoff`    | `git push` to PR head branch          | Verified non-publishing branch-ref dispatch; exact retry run ID and SHA (no release or tag mutation)                               |
 | Default-branch refusal | Refuses if head == default branch     | N/A (release runs are not branch-scoped); but loop still refuses to push fixes to default branch when branch protection forbids it |
 | Audit log key field    | `"pr": <number>`                      | `"tag": "<vX.Y.Z>"`                                                                                                                |
 | Audit log path         | `~/.codex/session-data/ci-watch/`    | `~/.codex/session-data/release-ci-watch/`                                                                                         |
@@ -342,39 +342,28 @@ All other contract surfaces — exit codes, `RESULT=` values, classification
 categories, signature computation, recurrence/timeout/push caps, JSONL schema
 columns (other than the `pr` vs `tag` key) — are identical.
 
-### Re-cut strategy on `handoff`
+### Retry strategy on `handoff`
 
-The release-mode loop cannot simply `git push` and wait — a release workflow
-run is bound to a tag, not a branch. After committing the fix, the loop must
-re-trigger the workflow. Two paths exist:
+After pushing a fix, dispatch a verified non-publishing `workflow_dispatch` path
+on the fix-bearing release branch, never on the unchanged tag. Phase 8.5.0 checks
+that branch-ref dispatch validates that commit without modifying published releases,
+artifacts or tags; otherwise exit `loop-blocked`. The legacy `--ci-recut=destructive`
+flag remains accepted but cannot authorize a destructive retry.
 
-1. **Preferred: `workflow_dispatch`.** The release workflow has
-   `on: workflow_dispatch:` in addition to `on: release:` or `on: push: tags:`.
-   The loop calls:
+```
+gh workflow run <file> --repo <owner/name> --ref <fix-bearing release branch>
+```
 
-   ```
-   gh workflow run <name> --ref <tag>
-   ```
-
-   Non-destructive; the existing release remains intact while a new workflow
-   run executes.
-
-2. **Fallback: destructive re-cut (requires `--ci-recut=destructive`).** The
-   release workflow has no dispatch trigger. The loop:
-
-   ```
-   gh release delete <tag> --cleanup-tag --yes
-   ~/.codex/plugins/ycc/skills/releaser/scripts/publish-release.sh \
-     <tag> <notes-path> --mode=create --confirm
-   ```
-
-   The release and tag are deleted, the fix commit is pushed, and the release
-   is re-created — which re-triggers the release event. Destructive; deletes
-   the previously published release notes. **Never** taken without
-   `--ci-recut=destructive` explicitly set by the user.
-
-`releaser` Phase 8.5.0 inspects the workflow's `on:` block and refuses to
-enter the loop if neither path is available.
+Correlate a unique new dispatch run by workflow, branch, expected commit SHA and
+dispatch time. Then re-invoke `release-ci-monitor.sh` with the same tag, repo, caps
+and log plus `--run-id <id> --expected-sha <40-hex fix SHA> --workflow <file>`.
+These selectors are optional and paired; existing tag-mode callers stay unchanged.
+Exact-run mode verifies the ID, head SHA, `workflow_dispatch` event and workflow
+path before watching, and returns `RESULT=not-found` with
+`REASON=retry-correlation-mismatch` on any mismatch or unavailable metadata. This is
+terminal, not a reason to fall back to tag selection. `rerun-pending` keeps the same
+run ID and SHA. The release and tag remain unchanged; green validates the fix-bearing
+commit, not a replacement published release.
 
 ### Release-mode safety constraints (additional to PR-mode)
 
@@ -397,7 +386,7 @@ enter the loop if neither path is available.
 `SUGGESTED_COMMIT_TYPE`, `SUGGESTED_COMMIT_SCOPE`), plus:
 
 - `WORKFLOW_FILE` — basename of the resolved workflow file (e.g. `release.yml`),
-  used by the re-cut step.
+  used to locate the dispatch workflow.
 - `STEP` — normalized first-failing step name. Useful for the fix agent's
   reasoning about which file is implicated.
 - `TAG` — the released tag (mirrors the `--tag` input for convenience).

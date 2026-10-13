@@ -26,7 +26,8 @@ exact `git tag`, `git push`, and `gh release create` commands the user runs.
 - All loop commits use Conventional Commits and pass `git-workflow/scripts/validate-commit.sh`.
 - `--confirm` applies only with `--publish`; the skill never adds it automatically.
 - The destructive re-cut fallback (`gh release delete --cleanup-tag` then re-publish)
-  is reachable ONLY with an explicit `--ci-recut=destructive`.
+  is disabled. Git history may reference that command for context, but
+  `--ci-recut=destructive` never authorizes tag/release deletion or re-creation.
 - Human gates — Phase 2 version confirm, Phase 2 backport-gate decisions, Phase 5
   manifest diff review, Phase 8.5.1 CI authorization — are NEVER auto-approved or
   bypassed, including under an active `/goal`.
@@ -71,9 +72,9 @@ Parse `$ARGUMENTS`:
   `release-ci-monitor.sh`.
 - **--ci-yes** — skip the one-time Phase 8.5 authorization prompt. Non-interactive
   callers only; safety caps remain enforced; never honored under an active `/goal`.
-- **--ci-recut=destructive** — opt in to the destructive re-cut fallback when the
-  release workflow has no `workflow_dispatch` trigger. Without it the loop refuses to
-  enter when the only re-cut path is `gh release delete --cleanup-tag` + re-publish.
+- **--ci-recut=destructive** — accepted for backward compatibility but disabled:
+  Phase 8.5 never deletes or recreates releases/tags. Fix-and-validate runs on the
+  fix-bearing branch; destructive retries are out of scope.
 
 ## Phase 0..5: Preflight through Manifests
 
@@ -116,13 +117,13 @@ is separate from `--ci`. Read `references/ci-workflow-modes.md` before Phase 6.
   `~/.codex/plugins/ycc/shared/references/forge-detection.md`.
 - CI loop (8.5): entry only on `--ci` + `--publish` + confirmed publish success
   (else skip with the one-line warning); GitHub-only (non-GitHub exits cleanly with a
-  diagnosis). Read `references/release-ci-loop.md` before entering Phase 8.5 — re-cut
+  diagnosis). Read `references/release-ci-loop.md` before entering Phase 8.5 — retry
   detection, authorization (incl. the `/goal` re-confirmation line), monitor
-  invocation, branch-protection pre-push check, fix-and-recut, bail diagnosis; shared
+  invocation, branch-protection pre-push check, fix-and-validate against the exact retry run, bail diagnosis; shared
   contract covers
   `~/.codex/plugins/ycc/shared/references/ci-monitoring.md` "Release mode".
   Constraints: never `--force`; never `--no-verify`; implicated files only; notes
-  immutable without explicit opt-in.
+  releases, artifacts, notes and tags immutable throughout Phase 8.5.
 - Final summary (Phase 9) per the checklist in `references/output-templates.md`, then
   the verbatim Goal Signals block; scoring covers Success Criteria below.
 - `/goal`: only for the bounded Phase 8.5 loop, never the skill as a whole; the four
@@ -181,8 +182,8 @@ If a file cannot be read, say so.
   checklist, and the Goal Signals criteria.
 
 - `references/release-ci-loop.md`
-  Read when: running Phase 8.5 (`--ci`) — entry conditions, re-cut strategy
-  detection, authorization gate, monitor invocation, fix-and-recut protocol, bail
+  Read when: running Phase 8.5 (`--ci`) — entry conditions, non-publishing retry validation,
+  authorization gate, monitor invocation, fix-and-validate against the exact retry run, bail
   handling.
 
 - `references/goal-pairing.md`
@@ -240,5 +241,4 @@ Scripts (invoke as `~/.codex/plugins/ycc/skills/releaser/scripts/<name>`):
 - `scripts/check-release-branch.sh` — Read when: Phase 2 branch check after the
   version is confirmed.
 - `scripts/draft-changelog.sh` — Read when: Phase 4 notes drafting.
-- `scripts/publish-release.sh` — Read when: Phase 8 `--publish` preview/apply and the
-  destructive 8.5.3 re-cut fallback.
+- `scripts/publish-release.sh` — Read when: Phase 8 `--publish` preview/apply only; never invoked by Phase 8.5 retries.

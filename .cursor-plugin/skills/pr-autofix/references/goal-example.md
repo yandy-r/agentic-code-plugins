@@ -10,6 +10,8 @@ The shared contract (transcript-output rules, condition skeleton, caveats) is `$
 - **Done** — `RESULT=green` (`CI_GREEN: PASS`).
 - **Stop** — any `bail-*` (`bail-recurrence`, `bail-nonfixable`, `bail-pushes`, `bail-timeout`). All four are terminal: `ci-monitor.sh` exhausts recoverable retries (`rerun-pending`) internally before emitting a bail, so a printed `bail-*` means no further automatic progress is possible. The evaluator tells "loop again" from "stop" by `Result: green` vs `Result: bail-*` in the Phase 8 output, not by re-classifying bail codes. Bail taxonomy: `ci-monitoring.md`.
 
+Safety signals `NO_FORCE_PUSH`, `NO_NO_VERIFY`, and `NO_RAW_PROMPTS_OUTBOUND` are terminal on FAIL. An additional iteration cannot undo an earlier violation; preserve FAIL and stop for human review. Retry guidance never overrides these constraints.
+
 ## Recommended condition template
 
 ```
@@ -20,6 +22,9 @@ returning control to me. Done when the transcript shows the Phase 8
 EVERY_THREAD_HANDLED: PASS, NO_FORCE_PUSH: PASS, NO_NO_VERIFY: PASS,
 NO_RAW_PROMPTS_OUTBOUND: PASS, REPORT_CREATED: PASS, and CI_GREEN: PASS. If CI_GREEN
 prints FAIL alongside CI_BAIL_VISIBLE: PASS (a terminal bail-* fired), stop and report
-the bail — do not re-run. If any other signal prints FAIL, keep fixing and re-running
-until all are PASS. Stop after 25 turns if not achieved.
+the bail — do not re-run. If NO_FORCE_PUSH, NO_NO_VERIFY, or NO_RAW_PROMPTS_OUTBOUND
+prints FAIL, stop immediately and report the safety failure; no further fixes or pushes,
+no retry, and never relabel that failure PASS in this run. Only EVERY_THREAD_HANDLED
+and REPORT_CREATED failures may be repaired within the authorized scope and existing
+caps. Stop after 25 turns if not achieved.
 ```

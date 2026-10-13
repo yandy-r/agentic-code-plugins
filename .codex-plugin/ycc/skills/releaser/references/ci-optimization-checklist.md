@@ -121,15 +121,13 @@ a later `--ci-config=audit` run can surface them explicitly.
 
 ## Compatibility with `--ci` (Phase 8.5 auto-fix loop)
 
-The release-CI auto-fix loop driven by `$releaser --ci` needs a way to
-re-trigger the workflow after a fix commit lands. The non-destructive path is
-`gh workflow run <name> --ref <tag>`, which requires the workflow to declare
-`workflow_dispatch:` under `on:`. The audit agent flags this as **high** when
-missing.
+The release-CI auto-fix loop driven by `$releaser --ci` needs a non-publishing
+validation path after a fix lands. It dispatches `gh workflow run <file> --ref
+<fix-bearing release branch>` and monitors the exact run ID and expected commit
+SHA. Require `workflow_dispatch:` and verify branch-ref checkout tests that
+commit without modifying published releases, artifacts or tags. The audit agent
+flags missing or unsafe dispatch support as **high**.
 
-If a project chooses NOT to add `workflow_dispatch:` (acceptable in some
-security postures), the user must invoke the auto-fix loop with
-`--ci-recut=destructive`, which falls back to
-`gh release delete <tag> --cleanup-tag --yes` followed by a re-publish. This
-deletes the previously published release; the project should weigh that
-tradeoff.
+Without that path the loop stops with `loop-blocked`; validate manually. The
+legacy `--ci-recut=destructive` flag stays parsed but destructive retries are
+disabled.
