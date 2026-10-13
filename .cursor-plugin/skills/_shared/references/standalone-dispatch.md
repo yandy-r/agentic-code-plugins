@@ -289,8 +289,8 @@ See worktree-strategy.md section 1-2 for the canonical single-worktree contract.
 Build the graph from `Depends on [...]` annotations. Tasks with `Depends on [none]` form batch 1.
 A task joins the earliest batch whose dependencies are all in prior batches. Two tasks touching the
 same file never share a batch. Cross-cutting shared types/config get a dedicated early batch.
-Prefer wide-shallow graphs over narrow-deep chains. Dispatch each batch as one message
-(standalone `Task`, or team `Agent`); wait for the whole batch before the next.
+Prefer wide-shallow graphs over narrow-deep chains. Dispatch each batch as one message;
+wait for the whole batch before the next.
 
 ### 9.2 Planner output directives (parallel plans)
 

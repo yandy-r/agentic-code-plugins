@@ -3,8 +3,10 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
+from generate_opencode_common import apply_opencode_text_transforms, load_agent_aliases
 from generate_opencode_dispatch_markdown import (
     _project_standalone_only_terms,
     _remove_empty_fenced_blocks,
@@ -37,12 +39,54 @@ STANDALONE_DISPATCH_TEMPLATE = SCRIPT_DIR / "opencode_templates" / "standalone-d
 
 
 def render_standalone_dispatch_reference() -> str:
-    """Return the maintained OpenCode-only standalone dispatch contract."""
+    """Return the maintained OpenCode-only standalone dispatch contract.
+
+    Sections 1-7 come from the hand-maintained native template. Sections 8-10
+    (worktree/branch preparation, dependency batching, confirmed-plan execution)
+    are mode-independent, so they are selected whole from the canonical source
+    and given the plain OpenCode path/vocabulary rewrite, keeping the commands
+    and prompt lines consumers point at. The template's team-mode note is
+    section 11.
+    """
     try:
-        rendered = STANDALONE_DISPATCH_TEMPLATE.read_text(encoding="utf-8")
+        template = STANDALONE_DISPATCH_TEMPLATE.read_text(encoding="utf-8")
     except OSError as exc:
         raise RuntimeError(f"OpenCode dispatch template is unavailable: {STANDALONE_DISPATCH_TEMPLATE}") from exc
-    return _ensure_trailing_newline(rendered)
+    source_path = SCRIPT_DIR.parent / "ycc" / "skills" / STANDALONE_DISPATCH_SOURCE
+    try:
+        source = source_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise RuntimeError(f"Standalone dispatch source is unavailable: {source_path}") from exc
+    marker = "## 8. Unsupported team mode"
+    if marker not in template:
+        raise RuntimeError("OpenCode dispatch template lost its team-mode section")
+    head, unsupported = template.split(marker, 1)
+    workflow = _project_standalone_workflow_sections(source)
+    unsupported = "## 11. Unsupported team mode" + unsupported
+    return _ensure_trailing_newline(f"{head.rstrip()}\n\n{workflow.rstrip()}\n\n{unsupported.strip()}")
+
+
+def _project_standalone_workflow_sections(text: str) -> str:
+    """Select canonical sections 8-10 and rewrite paths/vocabulary for OpenCode."""
+    sections = _split_numbered_sections(text)
+    body = "\n\n".join(sections[number] for number in (8, 9, 10))
+    body = body.replace("Applies to standalone and `--team` runs.", "Applies to standalone runs.")
+    body = apply_opencode_text_transforms(body, load_agent_aliases())
+    body = _translate_native_vocabulary(body)
+    return _ensure_trailing_newline(body)
+
+
+def _split_numbered_sections(text: str) -> dict[int, str]:
+    """Split the canonical dispatch source into `## <n>. ...` sections by number."""
+    matches = list(re.finditer(r"^## (\d+)\.\s", text, flags=re.MULTILINE))
+    sections: dict[int, str] = {}
+    for index, match in enumerate(matches):
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        sections[int(match.group(1))] = text[match.start() : end].rstrip().removesuffix("---").rstrip()
+    missing = [number for number in (8, 9, 10) if number not in sections]
+    if missing:
+        raise RuntimeError(f"Standalone dispatch source is missing sections {missing}")
+    return sections
 
 
 def _ensure_trailing_newline(text: str) -> str:
