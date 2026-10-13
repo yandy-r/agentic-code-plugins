@@ -336,11 +336,14 @@ verify_exact_run() {
   meta="$(gh run view --repo "$repo" "$run_id" \
     --json databaseId,headSha,event,workflowName \
     --jq '[.databaseId,.headSha,.event,.workflowName]|@tsv' 2>/dev/null)" || return 1
+  # Fail closed on anything but a single metadata line (read -r sees line 1 only).
+  [[ "$meta" != *$'\n'* ]] || return 1
   IFS=$'\t' read -r id head event name <<<"$meta"
   [[ "$id" == "$run_id" && "$head" == "$sha" ]] || return 1
   [[ "$event" == "workflow_dispatch" || "$event" == "release" ]] || return 1
   # gh run view exposes no workflow path field; the run API does.
   api="$(gh api "repos/$repo/actions/runs/$run_id" --jq '[.id,.path]|@tsv' 2>/dev/null)" || return 1
+  [[ "$api" != *$'\n'* ]] || return 1
   IFS=$'\t' read -r id path <<<"$api"
   [[ "$id" == "$run_id" && "$path" == ".github/workflows/$workflow_file" ]] || return 1
   printf '%s' "${name:-unknown}"
