@@ -1,7 +1,10 @@
 ---
 name: architect
 description: 'Software architecture specialist for system design, scalability, and technical decision-making. Use when planning new features, refactoring large systems, or making architectural decisions.'
-tools: ['Read', 'Grep', 'Glob']
+tools:
+  - Read
+  - Grep
+  - Glob
 model: claude-opus-5[effort=high,context=1m]
 ---
 

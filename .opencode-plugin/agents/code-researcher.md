@@ -27,61 +27,10 @@ permissions:
 - action: websearch
   resource: '*'
   effect: allow
-- action: sql_execute-sql
-  resource: '*'
-  effect: allow
-- action: sql_describe-table
-  resource: '*'
-  effect: allow
-- action: sql_describe-functions
-  resource: '*'
-  effect: allow
-- action: sql_list-tables
-  resource: '*'
-  effect: allow
-- action: sql_get-function-definition
-  resource: '*'
-  effect: allow
-- action: sql_upload-file
-  resource: '*'
-  effect: allow
-- action: sql_delete-file
-  resource: '*'
-  effect: allow
-- action: sql_list-files
-  resource: '*'
-  effect: allow
-- action: sql_download-file
-  resource: '*'
-  effect: allow
-- action: sql_create-bucket
-  resource: '*'
-  effect: allow
-- action: sql_delete-bucket
-  resource: '*'
-  effect: allow
-- action: sql_move-file
-  resource: '*'
-  effect: allow
-- action: sql_copy-file
-  resource: '*'
-  effect: allow
-- action: sql_generate-signed-url
-  resource: '*'
-  effect: allow
-- action: sql_get-file-info
-  resource: '*'
-  effect: allow
-- action: sql_list-buckets
-  resource: '*'
-  effect: allow
-- action: sql_empty-bucket
-  resource: '*'
-  effect: allow
 - action: context7_resolve-library-id
   resource: '*'
   effect: allow
-- action: context7_get-library-docs
+- action: context7_query-docs
   resource: '*'
   effect: allow
 - action: external_directory

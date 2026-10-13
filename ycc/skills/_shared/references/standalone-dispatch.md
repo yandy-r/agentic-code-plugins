@@ -139,10 +139,13 @@ preference:
 
 ## 5. Disk-Artifact Backstop
 
-Every content-producing sub-agent (researchers, reviewers, analyzers) should **also**
-write its findings to a declared artifact path via `Write`, in addition to returning the
-same content inline. This gives the orchestrator a backstop independent of the inline
-return channel:
+Content-producing sub-agents with `Write` (for example, report-writing researchers)
+should also write findings to a declared artifact path and return the same content
+inline. Read-only reviewers, advisors, and planners never write artifacts: the
+orchestrator persists each valid inline return, and an empty/missing return is a
+failed review, not evidence to reconstruct.
+
+For agents allowed to write a backstop artifact:
 
 1. The orchestrator validates the inline return first.
 2. If the inline return is empty or missing, re-read the backstop artifact from disk

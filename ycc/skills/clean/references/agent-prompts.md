@@ -6,14 +6,14 @@ Detailed prompts for each of the 6 parallel cleanup agents. Each agent focuses o
 
 ## Agent Configuration Table
 
-| Agent            | Focus Area                           | Output File                 |
-| ---------------- | ------------------------------------ | --------------------------- |
-| Code Files       | Old code, temp files, orphaned files | `findings/code-files.md`    |
-| Binaries         | Compiled binaries, build artifacts   | `findings/binaries.md`      |
-| Assets           | Unused images, media, duplicates     | `findings/assets.md`        |
-| Documentation    | Outdated docs, drafts, duplicates    | `findings/documentation.md` |
-| Config           | Unused config, env files, locks      | `findings/config.md`        |
-| Docker/Container | Docker artifacts, volume mounts      | `findings/docker.md`        |
+| Agent            | Focus Area                           | Findings File (orchestrator-written) |
+| ---------------- | ------------------------------------ | ------------------------------------ |
+| Code Files       | Old code, temp files, orphaned files | `findings/code-files.md`             |
+| Binaries         | Compiled binaries, build artifacts   | `findings/binaries.md`               |
+| Assets           | Unused images, media, duplicates     | `findings/assets.md`                 |
+| Documentation    | Outdated docs, drafts, duplicates    | `findings/documentation.md`          |
+| Config           | Unused config, env files, locks      | `findings/config.md`                 |
+| Docker/Container | Docker artifacts, volume mounts      | `findings/docker.md`                 |
 
 All agents use subagent type `project-file-cleaner`.
 
@@ -43,7 +43,7 @@ Output each file as:
 - **Risk Level**: [low/medium/high]
 - **Confidence**: [high/medium/low]
 
-Write findings to: {{OUTPUT_FILE}}
+Return your findings inline as your final response, in the Common Output Format (title, Generated/Target Directory/Project Type, ## Findings with one ### entry per file, ## Summary with Total Files Found / Total Size / risk counts, ## Recommended Actions). You are read-only: do not write files or run commands. The orchestrator persists your response to the findings file.
 ```
 
 ---
@@ -65,7 +65,7 @@ Project-specific: Docker=binaries shouldn't be in repo; Node.js=.node outside no
 
 Safety - Protected: .git/, node_modules/, .venv/, vendor/, .claude/
 
-Write findings to: {{OUTPUT_FILE}}
+Return your findings inline as your final response, in the Common Output Format (title, Generated/Target Directory/Project Type, ## Findings with one ### entry per file, ## Summary with Total Files Found / Total Size / risk counts, ## Recommended Actions). You are read-only: do not write files or run commands. The orchestrator persists your response to the findings file.
 ```
 
 ---
@@ -87,7 +87,7 @@ File types: .jpg, .jpeg, .png, .gif, .webp, .svg, .ico, .bmp, .psd, .ai, .mp4, .
 
 Safety - Protected: .git/, node_modules/, favicon files, logos in use, assets in package.json
 
-Write findings to: {{OUTPUT_FILE}}
+Return your findings inline as your final response, in the Common Output Format (title, Generated/Target Directory/Project Type, ## Findings with one ### entry per file, ## Summary with Total Files Found / Total Size / risk counts, ## Recommended Actions). You are read-only: do not write files or run commands. The orchestrator persists your response to the findings file.
 ```
 
 ---
@@ -110,7 +110,7 @@ File types: .md, .markdown, .txt, .rtf, .html docs, .pdf guides, .adoc, .rst, .o
 
 Safety - Protected: README.md (root), LICENSE, CONTRIBUTING.md, CODE_OF_CONDUCT.md, CHANGELOG.md, docs/index.md, .github/, .claude/
 
-Write findings to: {{OUTPUT_FILE}}
+Return your findings inline as your final response, in the Common Output Format (title, Generated/Target Directory/Project Type, ## Findings with one ### entry per file, ## Summary with Total Files Found / Total Size / risk counts, ## Recommended Actions). You are read-only: do not write files or run commands. The orchestrator persists your response to the findings file.
 ```
 
 ---
@@ -132,7 +132,7 @@ Search for:
 Safety - NEVER flag: .gitignore, .editorconfig, .nvmrc, tsconfig.json, package.json, go.mod, Cargo.toml
 Safety - Flag [SECURITY] for: .env files, files with tokens/keys/passwords, database connection strings
 
-Write findings to: {{OUTPUT_FILE}}
+Return your findings inline as your final response, in the Common Output Format (title, Generated/Target Directory/Project Type, ## Findings with one ### entry per file, ## Summary with Total Files Found / Total Size / risk counts, ## Recommended Actions). You are read-only: do not write files or run commands. The orchestrator persists your response to the findings file.
 ```
 
 ---
@@ -154,14 +154,14 @@ Search for:
 Safety - Protected: Dockerfile (main), docker-compose.yml (main), .dockerignore, docker/ directory
 Safety - Flag [SECURITY] for: Dockerfiles with hardcoded secrets, compose with plaintext passwords
 
-Write findings to: {{OUTPUT_FILE}}
+Return your findings inline as your final response, in the Common Output Format (title, Generated/Target Directory/Project Type, ## Findings with one ### entry per file, ## Summary with Total Files Found / Total Size / risk counts, ## Recommended Actions). You are read-only: do not write files or run commands. The orchestrator persists your response to the findings file.
 ```
 
 ---
 
 ## Common Output Format
 
-All agents write findings to their designated file using:
+All agents return findings inline using this format; the orchestrator writes each response verbatim to the agent's findings file:
 
 ```markdown
 # [Category] Cleanup Analysis

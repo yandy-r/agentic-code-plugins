@@ -450,7 +450,7 @@
     },
     {
       "name": "code-reviewer",
-      "description": "Expert code review specialist. Proactively reviews code for quality, security, and maintainability. Use immediately after writing or modifying code. MUST BE USED for all code changes."
+      "description": "Expert code reviewer for quality, security, and maintainability. Use proactively after writing or modifying code."
     },
     {
       "name": "code-simplifier",
@@ -582,7 +582,7 @@
     },
     {
       "name": "rust-reviewer",
-      "description": "Expert Rust code reviewer specializing in ownership, lifetimes, error handling, unsafe usage, and idiomatic patterns. Use for all Rust code changes. MUST BE USED for Rust projects."
+      "description": "Expert Rust reviewer for ownership, lifetimes, error handling, unsafe usage, and idiomatic patterns. Use proactively after Rust code changes."
     },
     {
       "name": "sql-database-developer",

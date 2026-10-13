@@ -1,8 +1,17 @@
 ---
 name: documentation-writer
-title: Documentation Writer
 description: 'Create or update documentation for specific files, features, CLI commands, or other project components by analyzing code and writing proper docs.'
-tools: Bash, Glob, Grep, LS, Read, Edit, MultiEdit, Write, NotebookEdit, WebFetch, TodoWrite, WebSearch, BashOutput, KillBash, mcp__convex__status, mcp__convex__data, mcp__convex__tables, mcp__convex__functionSpec, mcp__convex__run, mcp__convex__envList, mcp__convex__envGet, mcp__convex__envSet, mcp__convex__envRemove, mcp__convex__runOneoffQuery, mcp__sql__execute-sql, mcp__sql__describe-table, mcp__sql__describe-functions, mcp__sql__list-tables, mcp__sql__get-function-definition, mcp__sql__upload-file, mcp__sql__delete-file, mcp__sql__list-files, mcp__sql__download-file, mcp__sql__create-bucket, mcp__sql__delete-bucket, mcp__sql__move-file, mcp__sql__copy-file, mcp__sql__generate-signed-url, mcp__sql__get-file-info, mcp__sql__list-buckets, mcp__sql__empty-bucket, mcp__static-analysis__analyze_file, mcp__static-analysis__analyze_symbol, mcp__static-analysis__find_references, mcp__static-analysis__get_compilation_errors
+tools:
+  - Bash
+  - Glob
+  - Grep
+  - Read
+  - Edit
+  - Write
+  - NotebookEdit
+  - WebFetch
+  - TodoWrite
+  - WebSearch
 model: claude-opus-5[effort=high,context=1m]
 color: green
 ---

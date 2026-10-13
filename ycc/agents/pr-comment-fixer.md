@@ -8,7 +8,6 @@ tools:
   - Grep
   - Glob
   - Edit
-  - MultiEdit
   - Bash(npm:*)
   - Bash(pnpm:*)
   - Bash(yarn:*)
@@ -103,7 +102,7 @@ When this explicit `SKIP (...)` value is present, do not run validation. Report 
 
 ### 3. Apply the fix
 
-- Use `Edit` or `MultiEdit` to apply the change.
+- Use `Edit` to apply the change.
 - Match the existing code style in the file (indentation, quote style, naming conventions).
 - Do NOT introduce new dependencies. If the fix appears to require a new dependency, report `STATUS: Failed` with `BLOCKER: new-dependency-required` instead.
 - Do NOT change unrelated lines. If you find yourself wanting to "while I'm here, also fix X", stop and put X into the trailing `NOTES:` section.

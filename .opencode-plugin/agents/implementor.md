@@ -2,6 +2,37 @@
 description: Implement specific software engineering tasks assigned from a master
   plan with planning documentation context. Receives a single task and executes it.
 mode: subagent
+permissions:
+- action: '*'
+  resource: '*'
+  effect: deny
+- action: read
+  resource: '*'
+  effect: allow
+- action: edit
+  resource: '*'
+  effect: allow
+- action: shell
+  resource: '*'
+  effect: allow
+- action: grep
+  resource: '*'
+  effect: allow
+- action: glob
+  resource: '*'
+  effect: allow
+- action: external_directory
+  resource: '*'
+  effect: ask
+- action: read
+  resource: '*.env'
+  effect: ask
+- action: read
+  resource: '*.env.*'
+  effect: ask
+- action: read
+  resource: '*.env.example'
+  effect: allow
 color: '#EF4444'
 ---
 

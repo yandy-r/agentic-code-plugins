@@ -72,7 +72,7 @@ Read only on the selected fan-out path:
 
 - `~/.config/opencode/shared/references/review-dispatch.md`
 - `~/.config/opencode/shared/references/standalone-dispatch.md`
-  (`--parallel` only; dispatch contract and scratch recovery)
+  (`--parallel` only; dispatch contract; reviewers are read-only and the caller persists scratch copies)
 
 Reviewers use checklist roster, pre-ID findings format and merge procedure,
 plus the prompt contract in review-dispatch.md. PR prompts include head revision and Phase 2 context. Assign IDs only

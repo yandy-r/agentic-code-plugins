@@ -112,7 +112,7 @@ Read only on the selected fan-out path:
 
 - `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/review-dispatch.md`
 - `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/standalone-dispatch.md`
-  (`--parallel` only; dispatch contract and scratch recovery)
+  (`--parallel` only; dispatch contract; reviewers are read-only and the caller persists scratch copies)
 - `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/agent-team-dispatch.md`
   (`--team` only; team creation, tasks up front, shutdown, deletion)
 

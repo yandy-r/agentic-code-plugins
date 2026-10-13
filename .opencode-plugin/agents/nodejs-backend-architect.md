@@ -3,6 +3,37 @@ description: Expert guidance on Node.js/TypeScript backend development including
   architecture, performance optimization, async/concurrency, API design, auth systems,
   and database optimization.
 mode: subagent
+permissions:
+- action: '*'
+  resource: '*'
+  effect: deny
+- action: read
+  resource: '*'
+  effect: allow
+- action: grep
+  resource: '*'
+  effect: allow
+- action: glob
+  resource: '*'
+  effect: allow
+- action: webfetch
+  resource: '*'
+  effect: allow
+- action: websearch
+  resource: '*'
+  effect: allow
+- action: external_directory
+  resource: '*'
+  effect: ask
+- action: read
+  resource: '*.env'
+  effect: ask
+- action: read
+  resource: '*.env.*'
+  effect: ask
+- action: read
+  resource: '*.env.example'
+  effect: allow
 color: '#22C55E'
 ---
 

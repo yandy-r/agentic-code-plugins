@@ -139,11 +139,11 @@ After all 3 reviewers return (Path B only — see
 for the blocking `Task` semantics this relies on):
 
 1. For any reviewer whose `Task` return was empty, missing, or malformed,
-   re-read its scratch backstop file at
-   `docs/prps/reviews/.review-scratch/<run-id>/<reviewer-name>.md` before
-   merging. If both the inline return and the scratch file are unavailable,
    treat that reviewer as a failure for that role (do not fabricate findings
-   for it).
+   for it). In Path B only, the scratch file at
+   `docs/prps/reviews/.review-scratch/<run-id>/<reviewer-name>.md` is the
+   calling skill's own copy of the inline returns it already received, not a
+   second source to recover from.
 2. Combine by severity (CRITICAL first, then HIGH, MEDIUM, LOW).
 3. De-duplicate findings at the same `file:line` (if two reviewers flagged the
    same issue, keep the more severe one and annotate which reviewers concurred).

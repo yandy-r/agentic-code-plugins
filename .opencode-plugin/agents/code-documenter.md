@@ -111,4 +111,4 @@ func FunctionName(param Type) ReturnType {
 - Add module-level headers explaining file purpose
 
 **Output Format:**
-Modify source files directly using Edit/MultiEdit tools. Focus on files with the most impact - exported functions, complex types, and non-obvious logic.
+Modify source files directly using Edit tools. Focus on files with the most impact - exported functions, complex types, and non-obvious logic.

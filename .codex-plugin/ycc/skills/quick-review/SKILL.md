@@ -301,8 +301,8 @@ fix phase has its own execution decision.
 - **Apply fixes is artifact-free**: direct apply routes to `$quick-fix`
   without writing `docs/prps/reviews/quick-*.md`.
 - **Scratch is the one ephemeral exception**: when Path B (`--parallel`) is
-  used, a transient scratch backstop file exists per reviewer at
-  `docs/prps/reviews/.review-scratch/quick-<TIMESTAMP>/<reviewer-name>.md`
+  used, the calling skill persists each valid inline return to its scratch copy
+  at `docs/prps/reviews/.review-scratch/quick-<TIMESTAMP>/<reviewer-name>.md`
   during the `Task` dispatch in Phase 2. It is always deleted at the end of
   Phase 5 before the skill returns control to the user — including on
   "Discard" and "Apply fixes" — so the "no file written" guarantee still

@@ -153,7 +153,7 @@ When this explicit `SKIP (...)` value is present, do not run validation. Report
 
 ### 2. Apply the Fix
 
-- Use `Edit` or `MultiEdit` to apply the exact change described in the `Suggested fix`.
+- Use `Edit` to apply the exact change described in the `Suggested fix`.
 - Match the existing code style in the file (indentation, quote style, naming conventions).
 - Do NOT introduce new dependencies unless the finding explicitly requires it.
 - Do NOT change unrelated lines.

@@ -18,16 +18,34 @@ from generate_codex_common import (
     load_agent_aliases,
     parse_frontmatter,
 )
+from practices_parse import parse_tools
+
+WRITE_TOOLS = frozenset({"Write", "Edit", "NotebookEdit", "Bash"})
+
+
+def is_read_only(tools: object) -> bool:
+    """True when an explicit tools list has no write-capable tool.
+
+    Scoped ``Bash(...)`` counts as its Bash head, and any ``mcp__*`` entry
+    counts as write-capable (fail-safe: an MCP server may expose mutating
+    tools). No ycc read-only agent ships MCP tools today; if a read-only
+    docs-lookup server is ever needed, allowlist its prefix here.
+    """
+    entries = parse_tools(tools)
+    return bool(entries) and not any(
+        entry.split("(", 1)[0].startswith("mcp__") or entry.split("(", 1)[0] in WRITE_TOOLS for entry in entries
+    )
 
 
 def encode_toml_string(value: str) -> str:
     return json.dumps(value, ensure_ascii=False)
 
 
-def build_agent_toml(name: str, description: str, developer_instructions: str) -> str:
+def build_agent_toml(name: str, description: str, developer_instructions: str, *, read_only: bool = False) -> str:
     lines = [
         f"name = {encode_toml_string(name)}",
         f"description = {encode_toml_string(description)}",
+        *(['sandbox_mode = "read-only"'] if read_only else []),
         f"developer_instructions = {encode_toml_string(developer_instructions.strip())}",
         "",
     ]
@@ -54,7 +72,11 @@ def write_all(dest: Path, dry_run: bool) -> set[Path]:
             continue
 
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(build_agent_toml(name, description, instructions), encoding="utf-8")
+        read_only = is_read_only(frontmatter.get("tools"))
+        target.write_text(
+            build_agent_toml(name, description, instructions, read_only=read_only),
+            encoding="utf-8",
+        )
 
     if not dry_run:
         existing = sorted(path for path in dest.glob("*.toml"))

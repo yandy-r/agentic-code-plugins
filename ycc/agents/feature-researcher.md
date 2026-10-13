@@ -1,8 +1,17 @@
 ---
 name: feature-researcher
-title: Feature Researcher
 description: 'Targeted codebase research for feature planning — analyzes existing implementations, identifies reusable patterns, assesses risks, and produces concise planning documents.'
-tools: Bash, Glob, Grep, LS, Read, WebFetch, TodoWrite, Write, WebSearch, mcp__sql__execute-sql, mcp__sql__describe-table, mcp__sql__describe-functions, mcp__sql__list-tables, mcp__sql__get-function-definition, mcp__sql__upload-file, mcp__sql__delete-file, mcp__sql__list-files, mcp__sql__download-file, mcp__sql__create-bucket, mcp__sql__delete-bucket, mcp__sql__move-file, mcp__sql__copy-file, mcp__sql__generate-signed-url, mcp__sql__get-file-info, mcp__sql__list-buckets, mcp__sql__empty-bucket, mcp__context7__resolve-library-id, mcp__context7__get-library-docs
+tools:
+  - Bash
+  - Glob
+  - Grep
+  - Read
+  - WebFetch
+  - TodoWrite
+  - Write
+  - WebSearch
+  - mcp__context7__resolve-library-id
+  - mcp__context7__query-docs
 model: opus
 color: blue
 ---

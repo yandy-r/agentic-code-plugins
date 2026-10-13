@@ -213,6 +213,7 @@ run_target() {
             "${REPO_ROOT}/scripts/validate-codex-skills.sh" || fail "validate-codex-skills.sh"
             echo "== validate: codex agents =="
             "${REPO_ROOT}/scripts/validate-codex-agents.sh" || fail "validate-codex-agents.sh"
+            python3 "${REPO_ROOT}/scripts/test_generate_codex_agents.py" || fail "test_generate_codex_agents.py"
             echo "== validate: codex plugin =="
             "${REPO_ROOT}/scripts/validate-codex-plugin.sh" || fail "validate-codex-plugin.sh"
             ;;
