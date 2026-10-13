@@ -13,7 +13,7 @@ Interactive low-friction review of uncommitted changes. Output is **inline**. Th
 
 **Input**: `$ARGUMENTS`
 
-**Core rule**: "Apply fixes" MUST NOT write a review artifact. It hands the
+**Core rule**: "Apply fixes" must not write a review artifact. It hands the
 inline findings directly to `$quick-fix`. Only "Save to file" and
 "Write file and apply fixes" write `docs/prps/reviews/quick-*.md`.
 
@@ -66,149 +66,46 @@ Capture the list of changed files as `CHANGED_FILES` for the REVIEW phase.
 
 ## Phase 2 — REVIEW
 
-The shape of this phase depends on `PARALLEL_MODE` and `AGENT_TEAM_MODE`:
-
-| Flags             | Path                                        |
-| ----------------- | ------------------------------------------- |
-| Neither set       | **Path A** — single-pass review (default)   |
-| `PARALLEL_MODE`   | **Path B** — 3 parallel sub-agent reviewers |
-| `AGENT_TEAM_MODE` | **Path C** — 3-reviewer agent team          |
+Neither flag: **Path A** single-pass (default). `PARALLEL_MODE`: **Path B**,
+3 parallel reviewers. `AGENT_TEAM_MODE`: **Path C**, 3-reviewer agent team.
 
 Findings from all paths stay **in memory**. Do not write to disk here.
 
 ### Path A — Single-Pass Review (default)
 
 Read each changed file in full and apply the **Local / Quick Review —
-Single-Pass Checklist** and **Severity Rubric** from:
+Single-Pass Checklist** and **Severity Rubric**. Flag only gaps that affect
+correctness or the stated requirements. From:
 
 ```
 ~/.codex/plugins/ycc/shared/references/review-checklist.md
 ```
 
-### Path B — Parallel Sub-Agent Review (`PARALLEL_MODE=true`)
+### Path B / C — fan-out (`PARALLEL_MODE` or `AGENT_TEAM_MODE`)
 
-Generate `TIMESTAMP=$(date +%Y%m%d-%H%M%S)` once, here, and reuse the same
-variable for the scratch run-id below and, if the user later selects an
-artifact-writing path in Phase 5, for the `quick-<TIMESTAMP>-review.md`
-filename — one canonical timestamp per invocation (the same pattern Path C
-uses for its team name when that path runs instead). Set
-`run-id = quick-<TIMESTAMP>`.
+Generate `TIMESTAMP=$(date +%Y%m%d-%H%M%S)` once; reuse it for run-id
+`quick-<TIMESTAMP>`, the team name, and any later `quick-<TIMESTAMP>-review.md`.
+Read only on this path:
 
-> **Standalone dispatch rule**: Dispatch the 3 reviewers via the blocking
-> `Task` tool in ONE message — never the async `Agent` tool, and never with
-> `name`, `team_name`, or `run_in_background` set. In the normal case `Task`
-> blocks and its return value IS each reviewer's findings, delivered inline in
-> the same turn. If a batch doesn't return inline (async fallback), don't
-> `sleep`-loop or poll — yield/end the turn so the completion notification can
-> flush, then resume. See
-> [standalone-dispatch.md](~/.codex/plugins/ycc/shared/references/standalone-dispatch.md)
-> for the full contract.
+- `~/.codex/plugins/ycc/shared/references/review-dispatch.md`
+- `~/.codex/plugins/ycc/shared/references/standalone-dispatch.md` (`--parallel`)
+- `~/.codex/plugins/ycc/shared/references/agent-team-dispatch.md` (`--team`)
 
-Dispatch **3 standalone `code-reviewer` sub-agents in parallel** in a SINGLE
-message with MULTIPLE `Task` tool calls. Use the **Local / Quick Mode Roster**
-and **Standard Findings Format** from:
-
-```
-~/.codex/plugins/ycc/shared/references/review-checklist.md
-```
-
-Each reviewer prompt must include:
-
-1. The list of changed files (`git diff --name-only HEAD`)
-2. Its assigned focus and checklist items (from the roster table)
-3. The severity rubric
-4. A directive to return findings in the Standard Findings Format
-5. Its own scratch backstop path — `docs/prps/reviews/.review-scratch/quick-<TIMESTAMP>/<reviewer-name>.md`
-   — per the scratch-backstop contract in that reference
-
-After all 3 `Task` calls return: for any reviewer whose inline return is
-empty, missing, or malformed, re-read its scratch file at that path before
-merging. Apply the **Merge Procedure** defined in the reference to produce a
-single combined findings list for Phase 3.
-
-**Scratch cleanup is unconditional**: unlike the permanent review artifact
-(only written on "Save to file" / "Write file and apply fixes"), the scratch
-directory `docs/prps/reviews/.review-scratch/quick-<TIMESTAMP>/` is always
-removed at the end of Phase 5 (HAND-OFF) — even on "Discard" or "Apply
-fixes", which never write a permanent artifact. This is the one ephemeral
-exception to quick-review's artifact-free guarantee: the scratch file exists
-only transiently during this Path B dispatch and is gone before the skill
-returns control to the user.
-
-### Path C — Agent Team Review (`AGENT_TEAM_MODE=true`, Codex runtime only; not available in bundle invocations)
-
-> **MANDATORY — AGENT TEAMS REQUIRED**
->
-> You MUST follow the agent-team lifecycle. Every `Agent` call MUST include
-> `team_name=` AND `name=`. See
-> `~/.codex/plugins/ycc/shared/references/agent-team-dispatch.md`.
-
-Roster and category split identical to Path B.
-
-#### C.1 Build the team name
-
-Team name: `qrev-local-<YYYYMMDD-HHMMSS>`. Generate the timestamp once at the
-start of Phase 2 and reuse it if the user later selects an artifact-writing
-path.
-
-#### C.2 Create the team
-
-```
-create an agent group: team_name="qrev-local-<timestamp>", description="Quick review team for uncommitted local changes"
-```
-
-On failure, abort.
-
-#### C.3 Register subtasks
-
-Create 3 tasks in the shared task list (flat graph — reviewers are independent):
-
-```
-record the task: subject="correctness-reviewer: code-quality review of uncommitted changes", description="<full reviewer prompt>"
-record the task: subject="security-reviewer: security review of uncommitted changes",        description="<full reviewer prompt>"
-record the task: subject="quality-reviewer: best-practices review of uncommitted changes",   description="<full reviewer prompt>"
-```
-
-If any `record the task` fails -> `close the agent group`, abort.
-
-#### C.4 Spawn the 3 reviewers
-
-Single message, three `Agent` calls. Every call MUST include `team_name`, `name`
-(matching the `record the task` subject prefix), `subagent_type="code-reviewer"`,
-description, and a prompt equivalent to Path B's reviewer prompt plus a note
-that the teammate shares a task list with two siblings (name them) and may
-`send follow-up instructions` them on overlaps, and must call `update the task tracker` to mark its task
-complete before returning.
-
-#### C.5 Monitor and collect results
-
-Use `the task tracker` until all 3 tasks are `completed`. Failure policy:
-
-- All 3 error -> `close the agent group`, abort with a clear error.
-- 1 or 2 error -> record "partial review — {role} did not complete" and proceed
-  with the remaining findings. Note the gap when printing inline.
-
-#### C.6 Shutdown and cleanup
-
-```
-send follow-up instructions(to="correctness-reviewer", message={type:"shutdown_request"})
-send follow-up instructions(to="security-reviewer",    message={type:"shutdown_request"})
-send follow-up instructions(to="quality-reviewer",     message={type:"shutdown_request"})
-close the agent group
-```
-
-Always `close the agent group` — even on abort or partial failure.
-
-#### C.7 Merge findings
-
-Apply the reference's Merge Procedure and pass the combined findings to Phase 3.
+Use the Local / Quick Mode Roster and Standard Findings Format from
+`review-checklist.md`; merge via its Merge Procedure into one list for Phase 3.
+The reviewer prompt states: flag only gaps that affect correctness or the
+stated requirements. Scratch under
+`docs/prps/reviews/.review-scratch/quick-<TIMESTAMP>/` is always removed at the
+end of Phase 5, even on "Discard" and "Apply fixes" — the one ephemeral
+exception to the artifact-free guarantee.
 
 ---
 
 ## Phase 3 — REPORT (inline)
 
-Assign sequential finding IDs (`F001`, `F002`, ...) ordered by severity
-(CRITICAL first) then by file path. Every finding gets `Status: Open`.
+Assign IDs and initial Status after merge using the shared artifact schema
+loaded below (Finding ID rules: ordered by severity, CRITICAL first, then by
+file path); the same contract applies to inline findings.
 
 Compute:
 
@@ -217,58 +114,17 @@ Compute:
 - `finding_file_count` (unique files with findings)
 - `large_review = total_findings >= 5 || finding_file_count >= 3`
 
-**Print** the review to stdout in the Review Artifact Format, **without**
-writing a file. The printed block looks like:
+**Print** the review to stdout in the quick-mode variant of the Review Artifact
+Format, **without** writing a file. Read the schema:
 
-```markdown
-# Quick Review — Uncommitted Changes
+`~/.codex/plugins/ycc/shared/references/review-artifact-format.md`
 
-**Reviewed**: <ISO date>
-**Mode**: Quick (inline)
-**Author**: local
-**Branch**: <current-branch>
-**Decision**: (pending user confirmation)
-
-## Summary
-
-<1-2 sentence overall assessment>
-
-## Findings
-
-### CRITICAL
-
-- **[F001]** `file:line` — <description>
-  - **Status**: Open
-  - **Category**: <Security | Correctness | Code Quality | Best Practices>
-  - **Suggested fix**: <concrete fix>
-
-### HIGH
-
-- **[F002]** ...
-  - **Status**: Open
-  - ...
-
-### MEDIUM
-
-- **[F003]** ...
-  - **Status**: Open
-  - ...
-
-### LOW
-
-- **[F004]** ...
-  - **Status**: Open
-  - ...
-
-## Files Reviewed
-
-- `file1.ts` (Modified)
-- `file2.ts` (Added)
-```
-
-**Omissions** (vs. the standard Review Artifact Format): no
-`## Worktree Setup` section (quick mode never creates a worktree) and no
-`## Validation Results` section (quick mode does not run toolchain checks).
+Header: `# Quick Review — Uncommitted Changes`, `**Mode**: Quick (inline)`,
+`**Author**: local`, `**Branch**: <current-branch>`,
+`**Decision**: (pending user confirmation)`, then Summary, Findings (all four
+fields per finding, `Status: Open`) and Files Reviewed. No Worktree Setup or
+Validation Results sections. Categories: Security | Correctness | Code Quality
+| Best Practices.
 
 After the artifact block, print:
 
@@ -442,7 +298,7 @@ fix phase has its own execution decision.
 
 ## Important Notes
 
-- **Apply fixes is artifact-free**: direct apply MUST route to `$quick-fix`
+- **Apply fixes is artifact-free**: direct apply routes to `$quick-fix`
   without writing `docs/prps/reviews/quick-*.md`.
 - **Scratch is the one ephemeral exception**: when Path B (`--parallel`) is
   used, a transient scratch backstop file exists per reviewer at

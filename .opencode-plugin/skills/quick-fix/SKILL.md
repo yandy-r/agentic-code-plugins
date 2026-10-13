@@ -11,7 +11,8 @@ Apply fixes from an inline Quick Review findings block without writing or
 updating a review artifact.
 
 **Core rule**: This skill is artifact-free. It MUST NOT create files under
-`docs/prps/reviews/`, and it MUST NOT update any review markdown file. If the
+`docs/prps/reviews/` — that would lose the audit contract — and it MUST NOT
+update any review markdown file. If the
 user wants an auditable artifact, route them to `/review-fix` with a saved
 review file instead.
 
@@ -42,19 +43,10 @@ The remaining text is the inline review payload.
 
 ## Phase 1 — Parse findings
 
-Parse the inline payload as the Quick Review artifact subset printed by
-`/quick-review`.
+Parse the inline payload — the quick-review findings subset of the shared
+Review Artifact Format:
 
-Accept findings in this shape:
-
-```markdown
-### HIGH
-
-- **[F001]** `src/file.ts:42` — Description
-  - **Status**: Open
-  - **Category**: Correctness
-  - **Suggested fix**: Concrete fix
-```
+`~/.config/opencode/shared/references/review-artifact-format.md`
 
 Build an in-memory list of `Finding` objects:
 
