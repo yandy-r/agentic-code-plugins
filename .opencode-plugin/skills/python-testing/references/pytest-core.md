@@ -1,5 +1,13 @@
 # Python Testing Patterns: pytest Core
 
+## Contents
+
+- TDD Workflow for Python
+- pytest Fundamentals
+- Fixtures
+- Parametrization
+- Markers and Test Selection
+
 ## TDD Workflow for Python
 
 ### The RED-GREEN-REFACTOR Cycle

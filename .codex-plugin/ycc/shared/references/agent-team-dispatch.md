@@ -1,5 +1,16 @@
 # Agent Team Dispatch — Canonical Lifecycle Reference
 
+## Contents
+
+1. Team Name Sanitization
+2. Lifecycle (6 steps)
+3. Spawn Rule
+4. Failure Policy
+5. Dry-Run Semantics
+6. Multi-Batch Runs
+7. Worktree-aware team dispatch
+8. Skill Adapters: Planning and Batched Executors
+
 Used by `plan`, `plan-workflow`, `prp-plan`, `prp-implement`,
 `implement-plan`, `orchestrate` and `deep-research`
 when the `--team` flag is passed. This file documents the universal create an agent group → record the task → Agent →
@@ -19,17 +30,6 @@ roster and prompt templates; only the mechanism lives here.
 > pass — for now, `create an agent group`/`record the task`/`close the agent group` calls in this doc's lifecycle
 > remain as documented, and skills should continue to call them where their target CLI
 > still supports them, but this may need revisiting.
-
-## Contents
-
-1. Team Name Sanitization
-2. Lifecycle (6 steps)
-3. Spawn Rule
-4. Failure Policy
-5. Dry-Run Semantics
-6. Multi-Batch Runs
-7. Worktree-aware team dispatch
-8. Skill Adapters: Planning and Batched Executors
 
 ---
 
@@ -161,7 +161,7 @@ continuing.
 
 `Agent`+`team_name` (this file) and `Task` (standalone fan-out) are mutually exclusive
 primitives — never mix them within the same dispatch. See
-[standalone-dispatch.md](./standalone-dispatch.md) for the `Task` contract.
+`standalone-dispatch.md` in this directory for the `Task` contract.
 
 ---
 
@@ -225,7 +225,7 @@ Worktree mode is **on by default** for the 9 worktree-aware skills; pass `--no-w
 to opt out. The legacy `--worktree` flag is accepted as a silent no-op (it matches the
 new default). When worktree mode is active (default), all teammates — parallel and
 sequential — share **one** feature worktree: `<repo-root>/.codex/worktrees/<repo>-<feature>/`
-(see [worktree-strategy.md](./worktree-strategy.md)). Parallel safety comes from
+(see `worktree-strategy.md` in this directory). Parallel safety comes from
 per-skill batching and prompts (e.g. different files, or exclusive sections), not from
 separate per-task worktrees. The `setup-worktree.sh child` + `merge-children.sh` fan-in
 **sequence is deprecated**; do not add it in new team flows.

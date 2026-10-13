@@ -1,5 +1,17 @@
 # Plan Display Format
 
+## Contents
+
+- Plan Header
+- Labels Section (Always)
+- Tracking Issues Section (Always)
+- Child Issues Section (Always)
+- Anti-Scope Section (deep-research, feature-spec, and prd only)
+- Research Gap Section (deep-research only)
+- Dependency Graph Section (parallel-plan and prp-plan only)
+- Decision Issues Section (feature-spec and prd only)
+- Footer (Always)
+
 Display this plan before creating any issues. Adapt sections based on source type.
 
 ## Plan Header

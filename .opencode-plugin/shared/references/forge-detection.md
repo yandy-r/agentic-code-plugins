@@ -1,5 +1,14 @@
 # Forge Provider Detection & Tooling Selection
 
+## Contents
+
+- Provider values
+- Detection algorithm
+- Auth probes (run once, cache the result)
+- Operation equivalence map
+- Capability matrix — GitHub-only features
+- Skill integration pattern (Phase 0)
+
 Single source of truth for how every git skill in the `ycc` bundle decides
 **which forge it is talking to** and **which CLI to drive**. Any skill that
 creates PRs, files issues, cuts releases, posts review comments, or watches CI
@@ -127,6 +136,11 @@ For ❌ features on a non-GitHub remote, the skill must:
 
 Never silently no-op and never pretend an unsupported step succeeded.
 
+The CI-autofix loop policy (caps, classification, termination, audit log) lives in
+`ci-monitoring.md` in this directory; read it before entering the loop. The older
+GitHub/GitLab host-operation notes this document generalizes live in
+`.opencode-plugin/skills/git-cleanup/references/host-detection.md`, owned by `git-cleanup`.
+
 ---
 
 ## Skill integration pattern (Phase 0)
@@ -146,10 +160,3 @@ branching internally. Log the resolved provider + CLI so the user sees which
 forge the workflow targeted.
 
 ---
-
-## References
-
-- [`_shared/scripts/lib/forge.sh`](../scripts/lib/forge.sh) — the detection lib
-- [`git-cleanup/references/host-detection.md`](../../git-cleanup/references/host-detection.md)
-  — the older GitHub/GitLab host-detection notes this generalizes
-- [`ci-monitoring.md`](ci-monitoring.md) — CI-autofix loop (GitHub-only; gated here)

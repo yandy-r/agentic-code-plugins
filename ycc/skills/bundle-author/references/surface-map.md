@@ -1,5 +1,12 @@
 # Surface Map
 
+## Contents
+
+- Surfaces
+- Post-Scaffold Required Commands
+- Never Edit — Generated Targets
+- Quick Reference
+
 Reference for every source-of-truth location a new skill or agent occupies in
 the `ycc/` tree. Use this when scaffolding to know exactly what to create and where.
 

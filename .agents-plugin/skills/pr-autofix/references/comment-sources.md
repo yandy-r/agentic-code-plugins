@@ -1,5 +1,13 @@
 # GitHub PR Comment Surfaces
 
+## Contents
+
+- 1. Review threads (primary input)
+- 2. Top-level PR conversation comments (secondary input)
+- 3. Review summary bodies (in-progress detection only)
+- Why three queries, not one
+- Suggestion blocks
+
 GitHub exposes three places where reviewers leave feedback on a pull request. `pr-autofix` reads from the two that are actionable per-comment, and uses the third only for in-progress detection.
 
 | Source                    | API surface                                   | File/line anchored? | Has thread state? | Resolvable? | Used by `pr-autofix`? |

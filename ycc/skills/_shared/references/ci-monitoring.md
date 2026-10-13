@@ -1,5 +1,21 @@
 # CI Monitoring Reference
 
+## Contents
+
+- Provider Support
+- Trust Boundary
+- Caps and Defaults
+- Failure Classification
+- Termination Policy
+- Loop Protocol
+- Audit Log Schema
+- Idempotency
+- Safety Constraints (Non-Toggleable)
+- Failure Signature
+- When NOT to Use `--ci`
+- Release Mode
+- References
+
 Consumed by `ycc:git-workflow` (Phase 6), `ycc:prp-pr` (Phase 7), `ycc:pr-autofix`
 (Phase 7), and `ycc:releaser` (Phase 8.5) when the `--ci` flag is passed. This
 document defines the policy, caps, failure classification, termination signals,
@@ -33,7 +49,7 @@ forge provider on the watched remote; on any non-GitHub remote they emit
 
 The detection contract — provider values `github` / `forgejo` / `gitea` /
 `gitlab` / `unknown`, the `forge_detect_provider` / `forge_cli` law — lives in
-[`forge-detection.md`](forge-detection.md) (capability matrix: "CI-autofix loop
+`forge-detection.md` in this directory (capability matrix: "CI-autofix loop
 (`--ci`)" is GitHub-only).
 
 **Skill loop handling:** treat `RESULT=unsupported-provider` exactly like

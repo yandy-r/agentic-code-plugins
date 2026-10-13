@@ -1,5 +1,16 @@
 # Agent-Native Runtime — Shared Setup Contract
 
+## Contents
+
+- Install (pinned)
+- Reconnect / auth (hosted mode only)
+- MCP connector (hosted or self-hosted mode)
+- Local-only operation
+- Localhost bridge
+- Block vocabulary (resolve at USE TIME)
+- Egress policy
+- Hosted Plans app
+
 Reference for ycc skills that drive the Agent-Native visual-planning runtime — currently
 `~/.agents/skills/visual-plan/SKILL.md` and
 `~/.agents/skills/visual-recap/SKILL.md`. Both skills cite this doc so the install

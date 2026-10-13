@@ -1,5 +1,21 @@
 # Active-Code Rules
 
+## Contents
+
+- R1 — Recent tip commit
+- R2 — Unpushed commits
+- R3 — Dirty worktree or attached stash
+- R4 — Head or base of an open PR
+- R5 — Referenced in tracked files
+- R6 — Linked to an active issue
+- R7 — Protected name
+- R8 — Recent reflog activity
+- R9 — Retired maintenance branch (release model only)
+- R10 — Sync-merge anti-pattern (release model only, informational)
+- Decision Matrix
+- Worktree-specific notes
+- PR / Issue–specific notes
+
 Reference for the Phase 2 gate in `.opencode-plugin/skills/git-cleanup/SKILL.md`. Each rule
 below flags a candidate as **active** (must be excluded from the "Stale" list).
 A candidate becomes **Stale** only when it matches **none** of these rules.

@@ -1,5 +1,7 @@
 # HTML wireframe quality — single source of truth
 
+## Contents
+
 This file is the canonical quality bar for HTML wireframes / `WireframeBlock`
 content, shared word for word by `visual-plan` and `visual-recap`. Read it in
 full before authoring ANY wireframe; do not author wireframes from memory or paraphrase

@@ -161,13 +161,17 @@ exact tag names, required fields, and prop shapes.
 These are provider-neutral quality bars. Read the relevant one IN FULL before
 authoring; do not paraphrase from memory:
 
-- `${CLAUDE_PLUGIN_ROOT}/skills/visual-plan/references/document-quality.md` — the
+- `${CLAUDE_PLUGIN_ROOT}/skills/visual-plan/references/document-quality.md` — read
+  before authoring any plan document: the
   plan-document quality bar and block families.
-- `${CLAUDE_PLUGIN_ROOT}/skills/visual-plan/references/canvas.md` — canvas /
+- `${CLAUDE_PLUGIN_ROOT}/skills/visual-plan/references/canvas.md` — read before
+  building a canvas surface: canvas /
   artboard / annotation mechanics and patch ops.
-- `${CLAUDE_PLUGIN_ROOT}/skills/visual-plan/references/wireframe.md` — the HTML
+- `${CLAUDE_PLUGIN_ROOT}/skills/visual-plan/references/wireframe.md` — read before
+  authoring wireframe blocks: the HTML
   wireframe quality bar (`.wf-*` tokens, surfaces, icons, skeletons).
-- `${CLAUDE_PLUGIN_ROOT}/skills/visual-plan/references/exemplar.md` — a worked
+- `${CLAUDE_PLUGIN_ROOT}/skills/visual-plan/references/exemplar.md` — read when
+  checking composition or anti-patterns: a worked
   example plus the anti-patterns to avoid.
 
 ## Planning is read-only

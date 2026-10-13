@@ -263,16 +263,16 @@ EOF
 
 Type-specific parsing instructions:
 
-- **`references/parse-deep-research.md`** -- Deep-research document extraction
-- **`references/parse-feature-spec.md`** -- Feature-spec document extraction
-- **`references/parse-parallel-plan.md`** -- Parallel-plan document extraction
-- **`references/parse-prp-plan.md`** -- PRP plan document extraction
-- **`references/parse-prd.md`** -- PRD document extraction
+- **`references/parse-deep-research.md`** -- read when parsing a `deep-research` source (document extraction)
+- **`references/parse-feature-spec.md`** -- read when parsing a `feature-spec` source (document extraction)
+- **`references/parse-parallel-plan.md`** -- read when parsing a `parallel-plan` source (document extraction)
+- **`references/parse-prp-plan.md`** -- read when parsing a `prp-plan` source (document extraction)
+- **`references/parse-prd.md`** -- read when parsing a `prd` source (document extraction)
 
 Shared references:
 
-- **`references/label-taxonomy.md`** -- Complete label scheme with colors and priority rules
-- **`references/plan-display-format.md`** -- Plan display format by source type
+- **`references/label-taxonomy.md`** -- read when assigning priority or creating labels (complete scheme with colors and priority rules)
+- **`references/plan-display-format.md`** -- read when displaying the parsed plan (format per source type)
 
 ### Templates
 
@@ -282,4 +282,4 @@ Shared references:
 
 ### Scripts
 
-- **`scripts/validate-prerequisites.sh`** -- Multi-source validation and type detection
+- **`scripts/validate-prerequisites.sh`** -- Run in Step 2 for multi-source validation and type detection (`DETECTED_TYPE` on stdout); do not source it

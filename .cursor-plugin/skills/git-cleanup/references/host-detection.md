@@ -1,7 +1,18 @@
 # Host Detection and Client Selection
 
+## Contents
+
+- Selection priority
+- Host inference from `origin`
+- Detecting MCP availability
+- CLI availability probes
+- Read operations used in Phase 1
+- Write operations (only with `--apply` + user approval)
+- Rate-limit awareness
+- Logging
+
 > **Canonical source of truth:** the bundle-wide forge-detection contract lives at
-> [`../../_shared/references/forge-detection.md`](../../_shared/references/forge-detection.md)
+> `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/forge-detection.md`
 > (provider values `github` / `forgejo` / `gitea` / `gitlab` / `unknown`; CLIs
 > `gh` / `tea` / `glab`; the `forge_detect_provider`, `forge_cli`, `forge_auth_ok`
 > detection law implemented in `_shared/scripts/lib/forge.sh`). Prefer that document

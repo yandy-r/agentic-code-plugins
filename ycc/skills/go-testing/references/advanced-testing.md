@@ -1,5 +1,14 @@
 # Go Testing Patterns: Advanced Testing
 
+## Contents
+
+- Golden Files
+- Mocking with Interfaces
+- Benchmarks
+- Fuzzing (Go 1.18+)
+- HTTP Handler Testing
+- Integration with CI/CD
+
 ## Golden Files
 
 Testing against expected output files stored in `testdata/`.

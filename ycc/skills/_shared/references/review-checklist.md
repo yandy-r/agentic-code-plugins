@@ -1,5 +1,14 @@
 # Review Checklist (Shared Reference)
 
+## Contents
+
+- Severity Rubric
+- Local / Quick Review — Single-Pass Checklist (Path A)
+- PR Review — Single-Pass Checklist (Path A, 7 Categories)
+- Parallel Reviewer Roster (Path B / Path C)
+- Standard Findings Format (Reviewer Output)
+- Merge Procedure (Path B / Path C)
+
 > Canonical review checklist, severity rubric, parallel-reviewer roster, and
 > standard findings format. Consumed by `ycc:code-review` (local + PR modes)
 > and `ycc:quick-review`. Skills that delegate here must not duplicate the
@@ -78,7 +87,7 @@ the stated requirements.
 Three standalone `ycc:code-reviewer` sub-agents, dispatched via the blocking `Task`
 tool — never the async `Agent` tool (Path B), or agent-team teammates spawned via
 `Agent`+`team_name` (Path C). See
-[standalone-dispatch.md](${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/standalone-dispatch.md)
+`${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/standalone-dispatch.md`
 for the full `Task` spawn/return contract that Path B must follow. The **focus
 split** differs between local/quick and PR modes because local mode has a
 narrower category set.
@@ -135,7 +144,7 @@ split already implies a category).
 ## Merge Procedure (Path B / Path C)
 
 After all 3 reviewers return (Path B only — see
-[standalone-dispatch.md](${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/standalone-dispatch.md)
+`${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/standalone-dispatch.md`
 for the blocking `Task` semantics this relies on):
 
 1. For any reviewer whose `Task` return was empty, missing, or malformed,

@@ -225,8 +225,11 @@ error; it shows what would have been blocked.
 
 - For per-target capability explanations and known limitations, see
   `${CLAUDE_PLUGIN_ROOT}/skills/hooks-workflow/references/support-notes.md`.
-- For output format templates used by `build-hook-config.sh`, see
-  `${CLAUDE_PLUGIN_ROOT}/skills/hooks-workflow/references/templates/`.
+- Run `scripts/build-hook-config.sh` when rendering hook config (Step 2); the script reads
+  the three per-target templates internally. Read a template only when inspecting its output:
+  `references/templates/claude-settings.json.tmpl` (Claude target),
+  `references/templates/codex-config-fragment.toml.tmpl` (Codex target), and
+  `references/templates/cursor-rule-fragment.mdc.tmpl` (Cursor target).
 - The authoritative capability verdicts live in
   `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/target-capability-matrix.md`.
   Do not override matrix verdicts locally.

@@ -1,5 +1,12 @@
 # Go Testing Patterns: Test Structure
 
+## Contents
+
+- TDD Workflow for Go
+- Table-Driven Tests
+- Subtests and Sub-benchmarks
+- Test Helpers
+
 ## TDD Workflow for Go
 
 ### The RED-GREEN-REFACTOR Cycle

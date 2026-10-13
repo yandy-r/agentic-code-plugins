@@ -248,3 +248,6 @@ Produce a summary using `${CLAUDE_PLUGIN_ROOT}/skills/init/templates/workspace-r
 - The MCP and agent selection flow is preserved unchanged behind `--docs-only`.
 - A missing `RELEASING.md` never blocks init. Phase 5.5 only offers `ycc:release-model`; `--release-model` runs it and `--no-release-model` silences the offer.
 - For the full flag matrix with composability examples, see `references/flag-reference.md`.
+- Read `references/conventional-commits.md` when rendering the Conventional Commits section of
+  generated `CLAUDE.md`/`AGENTS.md`; read `references/label-taxonomy.md` when rendering
+  `.github/labels.md` (`--templates`).

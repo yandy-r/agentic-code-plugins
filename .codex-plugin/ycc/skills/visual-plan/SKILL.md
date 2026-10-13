@@ -148,13 +148,17 @@ exact tag names, required fields, and prop shapes.
 These are provider-neutral quality bars. Read the relevant one IN FULL before
 authoring; do not paraphrase from memory:
 
-- `~/.codex/plugins/ycc/skills/visual-plan/references/document-quality.md` — the
+- `~/.codex/plugins/ycc/skills/visual-plan/references/document-quality.md` — read
+  before authoring any plan document: the
   plan-document quality bar and block families.
-- `~/.codex/plugins/ycc/skills/visual-plan/references/canvas.md` — canvas /
+- `~/.codex/plugins/ycc/skills/visual-plan/references/canvas.md` — read before
+  building a canvas surface: canvas /
   artboard / annotation mechanics and patch ops.
-- `~/.codex/plugins/ycc/skills/visual-plan/references/wireframe.md` — the HTML
+- `~/.codex/plugins/ycc/skills/visual-plan/references/wireframe.md` — read before
+  authoring wireframe blocks: the HTML
   wireframe quality bar (`.wf-*` tokens, surfaces, icons, skeletons).
-- `~/.codex/plugins/ycc/skills/visual-plan/references/exemplar.md` — a worked
+- `~/.codex/plugins/ycc/skills/visual-plan/references/exemplar.md` — read when
+  checking composition or anti-patterns: a worked
   example plus the anti-patterns to avoid.
 
 ## Planning is read-only

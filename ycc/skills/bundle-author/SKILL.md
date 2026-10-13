@@ -85,7 +85,9 @@ ${CLAUDE_PLUGIN_ROOT}/skills/bundle-author/scripts/scaffold-skill.sh <skill-name
 
 The helper copies templates from
 `${CLAUDE_PLUGIN_ROOT}/skills/bundle-author/references/templates/` and substitutes
-`{{NAME}}` and `{{DESCRIPTION}}` placeholders. If the helper exits with a non-zero
+`{{NAME}}` and `{{DESCRIPTION}}` placeholders (`references/templates/skill-template.md`,
+run when scaffolding any skill in Step 1). `--with-agent` also renders
+`references/templates/agent-template.md`; read it only to check the rendered agent file. If the helper exits with a non-zero
 status, STOP and surface its stderr verbatim — do not attempt to repair or work around
 the failure.
 

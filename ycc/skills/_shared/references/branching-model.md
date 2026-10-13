@@ -1,5 +1,15 @@
 # Branching and Release Model
 
+## Contents
+
+- Rules
+- Models
+- Where does my change go?
+- Backporting
+- State block
+- Missing or malformed state
+- How skills use this
+
 The canonical rules behind a project's `RELEASING.md`. Skills cite sections of this file
 instead of restating them. `ycc:release-model` generates `RELEASING.md` from these rules;
 `release-state.sh` reads the state block described in [State block](#state-block).

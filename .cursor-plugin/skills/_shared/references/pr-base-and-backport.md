@@ -1,9 +1,17 @@
 # PR Base, Sync Guard and Backport Prompt
 
+## Contents
+
+- PR base
+- Sync-merge guard
+- Backport prompt
+- Checking an existing PR
+- Missing or malformed state
+
 How `git-workflow` (Phase 5) and `prp-pr` pick a PR's base branch, refuse sync
 merges, and offer a backport under the release model. `code-review` uses
 [Checking an existing PR](#checking-an-existing-pr). The rules themselves live in
-[branching-model.md](branching-model.md); this file only says how skills apply them.
+`branching-model.md` in this directory; this file only says how skills apply them.
 
 One helper implements all three steps so both PR skills behave the same:
 
@@ -63,7 +71,7 @@ Merging another topic branch passes. Backport PRs pass: they are cherry-picks
 (`git cherry-pick -x`) and contain no merge commits.
 
 On refusal, do **not** create the PR. Show the helper's `reason=` line, cite
-[branching-model.md#rules](branching-model.md#rules) (rule 3: never merge one long-lived
+`branching-model.md` ("Rules") (rule 3: never merge one long-lived
 branch into another), and suggest the fix: rebase the topic branch onto `origin/<base>`
 without the merge, or move a fix between the trunk and a maintenance branch with
 `/backport`. A refusal also skips any `--ci` loop, since no PR was created.
@@ -114,7 +122,7 @@ EXPECTED=$(bash "${CURSOR_PLUGIN_ROOT}/skills/_shared/scripts/release-state.sh" 
 ```
 
 When `EXPECTED` differs from `baseRefName`, report a MEDIUM finding naming both branches
-and citing [branching-model.md#where-does-my-change-go](branching-model.md#where-does-my-change-go).
+and citing `branching-model.md` ("Where does my change go").
 `release-state.sh base` cannot recognize a head cut from a `release/X.Y` that has no
 commits of its own yet, so when the PR targets `release/X.Y` and `EXPECTED` is the trunk,
 say in the finding that the base is correct if this is a release-only fix. A malformed
@@ -123,7 +131,7 @@ in the review summary instead.
 
 ## Missing or malformed state
 
-Follows [branching-model.md#missing-or-malformed-state](branching-model.md#missing-or-malformed-state):
+Follows `branching-model.md` ("Missing or malformed state"):
 
 - **No `RELEASING.md`:** base = forge default branch, the guard is skipped, no backport
   prompt. Add one line to the summary suggesting `/release-model` to record the

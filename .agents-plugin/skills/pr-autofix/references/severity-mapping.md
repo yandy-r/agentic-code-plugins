@@ -1,5 +1,14 @@
 # Severity Mapping & Bot Detection
 
+## Contents
+
+- Severity levels
+- Inference rules (apply in priority order; first match wins)
+- Bot detection
+- In-progress markers
+- Why MEDIUM is the default
+- Examples
+
 `pr-autofix` does not require reviewers to declare severity in a structured way. Instead, it infers severity from comment-body signals using the heuristics below. When no signal is detected, severity defaults to **MEDIUM** so the comment is still surfaced by the default `--severity LOW` threshold but is sorted below clearly-tagged HIGH/CRITICAL findings.
 
 This file documents the patterns. `scripts/fetch-pr-comments.sh` does NOT do severity inference — the skill body applies these patterns in Phase 2c after fetching.

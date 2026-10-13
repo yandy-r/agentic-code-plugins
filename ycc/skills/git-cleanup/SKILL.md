@@ -75,7 +75,7 @@ Parse `$ARGUMENTS`:
    (`forge_detect_provider origin` → `github` / `forgejo` / `gitea` / `gitlab` /
    `unknown`; `forge_cli` → `gh` / `tea` / `glab`); the git-cleanup-specific
    operation map lives in
-   `${CLAUDE_PLUGIN_ROOT}/skills/git-cleanup/references/host-detection.md`.
+   `${CLAUDE_PLUGIN_ROOT}/skills/git-cleanup/references/host-detection.md` (read when mapping a host operation to a CLI or MCP call).
    Summary:
    - Prefer `mcp__github__*` tools if available for GitHub operations.
    - Else `gh auth status` for GitHub, `tea login list` for the Forgejo/Gitea
@@ -127,16 +127,16 @@ flags that emit machine-readable output.
       "origin/<RELEASE_TRUNK>..<branch>"
     ```
 
-    Rules and rationale:
+    Rules and rationale (read when classifying a branch, stash, or worktree as active or deletable):
     `${CLAUDE_PLUGIN_ROOT}/skills/git-cleanup/references/active-code-rules.md`
     (R9, R10).
 
 ## Phase 2: Active-Code Analysis
 
 This is the gating phase. **Never** recommend deletion of a resource that
-Phase 2 flags as active. See
-`${CLAUDE_PLUGIN_ROOT}/skills/git-cleanup/references/active-code-rules.md` for
-rule rationales, edge cases, and the full decision matrix.
+Phase 2 flags as active. Read
+`${CLAUDE_PLUGIN_ROOT}/skills/git-cleanup/references/active-code-rules.md` before
+classifying any candidate; it holds rule rationales, edge cases, and the full decision matrix.
 
 For each candidate branch, worktree, PR, and issue, mark as **active** if any
 of the following is true:

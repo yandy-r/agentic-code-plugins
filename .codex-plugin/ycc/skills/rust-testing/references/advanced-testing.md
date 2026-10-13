@@ -1,5 +1,14 @@
 # Rust Testing Patterns: Advanced Testing
 
+## Contents
+
+- Test Organization Patterns
+- Property-Based Testing with `proptest`
+- Mocking with `mockall`
+- Doc Tests
+- Benchmarking with Criterion
+- CI Integration
+
 ## Test Organization Patterns
 
 ### Parameterized Tests with `rstest`

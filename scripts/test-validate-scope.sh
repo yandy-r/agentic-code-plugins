@@ -62,6 +62,7 @@ expect_targets "install target libs also select the coverage validators" "openco
     scripts/lib/install/targets/agents.sh
 expect_targets "mods select mods and the install tests" "config mods" ycc/mods/README.md
 expect_targets "release tests select release" "release" scripts/test-release-model.sh
+expect_targets "plan-workflow validator test selects inventory" "inventory" scripts/test-plan-workflow-validators.sh
 expect_targets "practices baseline selects practices" "practices" scripts/practices-baseline.json
 expect_targets "settings select everything" "${ALL}" ycc/settings/models.json
 expect_targets "generators select everything" "${ALL}" scripts/generate_codex_skills.py

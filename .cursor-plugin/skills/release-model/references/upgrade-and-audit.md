@@ -1,5 +1,10 @@
 # Upgrade and audit
 
+## Contents
+
+- Upgrade
+- Audit
+
 Detailed procedures for `release-model --upgrade` and `--audit`. `$STATE`, `$UPDATE`,
 `$SIGNALS`, and `$TEMPLATE` are the paths defined in `SKILL.md`.
 

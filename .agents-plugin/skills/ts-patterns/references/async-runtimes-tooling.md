@@ -1,5 +1,12 @@
 # TypeScript Development Patterns: Async, Runtimes, and Tooling
 
+## Contents
+
+- Async and Concurrency
+- Iterators and Higher-Order Functions
+- Runtimes
+- Tooling (Vite + Vitest Stack)
+
 ## Async and Concurrency
 
 ### Promise Combinators

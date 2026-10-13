@@ -1,5 +1,14 @@
 # Review Checklist (Shared Reference)
 
+## Contents
+
+- Severity Rubric
+- Local / Quick Review — Single-Pass Checklist (Path A)
+- PR Review — Single-Pass Checklist (Path A, 7 Categories)
+- Parallel Reviewer Roster (Path B / Path C)
+- Standard Findings Format (Reviewer Output)
+- Merge Procedure (Path B / Path C)
+
 > Canonical review checklist, severity rubric, parallel-reviewer roster, and
 > standard findings format. Consumed by `code-review` (local + PR modes)
 > and `quick-review`. Skills that delegate here must not duplicate the

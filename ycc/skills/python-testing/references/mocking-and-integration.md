@@ -1,5 +1,15 @@
 # Python Testing Patterns: Mocking and Integration
 
+## Contents
+
+- Mocking and Patching
+- Testing Async Code
+- Testing Exceptions
+- Testing Side Effects
+- Test Organization
+- Common Patterns
+- pytest Configuration
+
 ## Mocking and Patching
 
 ### Mocking Functions

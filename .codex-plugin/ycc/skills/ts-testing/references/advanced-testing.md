@@ -1,5 +1,15 @@
 # TypeScript Testing Patterns: Advanced Testing
 
+## Contents
+
+- Parameterized Tests with `test.each`
+- Property-Based Testing with fast-check
+- Mocking
+- Type-Level Testing
+- Benchmarks
+- CI Integration
+- Alternatives to Vitest
+
 ## Parameterized Tests with `test.each`
 
 ### Table of Cases

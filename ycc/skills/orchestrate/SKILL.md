@@ -173,7 +173,7 @@ With `--team`, section 5 holds the Path B call shapes.
 
 ## Phase 5: Result Synthesis & Summary
 
-**Step 14**: consolidate outputs:
+**Step 14**: consolidate outputs by running:
 
 ```bash
 ${CLAUDE_PLUGIN_ROOT}/skills/orchestrate/scripts/summarize-results.sh

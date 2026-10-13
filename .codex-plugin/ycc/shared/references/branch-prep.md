@@ -8,7 +8,7 @@ FEATURE_BRANCH=$(bash ~/.codex/plugins/ycc/shared/scripts/prepare-feature-branch
 
 The helper echoes the prepared branch name on success.
 
-"Trunk" means `main`/`master`/`trunk`/`develop`, plus the `trunk` named in `RELEASING.md` when the repo has one ([branching-model.md](branching-model.md)). Rows marked _(RELEASING.md)_ apply only when `release-state.sh get` reports `present=1`; without the file the helper behaves exactly as it did before the release model.
+"Trunk" means `main`/`master`/`trunk`/`develop`, plus the `trunk` named in `RELEASING.md` when the repo has one (`branching-model.md` in this directory). Rows marked _(RELEASING.md)_ apply only when `release-state.sh get` reports `present=1`; without the file the helper behaves exactly as it did before the release model.
 
 | Current State                                                      | Helper Behavior                                                                                                                                        |
 | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |

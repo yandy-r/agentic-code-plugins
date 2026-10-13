@@ -1,5 +1,13 @@
 # Session State Contract
 
+## Contents
+
+- Store
+- Filename
+- Discovery (resume)
+- Interpretation Rules
+- File Format
+
 Single source of truth for the session-file store, filename, discovery rules, and Markdown format shared by `/ycc:save-session` (writer) and `/ycc:resume-session` (reader).
 
 ## Store

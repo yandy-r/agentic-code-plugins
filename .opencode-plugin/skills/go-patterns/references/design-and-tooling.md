@@ -1,5 +1,13 @@
 # Go Development Patterns: Design and Tooling
 
+## Contents
+
+- Interface Design
+- Package Organization
+- Struct Design
+- Memory and Performance
+- Go Tooling Integration
+
 ## Interface Design
 
 ### Small, Focused Interfaces

@@ -1,5 +1,12 @@
 # Stack Detection
 
+## Contents
+
+- Detection Predicates
+- Manifest + Config Probes
+- Heuristics for Merging with Existing Configs
+- Adding a New Stack
+
 How `profile-style.sh` decides which language tracks and configs apply to a target project. Predicates mirror the upstream logic in `scripts/style.sh` (`detect_*_project` functions, roughly lines 133–181). Keep this table in sync when upstream changes.
 
 ---
@@ -44,7 +51,7 @@ A vendored tree that is committed **and not gitignored** is still source to git.
 Declare it non-source for both detection and linting with either:
 
 - **`.style-excludes`** at the project root — one entry per line; blank lines,
-  `#` lines and ` # ...` trailing comments are ignored (a `#` inside an entry is
+  `#` lines and `entry # comment` trailing comments are ignored (a `#` inside an entry is
   kept). Example:
 
   ```text

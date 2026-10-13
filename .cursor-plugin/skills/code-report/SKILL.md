@@ -52,7 +52,7 @@ Examples:
 
 Extract the feature name from `$ARGUMENTS` (first non-flag argument).
 
-Run the prerequisites check script:
+Run the prerequisites check script in Step 1, before reading planning documents:
 
 ```bash
 ${CURSOR_PLUGIN_ROOT}/skills/code-report/scripts/check-prerequisites.sh [feature-name]

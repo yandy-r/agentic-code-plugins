@@ -1,5 +1,14 @@
 # Python Development Patterns: Design and Tooling
 
+## Contents
+
+- Data Classes and Named Tuples
+- Decorators
+- Concurrency Patterns
+- Package Organization
+- Memory and Performance
+- Python Tooling Integration
+
 ## Data Classes and Named Tuples
 
 ### Data Classes

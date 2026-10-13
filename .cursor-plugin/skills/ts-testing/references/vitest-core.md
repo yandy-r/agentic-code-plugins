@@ -1,5 +1,14 @@
 # TypeScript Testing Patterns: Vitest Core
 
+## Contents
+
+- TDD Workflow for TypeScript
+- Unit Tests
+- Assertions
+- Error and Rejection Testing
+- Integration Tests
+- Async Tests and Fake Timers
+
 ## TDD Workflow for TypeScript
 
 ### The RED-GREEN-REFACTOR Cycle

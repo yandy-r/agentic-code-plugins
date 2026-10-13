@@ -1,5 +1,17 @@
 # Bundle Release Checklist
 
+## Contents
+
+- Phase 0: Pre-flight
+- Phase 1: Decide Bump
+- Phase 2: Bump Version
+- Phase 3: Regenerate Derived Bundles
+- Phase 4: Validate
+- Phase 5: Draft Release Notes
+- Phase 6: Commit and Tag (Manual)
+- Phase 7: Publish (Optional)
+- Rollback
+
 This checklist is the artifact of record for a `ycc:bundle-release` run. It documents
 every ordered step the skill performs, plus manual recovery instructions if a step fails.
 Run it whenever you are preparing a new versioned release of the `ycc` plugin bundle.

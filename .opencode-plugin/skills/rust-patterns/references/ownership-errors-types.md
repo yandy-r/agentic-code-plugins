@@ -1,5 +1,12 @@
 # Rust Development Patterns: Ownership, Errors, and Types
 
+## Contents
+
+- Core Principles
+- Error Handling
+- Enums and Pattern Matching
+- Traits and Generics
+
 ## Core Principles
 
 ### 1. Ownership and Borrowing

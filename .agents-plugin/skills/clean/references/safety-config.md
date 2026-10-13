@@ -1,5 +1,13 @@
 # Project Cleaner Safety Configuration
 
+## Contents
+
+- Protected Directories
+- Protected Files
+- Security-Sensitive Patterns
+- Emergency Stop Conditions
+- User-Defined Exclusions
+
 Protected directories, files, and patterns that should **NEVER** be flagged for removal.
 
 ---

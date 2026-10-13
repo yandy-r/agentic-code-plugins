@@ -1,5 +1,17 @@
 # Parse Parallel-Plan Output
 
+## Contents
+
+- Expected Source Structure
+- Step 1: Extract Plan Context
+- Step 2: Extract Phase Structure
+- Step 3: Extract Tasks per Phase
+- Step 4: Extract Advice
+- Issue Mapping
+- Dependency Cross-References
+- Priority Classification
+- Source-Specific Labels
+
 Extraction instructions for `parallel-plan.md` documents produced by `parallel-plan` or `plan-workflow`.
 
 ## Expected Source Structure
