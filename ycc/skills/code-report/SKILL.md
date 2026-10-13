@@ -1,12 +1,14 @@
 ---
 name: code-report
-description: Generate structured implementation reports documenting changes made during plan execution. Use as optional Step 4 after implement-plan to create reports in docs/plans/[feature-name]/report.md with overview, files changed, features, and test guidance.
+description: 'Generates implementation reports from executed parallel plans. Use when documenting completed work, listing changed files, or recording test guidance.'
 argument-hint: '[feature-name] [--dry-run]'
 ---
 
 # Code Report Generator
 
 Generate structured implementation reports documenting changes made during plan execution. This is an **optional Step 4** in the planning workflow, providing comprehensive documentation of what was implemented.
+
+**Operational context:** After implement-plan, write docs/plans/[feature-name]/report.md with an overview, changed files, implemented features, and test guidance; report generation is optional.
 
 ## Workflow Integration
 

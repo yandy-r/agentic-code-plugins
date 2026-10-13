@@ -1,12 +1,7 @@
 ---
 name: pr-autofix
-description: Vendor-neutral PR comment auto-fix — discover every review thread, file-level
-  review comment, and top-level PR comment from any author (bot or human), dispatch
-  per-comment fix agents, resolve threads on success or reply-then-resolve on skip,
-  and optionally enter the bounded CI auto-fix loop (--ci) to drive the PR to green.
-  Sister skill to /review-fix (which consumes /code-review artifacts); this one consumes
-  GitHub PR comments directly. Use when the user asks to "auto-fix PR comments", "apply
-  reviewer feedback", "fix the PR review", "vendor-neutral autofix", or says "/pr-autofix".
+description: Applies GitHub PR comments and resolves review threads. Use when fixing
+  reviewer feedback, processing bot comments, or driving comment fixes through CI.
 ---
 
 # PR Autofix

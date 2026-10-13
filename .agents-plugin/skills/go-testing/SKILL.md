@@ -1,11 +1,7 @@
 ---
 name: go-testing
-description: Go testing patterns including table-driven tests, subtests, benchmarks,
-  fuzzing, and test coverage. Follows TDD methodology with idiomatic Go practices.
-  Use when the user is writing Go tests, adding test coverage to Go code, asks about
-  table-driven tests, t.Run subtests, t.Helper/t.Cleanup/t.TempDir, testing.B benchmarks,
-  Go 1.18+ fuzzing (f.Fuzz), httptest handler testing, golden files, interface-based
-  mocks, or wants TDD guidance for a Go project.
+description: Guides Go testing with TDD, table-driven tests, and fuzzing. Use when
+  adding Go test coverage, writing benchmarks, or fuzzing input validation.
 ---
 
 # Go Testing Patterns

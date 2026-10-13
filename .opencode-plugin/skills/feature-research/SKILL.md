@@ -1,19 +1,16 @@
 ---
 name: feature-research
-description: Run the 7-agent research pipeline for a new feature — deploys api-researcher,
-  business-analyzer, tech-designer, ux-researcher, security-researcher, practices-researcher,
-  and recommendations-agent in parallel to produce 7 research-*.md files and a consolidated
-  feature-spec.md under docs/plans/[feature-name]/. Default is standalone parallel
-  sub-agents via the native `subagent` tool. Outputs to docs/plans/, NOT docs/prps/.
-  Use when the user asks to "research a feature", "run feature research", "deep-dive
-  a feature before planning", or says "/feature-research". For lightweight single-pass
-  specs in the PRP workflow, use prp-spec instead.
+description: Researches features with seven specialists and consolidates a feature
+  spec. Use when investigating APIs, assessing feature risks, or researching UX before
+  planning.
 ---
 
 # Feature Research
 
 > **OpenCode V2 compatibility:** `--team` is unsupported. If it is supplied, abort before setup or dispatch and ask the caller to rerun without it. This target uses native standalone `subagent` calls only.
 
+
+**Operational context:** Dispatch api-researcher, business-analyzer, tech-designer, ux-researcher, security-researcher, practices-researcher, and recommendations-agent; write seven research-*.md files plus feature-spec.md under docs/plans/[feature-name]/, never docs/prps/. Use /prp-spec for lightweight single-pass PRP specs.
 
 ## Workflow Integration
 

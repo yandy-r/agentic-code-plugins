@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Dual-mode code review — local uncommitted changes or a GitHub PR. Writes a machine-parseable artifact under docs/prps/reviews/ with finding IDs and Status fields (Open/Fixed/Failed) that /review-fix consumes in place. PR mode reads changed files, runs validation commands, assigns severity, and posts the review via gh. Use when the user asks to "review code", "review PR", "check uncommitted changes", "review pr N", "parallel review", "team review", or says "/code-review".
+description: 'Reviews local changes or GitHub PRs and saves actionable findings. Use when reviewing a PR, requesting a full local review, or creating a review-fix artifact.'
 argument-hint: '[--quick] [--approve | --request-changes] [--parallel | --team] [--no-worktree] [--keep-draft] [--keep-worktree] [--yes] [--save] [pr-number | pr-url | blank for local review]'
 allowed-tools:
   - Read
@@ -42,7 +42,7 @@ allowed-tools:
 
 > PR review mode adapted from PRPs-agentic-eng by Wirasm. Part of the PRP workflow series.
 
-**Input**: `$ARGUMENTS`
+**Input**: `$ARGUMENTS` **Operational context:** Save machine-parseable findings under docs/prps/reviews/ with finding IDs and Open/Fixed/Failed Status fields for /review-fix. PR mode reads changed files, runs validation, assigns severity, and posts via gh; use /quick-review for an inline-first local review.
 
 ---
 

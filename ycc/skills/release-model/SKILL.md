@@ -1,6 +1,6 @@
 ---
 name: release-model
-description: This skill should be used when the user asks to "create a RELEASING.md", "set up a branching model", "define a release process", "document how we branch and release", "add release branches", "switch to release branches", "upgrade the release model", "audit the release model", "check RELEASING.md", or when a repo has no written branching/release model and a skill (init, blueprint, releaser) offers to create one. Surveys the repo (tags, release/* branches, CI triggers, version files, sync merges), proposes trunk-only (every release tagged from the trunk) or release-branches (minors from the trunk, patches from release/X.Y with backports), and renders a project-specific RELEASING.md with a machine-readable state block plus pointer sections in CLAUDE.md and AGENTS.md. --upgrade moves trunk-only to release-branches; --audit reports drift read-only. Never commits or pushes.
+description: 'Creates, upgrades, or audits RELEASING.md branching policy. Use when defining a release process, adding maintenance branches, or checking release-model drift.'
 argument-hint: '[--upgrade | --audit] [--model trunk-only|release-branches] [--trunk NAME] [--yes]'
 allowed-tools:
   - Read
@@ -26,8 +26,9 @@ allowed-tools:
 
 Create, upgrade, or audit a project's `RELEASING.md` — the single source of truth for its
 trunk, maintenance branches, and release steps. Every other ycc skill that picks a base
-branch, opens a PR, cuts a release, or cleans up branches reads it through
-`release-state.sh`.
+branch, opens a PR, cuts a release, or cleans up branches reads it through `release-state.sh`.
+
+**Operational context:** Render project-specific RELEASING.md with machine-readable state and CLAUDE.md/AGENTS.md pointers. Trunk-only tags every release from trunk; release-branches tags minors from trunk and patches from release/X.Y with backports. --upgrade moves to release-branches; --audit reports drift read-only.
 
 The rules themselves (both models, where a change goes, backporting, the state-block
 format) live in `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/branching-model.md`. Cite

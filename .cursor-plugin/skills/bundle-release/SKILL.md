@@ -1,6 +1,6 @@
 ---
 name: bundle-release
-description: Maintainer-only (ycc repo) — This skill should be used when the user asks to "release ycc", "bump ycc version", "prepare a ycc release", "cut a new ycc release", "tag a ycc release", or when the user wants to version, regenerate, validate, and produce release notes for the ycc bundle. Orchestrates existing generators/validators; never auto-commits.
+description: 'Prepares ycc bundle releases for ycc maintainers only. Use when bumping ycc version, regenerating release bundles, or drafting ycc release notes.'
 argument-hint: '<new-version> [--dry-run] [--skip-notes] [--no-publish]'
 allowed-tools:
   - Read

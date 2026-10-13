@@ -1,6 +1,6 @@
 ---
 name: init
-description: This skill should be used when the user asks to "initialize workspace", "init project", "bootstrap CLAUDE.md", "generate AGENTS.md", "set up cursor rules", "add github issue templates", "add conventional commits config", "configure agents and MCPs for project", or any workspace/project initialization request. Profiles the project, emits the AI-agent doc trio (CLAUDE.md, AGENTS.md, .cursor/rules/project.mdc), and optionally GitHub templates and git conventions.
+description: 'Initializes project AI-agent docs and workspace conventions. Use when generating agent rules docs, adding GitHub templates, or bootstrapping project rules.'
 argument-hint: '[--dry-run] [--docs-only] [--templates] [--git] [--vendor-neutral] [--formatters] [--release-model[=trunk-only|release-branches]] [--no-release-model] [--update] [--force] [--profile=rust|ts-node|python|go|mixed|empty]'
 allowed-tools:
   - Read

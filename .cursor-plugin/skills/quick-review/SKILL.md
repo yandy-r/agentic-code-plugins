@@ -1,6 +1,6 @@
 ---
 name: quick-review
-description: Fast interactive review of uncommitted changes — prints findings inline, writes nothing by default. "Apply fixes" hands findings to /quick-fix; "Save to file" writes an artifact under docs/prps/reviews; "Write file and apply fixes" hands off to /review-fix. For short changes where a full /code-review artifact is overkill. Use when the user asks to "quick review", "fast review", "review what I have", "on-the-fly review", or says "/quick-review".
+description: 'Reviews uncommitted changes inline without saving by default. Use when requesting a quick review, checking a small local diff, or reviewing without a saved artifact.'
 argument-hint: '[--parallel | --team] [--yes | --save | --write-and-apply] [--severity <level>] [--no-worktree]'
 allowed-tools:
   - Read
@@ -29,8 +29,9 @@ allowed-tools:
 
 # Quick Review
 
-Interactive low-friction review of uncommitted changes. Output is **inline**.
-The default fix path is artifact-free.
+Interactive low-friction review of uncommitted changes. Output is **inline**. The default fix path is artifact-free.
+
+**Operational context:** "Apply fixes" delegates inline findings to /quick-fix without an artifact; "Save to file" saves under docs/prps/reviews/; "Write file and apply fixes" saves an artifact and delegates to /review-fix. Writes require confirmation unless a documented scripted action selects them.
 
 **Input**: `$ARGUMENTS`
 

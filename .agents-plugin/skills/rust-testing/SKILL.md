@@ -1,9 +1,7 @@
 ---
 name: rust-testing
-description: Rust testing patterns including unit tests, integration tests, async
-  testing, property-based testing, mocking, and coverage. Follows TDD methodology.
-  Use when the user is writing Rust tests, adding test coverage to Rust code, asks
-  about
+description: Guides Rust testing with TDD and property checks. Use when adding Rust
+  test coverage, testing async code, or writing proptest cases and benchmarks.
 ---
 
 # Rust Testing Patterns

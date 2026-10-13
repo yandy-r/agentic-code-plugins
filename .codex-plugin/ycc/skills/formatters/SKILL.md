@@ -1,19 +1,14 @@
 ---
 name: formatters
-description: Use this skill when the user asks to "initialize formatters", "bootstrap
-  linting", "add lint and format scripts", "set up prettier / biome / ruff / clippy
-  / golangci-lint / shellcheck", "add a Makefile lint target", "install a style bundle",
-  "wire a pre-commit hook for linting", or any request to stand up a best-practices
-  lint/format environment in a project. Profiles the target, installs a self-contained
-  `scripts/style.sh` bundle, configures per-language tool files, injects runnable
-  aliases (package.json / Makefile / justfile), appends a "Linting & Formatting" section
-  to the project docs, and optionally wires CI and pre-commit hooks. Idempotent via
-  a managed manifest — safe to re-run with `--sync`.
+description: Bootstraps project linting and formatting tools. Use when installing
+  formatters, adding lint scripts, or wiring lint CI and pre-commit hooks.
 ---
 
 # Formatters Bootstrap
 
 Installs a best-practices lint/format environment into a target project. Does not reimplement linter dispatch — it drives the repo's own `scripts/style.sh init --copy|--sync` machinery and adds documentation, aliases, CI, and hook wiring on top.
+
+**Operational context:** Install the self-contained scripts/style.sh bundle and per-language configs, add package.json/Makefile/justfile aliases and project docs, and optionally wire CI and pre-commit hooks. Preserve managed-manifest idempotency; --sync is the rerun path.
 
 ## Current Target Context
 

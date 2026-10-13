@@ -1,6 +1,6 @@
 ---
 name: blueprint
-description: Interactive, whole-project source-of-truth spec generator. Takes a raw software idea, interrogates it through a multi-gate process (Foundation → Grounding → Scope → Tech Stack → Architecture → Generate), and writes a durable project charter at docs/blueprint.md — vision, users, scope, tech-stack decision, architecture, modules, NFRs, milestones, risks. Its machine-readable Bootstrap section then drives project bootstrap (code init, CI, formatters) by orchestrating /ycc:init and /ycc:formatters. Use when the user asks to "create a project spec", "write a software spec", "whole-project spec", "source of truth spec", "scaffold/bootstrap a new software project from an idea", "project charter/blueprint", or says "/blueprint". Sits UPSTREAM of prp-prd/prp-spec — those are per-feature; this is the whole software.
+description: 'Creates whole-project blueprints and bootstraps new software. Use when defining a project charter, choosing system architecture, or scaffolding an idea.'
 argument-hint: '[project idea] (blank = start with questions) [--update] [--dry-run]'
 allowed-tools:
   - Read
@@ -23,9 +23,10 @@ allowed-tools:
 
 # Project Blueprint Generator
 
-> The whole-software charter. Sits at the top of the funnel — upstream of `prp-prd`,
-> `prp-spec`, and every other planning skill. Produces ONE durable source-of-truth spec
-> for an entire piece of software, then bootstraps the project from it.
+> The whole-software charter. Sits at the top of the funnel — upstream of `prp-prd`, `prp-spec`, and every other planning
+> skill. Produces ONE durable source-of-truth spec for an entire piece of software, then bootstraps the project from it.
+
+**Operational context:** Write the whole-project source of truth to docs/blueprint.md through Foundation, Grounding, Scope, Tech Stack, Architecture, and Generate gates; its machine-readable Bootstrap section drives /ycc:init and /ycc:formatters. This is upstream of per-feature prp-prd and prp-spec.
 
 **Input**: `$ARGUMENTS`
 

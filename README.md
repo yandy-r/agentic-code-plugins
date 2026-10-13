@@ -16,57 +16,57 @@ The source plugin ships **49 skills**, **49 slash-invocable skills**, and **55 a
 
 <!-- BEGIN:GENERATED-COMMANDS -->
 
-| Command / Skill            | Purpose                                                                                                                                                                                 |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/ycc:backport`            | Cherry-pick merged trunk PRs onto active maintenance branches (release/X.Y) and open one backport PR per target — driven by the project's RELEASING.md release-branches model and it... |
-| `/ycc:blueprint`           | Interactive, whole-project source-of-truth spec generator.                                                                                                                              |
-| `/ycc:bundle-author`       | Maintainer-only (ycc repo) — This skill should be used when the user asks to "scaffold a new ycc skill", "add a skill to the bundle", "extend ycc", "add an agent to ycc", or when t... |
-| `/ycc:bundle-release`      | Maintainer-only (ycc repo) — This skill should be used when the user asks to "release ycc", "bump ycc version", "prepare a ycc release", "cut a new ycc release", "tag a ycc release... |
-| `/ycc:clean`               | This skill should be used when the user asks to "clean project files", "remove unnecessary files", "clean up project", "find unused files", "project cleanup", or mentions removing...  |
-| `/ycc:code-report`         | Generate structured implementation reports documenting changes made during plan execution.                                                                                              |
-| `/ycc:code-review`         | Dual-mode code review — local uncommitted changes or a GitHub PR.                                                                                                                       |
-| `/ycc:compatibility-audit` | Maintainer-only (ycc repo) — This skill should be used when the user asks to "audit ycc compatibility", "check Cursor/Codex bundle health", "verify cross-target parity", "run a com... |
-| `/ycc:deep-research`       | Conduct strategic multi-perspective research using the Asymmetric Research Squad methodology with 8 specialized personas.                                                               |
-| `/ycc:feature-research`    | Run the 7-agent research pipeline for a new feature — deploys api-researcher, business-analyzer, tech-designer, ux-researcher, security-researcher, practices-researcher, and recomm... |
-| `/ycc:formatters`          | Use this skill when the user asks to "initialize formatters", "bootstrap linting", "add lint and format scripts", "set up prettier / biome / ruff / clippy / golangci-lint / shellch... |
-| `/ycc:frontend-design`     | Create distinctive, production-grade frontend interfaces with intentional visual direction — typography, color, spacing rhythm, layout composition, motion, and atmosphere.             |
-| `/ycc:frontend-patterns`   | Frontend patterns for React and Next.js — composition, compound components, render props, custom hooks, state management with Context+useReducer, data fetching, performance optimiz... |
-| `/ycc:git-cleanup`         | This skill should be used when the user asks to "clean up git", "prune stale branches", "clean up worktrees", "close stale PRs/issues", "tidy up my repo", or mentions removing aban... |
-| `/ycc:git-workflow`        | Git commit and documentation workflow manager.                                                                                                                                          |
-| `/ycc:go-patterns`         | Idiomatic Go patterns, best practices, and conventions for building robust, efficient, and maintainable Go applications.                                                                |
-| `/ycc:go-testing`          | Go testing patterns including table-driven tests, subtests, benchmarks, fuzzing, and test coverage.                                                                                     |
-| `/ycc:hooks-workflow`      | Convert rule-file hook guidance into target-appropriate config.                                                                                                                         |
-| `/ycc:implement-plan`      | Execute a parallel implementation plan by deploying implementor agents in dependency-resolved batches.                                                                                  |
-| `/ycc:init`                | This skill should be used when the user asks to "initialize workspace", "init project", "bootstrap CLAUDE.md", "generate AGENTS.md", "set up cursor rules", "add github issue templa... |
-| `/ycc:orchestrate`         | Orchestrate multiple specialized agents in parallel to accomplish complex tasks.                                                                                                        |
-| `/ycc:parallel-plan`       | Create detailed parallel implementation plans (alias for plan-workflow plan-only).                                                                                                      |
-| `/ycc:plan`                | Lightweight conversational planner — dispatches ycc:planner (or a multi-perspective fan-out) to produce a phased plan with file paths, dependencies, risks, and tests, then WAITS fo... |
-| `/ycc:plan-workflow`       | Unified planning workflow - research, analyze, and generate parallel implementation plans in one command.                                                                               |
-| `/ycc:pr-autofix`          | Vendor-neutral PR comment auto-fix — discover every review thread, file-level review comment, and top-level PR comment from any author (bot or human), dispatch per-comment fix agen... |
-| `/ycc:prp-commit`          | Lightweight natural-language git commit helper.                                                                                                                                         |
-| `/ycc:prp-implement`       | Execute a PRP plan file with per-task validation loops.                                                                                                                                 |
-| `/ycc:prp-plan`            | Create a self-contained feature implementation plan with codebase pattern extraction and optional external research.                                                                    |
-| `/ycc:prp-pr`              | Create a GitHub pull request from the current branch — validates preconditions, discovers PR templates, analyzes commits and file diffs, references PRP artifacts (prds/plans/report... |
-| `/ycc:prp-prd`             | Interactive, problem-first PRD generator that runs an iterative questioning workflow — Foundation → Market Grounding → Vision → Technical Feasibility → Decisions → Generate.           |
-| `/ycc:prp-spec`            | Generate a lightweight feature spec for the PRP workflow — single-pass with optional codebase/market grounding via ycc:prp-researcher.                                                  |
-| `/ycc:python-patterns`     | Idiomatic Python patterns, PEP 8 conventions, type hints, dataclasses, context managers, decorators, and best practices for building robust, maintainable Python applications.          |
-| `/ycc:python-testing`      | Python testing patterns using pytest — TDD methodology, fixtures (function/module/session scopes), parametrization, markers, mocking with unittest.mock, async tests with pytest-asy... |
-| `/ycc:quick-fix`           | Apply fixes directly from an inline /ycc:quick-review findings block without creating a review artifact.                                                                                |
-| `/ycc:quick-review`        | Fast interactive review of uncommitted changes — prints findings inline, writes nothing by default.                                                                                     |
-| `/ycc:release-model`       | This skill should be used when the user asks to "create a RELEASING.md", "set up a branching model", "define a release process", "document how we branch and release", "add release...  |
-| `/ycc:releaser`            | This skill should be used when the user asks to "prepare a release", "cut a release", "tag a release", "create a GitHub release", "draft release notes", "set up release CI", "add a... |
-| `/ycc:research-to-issues`  | This skill should be used when the user asks to "create issues from research", "turn research into GitHub issues", "create issues from feature spec", "turn plan into issues", "issu... |
-| `/ycc:resume-session`      | Load the most recent session file from ~/.claude/session-data/ (or a specified one by date or path) and produce a structured briefing of what was built, what worked, what NOT to re... |
-| `/ycc:review-fix`          | Plan and apply fixes for findings in a /ycc:code-review artifact.                                                                                                                       |
-| `/ycc:rust-patterns`       | Idiomatic Rust patterns, ownership, error handling, traits, concurrency, and best practices for building safe, performant applications.                                                 |
-| `/ycc:rust-testing`        | Rust testing patterns including unit tests, integration tests, async testing, property-based testing, mocking, and coverage.                                                            |
-| `/ycc:save-session`        | Capture the current session state — what was built, what worked, what failed, open questions, and exact next step — to a dated file at ~/.claude/session-data/YYYY-MM-DD-{shortid}-s... |
-| `/ycc:shared-context`      | Create shared context documentation for a feature (alias for plan-workflow research-only).                                                                                              |
-| `/ycc:ts-patterns`         | Idiomatic TypeScript patterns — strict type system, discriminated unions, generic inference, `satisfies`, branded types, errors as values, ESM/CJS modules with `exports` maps, Prom... |
-| `/ycc:ts-testing`          | TypeScript testing patterns using Vitest as the primary runner — TDD workflow, unit tests, integration tests, async tests with fake timers, parameterized tests via `test.each`, pro... |
-| `/ycc:visual-plan`         | Turn an existing text plan into a rich, interactive visual plan — diagrams, file maps, annotated code, open questions, and an optional UI/prototype review surface.                     |
-| `/ycc:visual-recap`        | Turn a finished change — a git range, branch, or tracked working-tree diff — into a LOCAL-ONLY interactive visual recap (annotated diffs, file map, schema/API deltas, diagrams, wir... |
-| `/ycc:write-docs`          | Orchestrate 5 specialized documentation agents in parallel to analyze codebase and create comprehensive documentation.                                                                  |
+| Command / Skill            | Purpose                                                                          |
+| -------------------------- | -------------------------------------------------------------------------------- |
+| `/ycc:backport`            | Backports merged trunk PRs to maintenance branches.                              |
+| `/ycc:blueprint`           | Creates whole-project blueprints and bootstraps new software.                    |
+| `/ycc:bundle-author`       | Scaffolds ycc skills and agents for ycc maintainers only.                        |
+| `/ycc:bundle-release`      | Prepares ycc bundle releases for ycc maintainers only.                           |
+| `/ycc:clean`               | Removes unnecessary project-directory files with approval.                       |
+| `/ycc:code-report`         | Generates implementation reports from executed parallel plans.                   |
+| `/ycc:code-review`         | Reviews local changes or GitHub PRs and saves actionable findings.               |
+| `/ycc:compatibility-audit` | Audits ycc compatibility for ycc maintainers only.                               |
+| `/ycc:deep-research`       | Conducts multi-perspective strategic research.                                   |
+| `/ycc:feature-research`    | Researches features with seven specialists and consolidates a feature spec.      |
+| `/ycc:formatters`          | Bootstraps project linting and formatting tools.                                 |
+| `/ycc:frontend-design`     | Builds frontend interfaces with intentional visual direction.                    |
+| `/ycc:frontend-patterns`   | Guides React and Next.js component architecture and performance.                 |
+| `/ycc:git-cleanup`         | Audits stale Git resources and cleans them with approval.                        |
+| `/ycc:git-workflow`        | Orchestrates commits, documentation updates, pushes, and PRs.                    |
+| `/ycc:go-patterns`         | Guides idiomatic Go design, errors, and concurrency.                             |
+| `/ycc:go-testing`          | Guides Go testing with TDD, table-driven tests, and fuzzing.                     |
+| `/ycc:hooks-workflow`      | Generates hook configuration from language rules.                                |
+| `/ycc:implement-plan`      | Executes parallel-plan.md with dependency-aware implementor batches.             |
+| `/ycc:init`                | Initializes project AI-agent docs and workspace conventions.                     |
+| `/ycc:orchestrate`         | Coordinates specialized agents in dependency-resolved batches.                   |
+| `/ycc:parallel-plan`       | Creates parallel-plan.md from existing shared.md through plan-workflow.          |
+| `/ycc:plan`                | Creates lightweight conversational implementation plans and waits for approval.  |
+| `/ycc:plan-workflow`       | Researches, analyzes, and validates feature plans with checkpoints.              |
+| `/ycc:pr-autofix`          | Applies GitHub PR comments and resolves review threads.                          |
+| `/ycc:prp-commit`          | Stages selected changes and creates one Conventional Commit.                     |
+| `/ycc:prp-implement`       | Executes PRP plan files with validation loops, reports, and archiving.           |
+| `/ycc:prp-plan`            | Creates self-contained PRP plans with codebase patterns.                         |
+| `/ycc:prp-pr`              | Creates GitHub PRs from already-committed branches without commit orchestration. |
+| `/ycc:prp-prd`             | Develops problem-first PRDs through interactive discovery.                       |
+| `/ycc:prp-spec`            | Writes lightweight single-pass PRP feature specs.                                |
+| `/ycc:python-patterns`     | Guides idiomatic Python design and resource handling.                            |
+| `/ycc:python-testing`      | Guides pytest testing with TDD, fixtures, and mocks.                             |
+| `/ycc:quick-fix`           | Applies inline Quick Review findings without review artifacts.                   |
+| `/ycc:quick-review`        | Reviews uncommitted changes inline without saving by default.                    |
+| `/ycc:release-model`       | Creates, upgrades, or audits RELEASING.md branching policy.                      |
+| `/ycc:releaser`            | Prepares external-project releases, notes, and release CI.                       |
+| `/ycc:research-to-issues`  | Converts research and planning documents into structured tracking issues.        |
+| `/ycc:resume-session`      | Loads saved session context and briefs the next step without starting work.      |
+| `/ycc:review-fix`          | Applies saved code-review findings and updates artifact status.                  |
+| `/ycc:rust-patterns`       | Guides idiomatic Rust ownership, errors, and concurrency.                        |
+| `/ycc:rust-testing`        | Guides Rust testing with TDD and property checks.                                |
+| `/ycc:save-session`        | Saves session progress, failures, and next steps for later resumption.           |
+| `/ycc:shared-context`      | Creates verified shared.md research context through plan-workflow.               |
+| `/ycc:ts-patterns`         | Guides framework-agnostic TypeScript types, modules, and async code.             |
+| `/ycc:ts-testing`          | Guides TypeScript testing with Vitest and TDD.                                   |
+| `/ycc:visual-plan`         | Renders existing plans as interactive visual documents.                          |
+| `/ycc:visual-recap`        | Builds local-only visual recaps from Git diffs.                                  |
+| `/ycc:write-docs`          | Coordinates parallel documentation agents to audit and improve project docs.     |
 
 <!-- END:GENERATED-COMMANDS -->
 

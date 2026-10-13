@@ -1,11 +1,8 @@
 ---
 name: shared-context
-description: Create shared context documentation for a feature (alias for plan-workflow
-  research-only). Deploys researchers that write research artifacts, then synthesizes
-  verified findings into shared.md. Use as Step 1 before parallel-plan when preparing
-  implementation context. Pass `--team` (Codex runtime only; not available in bundle
-  invocations) to deploy researchers as teammates under a shared create an agent group/the
-  task tracker with coordinated shutdown.
+description: Creates verified shared.md research context through plan-workflow. Use
+  when gathering codebase context, preparing shared context for parallel-plan, or
+  researching without generating a plan.
 ---
 
 ## MANDATORY FORCED MODE - READ FIRST

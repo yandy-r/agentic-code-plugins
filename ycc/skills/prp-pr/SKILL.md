@@ -1,6 +1,6 @@
 ---
 name: prp-pr
-description: Create a GitHub pull request from the current branch — validates preconditions, discovers PR templates, analyzes commits and file diffs, references PRP artifacts (prds/plans/reports), pushes, and creates the PR via gh. Lightweight sibling of /ycc:git-workflow --pr; use this when you only need the PR, not the commit+docs orchestration. Adapted from PRPs-agentic-eng by Wirasm.
+description: 'Creates GitHub PRs from already-committed branches without commit orchestration. Use when opening a PR for current commits, drafting a template-based PR, or linking PRP artifacts in a PR.'
 argument-hint: '[base-branch] [--draft] [--ci] [--ci-max-pushes=N] [--ci-max-same-failure=N] [--ci-timeout-min=N] [--ci-yes]'
 allowed-tools:
   - Read

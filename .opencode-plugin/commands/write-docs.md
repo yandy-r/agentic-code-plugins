@@ -1,7 +1,7 @@
 ---
-description: 'Orchestrate 5 specialized documentation agents in parallel to analyze
-  codebase and create comprehensive documentation. Includes audit, gap analysis, parallel
-  agent deployment, and quality assurance. Usage: [scope] [--update|--fresh|--dry-run]'
+description: 'Coordinates parallel documentation agents to audit and improve project
+  docs. Use when generating codebase documentation, filling documentation gaps, or
+  updating existing docs. Usage: [scope] [--update|--fresh|--dry-run]'
 ---
 
 Use the skill tool to load the `write-docs` skill, then follow its instructions with these arguments:

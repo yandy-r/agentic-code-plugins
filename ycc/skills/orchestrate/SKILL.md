@@ -1,6 +1,6 @@
 ---
 name: orchestrate
-description: Orchestrate multiple specialized agents in parallel to accomplish complex tasks. Decomposes the task, deploys implementor agents in dependency-resolved batches, and synthesizes results. Defaults to standalone sub-agents; pass --team (Claude Code only) to dispatch via an agent team with shared TaskList, up-front TaskCreate/addBlockedBy dependency wiring, and coordinated inter-batch shutdown via SendMessage. Worktree isolation is ON by default; all parallel and sequential agents share one feature worktree. Pass --no-worktree to opt out.
+description: 'Coordinates specialized agents in dependency-resolved batches. Use when delegating a complex task, splitting independent implementation work, or coordinating multiple specialists.'
 argument-hint: '[--team] [--dry-run] [--plan-only] [--sequential] [--worktree] [--no-worktree] <task-description>'
 allowed-tools:
   - Read
@@ -28,7 +28,7 @@ allowed-tools:
 
 # Multi-Agent Orchestration Skill
 
-You are an orchestration expert coordinating multiple specialized agents to accomplish complex tasks. **Your role is to coordinate agents, not do the work yourself.**
+You are an orchestration expert coordinating multiple specialized agents to accomplish complex tasks. **Your role is to coordinate agents, not do the work yourself.** **Operational context:** Worktree isolation is on by default; all parallel and sequential agents share one feature worktree. --no-worktree runs in the current checkout. Standalone sub-agents are default.
 
 Parallelism is the baseline of this skill — every batch's tasks dispatch concurrently. The only choice is **how** the implementor agents are dispatched:
 

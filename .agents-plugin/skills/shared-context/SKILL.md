@@ -1,10 +1,8 @@
 ---
 name: shared-context
-description: Create shared context documentation for a feature (alias for plan-workflow
-  research-only). Deploys researchers that write research artifacts, then synthesizes
-  verified findings into shared.md. Use as Step 1 before parallel-plan when preparing
-  implementation context. Pass `--team` (Claude Code only) to deploy researchers as
-  teammates under a shared TeamCreate/TaskList with coordinated shutdown.
+description: Creates verified shared.md research context through plan-workflow. Use
+  when gathering codebase context, preparing shared context for parallel-plan, or
+  researching without generating a plan.
 allowed-tools:
 - Read
 - Grep

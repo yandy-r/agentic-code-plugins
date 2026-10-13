@@ -1,10 +1,8 @@
 ---
 name: git-workflow
-description: Git commit and documentation workflow manager. Analyzes changes, determines
-  commit strategy (direct vs agents), writes conventional commit messages, coordinates
-  documentation updates, and creates pull requests. Use when completing features,
-  making commits, pushing changes, creating PRs, or when the user says "It's time
-  to push commits."
+description: Orchestrates commits, documentation updates, pushes, and PRs. Use when
+  finishing a feature with docs, coordinating multiple commits, or shipping changes
+  through a full Git workflow.
 ---
 
 # Git Workflow Manager

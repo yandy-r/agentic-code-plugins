@@ -1,6 +1,6 @@
 ---
 name: visual-recap
-description: Turn a finished change — a git range, branch, or tracked working-tree diff — into a LOCAL-ONLY interactive visual recap (annotated diffs, file map, schema/API deltas, diagrams, wireframes) under docs/prps/reviews/visual/, previewed in the browser via the localhost bridge. Use when the user asks to "recap this branch", "show what changed visually", "visual recap", "review the diff visually", or says "/visual-recap". Never uploads code to a hosted service; remote-agnostic (identical on the public GitHub remote and the private Forgejo origin).
+description: 'Builds local-only visual recaps from Git diffs. Use when recapping a finished branch, visualizing a commit range, or reviewing working-tree changes visually.'
 argument-hint: '[base..head | branch]'
 allowed-tools:
   - Read
@@ -14,13 +14,14 @@ allowed-tools:
 
 # Visual Recap (LOCAL-ONLY)
 
-`/visual-recap` builds a visual plan **from** a diff, not toward one. It is the
-reverse of forward planning: instead of describing the change you are about to
-make, you describe the change that was just made, at a higher altitude than
-line-by-line review. Schema, API, file, and architecture changes become the same
-`data-model`, `api-endpoint`, `file-tree`, and `diagram` blocks a forward plan
-would use, only now they summarize work that exists. A reviewer scans the shape
-of the change before spending attention on the literal lines.
+`/visual-recap` builds a visual plan **from** a diff, not toward one. It is the reverse of
+forward planning: instead of describing the change you are about to make, you describe the
+change that was just made, at a higher altitude than line-by-line review. Schema, API,
+file, and architecture changes become the same `data-model`, `api-endpoint`, `file-tree`,
+and `diagram` blocks a forward plan would use, only now they summarize work that exists. A
+reviewer scans the shape of the change before spending attention on the literal lines.
+
+**Operational context:** Keep recap content local-only: write docs/prps/reviews/visual/ and preview through the localhost bridge; never upload code to hosted services. Accept a Git range, branch, or tracked working-tree diff; behavior is remote-agnostic.
 
 ## LOCAL-ONLY mandate — read this first
 
