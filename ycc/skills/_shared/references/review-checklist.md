@@ -2,7 +2,7 @@
 
 > Canonical review checklist, severity rubric, parallel-reviewer roster, and
 > standard findings format. Consumed by `ycc:code-review` (local + PR modes)
-> and `ycc:quick-review`. Skills that delegate here MUST NOT duplicate the
+> and `ycc:quick-review`. Skills that delegate here must not duplicate the
 > content below — reference this file instead.
 
 ---
@@ -24,6 +24,8 @@ Findings are grouped by severity in the artifact under `### CRITICAL`,
 ## Local / Quick Review — Single-Pass Checklist (Path A)
 
 Applied to uncommitted changes on `HEAD`. Read each changed file in full.
+Flag only gaps that affect correctness or the stated requirements. Checklist
+items are prompts for investigation, not automatic findings or style quotas.
 
 **Security Issues (CRITICAL):**
 
@@ -56,7 +58,8 @@ Applied to uncommitted changes on `HEAD`. Read each changed file in full.
 ## PR Review — Single-Pass Checklist (Path A, 7 Categories)
 
 Applied to PR head-revision file contents. Each category is independent —
-a single finding may touch several.
+a single finding may touch several. Flag only gaps that affect correctness or
+the stated requirements.
 
 | Category               | What to Check                                                                 |
 | ---------------------- | ----------------------------------------------------------------------------- |
@@ -76,7 +79,7 @@ Three standalone `ycc:code-reviewer` sub-agents, dispatched via the blocking `Ta
 tool — never the async `Agent` tool (Path B), or agent-team teammates spawned via
 `Agent`+`team_name` (Path C). See
 [standalone-dispatch.md](${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/standalone-dispatch.md)
-for the full `Task` spawn/return contract that Path B MUST follow. The **focus
+for the full `Task` spawn/return contract that Path B must follow. The **focus
 split** differs between local/quick and PR modes because local mode has a
 narrower category set.
 
@@ -95,25 +98,6 @@ narrower category set.
 | `correctness-reviewer` | Correctness, Type Safety, Completeness | Logic errors, off-by-ones, null handling, edge cases, race conditions, type mismatches, unsafe casts, `any` usage, missing generics, missing tests, incomplete migrations |
 | `security-reviewer`    | Security, Performance                  | Injection, auth gaps, secret exposure, SSRF, path traversal, XSS, N+1 queries, missing indexes, unbounded loops, memory leaks, large payloads                             |
 | `quality-reviewer`     | Pattern Compliance, Maintainability    | Project conventions (naming, file structure, error handling, imports), dead code, magic numbers, deep nesting, unclear naming, missing types                              |
-
-Each reviewer prompt MUST include:
-
-1. The list of changed files (mode-specific: `git diff --name-only HEAD` for
-   local/quick; PR number + head revision + changed-file list for PR).
-2. Relevant context (CLAUDE.md rules, PRP artifacts, PR description) — PR mode only.
-3. Its assigned focus / categories and what to check (from the appropriate table
-   above).
-4. The severity rubric.
-5. A directive to return findings in the **Standard Findings Format** below.
-6. (Path B only) A directive that the reviewer is dispatched via the blocking
-   `Task` tool and MUST return its findings inline as that `Task` call's
-   result — never background, poll, or sleep-wait for it (see
-   [standalone-dispatch.md](${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/standalone-dispatch.md)).
-7. (Path B only) A directive that the reviewer must ALSO write its Standard
-   Findings Format block to a scratch backstop file before returning, at
-   `docs/prps/reviews/.review-scratch/<run-id>/<reviewer-name>.md`, where
-   `<run-id>` is supplied by the caller: `local-<YYYYMMDD-HHMMSS>` for local
-   mode, `pr-<NUMBER>` for PR mode, `quick-<YYYYMMDD-HHMMSS>` for quick mode.
 
 ---
 
@@ -174,19 +158,3 @@ review.
 `docs/prps/reviews/.review-scratch/<run-id>/` directory.
 
 ---
-
-## Finding Artifact Fields
-
-After merging, each finding is promoted to an artifact-format block with these
-fields. The `[F###]` ID is assigned sequentially ordered by severity (CRITICAL
-first), then by file path. Status is always `Open` on first write.
-
-```markdown
-- **[F001]** `file:line` — description
-  - **Status**: Open
-  - **Category**: <category>
-  - **Suggested fix**: <fix>
-```
-
-See `/ycc:code-review` → "Review Artifact Format" for the full artifact schema
-(Header, Summary, Findings, Worktree Setup, Validation Results, Files Reviewed).

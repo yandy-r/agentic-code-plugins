@@ -517,10 +517,6 @@
       "size": 323
     },
     {
-      "id": "S1:ycc/skills/code-review/SKILL.md:body-lines",
-      "size": 911
-    },
-    {
       "id": "S1:ycc/skills/deep-research/SKILL.md:body-lines",
       "size": 829
     },
@@ -561,10 +557,6 @@
       "size": 719
     },
     {
-      "id": "S1:ycc/skills/review-fix/SKILL.md:body-lines",
-      "size": 863
-    },
-    {
       "id": "S6:ycc/skills/bundle-author/SKILL.md:unmentioned file references/templates/agent-template.md"
     },
     {
@@ -572,9 +564,6 @@
     },
     {
       "id": "S6:ycc/skills/bundle-release/SKILL.md:unmentioned file references/release-notes-template.md"
-    },
-    {
-      "id": "S6:ycc/skills/code-review/SKILL.md:unmentioned file references/sample-pr-review-with-worktree.md"
     },
     {
       "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file references/templates/husky-pre-commit.tmpl"

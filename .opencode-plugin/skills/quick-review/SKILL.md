@@ -15,7 +15,7 @@ Interactive low-friction review of uncommitted changes. Output is **inline**. Th
 
 **Input**: `$ARGUMENTS`
 
-**Core rule**: "Apply fixes" MUST NOT write a review artifact. It hands the
+**Core rule**: "Apply fixes" must not write a review artifact. It hands the
 inline findings directly to `/quick-fix`. Only "Save to file" and
 "Write file and apply fixes" write `docs/prps/reviews/quick-*.md`.
 
@@ -64,77 +64,24 @@ Capture the list of changed files as `CHANGED_FILES` for the REVIEW phase.
 
 ## Phase 2 — REVIEW
 
-The shape of this phase depends on `PARALLEL_MODE`:
-
-| Flags             | Path                                        |
-| ----------------- | ------------------------------------------- |
-| Neither set       | **Path A** — single-pass review (default)   |
-| `PARALLEL_MODE`   | **Path B** — 3 parallel sub-agent reviewers |
+Neither flag: **Path A** single-pass (default). `PARALLEL_MODE`: **Path B**,
 
 Findings from all paths stay **in memory**. Do not write to disk here.
 
 ### Path A — Single-Pass Review (default)
 
 Read each changed file in full and apply the **Local / Quick Review —
-Single-Pass Checklist** and **Severity Rubric** from:
+Single-Pass Checklist** and **Severity Rubric**. Flag only gaps that affect
+correctness or the stated requirements. From:
 
 ```
 ~/.config/opencode/shared/references/review-checklist.md
 ```
-
-### Path B — Parallel Sub-Agent Review (`PARALLEL_MODE=true`)
-
-Generate `TIMESTAMP=$(date +%Y%m%d-%H%M%S)` once, here, and reuse the same
-variable for the scratch run-id below and, if the user later selects an
-artifact-writing path in Phase 5, for the `quick-<TIMESTAMP>-review.md`
-filename — one canonical timestamp per invocation (the same pattern Path C
-uses for its team name when that path runs instead). Set
-`run-id = quick-<TIMESTAMP>`.
-
-> **OpenCode V2 standalone dispatch:** Issue the independent calls in one
-> parallel tool batch and set `background=false` on every call. Each call waits
-> for a candidate report. Require nonempty report text, validate the declared
-> artifact or diff independently, and do not treat a terminal lifecycle state
-> as proof of the deliverable. Apply the contentless-completion and bounded
-> retry policy from
-> [standalone-dispatch.md](~/.config/opencode/shared/references/standalone-dispatch.md).
-
-
-Dispatch **3 standalone `code-reviewer` sub-agents in parallel** in a SINGLE
-message with MULTIPLE native `subagent` calls. Use the **Local / Quick Mode Roster**
-and **Standard Findings Format** from:
-
-```
-~/.config/opencode/shared/references/review-checklist.md
-```
-
-Each reviewer prompt must include:
-
-1. The list of changed files (`git diff --name-only HEAD`)
-2. Its assigned focus and checklist items (from the roster table)
-3. The severity rubric
-4. A directive to return findings in the Standard Findings Format
-5. Its own scratch backstop path — `docs/prps/reviews/.review-scratch/quick-<TIMESTAMP>/<reviewer-name>.md`
-   — per the scratch-backstop contract in that reference
-
-After all 3 native `subagent` calls return: for any reviewer whose inline return is
-empty, missing, or malformed, re-read its scratch file at that path before
-merging. Apply the **Merge Procedure** defined in the reference to produce a
-single combined findings list for Phase 3.
-
-**Scratch cleanup is unconditional**: unlike the permanent review artifact
-(only written on "Save to file" / "Write file and apply fixes"), the scratch
-directory `docs/prps/reviews/.review-scratch/quick-<TIMESTAMP>/` is always
-removed at the end of Phase 5 (HAND-OFF) — even on "Discard" or "Apply
-fixes", which never write a permanent artifact. This is the one ephemeral
-exception to quick-review's artifact-free guarantee: the scratch file exists
-only transiently during this Path B dispatch and is gone before the skill
-returns control to the user.
 
 ## Phase 3 — REPORT (inline)
 
-Assign sequential finding IDs (`F001`, `F002`, ...) ordered by severity
-(CRITICAL first) then by file path. Every finding gets `Status: Open`.
+Assign IDs and initial Status after merge using the shared artifact schema
+loaded below; the same contract applies to inline findings.
 
 Compute:
 
@@ -143,58 +90,17 @@ Compute:
 - `finding_file_count` (unique files with findings)
 - `large_review = total_findings >= 5 || finding_file_count >= 3`
 
-**Print** the review to stdout in the Review Artifact Format, **without**
-writing a file. The printed block looks like:
+**Print** the review to stdout in the quick-mode variant of the Review Artifact
+Format, **without** writing a file. Read the schema:
 
-```markdown
-# Quick Review — Uncommitted Changes
+`~/.config/opencode/shared/references/review-artifact-format.md`
 
-**Reviewed**: <ISO date>
-**Mode**: Quick (inline)
-**Author**: local
-**Branch**: <current-branch>
-**Decision**: (pending user confirmation)
-
-## Summary
-
-<1-2 sentence overall assessment>
-
-## Findings
-
-### CRITICAL
-
-- **[F001]** `file:line` — <description>
-  - **Status**: Open
-  - **Category**: <Security | Correctness | Code Quality | Best Practices>
-  - **Suggested fix**: <concrete fix>
-
-### HIGH
-
-- **[F002]** ...
-  - **Status**: Open
-  - ...
-
-### MEDIUM
-
-- **[F003]** ...
-  - **Status**: Open
-  - ...
-
-### LOW
-
-- **[F004]** ...
-  - **Status**: Open
-  - ...
-
-## Files Reviewed
-
-- `file1.ts` (Modified)
-- `file2.ts` (Added)
-```
-
-**Omissions** (vs. the standard Review Artifact Format): no
-`## Worktree Setup` section (quick mode never creates a worktree) and no
-`## Validation Results` section (quick mode does not run toolchain checks).
+Header: `# Quick Review — Uncommitted Changes`, `**Mode**: Quick (inline)`,
+`**Author**: local`, `**Branch**: <current-branch>`,
+`**Decision**: (pending user confirmation)`, then Summary, Findings (all four
+fields per finding, `Status: Open`) and Files Reviewed. No Worktree Setup or
+Validation Results sections. Categories: Security | Correctness | Code Quality
+| Best Practices.
 
 After the artifact block, print:
 
@@ -367,7 +273,7 @@ fix phase has its own execution decision.
 
 ## Important Notes
 
-- **Apply fixes is artifact-free**: direct apply MUST route to `/quick-fix`
+- **Apply fixes is artifact-free**: direct apply routes to `/quick-fix`
   without writing `docs/prps/reviews/quick-*.md`.
 - **Scratch is the one ephemeral exception**: when Path B (`--parallel`) is
   used, a transient scratch backstop file exists per reviewer at
