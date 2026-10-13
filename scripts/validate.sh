@@ -7,19 +7,22 @@
 #   ./scripts/validate.sh --only inventory      # single target
 #   ./scripts/validate.sh --only cursor,codex   # comma-separated subset
 #
-# Targets: inventory, cursor, codex, opencode, agents, json, config, release, mods
+# Targets: inventory, cursor, codex, opencode, agents, json, config, release, mods, practices
 #   - inventory  validates ycc skill↔command pairing and the shared inventory
 #   - json       validates .claude-plugin/marketplace.json plus ycc/.claude-plugin/plugin.json
 #   - config     tests the managed-config merge helper and install.sh sync CLI
 #   - release    runs every scripts/test-release-*.sh (release-model state scripts,
 #                RELEASING.md template, signal collector), stopping at the first failure
 #   - mods       validates the Claude Code mods under ycc/mods and their marketplace
+#   - practices  ratchets skill/agent/rule authoring practices against
+#                scripts/practices-baseline.json (unit tests + validator + optional
+#                `claude plugin validate`)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-VALID_TARGETS=(inventory cursor codex opencode agents json config release mods)
+VALID_TARGETS=(inventory cursor codex opencode agents json config release mods practices)
 TARGETS=("${VALID_TARGETS[@]}")
 
 usage() {
@@ -38,6 +41,7 @@ Examples:
   $(basename "$0") --only inventory
   $(basename "$0") --only cursor,codex
   $(basename "$0") --only json
+  $(basename "$0") --only practices
 EOF
 }
 
@@ -151,6 +155,12 @@ run_target() {
         mods)
             echo "== validate: claude mods =="
             "${REPO_ROOT}/scripts/validate-mods.sh" || fail "validate-mods.sh"
+            ;;
+        practices)
+            echo "== validate: practices unit tests =="
+            python3 "${REPO_ROOT}/scripts/test_validate_practices.py" || fail "test_validate_practices.py"
+            echo "== validate: practices ratchet =="
+            "${REPO_ROOT}/scripts/validate-practices.sh" || fail "validate-practices.sh"
             ;;
         json)
             echo "== validate: marketplace and plugin manifests =="

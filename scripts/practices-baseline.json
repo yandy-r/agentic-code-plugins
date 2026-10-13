@@ -1,0 +1,1283 @@
+{
+  "version": 1,
+  "violations": [
+    {
+      "id": "A1:ycc/agents/ansible-automation-expert.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/api-docs-expert.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/cloudflare-architect.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/cloudflare-developer.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/code-finder.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/code-researcher.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/db-modifier.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/docs-git-committer.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/documentation-writer.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/feature-researcher.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/frontend-ui-developer.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/go-api-architect.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/go-expert-architect.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/implementor.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/library-docs-writer.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/nextjs-ux-ui-expert.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/nodejs-backend-architect.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/nodejs-backend-developer.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/project-file-cleaner.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/python-developer.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/python-expert-architect.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/research-specialist.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/reverse-proxy-architect.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/root-cause-analyzer.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/rust-expert-architect.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/sql-database-developer.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/systems-engineering-expert.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/terraform-architect.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/terraform-developer.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/test-strategy-planner.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/turso-database-architect.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/typescript-developer.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A1:ycc/agents/typescript-expert-architect.md:unknown frontmatter key 'title'"
+    },
+    {
+      "id": "A2:ycc/agents/code-documenter.md:unknown tool 'MultiEdit'"
+    },
+    {
+      "id": "A2:ycc/agents/code-researcher.md:tool 'mcp__context7__get-library-docs' references undeclared MCP server 'context7'"
+    },
+    {
+      "id": "A2:ycc/agents/code-researcher.md:tool 'mcp__context7__resolve-library-id' references undeclared MCP server 'context7'"
+    },
+    {
+      "id": "A2:ycc/agents/code-researcher.md:tool 'mcp__sql__copy-file' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/code-researcher.md:tool 'mcp__sql__create-bucket' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/code-researcher.md:tool 'mcp__sql__delete-bucket' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/code-researcher.md:tool 'mcp__sql__delete-file' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/code-researcher.md:tool 'mcp__sql__describe-functions' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/code-researcher.md:tool 'mcp__sql__describe-table' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/code-researcher.md:tool 'mcp__sql__download-file' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/code-researcher.md:tool 'mcp__sql__empty-bucket' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/code-researcher.md:tool 'mcp__sql__execute-sql' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/code-researcher.md:tool 'mcp__sql__generate-signed-url' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/code-researcher.md:tool 'mcp__sql__get-file-info' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/code-researcher.md:tool 'mcp__sql__get-function-definition' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/code-researcher.md:tool 'mcp__sql__list-buckets' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/code-researcher.md:tool 'mcp__sql__list-files' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/code-researcher.md:tool 'mcp__sql__list-tables' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/code-researcher.md:tool 'mcp__sql__move-file' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/code-researcher.md:tool 'mcp__sql__upload-file' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/code-researcher.md:unknown tool 'LS'"
+    },
+    {
+      "id": "A2:ycc/agents/codebase-advisor.md:unknown tool 'LS'"
+    },
+    {
+      "id": "A2:ycc/agents/codebase-advisor.md:unknown tool 'NotebookRead'"
+    },
+    {
+      "id": "A2:ycc/agents/db-modifier.md:tool 'mcp__sql__describe-functions' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/db-modifier.md:tool 'mcp__sql__describe-table' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/db-modifier.md:tool 'mcp__sql__execute-sql' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/db-modifier.md:tool 'mcp__sql__get-function-definition' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/db-modifier.md:tool 'mcp__sql__list-tables' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/docs-git-committer.md:unknown tool 'BashOutput'"
+    },
+    {
+      "id": "A2:ycc/agents/docs-git-committer.md:unknown tool 'KillBash'"
+    },
+    {
+      "id": "A2:ycc/agents/docs-git-committer.md:unknown tool 'MultiEdit'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__convex__data' references undeclared MCP server 'convex'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__convex__envGet' references undeclared MCP server 'convex'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__convex__envList' references undeclared MCP server 'convex'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__convex__envRemove' references undeclared MCP server 'convex'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__convex__envSet' references undeclared MCP server 'convex'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__convex__functionSpec' references undeclared MCP server 'convex'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__convex__run' references undeclared MCP server 'convex'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__convex__runOneoffQuery' references undeclared MCP server 'convex'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__convex__status' references undeclared MCP server 'convex'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__convex__tables' references undeclared MCP server 'convex'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__sql__copy-file' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__sql__create-bucket' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__sql__delete-bucket' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__sql__delete-file' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__sql__describe-functions' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__sql__describe-table' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__sql__download-file' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__sql__empty-bucket' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__sql__execute-sql' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__sql__generate-signed-url' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__sql__get-file-info' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__sql__get-function-definition' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__sql__list-buckets' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__sql__list-files' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__sql__list-tables' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__sql__move-file' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__sql__upload-file' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__static-analysis__analyze_file' references undeclared MCP server 'static-analysis'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__static-analysis__analyze_symbol' references undeclared MCP server 'static-analysis'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__static-analysis__find_references' references undeclared MCP server 'static-analysis'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:tool 'mcp__static-analysis__get_compilation_errors' references undeclared MCP server 'static-analysis'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:unknown tool 'BashOutput'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:unknown tool 'KillBash'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:unknown tool 'LS'"
+    },
+    {
+      "id": "A2:ycc/agents/documentation-writer.md:unknown tool 'MultiEdit'"
+    },
+    {
+      "id": "A2:ycc/agents/feature-researcher.md:tool 'mcp__context7__get-library-docs' references undeclared MCP server 'context7'"
+    },
+    {
+      "id": "A2:ycc/agents/feature-researcher.md:tool 'mcp__context7__resolve-library-id' references undeclared MCP server 'context7'"
+    },
+    {
+      "id": "A2:ycc/agents/feature-researcher.md:tool 'mcp__sql__copy-file' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/feature-researcher.md:tool 'mcp__sql__create-bucket' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/feature-researcher.md:tool 'mcp__sql__delete-bucket' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/feature-researcher.md:tool 'mcp__sql__delete-file' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/feature-researcher.md:tool 'mcp__sql__describe-functions' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/feature-researcher.md:tool 'mcp__sql__describe-table' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/feature-researcher.md:tool 'mcp__sql__download-file' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/feature-researcher.md:tool 'mcp__sql__empty-bucket' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/feature-researcher.md:tool 'mcp__sql__execute-sql' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/feature-researcher.md:tool 'mcp__sql__generate-signed-url' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/feature-researcher.md:tool 'mcp__sql__get-file-info' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/feature-researcher.md:tool 'mcp__sql__get-function-definition' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/feature-researcher.md:tool 'mcp__sql__list-buckets' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/feature-researcher.md:tool 'mcp__sql__list-files' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/feature-researcher.md:tool 'mcp__sql__list-tables' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/feature-researcher.md:tool 'mcp__sql__move-file' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/feature-researcher.md:tool 'mcp__sql__upload-file' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/feature-researcher.md:unknown tool 'LS'"
+    },
+    {
+      "id": "A2:ycc/agents/library-docs-writer.md:tool 'mcp__context7__get-library-docs' references undeclared MCP server 'context7'"
+    },
+    {
+      "id": "A2:ycc/agents/library-docs-writer.md:tool 'mcp__context7__resolve-library-id' references undeclared MCP server 'context7'"
+    },
+    {
+      "id": "A2:ycc/agents/pr-comment-fixer.md:unknown tool 'MultiEdit'"
+    },
+    {
+      "id": "A2:ycc/agents/release-fix-applier.md:unknown tool 'MultiEdit'"
+    },
+    {
+      "id": "A2:ycc/agents/research-specialist.md:tool 'mcp__maps-mcp__distance-matrix' references undeclared MCP server 'maps-mcp'"
+    },
+    {
+      "id": "A2:ycc/agents/research-specialist.md:tool 'mcp__maps-mcp__geocode' references undeclared MCP server 'maps-mcp'"
+    },
+    {
+      "id": "A2:ycc/agents/research-specialist.md:tool 'mcp__maps-mcp__place-details' references undeclared MCP server 'maps-mcp'"
+    },
+    {
+      "id": "A2:ycc/agents/research-specialist.md:tool 'mcp__maps-mcp__places-search' references undeclared MCP server 'maps-mcp'"
+    },
+    {
+      "id": "A2:ycc/agents/research-specialist.md:tool 'mcp__maps-mcp__reverse-geocode' references undeclared MCP server 'maps-mcp'"
+    },
+    {
+      "id": "A2:ycc/agents/research-specialist.md:tool 'mcp__perplexity__ask-perplexity' references undeclared MCP server 'perplexity'"
+    },
+    {
+      "id": "A2:ycc/agents/research-specialist.md:tool 'mcp__scrape__get-markdown' references undeclared MCP server 'scrape'"
+    },
+    {
+      "id": "A2:ycc/agents/research-specialist.md:unknown tool 'LS'"
+    },
+    {
+      "id": "A2:ycc/agents/research-specialist.md:unknown tool 'MultiEdit'"
+    },
+    {
+      "id": "A2:ycc/agents/research-specialist.md:unknown tool 'Task'"
+    },
+    {
+      "id": "A2:ycc/agents/review-fixer.md:unknown tool 'MultiEdit'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__context7__get-library-docs' references undeclared MCP server 'context7'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__context7__resolve-library-id' references undeclared MCP server 'context7'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__sql__copy-file' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__sql__create-bucket' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__sql__delete-bucket' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__sql__delete-file' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__sql__describe-functions' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__sql__describe-table' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__sql__download-file' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__sql__empty-bucket' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__sql__execute-sql' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__sql__generate-signed-url' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__sql__get-file-info' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__sql__get-function-definition' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__sql__list-buckets' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__sql__list-files' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__sql__list-tables' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__sql__move-file' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__sql__upload-file' references undeclared MCP server 'sql'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__static-analysis__analyze_dependencies' references undeclared MCP server 'static-analysis'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__static-analysis__analyze_file' references undeclared MCP server 'static-analysis'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__static-analysis__extract_context' references undeclared MCP server 'static-analysis'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__static-analysis__find_patterns' references undeclared MCP server 'static-analysis'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__static-analysis__find_references' references undeclared MCP server 'static-analysis'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__static-analysis__get_compilation_errors' references undeclared MCP server 'static-analysis'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__static-analysis__get_symbol_info' references undeclared MCP server 'static-analysis'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__static-analysis__search_symbols' references undeclared MCP server 'static-analysis'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__static-analysis__summarize_codebase' references undeclared MCP server 'static-analysis'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__zen__analyze' references undeclared MCP server 'zen'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__zen__chat' references undeclared MCP server 'zen'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__zen__debug' references undeclared MCP server 'zen'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__zen__listmodels' references undeclared MCP server 'zen'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__zen__thinkdeep' references undeclared MCP server 'zen'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:tool 'mcp__zen__version' references undeclared MCP server 'zen'"
+    },
+    {
+      "id": "A2:ycc/agents/root-cause-analyzer.md:unknown tool 'LS'"
+    },
+    {
+      "id": "R1:CLAUDE.md:line-count",
+      "size": 338
+    },
+    {
+      "id": "R1:ycc/settings/rules/CLAUDE.md:line-count",
+      "size": 323
+    },
+    {
+      "id": "S1:ycc/skills/code-review/SKILL.md:body-lines",
+      "size": 911
+    },
+    {
+      "id": "S1:ycc/skills/deep-research/SKILL.md:body-lines",
+      "size": 829
+    },
+    {
+      "id": "S1:ycc/skills/frontend-patterns/SKILL.md:body-lines",
+      "size": 693
+    },
+    {
+      "id": "S1:ycc/skills/git-workflow/SKILL.md:body-lines",
+      "size": 1475
+    },
+    {
+      "id": "S1:ycc/skills/implement-plan/SKILL.md:body-lines",
+      "size": 774
+    },
+    {
+      "id": "S1:ycc/skills/orchestrate/SKILL.md:body-lines",
+      "size": 735
+    },
+    {
+      "id": "S1:ycc/skills/plan-workflow/SKILL.md:body-lines",
+      "size": 977
+    },
+    {
+      "id": "S1:ycc/skills/plan/SKILL.md:body-lines",
+      "size": 673
+    },
+    {
+      "id": "S1:ycc/skills/pr-autofix/SKILL.md:body-lines",
+      "size": 658
+    },
+    {
+      "id": "S1:ycc/skills/prp-implement/SKILL.md:body-lines",
+      "size": 781
+    },
+    {
+      "id": "S1:ycc/skills/releaser/SKILL.md:body-lines",
+      "size": 719
+    },
+    {
+      "id": "S1:ycc/skills/review-fix/SKILL.md:body-lines",
+      "size": 863
+    },
+    {
+      "id": "S2:ycc/skills/backport/SKILL.md:description-length",
+      "size": 674
+    },
+    {
+      "id": "S2:ycc/skills/blueprint/SKILL.md:description-length",
+      "size": 817
+    },
+    {
+      "id": "S2:ycc/skills/bundle-author/SKILL.md:description-length",
+      "size": 425
+    },
+    {
+      "id": "S2:ycc/skills/bundle-release/SKILL.md:description-length",
+      "size": 350
+    },
+    {
+      "id": "S2:ycc/skills/clean/SKILL.md:description-length",
+      "size": 305
+    },
+    {
+      "id": "S2:ycc/skills/code-review/SKILL.md:description-length",
+      "size": 479
+    },
+    {
+      "id": "S2:ycc/skills/compatibility-audit/SKILL.md:description-length",
+      "size": 686
+    },
+    {
+      "id": "S2:ycc/skills/deep-research/SKILL.md:description-length",
+      "size": 607
+    },
+    {
+      "id": "S2:ycc/skills/feature-research/SKILL.md:description-length",
+      "size": 768
+    },
+    {
+      "id": "S2:ycc/skills/formatters/SKILL.md:description-length",
+      "size": 708
+    },
+    {
+      "id": "S2:ycc/skills/frontend-design/SKILL.md:description-length",
+      "size": 609
+    },
+    {
+      "id": "S2:ycc/skills/frontend-patterns/SKILL.md:description-length",
+      "size": 797
+    },
+    {
+      "id": "S2:ycc/skills/git-cleanup/SKILL.md:description-length",
+      "size": 424
+    },
+    {
+      "id": "S2:ycc/skills/git-workflow/SKILL.md:description-length",
+      "size": 338
+    },
+    {
+      "id": "S2:ycc/skills/go-patterns/SKILL.md:description-length",
+      "size": 521
+    },
+    {
+      "id": "S2:ycc/skills/go-testing/SKILL.md:description-length",
+      "size": 453
+    },
+    {
+      "id": "S2:ycc/skills/hooks-workflow/SKILL.md:description-length",
+      "size": 492
+    },
+    {
+      "id": "S2:ycc/skills/implement-plan/SKILL.md:description-length",
+      "size": 512
+    },
+    {
+      "id": "S2:ycc/skills/init/SKILL.md:description-length",
+      "size": 464
+    },
+    {
+      "id": "S2:ycc/skills/orchestrate/SKILL.md:description-length",
+      "size": 540
+    },
+    {
+      "id": "S2:ycc/skills/parallel-plan/SKILL.md:description-length",
+      "size": 413
+    },
+    {
+      "id": "S2:ycc/skills/plan-workflow/SKILL.md:description-length",
+      "size": 398
+    },
+    {
+      "id": "S2:ycc/skills/plan/SKILL.md:description-length",
+      "size": 418
+    },
+    {
+      "id": "S2:ycc/skills/pr-autofix/SKILL.md:description-length",
+      "size": 595
+    },
+    {
+      "id": "S2:ycc/skills/prp-commit/SKILL.md:description-length",
+      "size": 489
+    },
+    {
+      "id": "S2:ycc/skills/prp-implement/SKILL.md:description-length",
+      "size": 498
+    },
+    {
+      "id": "S2:ycc/skills/prp-plan/SKILL.md:description-length",
+      "size": 440
+    },
+    {
+      "id": "S2:ycc/skills/prp-pr/SKILL.md:description-length",
+      "size": 377
+    },
+    {
+      "id": "S2:ycc/skills/prp-prd/SKILL.md:description-length",
+      "size": 409
+    },
+    {
+      "id": "S2:ycc/skills/prp-spec/SKILL.md:description-length",
+      "size": 688
+    },
+    {
+      "id": "S2:ycc/skills/python-patterns/SKILL.md:description-length",
+      "size": 645
+    },
+    {
+      "id": "S2:ycc/skills/python-testing/SKILL.md:description-length",
+      "size": 529
+    },
+    {
+      "id": "S2:ycc/skills/quick-fix/SKILL.md:description-length",
+      "size": 514
+    },
+    {
+      "id": "S2:ycc/skills/quick-review/SKILL.md:description-length",
+      "size": 460
+    },
+    {
+      "id": "S2:ycc/skills/release-model/SKILL.md:description-length",
+      "size": 880
+    },
+    {
+      "id": "S2:ycc/skills/releaser/SKILL.md:description-length",
+      "size": 707
+    },
+    {
+      "id": "S2:ycc/skills/research-to-issues/SKILL.md:description-length",
+      "size": 562
+    },
+    {
+      "id": "S2:ycc/skills/resume-session/SKILL.md:description-length",
+      "size": 438
+    },
+    {
+      "id": "S2:ycc/skills/review-fix/SKILL.md:description-length",
+      "size": 478
+    },
+    {
+      "id": "S2:ycc/skills/rust-patterns/SKILL.md:description-length",
+      "size": 516
+    },
+    {
+      "id": "S2:ycc/skills/save-session/SKILL.md:description-length",
+      "size": 452
+    },
+    {
+      "id": "S2:ycc/skills/shared-context/SKILL.md:description-length",
+      "size": 396
+    },
+    {
+      "id": "S2:ycc/skills/ts-patterns/SKILL.md:description-length",
+      "size": 833
+    },
+    {
+      "id": "S2:ycc/skills/ts-testing/SKILL.md:description-length",
+      "size": 690
+    },
+    {
+      "id": "S2:ycc/skills/visual-plan/SKILL.md:description-length",
+      "size": 452
+    },
+    {
+      "id": "S2:ycc/skills/visual-recap/SKILL.md:description-length",
+      "size": 546
+    },
+    {
+      "id": "S3:ycc/skills/code-report/SKILL.md:description lacks 'Use when/for/after' or 'when the user'"
+    },
+    {
+      "id": "S3:ycc/skills/implement-plan/SKILL.md:description lacks 'Use when/for/after' or 'when the user'"
+    },
+    {
+      "id": "S3:ycc/skills/orchestrate/SKILL.md:description lacks 'Use when/for/after' or 'when the user'"
+    },
+    {
+      "id": "S3:ycc/skills/plan-workflow/SKILL.md:description lacks 'Use when/for/after' or 'when the user'"
+    },
+    {
+      "id": "S3:ycc/skills/prp-pr/SKILL.md:description lacks 'Use when/for/after' or 'when the user'"
+    },
+    {
+      "id": "S3:ycc/skills/shared-context/SKILL.md:description lacks 'Use when/for/after' or 'when the user'"
+    },
+    {
+      "id": "S3:ycc/skills/write-docs/SKILL.md:description lacks 'Use when/for/after' or 'when the user'"
+    },
+    {
+      "id": "S6:ycc/skills/bundle-author/SKILL.md:unmentioned file references/templates/agent-template.md"
+    },
+    {
+      "id": "S6:ycc/skills/bundle-author/SKILL.md:unmentioned file references/templates/command-template.md"
+    },
+    {
+      "id": "S6:ycc/skills/bundle-author/SKILL.md:unmentioned file references/templates/skill-template.md"
+    },
+    {
+      "id": "S6:ycc/skills/bundle-release/SKILL.md:unmentioned file references/release-notes-template.md"
+    },
+    {
+      "id": "S6:ycc/skills/code-review/SKILL.md:unmentioned file references/sample-pr-review-with-worktree.md"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file references/templates/husky-pre-commit.tmpl"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file references/templates/justfile-snippet.just.tmpl"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file references/templates/lefthook.yml.tmpl"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file references/templates/lint-autofix.yml.tmpl"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file references/templates/lint.yml.tmpl"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file references/templates/makefile-snippet.mk.tmpl"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file references/templates/package-json-scripts.json.tmpl"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file references/templates/readme-section.md.tmpl"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file scripts/bundle/format.sh"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file scripts/bundle/go-tools.sh"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file scripts/bundle/init-formatters.sh"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file scripts/bundle/install-shellcheck.sh"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file scripts/bundle/lib/excludes.sh"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file scripts/bundle/lib/modified-files.sh"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file scripts/bundle/lib/shellcheck-resolve.sh"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file scripts/bundle/lib/shellcheck-version.sh"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file scripts/bundle/lint.sh"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file scripts/bundle/templates/biome.json"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file scripts/bundle/templates/clippy.toml"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file scripts/bundle/templates/markdownlint.json"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file scripts/bundle/templates/markdownlintignore"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file scripts/bundle/templates/prettierignore"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file scripts/bundle/templates/prettierrc.json"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file scripts/bundle/templates/python-pyproject.toml"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file scripts/bundle/templates/rustfmt.toml"
+    },
+    {
+      "id": "S6:ycc/skills/formatters/SKILL.md:unmentioned file scripts/bundle/templates/tsconfig.json"
+    },
+    {
+      "id": "S6:ycc/skills/hooks-workflow/SKILL.md:unmentioned file references/templates/claude-settings.json.tmpl"
+    },
+    {
+      "id": "S6:ycc/skills/hooks-workflow/SKILL.md:unmentioned file references/templates/codex-config-fragment.toml.tmpl"
+    },
+    {
+      "id": "S6:ycc/skills/hooks-workflow/SKILL.md:unmentioned file references/templates/cursor-rule-fragment.mdc.tmpl"
+    },
+    {
+      "id": "S6:ycc/skills/init/SKILL.md:unmentioned file references/conventional-commits.md"
+    },
+    {
+      "id": "S6:ycc/skills/init/SKILL.md:unmentioned file references/label-taxonomy.md"
+    },
+    {
+      "id": "S6:ycc/skills/plan-workflow/SKILL.md:unmentioned file scripts/regression-validate-plan.sh"
+    },
+    {
+      "id": "S6:ycc/skills/write-docs/SKILL.md:unmentioned file references/agent-task-prompts.md"
+    },
+    {
+      "id": "S7:ycc/skills/bundle-author/references/surface-map.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 155
+    },
+    {
+      "id": "S7:ycc/skills/bundle-release/references/release-checklist.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 157
+    },
+    {
+      "id": "S7:ycc/skills/clean/references/agent-prompts.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 188
+    },
+    {
+      "id": "S7:ycc/skills/clean/references/safety-config.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 117
+    },
+    {
+      "id": "S7:ycc/skills/compatibility-audit/references/reading-the-report.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 150
+    },
+    {
+      "id": "S7:ycc/skills/formatters/references/flag-reference.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 173
+    },
+    {
+      "id": "S7:ycc/skills/formatters/references/stack-detection.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 112
+    },
+    {
+      "id": "S7:ycc/skills/git-cleanup/references/active-code-rules.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 302
+    },
+    {
+      "id": "S7:ycc/skills/git-cleanup/references/host-detection.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 206
+    },
+    {
+      "id": "S7:ycc/skills/go-patterns/references/design-and-tooling.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 328
+    },
+    {
+      "id": "S7:ycc/skills/go-patterns/references/errors-and-concurrency.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 286
+    },
+    {
+      "id": "S7:ycc/skills/go-testing/references/advanced-testing.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 340
+    },
+    {
+      "id": "S7:ycc/skills/go-testing/references/test-structure.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 270
+    },
+    {
+      "id": "S7:ycc/skills/hooks-workflow/references/support-notes.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 124
+    },
+    {
+      "id": "S7:ycc/skills/init/references/conventional-commits.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 107
+    },
+    {
+      "id": "S7:ycc/skills/init/references/flag-reference.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 213
+    },
+    {
+      "id": "S7:ycc/skills/init/references/label-taxonomy.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 108
+    },
+    {
+      "id": "S7:ycc/skills/init/references/template-library.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 102
+    },
+    {
+      "id": "S7:ycc/skills/orchestrate/references/agent-catalog.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 594
+    },
+    {
+      "id": "S7:ycc/skills/orchestrate/references/agent-prompts.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 719
+    },
+    {
+      "id": "S7:ycc/skills/orchestrate/references/task-breakdown.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 400
+    },
+    {
+      "id": "S7:ycc/skills/plan/references/enhanced-personas.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 127
+    },
+    {
+      "id": "S7:ycc/skills/pr-autofix/references/comment-sources.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 189
+    },
+    {
+      "id": "S7:ycc/skills/pr-autofix/references/prompt-injection-safety.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 158
+    },
+    {
+      "id": "S7:ycc/skills/pr-autofix/references/severity-mapping.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 137
+    },
+    {
+      "id": "S7:ycc/skills/prp-plan/references/enhanced-researchers.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 414
+    },
+    {
+      "id": "S7:ycc/skills/prp-plan/references/plan-template.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 244
+    },
+    {
+      "id": "S7:ycc/skills/python-patterns/references/core-idioms.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 296
+    },
+    {
+      "id": "S7:ycc/skills/python-patterns/references/design-and-tooling.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 398
+    },
+    {
+      "id": "S7:ycc/skills/python-testing/references/mocking-and-integration.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 385
+    },
+    {
+      "id": "S7:ycc/skills/python-testing/references/pytest-core.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 358
+    },
+    {
+      "id": "S7:ycc/skills/release-model/references/upgrade-and-audit.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 120
+    },
+    {
+      "id": "S7:ycc/skills/releaser/references/ci-optimization-checklist.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 135
+    },
+    {
+      "id": "S7:ycc/skills/releaser/references/project-type-matrix.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 134
+    },
+    {
+      "id": "S7:ycc/skills/releaser/references/release-branches.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 129
+    },
+    {
+      "id": "S7:ycc/skills/research-to-issues/references/parse-feature-spec.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 131
+    },
+    {
+      "id": "S7:ycc/skills/research-to-issues/references/parse-parallel-plan.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 112
+    },
+    {
+      "id": "S7:ycc/skills/research-to-issues/references/parse-prd.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 170
+    },
+    {
+      "id": "S7:ycc/skills/research-to-issues/references/parse-prp-plan.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 226
+    },
+    {
+      "id": "S7:ycc/skills/research-to-issues/references/plan-display-format.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 124
+    },
+    {
+      "id": "S7:ycc/skills/rust-patterns/references/concurrency-unsafe-modules.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 234
+    },
+    {
+      "id": "S7:ycc/skills/rust-patterns/references/ownership-errors-types.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 208
+    },
+    {
+      "id": "S7:ycc/skills/rust-testing/references/advanced-testing.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 238
+    },
+    {
+      "id": "S7:ycc/skills/rust-testing/references/unit-and-integration.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 185
+    },
+    {
+      "id": "S7:ycc/skills/ts-patterns/references/async-runtimes-tooling.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 368
+    },
+    {
+      "id": "S7:ycc/skills/ts-patterns/references/types-errors-modules.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 330
+    },
+    {
+      "id": "S7:ycc/skills/ts-testing/references/advanced-testing.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 340
+    },
+    {
+      "id": "S7:ycc/skills/ts-testing/references/vitest-core.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 309
+    },
+    {
+      "id": "S7:ycc/skills/visual-plan/references/canvas.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 121
+    },
+    {
+      "id": "S7:ycc/skills/visual-plan/references/document-quality.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 169
+    },
+    {
+      "id": "S7:ycc/skills/visual-plan/references/exemplar.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 114
+    },
+    {
+      "id": "S7:ycc/skills/visual-plan/references/wireframe.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 210
+    },
+    {
+      "id": "S7:ycc/skills/visual-recap/references/wireframe.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 235
+    },
+    {
+      "id": "S7:ycc/skills/write-docs/references/agent-task-prompts.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
+      "size": 208
+    },
+    {
+      "id": "S8:ycc/skills/git-cleanup/references/host-detection.md:links to '../../_shared/references/forge-detection.md'"
+    },
+    {
+      "id": "S8:ycc/skills/init/references/conventional-commits.md:links to 'flag-reference.md'"
+    },
+    {
+      "id": "S8:ycc/skills/init/references/conventional-commits.md:links to 'label-taxonomy.md'"
+    },
+    {
+      "id": "S8:ycc/skills/init/references/flag-reference.md:links to 'project-profile-heuristics.md'"
+    },
+    {
+      "id": "S8:ycc/skills/init/references/flag-reference.md:links to 'template-library.md'"
+    },
+    {
+      "id": "S8:ycc/skills/init/references/label-taxonomy.md:links to 'conventional-commits.md'"
+    },
+    {
+      "id": "S8:ycc/skills/init/references/label-taxonomy.md:links to 'flag-reference.md'"
+    },
+    {
+      "id": "S8:ycc/skills/init/references/project-profile-heuristics.md:links to 'flag-reference.md'"
+    },
+    {
+      "id": "S8:ycc/skills/init/references/project-profile-heuristics.md:links to 'template-library.md'"
+    },
+    {
+      "id": "S8:ycc/skills/init/references/template-library.md:links to 'flag-reference.md'"
+    },
+    {
+      "id": "S8:ycc/skills/init/references/template-library.md:links to 'project-profile-heuristics.md'"
+    },
+    {
+      "id": "S9:ycc/skills/backport/SKILL.md:unknown tool 'Task'"
+    },
+    {
+      "id": "S9:ycc/skills/blueprint/SKILL.md:unknown tool 'Task'"
+    },
+    {
+      "id": "S9:ycc/skills/clean/SKILL.md:unknown tool 'Task'"
+    },
+    {
+      "id": "S9:ycc/skills/code-review/SKILL.md:unknown tool 'Task'"
+    },
+    {
+      "id": "S9:ycc/skills/code-review/SKILL.md:unknown tool 'TeamCreate'"
+    },
+    {
+      "id": "S9:ycc/skills/code-review/SKILL.md:unknown tool 'TeamDelete'"
+    },
+    {
+      "id": "S9:ycc/skills/feature-research/SKILL.md:unknown tool 'Task'"
+    },
+    {
+      "id": "S9:ycc/skills/feature-research/SKILL.md:unknown tool 'TeamCreate'"
+    },
+    {
+      "id": "S9:ycc/skills/feature-research/SKILL.md:unknown tool 'TeamDelete'"
+    },
+    {
+      "id": "S9:ycc/skills/git-cleanup/SKILL.md:unknown tool 'Task'"
+    },
+    {
+      "id": "S9:ycc/skills/implement-plan/SKILL.md:unknown tool 'MultiEdit'"
+    },
+    {
+      "id": "S9:ycc/skills/implement-plan/SKILL.md:unknown tool 'Task'"
+    },
+    {
+      "id": "S9:ycc/skills/implement-plan/SKILL.md:unknown tool 'TeamCreate'"
+    },
+    {
+      "id": "S9:ycc/skills/implement-plan/SKILL.md:unknown tool 'TeamDelete'"
+    },
+    {
+      "id": "S9:ycc/skills/orchestrate/SKILL.md:unknown tool 'Task'"
+    },
+    {
+      "id": "S9:ycc/skills/orchestrate/SKILL.md:unknown tool 'TeamCreate'"
+    },
+    {
+      "id": "S9:ycc/skills/orchestrate/SKILL.md:unknown tool 'TeamDelete'"
+    },
+    {
+      "id": "S9:ycc/skills/parallel-plan/SKILL.md:unknown tool 'Task'"
+    },
+    {
+      "id": "S9:ycc/skills/parallel-plan/SKILL.md:unknown tool 'TeamCreate'"
+    },
+    {
+      "id": "S9:ycc/skills/parallel-plan/SKILL.md:unknown tool 'TeamDelete'"
+    },
+    {
+      "id": "S9:ycc/skills/plan-workflow/SKILL.md:unknown tool 'Task'"
+    },
+    {
+      "id": "S9:ycc/skills/plan-workflow/SKILL.md:unknown tool 'TeamCreate'"
+    },
+    {
+      "id": "S9:ycc/skills/plan-workflow/SKILL.md:unknown tool 'TeamDelete'"
+    },
+    {
+      "id": "S9:ycc/skills/plan/SKILL.md:unknown tool 'Task'"
+    },
+    {
+      "id": "S9:ycc/skills/plan/SKILL.md:unknown tool 'TeamCreate'"
+    },
+    {
+      "id": "S9:ycc/skills/plan/SKILL.md:unknown tool 'TeamDelete'"
+    },
+    {
+      "id": "S9:ycc/skills/pr-autofix/SKILL.md:unknown tool 'MultiEdit'"
+    },
+    {
+      "id": "S9:ycc/skills/pr-autofix/SKILL.md:unknown tool 'Task'"
+    },
+    {
+      "id": "S9:ycc/skills/prp-implement/SKILL.md:unknown tool 'MultiEdit'"
+    },
+    {
+      "id": "S9:ycc/skills/prp-implement/SKILL.md:unknown tool 'Task'"
+    },
+    {
+      "id": "S9:ycc/skills/prp-implement/SKILL.md:unknown tool 'TeamCreate'"
+    },
+    {
+      "id": "S9:ycc/skills/prp-implement/SKILL.md:unknown tool 'TeamDelete'"
+    },
+    {
+      "id": "S9:ycc/skills/prp-plan/SKILL.md:unknown tool 'Task'"
+    },
+    {
+      "id": "S9:ycc/skills/prp-plan/SKILL.md:unknown tool 'TeamCreate'"
+    },
+    {
+      "id": "S9:ycc/skills/prp-plan/SKILL.md:unknown tool 'TeamDelete'"
+    },
+    {
+      "id": "S9:ycc/skills/prp-prd/SKILL.md:unknown tool 'Task'"
+    },
+    {
+      "id": "S9:ycc/skills/prp-spec/SKILL.md:unknown tool 'Task'"
+    },
+    {
+      "id": "S9:ycc/skills/quick-fix/SKILL.md:unknown tool 'MultiEdit'"
+    },
+    {
+      "id": "S9:ycc/skills/quick-fix/SKILL.md:unknown tool 'Task'"
+    },
+    {
+      "id": "S9:ycc/skills/quick-review/SKILL.md:unknown tool 'Task'"
+    },
+    {
+      "id": "S9:ycc/skills/quick-review/SKILL.md:unknown tool 'TeamCreate'"
+    },
+    {
+      "id": "S9:ycc/skills/quick-review/SKILL.md:unknown tool 'TeamDelete'"
+    },
+    {
+      "id": "S9:ycc/skills/review-fix/SKILL.md:unknown tool 'MultiEdit'"
+    },
+    {
+      "id": "S9:ycc/skills/review-fix/SKILL.md:unknown tool 'Task'"
+    },
+    {
+      "id": "S9:ycc/skills/review-fix/SKILL.md:unknown tool 'TeamCreate'"
+    },
+    {
+      "id": "S9:ycc/skills/review-fix/SKILL.md:unknown tool 'TeamDelete'"
+    },
+    {
+      "id": "S9:ycc/skills/shared-context/SKILL.md:unknown tool 'Task'"
+    },
+    {
+      "id": "S9:ycc/skills/shared-context/SKILL.md:unknown tool 'TeamCreate'"
+    },
+    {
+      "id": "S9:ycc/skills/shared-context/SKILL.md:unknown tool 'TeamDelete'"
+    }
+  ]
+}
