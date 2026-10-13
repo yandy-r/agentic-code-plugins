@@ -306,7 +306,6 @@ def apply_opencode_text_transforms(
     output = output.replace("'.claude-plugin'", "'.opencode-plugin'")
     if rewrite_source_paths:
         output = re.sub(r"\bycc/skills/", ".opencode-plugin/skills/", output)
-        output = re.sub(r"\bycc/commands/", ".opencode-plugin/commands/", output)
         output = re.sub(r"\bycc/agents/", ".opencode-plugin/agents/", output)
 
     # Home / config paths (XDG)

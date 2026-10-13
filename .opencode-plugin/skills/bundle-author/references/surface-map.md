@@ -20,7 +20,7 @@ Skills are user-invocable as native slash commands by default.
 Set `user-invocable: false` for passive guidance that should not appear in the
 slash menu. Set `disable-model-invocation: true` for explicitly user-triggered
 workflows. Both fields must be booleans. `scripts/validate-ycc-skills.sh`
-validates frontmatter and rejects the retired `.opencode-plugin/commands/` directory.
+validates frontmatter and rejects the retired `ycc/commands/` directory.
 
 The `description` field is the trigger surface for opencode — include plain-language
 phrasing that describes when the skill should activate.
