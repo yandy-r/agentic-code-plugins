@@ -84,16 +84,14 @@ is_bundle_release_file() {
   [[ "$rel" == bundle-release/* ]]
 }
 
+# check_rewrite_regressions <file>... — one interpreter for every file; a
+# python3 spawn per generated file dominated this script's runtime.
 check_rewrite_regressions() {
-  local f="$1"
-  python3 - "$f" <<'PY'
+  python3 - "$@" <<'PY'
 import re
 import sys
 from pathlib import Path
 
-path = Path(sys.argv[1])
-text = path.read_text(encoding="utf-8", errors="ignore")
-compact = re.sub(r"\s+", " ", text)
 name_token = r"(?<![A-Za-z0-9_])`?name=`?"
 checks = (
     ("duplicated name= AND name=", re.compile(rf"{name_token}\s+AND\s+{name_token}", re.IGNORECASE)),
@@ -104,14 +102,19 @@ checks = (
     ("ambiguous Codex-only team-mode wording", re.compile(r"--team.*Codex[- ]only|Codex[- ]only.*--team")),
 )
 
-errors = [label for label, pattern in checks if pattern.search(compact)]
-for label in errors:
-    print(f"BROKEN Codex rewrite in {path}: {label}", file=sys.stderr)
-sys.exit(1 if errors else 0)
+failed = False
+for path in map(Path, sys.argv[1:]):
+    compact = re.sub(r"\s+", " ", path.read_text(encoding="utf-8", errors="ignore"))
+    for label, pattern in checks:
+        if pattern.search(compact):
+            print(f"BROKEN Codex rewrite in {path}: {label}", file=sys.stderr)
+            failed = True
+sys.exit(1 if failed else 0)
 PY
 }
 
 BAD=0
+POLICY_FILES=()
 while IFS= read -r -d '' f; do
   if is_verbatim "$f"; then
     continue
@@ -128,10 +131,12 @@ while IFS= read -r -d '' f; do
     grep -nE "$pattern" "$f" >&2 || true
     BAD=1
   fi
-  if ! check_rewrite_regressions "$f"; then
-    BAD=1
-  fi
+  POLICY_FILES+=("$f")
 done < <(find "$SKILLS_DIR" "$SHARED_DIR" -type f -print0)
+
+if [[ ${#POLICY_FILES[@]} -gt 0 ]] && ! check_rewrite_regressions "${POLICY_FILES[@]}"; then
+  BAD=1
+fi
 
 if [[ "$BAD" -ne 0 ]]; then
   echo "validate-codex-skills.sh: content policy failed." >&2

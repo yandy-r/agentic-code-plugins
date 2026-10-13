@@ -46,3 +46,6 @@ opencode.json
 .claude/worktrees/
 
 .slim/deepwork/
+
+# graphify knowledge-graph output (local scratch)
+graphify-out/
