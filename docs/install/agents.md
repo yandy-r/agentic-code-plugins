@@ -22,6 +22,14 @@ The bundle is generated from `ycc/skills/` into `.agents-plugin/`
 removed; your own skills in `~/.agents/skills/` and Codex's `~/.agents/plugins/`
 are never touched.
 
+## Invocation policy limit
+
+agentskills.io has no portable model-invocation flag. Skills marked
+`disable-model-invocation: true` in `ycc/skills/` (for example `releaser`) are
+installed here without that key and keep their normal description, so tools that
+read `~/.agents/skills` may still select them automatically. Use a native target
+(`claude`, `cursor`, `codex`, `opencode`) when manual-only invocation matters.
+
 ## Commands, agents, rules
 
 No tool reads `~/.agents/commands`, `~/.agents/agents`, or `~/.agents/AGENTS.md`,

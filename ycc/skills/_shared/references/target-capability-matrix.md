@@ -49,6 +49,13 @@ The standalone installer's Claude `commands` intent aliases `skills`. It retires
 legacy wrappers recorded in installer ownership state, and only after a successful
 skills install. Foreign wrappers are never touched.
 
+**INVOCATION POLICY**
+`disable-model-invocation: true` is source frontmatter for manual-only skills; it is
+distinct from `user-invocable: false`. Claude and Cursor keep the native flag. Codex
+emits a skill-local `agents/openai.yaml` with `policy.allow_implicit_invocation: false`.
+opencode emits skill metadata `opencode/autoinvoke: 'false'`. The cross-tool `agents`
+target has no portable key, so it omits the flag and keeps the description.
+
 **COMMANDS:cursor**
 Cursor does not natively execute Claude Code slash commands as installable artifacts. The
 `ycc` skill guidance is surfaced to Cursor users only through rule-embedded guidance in

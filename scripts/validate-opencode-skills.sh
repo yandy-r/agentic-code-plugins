@@ -17,12 +17,16 @@ echo "== Skill-derived command regressions =="
 python3 "${REPO_ROOT}/scripts/test_generate_opencode_commands.py"
 
 echo "== Frontmatter lint =="
-python3 - <<'PY' "${SKILLS_DIR}"
+python3 - <<'PY' "${SKILLS_DIR}" "${REPO_ROOT}"
 import re
 import sys
 from pathlib import Path
 
 import yaml
+
+repo = Path(sys.argv[2])
+sys.path.insert(0, str(repo / "scripts"))
+from generate_codex_common import model_invocation_disabled, parse_frontmatter
 
 root = Path(sys.argv[1])
 # opencode's skills API recognises exactly these keys (per opencode.ai/docs/skills).
@@ -39,6 +43,12 @@ for path in sorted(root.rglob("SKILL.md")):
         errors += 1
         continue
     data = yaml.safe_load(match.group(1)) or {}
+    source, _ = parse_frontmatter((repo / "ycc/skills" / path.parent.name / "SKILL.md").read_text(encoding="utf-8"))
+    disabled = model_invocation_disabled(source, path.parent.name)
+    metadata = data.get("metadata", {})
+    if not isinstance(metadata, dict) or ("opencode/autoinvoke" in metadata) != disabled or (disabled and metadata.get("opencode/autoinvoke") != "false"):
+        print(f"INVALID invocation metadata: {path}", file=sys.stderr)
+        errors += 1
     unknown = set(data) - ALLOWED
     if unknown:
         print(

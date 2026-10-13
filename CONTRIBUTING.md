@@ -145,8 +145,13 @@ Public skills under `ycc/skills/<name>/SKILL.md` are native Claude slash invocat
 
 - `user-invocable: false` hides passive guidance from the slash menu. Use it for
   skills the model reads when relevant, never typed by users.
-- `disable-model-invocation`, `argument-hint`, and `allowed-tools` are native
-  skill frontmatter keys. Set them on the skill itself.
+- `disable-model-invocation: true` keeps a skill user-invocable but prevents the
+  model from selecting it automatically. Use it for destructive, release, or
+  maintainer workflows. It is separate from `user-invocable`. Skills that another
+  model-invocable skill genuinely hands off to must stay model-invocable. The
+  value must be a YAML boolean; quoted strings fail validation.
+- `argument-hint` and `allowed-tools` are native skill frontmatter keys. Set them
+  on the skill itself.
 - Wrapper files under `ycc/commands/` are retired. Do not add new ones. The
   `command` key and the `command: false` opt-out no longer exist.
 
@@ -162,7 +167,11 @@ Claude Code invokes public skills directly. opencode still gets native slash com
 `.opencode-plugin/commands/`, sourced from that skill's `SKILL.md` frontmatter. Each
 command loads the skill through the opencode `skill` tool and forwards `$ARGUMENTS`.
 This exists only so commands-only installs keep working; it does not make slash
-commands a general feature. Cursor and Codex do not consume commands (Cursor folds
+commands a general feature. Manual-only skills still get these commands because
+the user may invoke them. Policy mapping: Cursor keeps `disable-model-invocation`;
+Codex writes `agents/openai.yaml` with `policy.allow_implicit_invocation: false`;
+opencode writes skill metadata `opencode/autoinvoke: 'false'`; the portable
+`agents` bundle omits it (no standard key). Cursor and Codex do not consume commands (Cursor folds
 guidance into rule files; Codex has no command layer). See
 `ycc/skills/_shared/references/target-capability-matrix.md` for the full matrix.
 

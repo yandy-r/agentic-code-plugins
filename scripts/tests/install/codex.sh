@@ -115,6 +115,8 @@ HOME="${home}" YCC_MANAGED_CONFIG_STATE="${home}/.config/ycc/managed-config-stat
     python3 "${REPO_ROOT}/scripts/install_slices.py" install --target codex --slice skills >/dev/null
 if [[ -f "${home}/.codex/skills/git-workflow/SKILL.md" && -d "${home}/.codex/skills/_shared/scripts" ]]; then ok "codex skills slice installs into ~/.codex/skills"; else ko "codex skills slice installs into ~/.codex/skills"; fi
 if [[ ! -e "${home}/.codex/plugins" ]]; then ok "codex skills slice links no plugin"; else ko "codex skills slice links no plugin"; fi
+assert_contains "$(cat "${home}/.codex/skills/releaser/agents/openai.yaml")" 'allow_implicit_invocation: false' "codex slice copies nested releaser invocation policy"
+if [[ ! -e "${home}/.codex/skills/init/agents/openai.yaml" ]]; then ok "codex slice keeps init model-invocable"; else ko "codex slice keeps init model-invocable"; fi
 if ! grep -rq '[~]/.codex/plugins/ycc/s' "${home}/.codex/skills"; then ok "codex skills slice re-points plugin paths"; else ko "codex skills slice re-points plugin paths"; fi
 if ! grep -rq '\.\./\.\./\.\./shared/' "${home}/.codex/skills"; then ok "codex skills slice re-points relative shared paths"; else ko "codex skills slice re-points relative shared paths"; fi
 

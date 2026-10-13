@@ -9,13 +9,20 @@ SHARED_DIR="${REPO_ROOT}/.codex-plugin/ycc/shared"
 echo "== Sync check (generator --check) =="
 python3 "${REPO_ROOT}/scripts/generate_codex_skills.py" --check
 
+echo "== Skill invocation policy regressions =="
+python3 "${REPO_ROOT}/scripts/test_skill_invocation_policy.py"
+
 echo "== Frontmatter lint =="
-python3 - <<'PY' "${SKILLS_DIR}"
+python3 - <<'PY' "${SKILLS_DIR}" "${REPO_ROOT}"
 import re
 import sys
 from pathlib import Path
 
 import yaml
+
+repo = Path(sys.argv[2])
+sys.path.insert(0, str(repo / "scripts"))
+from generate_codex_common import model_invocation_disabled, parse_frontmatter
 
 root = Path(sys.argv[1])
 errors = 0
@@ -27,6 +34,17 @@ for path in sorted(root.rglob("SKILL.md")):
         errors += 1
         continue
     data = yaml.safe_load(match.group(1)) or {}
+    source, _ = parse_frontmatter((repo / "ycc/skills" / path.parent.name / "SKILL.md").read_text(encoding="utf-8"))
+    disabled = model_invocation_disabled(source, path.parent.name)
+    sidecar = path.parent / "agents/openai.yaml"
+    if sidecar.exists() != disabled:
+        print(f"INVOCATION policy sidecar presence mismatch: {sidecar}", file=sys.stderr)
+        errors += 1
+    elif disabled:
+        policy = yaml.safe_load(sidecar.read_text(encoding="utf-8"))
+        if not isinstance(policy, dict) or not isinstance(policy.get("policy"), dict) or policy["policy"].get("allow_implicit_invocation") is not False:
+            print(f"INVALID invocation policy: {sidecar}", file=sys.stderr)
+            errors += 1
     if set(data) - {"name", "description", "license", "allowed-tools", "metadata"}:
         print(f"UNEXPECTED frontmatter keys in {path}: {sorted(set(data) - {'name', 'description', 'license', 'allowed-tools', 'metadata'})}", file=sys.stderr)
         errors += 1

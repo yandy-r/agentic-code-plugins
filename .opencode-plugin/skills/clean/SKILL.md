@@ -2,6 +2,8 @@
 name: clean
 description: Removes unnecessary project-directory files with approval. Use when deleting
   build artifacts, finding unused files, or clearing temporary files.
+metadata:
+  opencode/autoinvoke: 'false'
 ---
 
 # Project File Cleaner

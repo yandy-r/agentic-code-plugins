@@ -14,6 +14,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from generate_codex_common import model_invocation_disabled, parse_frontmatter
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SRC_DIR = REPO_ROOT / "ycc" / "skills"
 DST_DIR = REPO_ROOT / ".cursor-plugin" / "skills"
@@ -192,6 +194,11 @@ def write_tree(dest: Path, dry_run: bool) -> set[Path]:
         rel = src_file.relative_to(SRC_DIR)
         dst_file = dest / rel
         written.add(rel)
+
+        if src_file.name == "SKILL.md":
+            # Flag is copied verbatim; validate strictly so bad YAML types fail fast.
+            frontmatter, _ = parse_frontmatter(src_file.read_text(encoding="utf-8"))
+            model_invocation_disabled(frontmatter, src_file.parent.name)
 
         if dry_run:
             print(f"Would write {dst_file.relative_to(REPO_ROOT)}")

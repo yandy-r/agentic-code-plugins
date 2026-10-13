@@ -19,6 +19,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from generate_codex_common import model_invocation_disabled
 from generate_opencode_common import (
     OPENCODE_PLUGIN_ROOT,
     SRC_SKILLS_DIR,
@@ -106,9 +107,22 @@ def transform_skill_markdown(raw: str, aliases: dict[str, str], source_path: str
         "name": name,
         "description": transformed_description,
     }
-    for optional_key in ("license", "compatibility", "metadata"):
+    for optional_key in ("license", "compatibility"):
         if optional_key in frontmatter and frontmatter[optional_key] not in (None, "", {}):
             payload[optional_key] = frontmatter[optional_key]
+
+    disabled = model_invocation_disabled(frontmatter, name)
+    metadata = frontmatter.get("metadata", {})
+    if not isinstance(metadata, dict):
+        raise ValueError(f"skill '{name}': metadata must be a mapping")
+    metadata = dict(metadata)
+    key = "opencode/autoinvoke"
+    if key in metadata and (not disabled or metadata[key] != "false"):
+        raise ValueError(f"skill '{name}': conflicting reserved metadata key '{key}'")
+    if disabled:
+        metadata[key] = "false"
+    if metadata:
+        payload["metadata"] = metadata
 
     return dump_frontmatter(payload) + transformed_body
 

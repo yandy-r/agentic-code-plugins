@@ -1,5 +1,6 @@
 ---
 name: compatibility-audit
+disable-model-invocation: true
 description: 'Audits ycc compatibility for ycc maintainers only. Use when checking generated bundle drift, verifying install assumptions, or comparing target feature gaps.'
 argument-hint: '[--target=claude|cursor|codex|opencode|all] [--json] [--fail-fast] [--dry-run]'
 allowed-tools:
