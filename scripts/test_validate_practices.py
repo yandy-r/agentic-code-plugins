@@ -6,6 +6,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -475,13 +476,14 @@ class TestWrapper(Fixture):
 
 def git_repo_fixture(root: Path) -> None:
     """Turn the fixture root into a committed git repo (for source_files() coverage)."""
-    subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
-    subprocess.run(["git", "-C", str(root), "add", "-A"], check=True, capture_output=True)
-    subprocess.run(
-        ["git", "-C", str(root), "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init"],
-        check=True,
-        capture_output=True,
-    )
+    # Git hooks export GIT_DIR/GIT_INDEX_FILE; inheriting them would mutate the caller's repo.
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    for args in (
+        ["init", "-q"],
+        ["add", "-A"],
+        ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init"],
+    ):
+        subprocess.run(["git", "-C", str(root), *args], check=True, capture_output=True, env=env)
 
 
 def vp_rel(root: Path, p: Path) -> str:

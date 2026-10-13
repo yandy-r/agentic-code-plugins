@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -180,6 +181,7 @@ def source_files(root: Path, prefix: str) -> frozenset[str]:
                 check=True,
                 capture_output=True,
                 text=True,
+                env={k: v for k, v in os.environ.items() if not k.startswith("GIT_")},
             ).stdout
             return frozenset(p for p in out.split("\0") if p and (root / p).is_file())
         except (subprocess.CalledProcessError, OSError):
