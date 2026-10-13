@@ -136,6 +136,11 @@ For ❌ features on a non-GitHub remote, the skill must:
 
 Never silently no-op and never pretend an unsupported step succeeded.
 
+The CI-autofix loop policy (caps, classification, termination, audit log) lives in
+`ci-monitoring.md` in this directory; read it before entering the loop. The older
+GitHub/GitLab host-operation notes this document generalizes live in
+`ycc/skills/git-cleanup/references/host-detection.md`, owned by `git-cleanup`.
+
 ---
 
 ## Skill integration pattern (Phase 0)
