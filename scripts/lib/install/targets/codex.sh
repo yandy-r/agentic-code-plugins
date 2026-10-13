@@ -193,7 +193,6 @@ sync_codex_target() {
 
     local codex_plugin_dest="${HOME}/.codex/plugins/ycc"
     local codex_marketplace_plugin_dest="${HOME}/.agents/plugins/ycc"
-    local codex_agents_dest="${HOME}/.codex/agents"
     local scripts_dir="${SCRIPT_DIR}/scripts"
 
     # 'base' registers the whole plugin and mirrors the custom agents (repo
@@ -210,6 +209,11 @@ sync_codex_target() {
         warn "codex skills consolidated into ~/.agents/skills — skipped plugin registration"
         slices=(agents)
         do_plugin=0
+    fi
+    # Local base mirrors the custom agents, unless the agents slice already
+    # installs them (explicit --only agents, or the consolidated branch above).
+    if [[ $do_plugin -eq 1 && "${MODE:-local}" == "local" && " ${slices[*]} " != *" agents "* ]]; then
+        do_agents=1
     fi
     step_enabled settings && do_settings=1
     step_enabled rules && do_rules=1
@@ -315,9 +319,9 @@ sync_codex_target() {
     if [[ $do_agents -eq 1 ]]; then
         step=$((step + 1))
         printf '\n%s[%d/%d] Sync custom agents%s\n' "${BOLD}" "$step" "$total" "${NC}"
-        mkdir -p "${codex_agents_dest}"
-        rsync -av --delete "${CODEX_AGENTS_DIR}/" "${codex_agents_dest}/"
-        info "Synced Codex custom agents → ${codex_agents_dest}"
+        # Ownership-tracked, like the agents slice: only ycc's agents are
+        # replaced or retired; the user's own agents are never touched.
+        run_slice codex agents
     fi
 
     if [[ $do_plugin -eq 1 ]]; then
@@ -384,7 +388,7 @@ sync_codex_target() {
     if [[ $do_plugin -eq 1 ]]; then
         if [[ "${MODE:-local}" == "repo" ]]; then
             warn "Restart Codex; the 'local-ycc-plugins' marketplace in ~/.agents/plugins/marketplace.json now tracks the github source yandy-r/claude-plugins@main."
-            warn "Updates: rerun this step (or use the Codex /plugins UI) to pull the latest published commit. No local symlink, no agents rsync."
+            warn "Updates: rerun this step (or use the Codex /plugins UI) to pull the latest published commit. No local symlink, no custom agents install."
             warn "If you also want to iterate on ycc/ source locally, regenerate the bundle with ./scripts/sync.sh --only codex and switch back to --mode local."
         else
             local codex_plugin_src_msg
@@ -441,6 +445,9 @@ remove_codex_target() {
             info "removed ${CODEX_PLUGIN_CACHE}"
         fi
         rmdir "$(dirname "${CODEX_PLUGIN_CACHE}")" 2>/dev/null || true
+        # The tracked agents first (unless the agents step just removed them),
+        # then whatever an older untracked mirror left under shipped names.
+        step_enabled agents || run_slice codex agents
         remove_mirrored_entries "${CODEX_AGENTS_DIR}" "${codex_dir}/agents"
         remove_codex_marketplace_entry
     fi

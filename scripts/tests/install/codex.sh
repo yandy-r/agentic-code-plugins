@@ -54,6 +54,34 @@ for f in .codex/rules/default.rules .codex/CLAUDE.md .codex/AGENTS.md; do
 done
 
 
+echo "== install.sh install: codex base mirrors custom agents =="
+
+home="$(new_home)"
+mkdir -p "${home}/.codex/agents"
+echo 'name = "mine"' > "${home}/.codex/agents/mine.toml"
+out="$(run_install "${home}" install --target codex --only base --skills-home native)"
+if [[ -f "${home}/.codex/agents/mine.toml" ]]; then ok "codex native base install keeps user agents"; else ko "codex native base install keeps user agents"; fi
+first_agent="$(find "${REPO_ROOT}/.codex-plugin/agents" -maxdepth 1 -name '*.toml' -printf '%f\n' | sort | head -n 1)"
+if [[ -n "${first_agent}" && -f "${home}/.codex/agents/${first_agent}" ]]; then ok "codex native base install populates ~/.codex/agents"; else ko "codex native base install populates ~/.codex/agents" "${out}"; fi
+if [[ "$(find "${home}/.codex/agents" -maxdepth 1 -name '*.toml' ! -name mine.toml 2>/dev/null | wc -l)" -eq "$(find "${REPO_ROOT}/.codex-plugin/agents" -maxdepth 1 -name '*.toml' | wc -l)" ]]; then ok "codex native base install mirrors every custom agent"; else ko "codex native base install mirrors every custom agent"; fi
+assert_contains "${out}" "Sync custom agents" "codex native base install runs the agents sync step"
+assert_contains "${out}" "(skills agents plugin)" "codex native base install runs the agents generator pass"
+last_step="$(grep -oE '\[[0-9]+/[0-9]+\]' <<< "${out}" | tail -n 1)"
+if [[ "${last_step}" == "[6/6]" ]]; then ok "codex native base install numbers its steps to the total"; else ko "codex native base install numbers its steps to the total" "last step: ${last_step}"; fi
+
+run_install "${home}" remove --target codex --intent base >/dev/null
+if [[ "$(find "${home}/.codex/agents" -mindepth 1 -maxdepth 1 -printf '%f\n')" == "mine.toml" ]]; then ok "codex base remove after install keeps only user agents"; else ko "codex base remove after install keeps only user agents"; fi
+assert_not_contains "$(cat "${home}/.config/ycc/installed-units.json" 2>/dev/null)" ".codex/agents" "codex base remove forgets the tracked agents"
+
+# Upgrade over an older untracked mirror (the pre-tracking rsync flow).
+home="$(new_home)"
+mkdir -p "${home}/.codex/agents"
+cp -R "${REPO_ROOT}/.codex-plugin/agents/." "${home}/.codex/agents/"
+out="$(run_install "${home}" install --target codex --only base --skills-home native)"
+assert_not_contains "${out}" "refusing to replace" "codex native base install adopts an older untracked mirror"
+
+echo
+
 echo "== install.sh remove: codex base =="
 
 home="$(new_home)"
