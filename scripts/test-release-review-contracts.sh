@@ -41,9 +41,10 @@ assert 'Tag-only monitoring must not resume after a retry' in release
 assert 'headSha == FIX_SHA' in release and 'createdAt >= REPUBLISH_STARTED' in release
 assert 'Set `RETRY_RUN_ID`/`RETRY_SHA` from that run' in release
 assert 'no safe branch-ref workflow_dispatch path' in release
-assert '--ci-recut=destructive` was passed, use the original destructive re-cut path' in release
-assert 'gh release delete v<new-version> --cleanup-tag --yes' in release
-assert 'publish-release.sh \\' in release
+assert '--ci-recut=destructive` was set and the original gates passed' in release
+assert 'gh release delete "$TAG" --cleanup-tag --yes' in release
+assert 'tag -a "$TAG" -m "$TAG" "$FIX_SHA"' in release and 'refs/tags/$TAG:refs/tags/$TAG' in release
+assert 'RECOVERY_STEP=%s' in release
 assert 'reachable ONLY with an explicit `--ci-recut=destructive`' in (root/'ycc/skills/releaser/SKILL.md').read_text()
 assert 'only if `--ci-recut=destructive` was set' in release
 assert 'disabled' not in (root/'ycc/skills/releaser/SKILL.md').read_text()

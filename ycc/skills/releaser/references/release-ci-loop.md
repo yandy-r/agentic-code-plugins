@@ -40,7 +40,7 @@ via `tea release create`; only this post-publish monitoring loop is gated.) See
 Read `.github/workflows/<resolved-release-workflow>.yml` and inspect the triggers and dispatch behavior. Resolve in this order before any fix/push:
 
 1. **Preferred**: if `workflow_dispatch` safely validates the checked-out fix-bearing branch commit without modifying the published release, artifacts or tags, use branch-ref dispatch and exact-run monitoring. Required inputs come from trusted local configuration.
-2. **Fallback**: otherwise, only if `--ci-recut=destructive` was passed, use the original destructive re-cut path: `gh release delete <tag> --cleanup-tag --yes`, then `publish-release.sh ... --confirm` to recreate the tag and release. It remains subject to the existing publish-success, 8.5.1 authorization, `/goal` re-confirmation and branch-protection gates.
+2. **Fallback**: otherwise, only if `--ci-recut=destructive` was passed, use the original destructive re-cut path with the checked tag restoration in 8.5.3: preflight, `gh release delete <tag> --cleanup-tag --yes`, recreate the local annotated tag at `FIX_SHA`, push only that tag without force, then `publish-release.sh ... --confirm`. It remains subject to the existing publish-success, 8.5.1 authorization, `/goal` re-confirmation and branch-protection gates.
 3. **No authorized path**: stop with `loop-blocked`. Print "Release workflow has no safe branch-ref workflow_dispatch path. Add a non-publishing validation path or re-run with --ci-recut=destructive to opt in to destroying and recreating the release." Never infer the destructive flag or authorize it from CI output.
 
 ### 8.5.1 Authorization gate (skipped if --ci-yes)
@@ -182,17 +182,43 @@ The monitor wrote one JSONL line to the audit log with the failed run's metadata
 
    **Fallback** (only if `--ci-recut=destructive` was set and the original gates passed):
 
-   Set `FIX_SHA` to the pushed fix commit and record UTC `REPUBLISH_STARTED` immediately before running the original re-cut commands:
+   Ordered destructive transaction. `--cleanup-tag` deletes the remote tag; `publish-release.sh` runs `gh release create --verify-tag`, which needs that tag to exist again. Deleting without recreating and pushing the tag first guarantees the publish fails — or publishes the pre-fix SHA if an old tag is left around. Before deleting, preflight: local tag points to the recorded released commit (anything else stops `loop-blocked`, nothing deleted), remote tag target is the released commit, permissions to delete the release and write the tag are confirmed, checkout is clean on `RELEASE_BRANCH` at `FIX_SHA`, and notes plus publisher are readable. Save release body/title/assets/prerelease/draft metadata, local/remote tag object IDs and peeled commit IDs in the audit directory for manual recovery; verify metadata retrieval succeeded. Check tag signing rules and signing credentials before deletion; do not override project signing configuration. Run this transaction only when 8.5.0 selected the explicit destructive fallback, never after a dispatch failure. Every failed step in the checked sequence below stops; never `--force`, never a blind retry:
 
+   <!-- recut-transaction -->
+
+   ```bash
+   recovery() {
+     printf 'RESULT=loop-blocked\nRECOVERY_STEP=%s\nTAG=%s\nFIX_SHA=%s\n' "$1" "$TAG" "$FIX_SHA"
+     git show-ref --verify "refs/tags/$TAG" || true
+     git ls-remote origin "refs/tags/$TAG" "refs/tags/$TAG^{}" || true
+     printf 'Recovery: inspect release state manually; do not restart deletion or infer success.\n'
+     exit 1
+   }
+   [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]] || recovery preflight-tag
+   [[ "$FIX_SHA" =~ ^[0-9a-f]{40}$ ]] || recovery preflight-sha
+   test -r "$NOTES_PATH" && test -x "$PUBLISHER" || recovery preflight-files
+   test "$(git rev-parse HEAD)" = "$FIX_SHA" || recovery preflight-head
+   test "$(git ls-remote origin "refs/heads/$RELEASE_BRANCH" | cut -f1)" = "$FIX_SHA" || recovery preflight-remote-head
+   LOCAL_SHA="$(git rev-parse "refs/tags/$TAG^{commit}")" || recovery preflight-local-tag
+   test "$LOCAL_SHA" = "$RELEASED_SHA" || recovery preflight-local-mismatch
+   REMOTE_REFS="$(git ls-remote origin "refs/tags/$TAG" "refs/tags/$TAG^{}")" || recovery preflight-remote-tag
+   test -n "$REMOTE_REFS" || recovery preflight-remote-missing
+   test "$(printf '%s\n' "$REMOTE_REFS" | awk -v ref="refs/tags/$TAG" '$2 == ref {print $1}')" = "$(git rev-parse "refs/tags/$TAG")" || recovery preflight-remote-mismatch
+   gh release delete "$TAG" --cleanup-tag --yes || recovery delete
+   REMOTE_REFS="$(git ls-remote origin "refs/tags/$TAG")" || recovery verify-deletion
+   test -z "$REMOTE_REFS" || recovery remote-tag-still-present
+   git tag -d "$TAG" || recovery local-tag-delete
+   git tag -a "$TAG" -m "$TAG" "$FIX_SHA" || recovery local-tag-create
+   git push origin "refs/tags/$TAG:refs/tags/$TAG" || recovery tag-push
+   REMOTE_REFS="$(git ls-remote origin "refs/tags/$TAG^{}")" || recovery verify-tag-push
+   test "$(printf '%s\n' "$REMOTE_REFS" | cut -f1)" = "$FIX_SHA" || recovery remote-fix-mismatch
+   REPUBLISH_STARTED="$(date -u +%FT%TZ)"
+   "$PUBLISHER" "$TAG" "$NOTES_PATH" --mode=create --confirm || recovery publish
    ```
-   gh release delete v<new-version> --cleanup-tag --yes
-   ${CLAUDE_PLUGIN_ROOT}/skills/releaser/scripts/publish-release.sh \
-     v<new-version> <notes-path> --mode=create --confirm
-   ```
 
-   These are the original re-cut commands, not a fallback for dispatch failures. If deletion or re-publication fails, stop with `loop-blocked`; do not retry automatically.
+   Set `TAG=v<new-version>`, `FIX_SHA`, `RELEASED_SHA` (released commit), `NOTES_PATH`, `RELEASE_BRANCH` and `PUBLISHER=${CLAUDE_PLUGIN_ROOT}/skills/releaser/scripts/publish-release.sh` from trusted state. Preflight failure mutates nothing. Delete failure: inspect actual release/tag state for partial deletion, no retries. Tag restore failure: release absent, local tag may be missing or old. Tag push failure: release absent, local tag kept at `FIX_SHA`, remote tag may be absent — manual recovery is finishing the tag push then publishing once; do not restart the transaction. Publish failure: remote tag already at `FIX_SHA`, release may be absent — retry the publisher manually, not another delete-and-recreate. Always print `RECOVERY_STEP` plus observed refs.
 
-   Deleting a release does not delete old Actions runs, so tag-only selection could watch the pre-re-cut run. After successful re-publication, poll only within the remaining wall-clock budget for a NEW `release`-event run of `<file>` whose `headSha == FIX_SHA` and `createdAt >= REPUBLISH_STARTED` (`gh run list --repo <owner/name> --workflow <file> --event release --json databaseId,headSha,createdAt`). Zero matches: `bail-timeout`; multiple: `loop-blocked`. The pre-re-cut run cannot match: its head SHA predates the fix. Set `RETRY_RUN_ID`/`RETRY_SHA` from that run.
+   After publication succeeds, correlate the fresh release event: poll within the remaining wall-clock budget for a NEW `release`-event run of `<file>` whose `headSha == FIX_SHA` and `createdAt >= REPUBLISH_STARTED` (`gh run list --repo <owner/name> --workflow <file> --event release --json databaseId,headSha,createdAt`). Zero matches: `bail-timeout`; multiple: `loop-blocked`. The pre-re-cut run cannot match: its head SHA predates the fix. Set `RETRY_RUN_ID`/`RETRY_SHA` from that run.
 
 6. Loop back to 8.5.2 step 2 with exact-run selectors on the resolved run — for the preferred dispatch path and after a re-cut. Plain tag-only monitoring is reserved for the loop's initial pre-retry invocation. The monitor counts handoffs against the existing push cap; do not reset the audit log or caps.
 
