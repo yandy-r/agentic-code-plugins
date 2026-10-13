@@ -99,51 +99,6 @@ narrower category set.
 | `security-reviewer`    | Security, Performance                  | Injection, auth gaps, secret exposure, SSRF, path traversal, XSS, N+1 queries, missing indexes, unbounded loops, memory leaks, large payloads                             |
 | `quality-reviewer`     | Pattern Compliance, Maintainability    | Project conventions (naming, file structure, error handling, imports), dead code, magic numbers, deep nesting, unclear naming, missing types                              |
 
-<<<<<<< HEAD
-||||||| parent of 4bc30c8 (fix(agents): scope db-modifier Bash, drop stray write tools, clarify reviewer duties)
-Each reviewer prompt MUST include:
-
-1. The list of changed files (mode-specific: `git diff --name-only HEAD` for
-   local/quick; PR number + head revision + changed-file list for PR).
-2. Relevant context (CLAUDE.md rules, PRP artifacts, PR description) — PR mode only.
-3. Its assigned focus / categories and what to check (from the appropriate table
-   above).
-4. The severity rubric.
-5. A directive to return findings in the **Standard Findings Format** below.
-6. (Path B only) A directive that the reviewer is dispatched via the blocking
-   `Task` tool and MUST return its findings inline as that `Task` call's
-   result — never background, poll, or sleep-wait for it (see
-   [standalone-dispatch.md](${CURSOR_PLUGIN_ROOT}/skills/_shared/references/standalone-dispatch.md)).
-7. (Path B only) A directive that the reviewer must ALSO write its Standard
-   Findings Format block to a scratch backstop file before returning, at
-   `docs/prps/reviews/.review-scratch/<run-id>/<reviewer-name>.md`, where
-   `<run-id>` is supplied by the caller: `local-<YYYYMMDD-HHMMSS>` for local
-   mode, `pr-<NUMBER>` for PR mode, `quick-<YYYYMMDD-HHMMSS>` for quick mode.
-
-=======
-Each reviewer prompt MUST include:
-
-1. The list of changed files (mode-specific: `git diff --name-only HEAD` for
-   local/quick; PR number + head revision + changed-file list for PR).
-2. Relevant context (CLAUDE.md rules, PRP artifacts, PR description) — PR mode only.
-3. Its assigned focus / categories and what to check (from the appropriate table
-   above).
-4. The severity rubric.
-5. A directive to return findings in the **Standard Findings Format** below.
-6. (Path B only) A directive that the reviewer is dispatched read-only via the
-   blocking `Task` tool and MUST return its findings inline as that call's
-   result — never
-   background, poll, or sleep-wait for it (see
-   [standalone-dispatch.md](${CURSOR_PLUGIN_ROOT}/skills/_shared/references/standalone-dispatch.md)).
-   The calling skill owns persistence: after each reviewer returns, write its
-   Standard Findings Format block to the scratch backstop file at
-   `docs/prps/reviews/.review-scratch/<run-id>/<reviewer-name>.md`, where
-   `<run-id>` is supplied by the caller: `local-<YYYYMMDD-HHMMSS>` for local
-   mode, `pr-<NUMBER>` for PR mode, `quick-<YYYYMMDD-HHMMSS>` for quick mode.
-   Reviewers never run commands or write files; supply diffs and command
-   output in the dispatch prompt.
-
->>>>>>> 4bc30c8 (fix(agents): scope db-modifier Bash, drop stray write tools, clarify reviewer duties)
 ---
 
 ## Standard Findings Format (Reviewer Output)
@@ -185,9 +140,10 @@ for the blocking `Task` semantics this relies on):
 
 1. For any reviewer whose `Task` return was empty, missing, or malformed,
    treat that reviewer as a failure for that role (do not fabricate findings
-   for it). In Path B only, the scratch backstop is the calling skill's own
-   copy of the inline returns it already received, not a second source to
-   recover from.
+   for it). In Path B only, the scratch file at
+   `docs/prps/reviews/.review-scratch/<run-id>/<reviewer-name>.md` is the
+   calling skill's own copy of the inline returns it already received, not a
+   second source to recover from.
 2. Combine by severity (CRITICAL first, then HIGH, MEDIUM, LOW).
 3. De-duplicate findings at the same `file:line` (if two reviewers flagged the
    same issue, keep the more severe one and annotate which reviewers concurred).

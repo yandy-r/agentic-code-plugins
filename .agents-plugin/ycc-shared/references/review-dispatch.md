@@ -38,15 +38,18 @@ Each reviewer prompt includes the instruction "flag only gaps that affect correc
 5. A directive to return findings in the **Standard Findings Format** below.
 6. (Path B only) The spawn/return contract loaded by the caller from
    `~/.agents/ycc-shared/references/standalone-dispatch.md`.
-7. (Path B only) A directive that the reviewer must also write its Standard
-   Findings Format block to a scratch backstop file before returning, at
-   `docs/prps/reviews/.review-scratch/<run-id>/<reviewer-name>.md`, where
-   `<run-id>` is supplied by the caller: `local-<YYYYMMDD-HHMMSS>` for local
-   mode, `pr-<NUMBER>` for PR mode, `quick-<YYYYMMDD-HHMMSS>` for quick mode.
+   The reviewer is dispatched read-only (Read/Grep/Glob): it returns its
+   findings inline as the `Task` result and never writes files or runs
+   commands. The prompt must supply the diff and any command output the
+   reviewer needs.
 
-After all 3 `Task` calls return: for any reviewer whose inline return is
-empty, missing, or malformed, re-read its scratch file at that path before
-merging (merge procedure in review-checklist.md). Pass the merged findings to
+After all 3 `Task` calls return, the calling skill (not the reviewer) persists
+each valid inline return to its scratch copy at
+`docs/prps/reviews/.review-scratch/<run-id>/<reviewer-name>.md`, where
+`<run-id>` is `local-<YYYYMMDD-HHMMSS>` for local mode, `pr-<NUMBER>` for PR
+mode, `quick-<YYYYMMDD-HHMMSS>` for quick mode. An empty, missing, or malformed
+return marks that reviewer failed (merge procedure in review-checklist.md); the
+scratch copy is not a second recovery source. Pass the merged findings to
 the REPORT phase (Phase 3 local / Phase 6 PR) as if they came from a
 single-pass review. Scratch cleanup happens after the artifact write; see
 below.

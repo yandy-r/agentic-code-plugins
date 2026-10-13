@@ -78,108 +78,6 @@ correctness or the stated requirements. From:
 ~/.config/opencode/shared/references/review-checklist.md
 ```
 
-<<<<<<< HEAD
-||||||| parent of 4bc30c8 (fix(agents): scope db-modifier Bash, drop stray write tools, clarify reviewer duties)
-### Path B — Parallel Sub-Agent Review (`PARALLEL_MODE=true`)
-
-Generate `TIMESTAMP=$(date +%Y%m%d-%H%M%S)` once, here, and reuse the same
-variable for the scratch run-id below and, if the user later selects an
-artifact-writing path in Phase 5, for the `quick-<TIMESTAMP>-review.md`
-filename — one canonical timestamp per invocation (the same pattern Path C
-uses for its team name when that path runs instead). Set
-`run-id = quick-<TIMESTAMP>`.
-
-> **OpenCode V2 standalone dispatch:** Issue the independent calls in one
-> parallel tool batch and set `background=false` on every call. Each call waits
-> for a candidate report. Require nonempty report text, validate the declared
-> artifact or diff independently, and do not treat a terminal lifecycle state
-> as proof of the deliverable. Apply the contentless-completion and bounded
-> retry policy from
-> [standalone-dispatch.md](~/.config/opencode/shared/references/standalone-dispatch.md).
-
-
-Dispatch **3 standalone `code-reviewer` sub-agents in parallel** in a SINGLE
-message with MULTIPLE native `subagent` calls. Use the **Local / Quick Mode Roster**
-and **Standard Findings Format** from:
-
-```
-~/.config/opencode/shared/references/review-checklist.md
-```
-
-Each reviewer prompt must include:
-
-1. The list of changed files (`git diff --name-only HEAD`)
-2. Its assigned focus and checklist items (from the roster table)
-3. The severity rubric
-4. A directive to return findings in the Standard Findings Format
-5. Its own scratch backstop path — `docs/prps/reviews/.review-scratch/quick-<TIMESTAMP>/<reviewer-name>.md`
-   — per the scratch-backstop contract in that reference
-
-After all 3 native `subagent` calls return: for any reviewer whose inline return is
-empty, missing, or malformed, re-read its scratch file at that path before
-merging. Apply the **Merge Procedure** defined in the reference to produce a
-single combined findings list for Phase 3.
-
-**Scratch cleanup is unconditional**: unlike the permanent review artifact
-(only written on "Save to file" / "Write file and apply fixes"), the scratch
-directory `docs/prps/reviews/.review-scratch/quick-<TIMESTAMP>/` is always
-removed at the end of Phase 5 (HAND-OFF) — even on "Discard" or "Apply
-fixes", which never write a permanent artifact. This is the one ephemeral
-exception to quick-review's artifact-free guarantee: the scratch file exists
-only transiently during this Path B dispatch and is gone before the skill
-returns control to the user.
-
-=======
-### Path B — Parallel Sub-Agent Review (`PARALLEL_MODE=true`)
-
-Generate `TIMESTAMP=$(date +%Y%m%d-%H%M%S)` once, here, and reuse the same
-variable for the scratch run-id below and, if the user later selects an
-artifact-writing path in Phase 5, for the `quick-<TIMESTAMP>-review.md`
-filename — one canonical timestamp per invocation (the same pattern Path C
-uses for its team name when that path runs instead). Set
-`run-id = quick-<TIMESTAMP>`.
-
-> **OpenCode V2 standalone dispatch:** Issue the independent calls in one
-> parallel tool batch and set `background=false` on every call. Each call waits
-> for a candidate report. Require nonempty report text, validate the declared
-> artifact or diff independently, and do not treat a terminal lifecycle state
-> as proof of the deliverable. Apply the contentless-completion and bounded
-> retry policy from
-> [standalone-dispatch.md](~/.config/opencode/shared/references/standalone-dispatch.md).
-
-
-Dispatch **3 standalone `code-reviewer` sub-agents in parallel** in a SINGLE
-message with MULTIPLE native `subagent` calls. Use the **Local / Quick Mode Roster**
-and **Standard Findings Format** from:
-
-```
-~/.config/opencode/shared/references/review-checklist.md
-```
-
-Each reviewer prompt must include:
-
-1. The list of changed files (`git diff --name-only HEAD`)
-2. Its assigned focus and checklist items (from the roster table)
-3. The severity rubric
-4. A directive to return findings in the Standard Findings Format
-5. Diff and command output; reviewers are read-only. The calling skill writes
-   each valid inline return to its scratch backstop path — `docs/prps/reviews/.review-scratch/quick-<TIMESTAMP>/<reviewer-name>.md`
-   — per the scratch-backstop contract in that reference
-
-After all 3 native `subagent` calls return: persist each valid inline return to its scratch
-path; mark empty, missing, or malformed returns as failed before merging. Apply the **Merge Procedure** defined in the reference to produce a
-single combined findings list for Phase 3.
-
-**Scratch cleanup is unconditional**: unlike the permanent review artifact
-(only written on "Save to file" / "Write file and apply fixes"), the scratch
-directory `docs/prps/reviews/.review-scratch/quick-<TIMESTAMP>/` is always
-removed at the end of Phase 5 (HAND-OFF) — even on "Discard" or "Apply
-fixes", which never write a permanent artifact. This is the one ephemeral
-exception to quick-review's artifact-free guarantee: the scratch file exists
-only transiently during this Path B dispatch and is gone before the skill
-returns control to the user.
-
->>>>>>> 4bc30c8 (fix(agents): scope db-modifier Bash, drop stray write tools, clarify reviewer duties)
 ## Phase 3 — REPORT (inline)
 
 Assign IDs and initial Status after merge using the shared artifact schema
@@ -379,8 +277,8 @@ fix phase has its own execution decision.
 - **Apply fixes is artifact-free**: direct apply routes to `/quick-fix`
   without writing `docs/prps/reviews/quick-*.md`.
 - **Scratch is the one ephemeral exception**: when Path B (`--parallel`) is
-  used, a transient scratch backstop file exists per reviewer at
-  `docs/prps/reviews/.review-scratch/quick-<TIMESTAMP>/<reviewer-name>.md`
+  used, the calling skill persists each valid inline return to its scratch copy
+  at `docs/prps/reviews/.review-scratch/quick-<TIMESTAMP>/<reviewer-name>.md`
   during the `subagent` dispatch in Phase 2. It is always deleted at the end of
   Phase 5 before the skill returns control to the user — including on
   "Discard" and "Apply fixes" — so the "no file written" guarantee still
