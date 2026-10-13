@@ -1,11 +1,8 @@
 ---
 name: resume-session
-description: Load the most recent session file from ~/.claude/session-data/ (or a
-  specified one by date or path) and produce a structured briefing of what was built,
-  what worked, what NOT to retry, open questions, and the exact next step. Does NOT
-  start working automatically — waits for user direction. Counterpart to /save-session.
-  Use when the user says "resume session", "continue from last session", "load context",
-  or says "/resume-session".
+description: Loads saved session context and briefs the next step without starting
+  work. Use when resuming a previous session, loading a dated session file, or restoring
+  context after a reset.
 allowed-tools:
 - Read
 - Grep
@@ -19,8 +16,9 @@ allowed-tools:
 
 # Resume Session
 
-Load the last saved session state and orient fully before doing any work.
-This skill is the counterpart to `/save-session`.
+Load the last saved session state and orient fully before doing any work. This skill is the counterpart to `/save-session`.
+
+**Operational context:** Load the most recent session through the shared session-state contract, or select by date/path; brief completed work, successful and failed approaches, open questions, and the exact next step. Do not start work or touch files until the user directs continuation.
 
 ## When to Use
 

@@ -1,6 +1,6 @@
 ---
 name: prp-prd
-description: Interactive, problem-first PRD generator that runs an iterative questioning workflow — Foundation → Market Grounding → Vision → Technical Feasibility → Decisions → Generate. Produces a hypothesis-driven product spec at docs/prps/prds/{name}.prd.md. Use when the user asks to "write a PRD", "create a product spec", "start a new feature with a PRD", or says "/prp-prd". Adapted from PRPs-agentic-eng by Wirasm.
+description: 'Develops problem-first PRDs through interactive discovery. Use when writing a feature PRD, clarifying product requirements, or testing a product hypothesis.'
 argument-hint: '[feature/product idea] (blank = start with questions)'
 allowed-tools:
   - Read
@@ -24,6 +24,8 @@ allowed-tools:
 # Product Requirements Document Generator
 
 > Adapted from PRPs-agentic-eng by Wirasm. Part of the PRP workflow series.
+
+**Operational context:** Run Foundation, Market Grounding, Vision, Technical Feasibility, Decisions, and Generate gates; write the hypothesis-driven product spec to docs/prps/prds/{name}.prd.md.
 
 **Input**: `$ARGUMENTS`
 

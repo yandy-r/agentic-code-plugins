@@ -3,7 +3,8 @@
 
 Baseline ratchet: violations listed in scripts/practices-baseline.json are
 accepted as frozen state. New violations, stale baseline entries and worsened
-numeric sizes fail validation. S2 descriptions >1024 chars always fail.
+numeric sizes fail validation. S2 descriptions >1024 chars or >12000 chars
+in aggregate always fail.
 """
 
 from __future__ import annotations
@@ -32,6 +33,7 @@ from practices_parse import (
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
 BASELINE_PATH = SCRIPT_DIR / "practices-baseline.json"
+DESC_TOTAL_CAP = 12000  # aggregate skill-description chars; always-loaded context budget
 
 # Current built-in tools per https://code.claude.com/docs/en/tools-reference
 BUILTIN_TOOLS = frozenset("""
@@ -236,6 +238,7 @@ def check_skills(root: Path, rep: Report, declared_mcp: frozenset[str]) -> None:
         rep.hard("S1", "ycc/skills", "required skills directory missing")
         return
     tracked = source_files(root, "ycc/skills")
+    desc_total = 0
     for skill_md in sorted(skills_dir.glob("*/SKILL.md")):
         rel = str(skill_md.relative_to(root))
         fm, body_lines = load_frontmatter(skill_md, "frontmatter", rep, root)
@@ -251,6 +254,7 @@ def check_skills(root: Path, rep: Report, declared_mcp: frozenset[str]) -> None:
         if not isinstance(desc, str) or not desc.strip():
             rep.hard("S2", rel, "missing or non-string description")
         else:
+            desc_total += len(desc)
             if len(desc) > 1024:
                 rep.hard("S2", rel, f"description length {len(desc)} exceeds hard cap 1024")
             elif len(desc) > 300:
@@ -288,6 +292,8 @@ def check_skills(root: Path, rep: Report, declared_mcp: frozenset[str]) -> None:
         entries = parse_tool_entries(fm.get("allowed-tools"), "S9", rel, rep)
         if entries:
             check_tools(entries, "S9", rel, rep, declared_mcp)
+    if desc_total > DESC_TOTAL_CAP:
+        rep.hard("S2", "ycc/skills", f"aggregate description length {desc_total} exceeds hard cap {DESC_TOTAL_CAP}")
 
 
 def check_references(root: Path, rep: Report) -> None:

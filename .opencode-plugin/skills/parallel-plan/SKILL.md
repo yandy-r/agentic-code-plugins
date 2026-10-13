@@ -1,9 +1,8 @@
 ---
 name: parallel-plan
-description: Create detailed parallel implementation plans (alias for plan-workflow
-  plan-only). Runs analysis and validation stages, then synthesizes dependency-aware
-  tasks into parallel-plan.md. Use after shared-context to prepare implementation-ready
-  planning artifacts
+description: Creates parallel-plan.md from existing shared.md through plan-workflow.
+  Use when planning from shared context, organizing dependency batches, or validating
+  parallel implementation tasks.
 ---
 
 ## MANDATORY FORCED MODE - READ FIRST

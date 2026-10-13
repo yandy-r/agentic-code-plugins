@@ -77,6 +77,22 @@ class OpenCodeDispatchProjectionTestCase(unittest.TestCase):
                     [],
                 )
 
+    def test_fused_operational_note_does_not_drop_original_intro(self) -> None:
+        # The note shares a line with the intro; the generator strips whole --team lines,
+        # so the source note must not mention --team or the intro is lost on OpenCode.
+        intros = {
+            "implement-plan": "Execute a parallel implementation plan by deploying implementor agents",
+            "orchestrate": "You are an orchestration expert coordinating multiple specialized agents",
+        }
+        aliases = load_agent_aliases()
+        for skill, intro in intros.items():
+            with self.subTest(skill=skill):
+                source = (SRC_SKILLS_DIR / skill / "SKILL.md").read_text(encoding="utf-8")
+                self.assertIn(intro, source)
+                rendered = transform_skill_markdown(source, aliases, Path(skill) / "SKILL.md")
+                self.assertIn(intro, rendered)
+                self.assertIn("**Operational context:**", rendered)
+
     def test_reference_uses_native_new_resume_and_result_contracts(self) -> None:
         rendered = render_standalone_dispatch_reference()
 
@@ -115,6 +131,7 @@ Standalone batches dispatch via the blocking `Task` tool.
 No `team_name`, no `run_in_background`.
 
 **When `WORKTREE_ACTIVE=true`**, include the working directory.
+All parallel agents in this batch share this path; batching guarantees no two agents touch the same file.
 
 #### Process Batch Results (Path A)
 
@@ -260,6 +277,28 @@ Accept the choice → **Path A**, **Path B**, or **Path C**.
         source = "Implement the task, then update the task status.\n"
 
         self.assertEqual(project_opencode_dispatch(source, "skills/example/SKILL.md"), source)
+
+    def test_required_fragments_enforce_body_contracts_not_description_prose(self) -> None:
+        stable_contracts = {
+            "implement-plan": "batching guarantees no two agents touch the same file",
+            "feature-research": "validate all `research-*.md` files",
+            "deep-research": "All 8 personas deployed with distinct search strategies",
+        }
+        aliases = load_agent_aliases()
+        for skill, contract in stable_contracts.items():
+            with self.subTest(skill=skill):
+                source = (SRC_SKILLS_DIR / skill / "SKILL.md").read_text(encoding="utf-8")
+                _, separator, body = source.partition("\n---\n")
+                self.assertTrue(separator)
+                source = f'---\nname: {skill}\ndescription: "Plans things. Use when planning."\n---\n{body}'
+                rendered = transform_skill_markdown(source, aliases, Path(skill) / "SKILL.md")
+                path = f"skills/{skill}/SKILL.md"
+                self.assertEqual(find_dispatch_residue(rendered, path), [])
+                self.assertIn(contract, rendered)
+                self.assertEqual(
+                    find_dispatch_residue(rendered.replace(contract, ""), path),
+                    [f"{path}: missing required dispatch fragment: {contract}"],
+                )
 
     def test_validator_reports_legacy_dispatch_syntax(self) -> None:
         legacy = 'Task(subagent_type="planner", run_in_background=true)\n'

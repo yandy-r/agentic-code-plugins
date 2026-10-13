@@ -1,17 +1,15 @@
 ---
 name: implement-plan
-description: Execute a parallel implementation plan by deploying implementor agents
-  in dependency-resolved batches. Defaults to standalone sub-agents. Worktree isolation
-  is ON by default and creates/reuses one feature worktree on a feature branch; pass
-  --no-worktree to opt out and create/use only the current-checkout feature branch.
-  --worktree is accepted as a legacy no-op. Use as Step 3 after parallel-plan.
+description: Executes parallel-plan.md with dependency-aware implementor batches.
+  Use when implementing a planned feature, running parallel-plan tasks, or resuming
+  a batched implementation.
 ---
 
 # Parallel Plan Executor
 
 > **OpenCode V2 compatibility:** `--team` is unsupported. If it is supplied, abort before setup or dispatch and ask the caller to rerun without it. This target uses native standalone `subagent` calls only.
 
-Execute a parallel implementation plan by deploying implementor agents in dependency-resolved batches. This is **Step 3** of the planning workflow, transforming the plan into working code.
+Execute a parallel implementation plan by deploying implementor agents in dependency-resolved batches. This is **Step 3** of the planning workflow, transforming the plan into working code. **Operational context:** Require parallel-plan.md from parallel-plan. Worktree isolation is on by default: create or reuse one feature worktree on a feature branch; --no-worktree uses only the current-checkout feature branch, and --worktree is a legacy no-op. Standalone sub-agents are default.
 
 Parallelism is the baseline of this skill — every batch's tasks dispatch concurrently. The only choice is **how** the implementor agents are dispatched:
 

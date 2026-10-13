@@ -1,6 +1,6 @@
 ---
 name: visual-plan
-description: Turn an existing text plan into a rich, interactive visual plan — diagrams, file maps, annotated code, open questions, and an optional UI/prototype review surface. Read-only with respect to the plan file. Use when the user asks to "make this plan visual", "render a visual plan", "create a wireframe/canvas for this plan", "visualize the implementation plan", says "/visual-plan", or when a planning skill hands off via the shared `--visual` decorator.
+description: 'Renders existing plans as interactive visual documents. Use when visualizing a text plan, creating a plan wireframe, or reviewing planned architecture visually.'
 argument-hint: '[--share] <path/to/plan.md>'
 allowed-tools:
   - Read
@@ -19,12 +19,12 @@ allowed-tools:
 
 # Visual Plan (Agent-Native Plans)
 
-Turn an ordinary text plan into a structured, reviewable visual plan. Build the
-plan a reader would normally skim in Markdown, but as a scannable document with
-editable blocks mixed in: inline diagrams, annotated code, open questions, and
-an optional top visual review surface (wireframe canvas, live prototype, or both
-in tabs). Architecture and backend plans stay document-only; UI and product
-plans start with the top canvas/prototype.
+Turn an ordinary text plan into a structured, reviewable visual plan. Build the plan a reader would normally
+skim in Markdown, but as a scannable document with editable blocks mixed in: inline diagrams, annotated code,
+open questions, and an optional top visual review surface (wireframe canvas, live prototype, or both in tabs).
+Architecture and backend plans stay document-only; UI and product plans start with the top canvas/prototype.
+
+**Operational context:** Consume an existing plan without editing it, researching again, or dispatching planners. The shared --visual decorator hands off here; write only the derived visual/ output. Local-files mode is default; hosted sharing requires explicit --share consent.
 
 `ycc:visual-plan` is the packaged entry point (slash command `/visual-plan`). It
 **consumes an existing plan** handed to it — it does not research, dispatch, or

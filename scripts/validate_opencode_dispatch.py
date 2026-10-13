@@ -110,14 +110,14 @@ _REQUIRED_FRAGMENTS: dict[str, tuple[str, ...]] = {
         "`DRY_RUN=true|false`",
         "Usage: /implement-plan [--dry-run] [--worktree] [--no-worktree] <feature-name>",
         'subagent(agent="implementor"',
-        "standalone sub-agents. Worktree isolation",
+        "batching guarantees no two agents touch the same file",
     ),
     "skills/feature-research/SKILL.md": (
         "Deploy all 7 researchers",
         "`background=false`",
         "record its `sessionID`",
         "at most one retry",
-        "tool. Outputs",
+        "validate all `research-*.md` files",
     ),
     "skills/deep-research/SKILL.md": (
         "Deploy all 8 persona agents",
@@ -125,7 +125,7 @@ _REQUIRED_FRAGMENTS: dict[str, tuple[str, ...]] = {
         "Deploy all 4 strategic analysis agents",
         "`background=false`",
         "record its `sessionID`",
-        "perspectives. Use",
+        "All 8 personas deployed with distinct search strategies",
     ),
     "skills/plan-workflow/SKILL.md": (
         "Deploy all 4 research agents",

@@ -1,13 +1,7 @@
 ---
 name: backport
-description: Cherry-pick merged trunk PRs onto active maintenance branches (release/X.Y)
-  and open one backport PR per target — driven by the project's RELEASING.md release-branches
-  model and its backport:X.Y labels. Handles a single PR (`<PR#> [--to release/X.Y]`)
-  or every pending labelled PR (`--pending`); stops on conflicts or dispatches a minimal
-  conflict resolver (`--resolve`) and asks before pushing; optionally watches CI (`--ci`).
-  `--audit` is the read-only pre-tag check that every labelled PR has a merged backport
-  and that no fix merged since the line's last tag is unaccounted for. Never merges,
-  tags, or pushes to release/* directly. Use when the user asks to "backport PR
+description: Backports merged trunk PRs to maintenance branches. Use when backporting
+  a fix, opening backport PRs, or auditing pending backports.
 allowed-tools:
 - Read
 - Grep
@@ -41,10 +35,11 @@ allowed-tools:
 # Backport
 
 Move a fix that already landed on the trunk to one or more maintenance branches, the way
-`~/.agents/ycc-shared/references/branching-model.md` (section
-"Backporting") prescribes: a `git cherry-pick -x` of the trunk's merge or squash commit onto
-a `backport/X.Y/<pr>-<slug>` branch cut from `origin/release/X.Y`, then one PR per target
-into `release/X.Y` with `Backport of #<N>` in its body.
+`~/.agents/ycc-shared/references/branching-model.md` (section "Backporting") prescribes:
+a `git cherry-pick -x` of the trunk's merge or squash commit onto a `backport/X.Y/<pr>-<slug>` branch cut
+from `origin/release/X.Y`, then one PR per target into `release/X.Y` with `Backport of #<N>` in its body.
+
+**Operational context:** Read RELEASING.md and backport:X.Y labels for targets. Accept a single PR or --pending; --resolve requires approval of the conflict diff before continuing, --ci watches CI, and --audit [release/X.Y] [--since REF] checks landed backports and unaccounted-for fixes read-only before tagging.
 
 **Golden rules** (non-toggleable):
 

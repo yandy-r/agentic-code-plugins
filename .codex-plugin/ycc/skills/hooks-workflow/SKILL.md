@@ -1,11 +1,7 @@
 ---
 name: hooks-workflow
-description: Convert rule-file hook guidance into target-appropriate config. Reads
-  hook recommendations from the resolved language rules, consults the target-capability
-  matrix, and emits only config the target can execute (Claude → JSON; Cursor → advisory
-  rule embedding where supported; Codex → advisory-only). Use when the user asks to
-  "generate hook config", "configure Claude hooks from ycc rules", "apply ycc hooks",
-  "cross-target hook setup", "hook matrix for this repo", or "verify my hook config".
+description: Generates hook configuration from language rules. Use when configuring
+  Claude hooks, translating rule hook guidance, or verifying existing hook config.
 ---
 
 # hooks-workflow

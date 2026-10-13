@@ -1,6 +1,6 @@
 ---
 name: review-fix
-description: Plan and apply fixes for findings in a /code-review artifact. Parses the review file, filters by severity, groups same-file findings into dependency-safe batches, dispatches review-fixer agents, updates Status in place (Open → Fixed/Failed), runs validation, and writes a fix report under docs/prps/reviews/fixes/. Use when the user asks to "fix review findings", "apply review fixes", "review-fix PR 42", "fix the code review", "team review-fix", or says "/review-fix".
+description: 'Applies saved code-review findings and updates artifact status. Use when fixing a review file, applying severity-filtered findings, or tracking review fixes as Fixed or Failed.'
 argument-hint: '[--parallel | --team] [--severity <level>] [--no-worktree] [--dry-run] <path/to/review.md | pr-number | blank>'
 allowed-tools:
   - Read
@@ -41,7 +41,7 @@ allowed-tools:
 
 # Review Fix
 
-Plan and apply fixes for code-review findings. Reads a review artifact produced by `/code-review`, filters by severity, plans dependency-safe fix batches, dispatches `review-fixer` agents to apply each fix, updates the Status field in the review file in place, and writes a fix report.
+Plan and apply fixes for code-review findings. Reads a review artifact produced by `/code-review`, filters by severity, plans dependency-safe fix batches, dispatches `review-fixer` agents to apply each fix, updates the Status field in the review file in place, and writes a fix report. **Operational context:** Consume saved /code-review artifacts, not GitHub PR comment threads or ephemeral findings; apply severity filters, group same-file findings into dependency-safe batches, update Open to Fixed/Failed in place, run validation, and write the fix report under docs/prps/reviews/fixes/.
 
 > Adapted from PRPs-agentic-eng by Wirasm. Part of the PRP workflow series.
 

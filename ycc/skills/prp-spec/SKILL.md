@@ -1,15 +1,6 @@
 ---
 name: prp-spec
-description: >
-  Generate a lightweight feature spec for the PRP workflow — single-pass with optional
-  codebase/market grounding via ycc:prp-researcher. Produces a concise spec at
-  docs/prps/specs/{name}.spec.md covering problem statement, requirements, technical
-  approach, integration points, and risks. Accepts a free-form description or starts
-  with clarifying questions. Parallel entry point to prp-prd — use prp-spec when the
-  problem is clear, prp-prd when it needs discovery. Both feed directly into prp-plan.
-  Use when the user asks to "write a spec", "spec out a feature", "quick spec",
-  "create a PRP spec", or says "/prp-spec".
-  For heavyweight multi-agent research, use ycc:feature-research instead.
+description: 'Writes lightweight single-pass PRP feature specs. Use when specifying a well-defined feature, drafting a quick technical spec, or preparing a spec for prp-plan.'
 argument-hint: '[--ground] [feature description | path/to/context.md]'
 allowed-tools:
   - Read
@@ -32,6 +23,8 @@ allowed-tools:
 # PRP Spec
 
 Generate a concise, actionable feature specification in a single pass. Lighter than `feature-research` (no multi-agent team), more technically directed than a PRD (includes technical approach and integration points).
+
+**Operational context:** Write docs/prps/specs/{name}.spec.md with problem, requirements, technical approach, integration points, and risks; accept free-form input or ask clarifying questions. --ground adds codebase/market research through ycc:prp-researcher. Use prp-prd for problem discovery and feature-research for heavyweight multi-agent research.
 
 > Part of the PRP workflow series. Parallel entry point alongside `prp-prd` — both feed directly into `prp-plan`.
 

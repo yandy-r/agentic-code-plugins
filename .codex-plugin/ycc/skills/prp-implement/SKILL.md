@@ -1,16 +1,13 @@
 ---
 name: prp-implement
-description: Execute a PRP plan file with per-task validation loops. Detects package
-  manager, prepares git branch, runs 5 validation levels (static/unit/build/integration/edge),
-  writes a report to docs/prps/reports/, and archives the plan. Auto-detects parallel-capable
-  plans and prompts for sequential or parallel execution. Use when the user asks to
-  "execute a PRP plan", "implement from a plan file", "run prp-implement", "parallel
-  PRP implement", "team PRP implement", or provides a path to a .plan.md file.
+description: Executes PRP plan files with validation loops, reports, and archiving.
+  Use when implementing a .plan.md file, executing a PRP plan, or running parallel
+  PRP tasks.
 ---
 
 # PRP Implement
 
-Execute a plan file step-by-step with continuous validation. Every change is verified immediately — never accumulate broken state.
+Execute a plan file step-by-step with continuous validation. Every change is verified immediately — never accumulate broken state. **Operational context:** Detect the package manager and prepare the Git branch; validate static, unit, build, integration, and edge cases, write docs/prps/reports/, and archive the plan. Detect parallel-capable plans and prompt for sequential or parallel execution unless an execution flag selects the mode.
 
 > Adapted from PRPs-agentic-eng by Wirasm. Part of the PRP workflow series.
 

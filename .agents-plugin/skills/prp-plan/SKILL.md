@@ -1,11 +1,7 @@
 ---
 name: prp-plan
-description: Create a self-contained feature implementation plan with codebase pattern
-  extraction and optional external research. Detects PRD vs free-form input, runs
-  codebase discovery via prp-researcher, and writes docs/prps/plans/{name}.plan.md
-  ready for /prp-implement. Use when the user asks for a "PRP plan", "implementation
-  plan from PRD", "feature plan with patterns to mirror", "parallel PRP plan", "team
-  PRP plan", or says "/prp-plan".
+description: Creates self-contained PRP plans with codebase patterns. Use when planning
+  from a PRD, writing a .plan.md artifact, or capturing patterns for prp-implement.
 allowed-tools:
 - Read
 - Grep
@@ -37,6 +33,8 @@ allowed-tools:
 # PRP Plan
 
 Create a detailed, self-contained implementation plan that captures all codebase patterns, conventions, and context needed to implement a feature in a single pass.
+
+**Operational context:** Detect PRD versus free-form input, discover codebase patterns through prp-researcher with optional external research, and write docs/prps/plans/{name}.plan.md for /prp-implement.
 
 > Adapted from PRPs-agentic-eng by Wirasm. Part of the PRP workflow series.
 

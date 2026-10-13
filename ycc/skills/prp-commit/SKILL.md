@@ -1,6 +1,6 @@
 ---
 name: prp-commit
-description: Lightweight natural-language git commit helper. Interprets the argument as either a glob, a filter phrase ("except tests", "only new files"), a topic phrase ("the auth changes"), or leaves staging alone if the user says "staged". Stages the matching files and generates a conventional commit message. Use for quick single-purpose commits; use /ycc:git-workflow instead when you need documentation updates, parallel agents, or full PR orchestration. Adapted from PRPs-agentic-eng by Wirasm.
+description: 'Stages selected changes and creates one Conventional Commit. Use when committing staged files, committing a file glob, or committing one topic without documentation orchestration.'
 argument-hint: '[target description] (blank = all changes)'
 allowed-tools:
   - Read
@@ -15,6 +15,8 @@ allowed-tools:
 # Smart Commit
 
 > Adapted from PRPs-agentic-eng by Wirasm. Part of the PRP workflow series.
+
+**Operational context:** Interpret input as a glob, a filter such as "except tests" or "only new files", a topic such as "the auth changes", or "staged" to preserve staging; blank input selects all changes. Use /ycc:git-workflow for documentation updates, parallel agents, or full PR orchestration.
 
 **Input**: `$ARGUMENTS`
 

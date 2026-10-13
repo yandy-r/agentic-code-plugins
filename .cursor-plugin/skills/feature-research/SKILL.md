@@ -1,16 +1,6 @@
 ---
 name: feature-research
-description: >
-  Run the 7-agent research pipeline for a new feature — deploys api-researcher,
-  business-analyzer, tech-designer, ux-researcher, security-researcher, practices-researcher,
-  and recommendations-agent in parallel to produce 7 research-*.md files and a consolidated
-  feature-spec.md under docs/plans/[feature-name]/. Default is standalone parallel
-  sub-agents via Cursor. Pass `--team` (Claude Code only) to deploy the 7
-  researchers as teammates under a shared TeamCreate/TaskList with coordinated shutdown.
-  Outputs to docs/plans/, NOT docs/prps/. Use when the user asks to "research a feature",
-  "run feature research", "deep-dive a feature before planning", or says
-  "/feature-research". For lightweight single-pass specs in the PRP workflow, use
-  prp-spec instead.
+description: 'Researches features with seven specialists and consolidates a feature spec. Use when investigating APIs, assessing feature risks, or researching UX before planning.'
 argument-hint: '[--team] [--description "..."] [--dry-run] [feature-name]'
 allowed-tools:
   - Read
@@ -39,6 +29,8 @@ allowed-tools:
 # Feature Research
 
 Deep research skill for application features. Goes beyond codebase analysis to research external APIs, business logic, technical specifications, UX considerations, and generate actionable recommendations. Dispatches 7 researchers in parallel — standalone sub-agents by default, or an agent team with `--team` (Claude Code only) where teammates share findings with each other.
+
+**Operational context:** Dispatch api-researcher, business-analyzer, tech-designer, ux-researcher, security-researcher, practices-researcher, and recommendations-agent; write seven research-*.md files plus feature-spec.md under docs/plans/[feature-name]/, never docs/prps/. Use /prp-spec for lightweight single-pass PRP specs.
 
 ## Workflow Integration
 

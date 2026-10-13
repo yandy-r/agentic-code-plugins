@@ -1,6 +1,6 @@
 ---
 name: deep-research
-description: Conduct strategic multi-perspective research using the Asymmetric Research Squad methodology with 8 specialized personas. Deploys parallel research agents covering historical, contrarian, analogical, systems, journalistic, archaeological, futurist, and negative-space perspectives. Pass `--team` (Claude Code only) to deploy the 14 research agents as teammates under a shared `TeamCreate`/`TaskList` with coordinated shutdown; default is standalone parallel sub-agents. Use for comprehensive research on complex topics requiring diverse viewpoints, competitive analysis, or strategic intelligence gathering.
+description: 'Conducts multi-perspective strategic research. Use when investigating complex topics, comparing competitors, or gathering strategic intelligence.'
 argument-hint: '[--team] [--output-dir "..."] [--dry-run] <research-subject>'
 ---
 

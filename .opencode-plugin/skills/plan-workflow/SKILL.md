@@ -1,9 +1,8 @@
 ---
 name: plan-workflow
-description: Unified planning workflow - research, analyze, and generate parallel
-  implementation plans in one command. Combines shared-context and parallel-plan with
-  checkpoint support. Default is standalone parallel sub-agents via the native `subagent`
-  tool
+description: Researches, analyzes, and validates feature plans with checkpoints. Use
+  when running research-to-plan workflow, producing shared.md and parallel-plan.md,
+  or reviewing research before planning.
 ---
 
 # Unified Planning Workflow

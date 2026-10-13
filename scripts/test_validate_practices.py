@@ -118,6 +118,25 @@ class TestSkillRules(Fixture):
         self.assertEqual(ids(r, "S2"), set())
         self.assertTrue(any("exceeds hard cap 1024" in h for h in r.hard_errors))
 
+    def test_s2_aggregate_cap(self) -> None:
+        prefix = "Use when x. "
+        for total in (11_999, 12_000, 12_001):
+            with self.subTest(total=total):
+                # Keep every description under 300 chars to isolate the aggregate cap.
+                base, extra = divmod(total, 41)
+                for i in range(41):
+                    length = base + (1 if i < extra else 0)
+                    write_skill(self.root, sk(name=f"s{i}", desc=prefix + "a" * (length - len(prefix))), name=f"s{i}")
+                rep = self.rep()
+                self.assertEqual(ids(rep, "S2"), set())
+                expected = (
+                    ["S2:ycc/skills: aggregate description length 12001 exceeds hard cap 12000"]
+                    if total > 12_000
+                    else []
+                )
+                self.assertEqual(rep.hard_errors, expected)
+                self.assertEqual(run_ratchet(rep, {}), int(total > 12_000))
+
     def test_s3_use_when(self) -> None:
         write_skill(self.root, sk(desc="Fixes things quickly."))
         self.assertEqual(len(ids(self.rep(), "S3")), 1)
