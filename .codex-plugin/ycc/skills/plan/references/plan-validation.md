@@ -9,7 +9,7 @@
 
 After the `planner` agent returns its plan, perform these quick checks before presenting it to the user. Use only the tools already available to this skill.
 
-#### Check 1: Structure completeness
+### Check 1: Structure completeness
 
 Scan the agent's response for these sections. If any **required** section is missing, re-dispatch the planner with a note to include the missing section(s).
 
@@ -26,7 +26,7 @@ Scan the agent's response for these sections. If any **required** section is mis
 - `## Risks` or `## Risks & Mitigations`
 - `## Success Criteria`
 
-#### Check 2: File path spot-check
+### Check 2: File path spot-check
 
 Extract up to 10 file paths from the plan (backtick-quoted paths or paths after `File:` annotations). For each, use Glob or `Bash: test -f "<path>"` to check existence.
 
@@ -37,7 +37,7 @@ Extract up to 10 file paths from the plan (backtick-quoted paths or paths after 
 
 - If **a few paths are missing** (≤30%): append a lighter note listing only the missing paths.
 
-#### Check 3: Parallel mode integrity (`PARALLEL_MODE=true` only)
+### Check 3: Parallel mode integrity (`PARALLEL_MODE=true` only)
 
 If the plan was requested with `--parallel`, verify:
 
@@ -45,9 +45,10 @@ If the plan was requested with `--parallel`, verify:
 - At least one `Depends on` annotation exists
 - Step IDs use hierarchical format (N.N)
 
-If any are missing, re-dispatch the planner (or `architect` teammate, if in Path B — but only _after_ `close the agent group` has run; do not try to re-spawn inside a torn-down team) with a directive to add the missing parallel annotations.
+If any are missing, re-dispatch the planner with a directive to add the missing parallel annotations.
+With `--team`, re-dispatch the `architect` only after `close the agent group` has run; do not try to re-spawn inside a torn-down team.
 
-#### Check 4: Multi-agent merge integrity (Path B and Path C)
+### Check 4: Multi-agent merge integrity (Path B and Path C)
 
 After a Path B or Path C merge — that is, whenever multiple sub-agents contributed to the plan — verify the unified plan reflects every spawned perspective:
 

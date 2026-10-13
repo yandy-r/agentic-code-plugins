@@ -86,7 +86,8 @@ Usage: /implement-plan [--team] [--dry-run] [--worktree] [--no-worktree] <featur
 
 ## Dispatch Lifecycle
 
-Read `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/standalone-dispatch.md` when no `--team`; read `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/agent-team-dispatch.md` (its §8.2 adapter, plus standalone-dispatch.md §§8–9 for common prep) only when `--team`.
+Read `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/standalone-dispatch.md` for standalone dispatch and common preparation (§§8–9).
+Read `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/agent-team-dispatch.md` §8.2 only when `--team` is passed.
 
 ## Phase 0: Prerequisites Check
 
@@ -123,7 +124,8 @@ Use standalone-dispatch.md §8.1 for precedence and variables in both modes. Ski
 
 ### Step 4: Build Dependency Graph
 
-Build the independent-vs-dependent graph using standalone-dispatch.md §9; example in `references/plan-inputs.md` (Dependency graph). Keep the graph for both Path A (batch ordering) and Path B (`addBlockedBy` wiring).
+Build the independent-vs-dependent graph using standalone-dispatch.md §9; example in `references/plan-inputs.md` (Dependency graph). Keep the graph for standalone batch ordering.
+With `--team`, also use that graph for `addBlockedBy` wiring.
 
 ## Phase 2: Create Todo List
 
@@ -145,11 +147,16 @@ Use standalone-dispatch.md §8.2 in both dispatch modes for Git inspection, requ
 
 ### Step 7: Dry Run Gate
 
-If `--dry-run` is present, print the format from `references/output-formats.md` (Dry-run formats): the default batch roster, plus — with `--team --dry-run` — the team name and per-batch teammate roster. Do not call `TeamCreate`, `TaskCreate`, `Agent`, `Task`, `SendMessage`, or `TeamDelete` in dry-run mode. **STOP HERE**.
+If `--dry-run` is present, read `references/output-formats.md` (Dry-run formats), print the default batch roster, and do not dispatch any agents.
+With `--team --dry-run`, also print the team name and per-batch teammate roster; do not call `TeamCreate`, `TaskCreate`, `Agent`, `Task`, `SendMessage`, or `TeamDelete`.
+**STOP HERE** after either dry-run output.
 
 ### Step 8: Branch on `TEAM_FLAG`
 
 - `TEAM_FLAG=false` → **Path A — Standalone sub-agent batches** (default).
+
+Execute the dependency-ready standalone batches described below.
+
 - `TEAM_FLAG=true` → **Path B — Agent team batches**.
 
 ### Path A — Standalone Sub-Agent Batches (default)
@@ -162,6 +169,8 @@ Read `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/standalone-dispatch.md` fo
 Working directory: ${WT_PARENT_PATH}
 All parallel agents in this batch share this path; batching guarantees no two agents touch the same file.
 ```
+
+Implementor prompt template: `references/agent-task-prompt.md` — read once before the loop for the full task prompt.
 
 #### Process Batch Results (Path A)
 
@@ -214,5 +223,5 @@ Pair with the `/goal` session directive to loop the batch executor to completion
 ## References
 
 - `references/plan-inputs.md` — read when parsing tasks, building the dependency graph, generating todos, showing usage, or resolving the monorepo plans directory.
-- `references/agent-task-prompt.md` — read once before dispatching implementor agents (Path A and Path B).
+- `references/agent-task-prompt.md` — read once before dispatching implementor agents.
 - `references/output-formats.md` — read when printing `--dry-run` output or the Phase 4 completion summary, or writing a `/goal` condition.

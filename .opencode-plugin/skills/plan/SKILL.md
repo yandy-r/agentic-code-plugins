@@ -95,7 +95,9 @@ then report the missing perspective. Follow
 
 ### Step 2.5 — Validate the plan before relaying
 
-Read `~/.config/opencode/skills/plan/references/plan-validation.md` after planner return/merge; run all four checks. Missing required structure or parallel annotations: re-dispatch with missing-section directive. Missing expected sections/paths/perspectives: append visible validation notes. Team re-dispatch occurs only after prior cleanup.
+Read `~/.config/opencode/skills/plan/references/plan-validation.md` after planner return/merge; run all four checks. Missing required structure or parallel annotations: re-dispatch with missing-section directive. Missing expected sections/paths/perspectives: append visible validation notes.
+
+
 
 ## Step 3 — Relay
 
@@ -109,7 +111,8 @@ Wait; do not touch code until user responds:
 - modify/different approach/reorder: re-dispatch with requested change and previous plan as context; discard prior approach when requested.
 - no: stop, no implementation.
 
-Path B re-dispatch creates new team; prior team already deleted. Do not message old sub-agents. Path C re-dispatch uses fresh standalone roster. Unclear response: ask focused clarification.
+For standalone enhanced re-dispatch, use a fresh batch of five parallel calls per `references/personas-and-merge.md` (Re-dispatch).
+Unclear response: ask focused clarification.
 
 ## Step 5 — Visual rendering (VISUAL_MODE=true only)
 

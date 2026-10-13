@@ -2,11 +2,12 @@
 
 ## Contents
 
-- C.2 Dry-run gate (if `DRY_RUN=true`)
-- B.2 Dry-run gate (if `DRY_RUN=true`)
+- Standalone Dry-Run (Path C)
+- Agent-Team Dry-Run (Path B)
 - Persona prompt contract
 - Failure policy
-- B.7 Merge outputs
+- Re-dispatch
+- Merge outputs (B.7)
 
 | Sub-agent name      | `subagent_type`                 | Role focus                                                                         |
 | ------------------- | ------------------------------- | ---------------------------------------------------------------------------------- |
@@ -16,7 +17,9 @@
 | `security-reviewer` | `research-specialist`       | Threat model, input validation, authn/authz, secrets handling, dependency risk     |
 | `ux-reviewer`       | `research-specialist`       | User-facing impact (UI, CLI, API responses, error messages); skip if internal-only |
 
-#### C.2 Dry-run gate (if `DRY_RUN=true`)
+## Standalone Dry-Run (Path C)
+
+When `DRY_RUN=true`:
 
 Print:
 
@@ -35,7 +38,7 @@ Do **not** spawn any agents. Exit the skill.
 
 ## Agent-Team Dry-Run (Path B)
 
-Print (when `ENHANCED_MODE=false`):
+When `DRY_RUN=true` with `--team`, print (when `ENHANCED_MODE=false`):
 
 ```
 Team name:   plan-<sanitized-request>
@@ -80,7 +83,13 @@ For security-reviewer and ux-reviewer use enhanced-personas prompts verbatim and
 - Security-reviewer/ux-reviewer failure: non-critical, record "partial plan — {role} did not complete; security/UX coverage may be incomplete", proceed.
 - Team failure cleanup follows canonical team lifecycle.
 
-#### B.7 Merge outputs
+## Re-dispatch
+
+Standalone enhanced (Path C) re-dispatch fires a fresh batch of 5 parallel standalone sub-agent calls; the team-only parameters belong exclusively to the team dispatch primitive and are never set here. Path C created no team, so there is nothing to tear down.
+
+Team (Path B) re-dispatch creates a new team after `close the agent group`; never message teammates from the prior team.
+
+## Merge outputs (B.7)
 
 Synthesize the teammate outputs (3 or 5) into a single unified plan following the standard
 `planner` Plan Format. Merging rules:

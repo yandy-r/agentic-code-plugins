@@ -46,6 +46,7 @@ Read `references/detection.md` now for the lockfile/package-manager/runner table
 
 ## Dispatch Contract
 
+Read `~/.config/opencode/shared/references/standalone-dispatch.md` for standalone dispatch and common preparation (§§8–9).
 
 ## Phase 1 — LOAD
 
@@ -56,7 +57,7 @@ Error: Plan file not found or invalid.
 Run /prp-plan <feature-description> to create a plan first.
 ```
 
-Read `references/detection.md` (Parallel-Capable Detection and Execution Mode Decision) now. A `## Batches` section makes the plan parallel-capable: parse its ordering and task `BATCH:` fields. Select Path A (sequential) or Path B (parallel standalone); record `EXECUTION_MODE=sequential|parallel`.
+Read `references/detection.md` (Parallel-Capable Detection and Execution Mode Decision) now. A `## Batches` section makes the plan parallel-capable: parse its ordering and task `BATCH:` fields. Select sequential or parallel standalone execution; record `EXECUTION_MODE=sequential|parallel`.
 
 
 
@@ -96,7 +97,12 @@ Process each task from Step-by-Step Tasks in order:
 3. After every file change run the Phase 0 type-check. Fix errors before the next file.
 4. Print `[done] Task N: [task name] — complete`.
 
-### Paths B / C — Parallel Batch Execution
+### Parallel Batch Execution
+
+For standalone parallel execution, use common batching from standalone-dispatch.md §9; the plan's `Batches` table and task `BATCH: BN` fields select tasks. Read `references/agent-task-prompt.md` once before dispatch for the full ACTION/IMPLEMENT/MIRROR/IMPORTS/GOTCHA/VALIDATE prompt and Patterns to Mirror excerpt.
+Dispatch one native `subagent` call per task in one parallel message: `agent="implementor"`, `description="<task title>"`, `prompt="<complete task spec and Patterns to Mirror excerpt>"`. Use the shared foreground result contract for the batch.
+Every prompt includes `Working directory: ${WT_PARENT_PATH}` when `WORKTREE_ACTIVE=true`, otherwise `Working directory: ${REPO_ROOT}`. Apply standalone-dispatch §8.3 working-directory rules; no per-agent worktree isolation.
+
 
 
 
@@ -104,8 +110,11 @@ Process each task from Step-by-Step Tasks in order:
 
 After every batch, run Phase 0 type-check (zero errors) and affected-area unit tests (green) in the execution tree. If either fails, stop the parallel pipeline; report batch and type errors/test failures; do not dispatch the next batch.
 
+Use `ask the user`: _"Batch {BN} validation failed. Choose: (1) fix manually and resume from batch {BN+1}, (2) switch to sequential mode for remaining batches, (3) abort."_ Apply the choice. No auto-retry or skipped failure. Preserve completed work. Fix/resume in the same feature worktree, without child branches to merge or clean up. Switching modes continues sequential execution for remaining batches.
 
-After validation and any team shutdown, print `[done] Batch BN: K tasks — complete (type-check + tests pass)`.
+
+
+After validation, print `[done] Batch BN: K tasks — complete (type-check + tests pass)`.
 
 After all batches, proceed to Phase 4's full five levels; between-batch checks do not replace build, integration, or edge cases.
 
@@ -163,6 +172,6 @@ Read `references/report-output.md` (Goal pairing) for the condition template; re
 ## References — read when
 
 - `references/detection.md`: Phase 0 package manager/scripts and Phase 1 parallel detection/mode selection.
-- `references/agent-task-prompt.md`: once before Path B or C implementor dispatch.
+- `references/agent-task-prompt.md`: once before parallel implementor dispatch.
 - `references/validation-and-failures.md`: Phase 4 validation and any failed check.
 - `references/report-output.md`: Phase 5 report/PRD/archive, Phase 6 user output, or `/goal` condition.

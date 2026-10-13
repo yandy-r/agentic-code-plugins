@@ -13,7 +13,8 @@ Flow: Research → Checkpoint → Analysis → Plan Generation → Validation �
 
 ## Dispatch lifecycle (applies to every agent-spawning step below)
 
-Read `~/.codex/plugins/ycc/shared/references/standalone-dispatch.md` when `--team` is absent; Read `~/.codex/plugins/ycc/shared/references/agent-team-dispatch.md` only when `--team` is present. Never mix the two lifecycles in one run.
+Read `~/.codex/plugins/ycc/shared/references/standalone-dispatch.md` for standalone dispatch.
+Read `~/.codex/plugins/ycc/shared/references/agent-team-dispatch.md` only when `--team` is present. Never mix the two lifecycles in one run.
 
 ## Critical gates (read first)
 
@@ -26,7 +27,8 @@ Read `~/.codex/plugins/ycc/shared/references/standalone-dispatch.md` when `--tea
 
 2. **Feature name required**: kebab-case (lowercase, hyphens), no other special characters. If missing or invalid, abort with the matching error block from `references/checkpoint-messages.md` ("Error Messages": Missing Feature Name / Invalid Feature Name).
 3. **Team opt-in env gate**: `--team` without `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` aborts with: `--team requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1. Omit --team for standalone dispatch, or set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in your Codex settings if you intentionally want agent-team dispatch.` Cursor and Codex bundles ship without team tools — never pass `--team` there.
-4. **Dry-run writes nothing**: handled before the prereq gate, overwrite prompt, any `mkdir`, write, dispatch, or rendering. No `create an agent group`/`record the task`/`Agent`/`Task`/`send follow-up instructions`/`close the agent group`. Never prompts. **STOP** after the preview.
+4. **Dry-run writes nothing**: handled before the prereq gate, overwrite prompt, any `mkdir`, write, dispatch, or rendering. Never prompts for input. It prints the preview and then **STOP**s.
+   With `--team`, that dry-run additionally makes no `create an agent group`/`record the task`/`Agent`/`Task`/`send follow-up instructions`/`close the agent group` calls.
 5. **`--plan-only` prerequisite gate (before any `mkdir` or write)**: `scripts/check-prerequisites.sh` must exit 0. On failure, print its output plus `run $shared-context <feature> or $plan-workflow <feature> --research-only first`, then **STOP**. Never fall back to running research inline under `--plan-only`.
 6. **`--optimized --plan-only` restriction**: the five unified analysis files must already exist (prior `--optimized` full run); there is no Phase 5 to regenerate them. If any is missing, **STOP** with: `--optimized --plan-only needs a prior --optimized full run. Run $plan-workflow <feature> --optimized first.` Enforced at Step 4B, re-checked by the Phase 7 PRE-CHECK.
 7. **Pre-generation gate (Step 22, cannot be skipped)**: `scripts/persist-or-fail.sh` must exit 0 before plan generation. On `MISSING_FILES`/`ACTION_REQUIRED`, re-dispatch the failing agent to write the missing file(s) and re-run until exit 0. The orchestrator must never write agent output files itself from captured summaries — that bypasses the contract (root cause of the May 2026 reproducer with 3 of 5 unified files missing).
@@ -53,7 +55,7 @@ If no feature name is provided, abort with the full usage instructions from `ref
 
 ## Visual mode
 
-See `~/.codex/plugins/ycc/shared/references/visual-mode.md` for the canonical `--visual` contract. `--visual` is a terminal decorator step, orthogonal to `--team`, `--optimized`, and `--no-worktree`; it runs once at the very end. With `VISUAL_MODE=true` and no `--dry-run`, after the final phase invoke `visual-plan <absolute-plan-path>` where the path is the **actual written plan** at `${feature_dir}/parallel-plan.md` (resolved in Phase 0) — never a hardcoded `docs/prps/plans` path; `visual-plan` derives its `visual/` output directory from it. With `--dry-run`, short-circuit: print `visual generation would run` and do not invoke `visual-plan`. `--research-only` produces no plan file, so `--visual` does not run.
+See `~/.codex/plugins/ycc/shared/references/visual-mode.md` for the canonical `--visual` contract. `--visual` is a terminal decorator step, orthogonal to `--optimized` and `--no-worktree`; it runs once at the very end. With `VISUAL_MODE=true` and no `--dry-run`, after the final phase invoke `visual-plan <absolute-plan-path>` where the path is the **actual written plan** at `${feature_dir}/parallel-plan.md` (resolved in Phase 0) — never a hardcoded `docs/prps/plans` path; `visual-plan` derives its `visual/` output directory from it. With `--dry-run`, short-circuit: print `visual generation would run` and do not invoke `visual-plan`. `--research-only` produces no plan file, so `--visual` does not run.
 
 ## Phase 0: Initialize
 
@@ -159,13 +161,17 @@ Create 4 tasks in the shared task list: "Research architecture for [feature-name
 
 ### Step 10: Spawn Research Agents (standard mode)
 
-Read `references/research-agents.md`. **CRITICAL**: Deploy all 4 research agents in a **SINGLE message** with **MULTIPLE `Task` tool calls**. No `team_name` — standalone dispatch. Each `Task` call uses the `subagent_type` and `model` from the table in `references/research-agents.md`.
-| `architecture-researcher` | `codebase-research-analyst` | `research-architecture.md` | sonnet | System structure, components, data flow |
-| `patterns-researcher` | `codebase-research-analyst` | `research-patterns.md` | sonnet | Existing patterns, conventions, examples |
-| `integration-researcher` | `codebase-research-analyst` | `research-integration.md` | sonnet | APIs, databases, external systems |
-| `docs-researcher` | `codebase-research-analyst` | `research-docs.md` | sonnet | Relevant documentation files |
+Read `references/research-agents.md`. **CRITICAL**: Deploy all 4 research agents in a **SINGLE message** with **MULTIPLE `Task` tool calls**. No `team_name` — standalone dispatch. Each `Task` call uses the `subagent_type` and `model` from the inline table below; full prompts live in `references/research-agents.md`.
 
-Pass `model: "sonnet"` for all research agents; each writes `${feature_dir}/[output-file]`. In `--optimized`, spawn the 5 unified agents from `references/research-agents-optimized.md` instead (see "Optimized Mode" below). Dispatch per the Dispatch Lifecycle section: standalone = all agents in one message with multiple `Task` calls (no `team_name`); team = all teammates in one message with `Agent` calls carrying `team_name="pw-[feature-name]"` and the matching `name=` (tasks were registered in Step 9 — do not re-create). Team mode: confirm via `the task tracker` that all 4 tasks are `completed` before Step 11.
+| Name                      | Subagent Type               | Output File                | Model  | Focus                                    |
+| ------------------------- | --------------------------- | -------------------------- | ------ | ---------------------------------------- |
+| `architecture-researcher` | `codebase-research-analyst` | `research-architecture.md` | sonnet | System structure, components, data flow  |
+| `patterns-researcher`     | `codebase-research-analyst` | `research-patterns.md`     | sonnet | Existing patterns, conventions, examples |
+| `integration-researcher`  | `codebase-research-analyst` | `research-integration.md`  | sonnet | APIs, databases, external systems        |
+| `docs-researcher`         | `codebase-research-analyst` | `research-docs.md`         | sonnet | Relevant documentation files             |
+
+Pass `model: "sonnet"` for all research agents; each writes `${feature_dir}/[output-file]`. In `--optimized`, spawn the 5 unified agents from `references/research-agents-optimized.md` instead (see "Optimized Mode" below). Standalone dispatch follows the shared contract.
+With `--team`, spawn the teammates registered in Step 9 in one message and confirm all are `completed` via `the task tracker` before Step 11; do not re-create tasks.
 
 ## Phase 2: Validate Research Artifacts
 
@@ -213,7 +219,8 @@ Fix any errors before proceeding.
 
 Once `shared.md` exists and `validate-shared.sh` passed: skip Phases 4–9.5 entirely. Then:
 
-1. Team mode: shut down remaining teammates and `close the agent group` (same cleanup as Step 33). Standalone has no team.
+1. Standalone research needs no teardown; proceed directly to the research-only summary.
+   With `--team`, shut down remaining teammates and `close the agent group` (same cleanup as Step 33).
 2. Print the research-only summary: use "Research Complete Summary" from `references/checkpoint-messages.md` — read when emitting the research-only summary (standard or optimized variant), listing the artifacts this run created (standard: `research-*.md` ×4 + `shared.md`; optimized: the five unified `analysis-*.md` + `shared.md`) plus dispatch mode.
 3. Next step line: `$parallel-plan <feature>` or `$plan-workflow <feature> --plan-only`.
 4. **STOP** — no further writes or dispatch.
@@ -226,7 +233,8 @@ Use **ask the user**. Question: "Research complete for [feature-name]. Review th
 
 1. **Continue to planning** — proceed to Phase 5.
 2. **Review shared.md first** — display `${feature_dir}/shared.md`, then re-prompt with the same question.
-3. **Stop here** — end the workflow: team mode cleans up (`close the agent group`); display the research-phase completion summary; **STOP** — do not proceed to planning.
+3. **Stop here** — display the research-phase completion summary and end the workflow. **STOP** — do not proceed to planning.
+   With `--team`, perform `close the agent group` cleanup before this stop.
 
 Format from `references/checkpoint-messages.md` — read when prompting at the checkpoint ("Checkpoint Question (Phase 2)").
 
@@ -248,15 +256,18 @@ Create 3 tasks: "Synthesize planning context for [feature-name]", "Analyze code 
 
 ### Step 20: Spawn Analysis Agents
 
-**CRITICAL**: Deploy all 3 analysis agents in a **SINGLE message** with **MULTIPLE `Task` tool calls**. No `team_name`. Each `Task` call uses the `subagent_type` and `model` from the table in `references/planning-agents.md`.
+**CRITICAL**: Deploy all 3 analysis agents in a **SINGLE message** with **MULTIPLE `Task` tool calls**. No `team_name`. Each `Task` call uses the `subagent_type` and `model` from the inline table below; full prompts live in `references/planning-agents.md`.
 
 Team mode instead spawns 3 (standard) or 5 (optimized) teammates in one message with `team_name="pw-[feature-name]"` and the matching `name=`, per Step 19.
-| ---------------------- | --------------------------- | --------------------- | ------ | ---------------------- |
-| `context-synthesizer` | `codebase-research-analyst` | `analysis-context.md` | sonnet | Condense planning docs |
-| `code-analyzer` | `codebase-research-analyst` | `analysis-code.md` | sonnet | Extract code patterns |
-| `task-structurer` | `codebase-research-analyst` | `analysis-tasks.md` | sonnet | Suggest task breakdown |
 
-Pass `model: "sonnet"`; each writes `${feature_dir}/[output-file]`. Dispatch per the Dispatch Lifecycle: standalone = one message, 3 `Task` calls; team = one message, 3 `Agent` calls with `team_name` + `name=` (tasks from Step 19), then confirm `completed` via `the task tracker`.
+| Name                  | Subagent Type               | Output File           | Model  | Focus                  |
+| --------------------- | --------------------------- | --------------------- | ------ | ---------------------- |
+| `context-synthesizer` | `codebase-research-analyst` | `analysis-context.md` | sonnet | Condense planning docs |
+| `code-analyzer`       | `codebase-research-analyst` | `analysis-code.md`    | sonnet | Extract code patterns  |
+| `task-structurer`     | `codebase-research-analyst` | `analysis-tasks.md`   | sonnet | Suggest task breakdown |
+
+Pass `model: "sonnet"`; each writes `${feature_dir}/[output-file]`. Standalone dispatch follows the shared contract.
+With `--team`, spawn the tasks registered in Step 19 in one message and confirm `completed` via `the task tracker`.
 
 ## Phase 6: Validate and Persist Analysis Artifacts
 
@@ -451,4 +462,5 @@ Plans default to the git repository root `docs/plans/`, regardless of the subdir
 
 ## Notes
 
-- You are the planning orchestrator — coordinate all phases; choose dispatch mode from `$ARGUMENTS`; one team for the entire workflow (team mode); spawn each stage in parallel in a single message; pass the model parameters from the tables above; validate with scripts after agents complete; read condensed analysis, not raw files; multiple validation passes ensure quality.
+- You are the planning orchestrator — coordinate all phases; choose dispatch mode from `$ARGUMENTS`; spawn each stage in parallel in a single message; pass the model parameters from the tables above; validate with scripts after agents complete; read condensed analysis, not raw files; multiple validation passes ensure quality.
+- With `--team`, keep one team for the entire workflow.

@@ -14,6 +14,7 @@ Flow: Research → Checkpoint → Analysis → Plan Generation → Validation �
 
 ## Dispatch lifecycle (applies to every agent-spawning step below)
 
+Read `~/.config/opencode/shared/references/standalone-dispatch.md` for standalone dispatch.
 
 ## Critical gates (read first)
 
@@ -25,6 +26,9 @@ Flow: Research → Checkpoint → Analysis → Plan Generation → Validation �
    ```
 
 2. **Feature name required**: kebab-case (lowercase, hyphens), no other special characters. If missing or invalid, abort with the matching error block from `references/checkpoint-messages.md` ("Error Messages": Missing Feature Name / Invalid Feature Name).
+4. **Dry-run writes nothing**: handled before the prereq gate, overwrite prompt, any `mkdir`, write, dispatch, or rendering. Never prompts for input. It prints the preview and then **STOP**s.
+
+
 5. **`--plan-only` prerequisite gate (before any `mkdir` or write)**: `scripts/check-prerequisites.sh` must exit 0. On failure, print its output plus `run /shared-context <feature> or /plan-workflow <feature> --research-only first`, then **STOP**. Never fall back to running research inline under `--plan-only`.
 6. **`--optimized --plan-only` restriction**: the five unified analysis files must already exist (prior `--optimized` full run); there is no Phase 5 to regenerate them. If any is missing, **STOP** with: `--optimized --plan-only needs a prior --optimized full run. Run /plan-workflow <feature> --optimized first.` Enforced at Step 4B, re-checked by the Phase 7 PRE-CHECK.
 7. **Pre-generation gate (Step 22, cannot be skipped)**: `scripts/persist-or-fail.sh` must exit 0 before plan generation. On `MISSING_FILES`/`ACTION_REQUIRED`, re-dispatch the failing agent to write the missing file(s) and re-run until exit 0. The orchestrator must never write agent output files itself from captured summaries — that bypasses the contract (root cause of the May 2026 reproducer with 3 of 5 unified files missing).
@@ -48,6 +52,7 @@ If no feature name is provided, abort with the full usage instructions from `ref
 
 ## Visual mode
 
+See `~/.config/opencode/shared/references/visual-mode.md` for the canonical `--visual` contract. `--visual` is a terminal decorator step, orthogonal to `--optimized` and `--no-worktree`; it runs once at the very end. With `VISUAL_MODE=true` and no `--dry-run`, after the final phase invoke `visual-plan <absolute-plan-path>` where the path is the **actual written plan** at `${feature_dir}/parallel-plan.md` (resolved in Phase 0) — never a hardcoded `docs/prps/plans` path; `visual-plan` derives its `visual/` output directory from it. With `--dry-run`, short-circuit: print `visual generation would run` and do not invoke `visual-plan`. `--research-only` produces no plan file, so `--visual` does not run.
 
 ## Phase 0: Initialize
 
@@ -139,10 +144,15 @@ Substitute `{{FEATURE_NAME}}` (feature directory name) and `{{FEATURE_DIR}}` (`$
 ### Step 10: Spawn Research Agents (standard mode)
 
 Read `references/research-agents.md`. **CRITICAL**: Deploy all 4 research agents in a **SINGLE message** with **MULTIPLE native `subagent` calls**. Every call sets `background=false`, uses the configured agent model, and follows the shared result policy below.
-| `architecture-researcher` | `codebase-research-analyst` | `research-architecture.md` | configured | System structure, components, data flow |
-| `patterns-researcher` | `codebase-research-analyst` | `research-patterns.md` | configured | Existing patterns, conventions, examples |
-| `integration-researcher` | `codebase-research-analyst` | `research-integration.md` | configured | APIs, databases, external systems |
-| `docs-researcher` | `codebase-research-analyst` | `research-docs.md` | configured | Relevant documentation files |
+
+| Name                      | Subagent Type               | Output File                | Model  | Focus                                    |
+| ------------------------- | --------------------------- | -------------------------- | ------ | ---------------------------------------- |
+| `architecture-researcher` | `codebase-research-analyst` | `research-architecture.md` | configured | System structure, components, data flow  |
+| `patterns-researcher`     | `codebase-research-analyst` | `research-patterns.md`     | configured | Existing patterns, conventions, examples |
+| `integration-researcher`  | `codebase-research-analyst` | `research-integration.md`  | configured | APIs, databases, external systems        |
+| `docs-researcher`         | `codebase-research-analyst` | `research-docs.md`         | configured | Relevant documentation files             |
+
+
 
 
 ## Phase 2: Validate Research Artifacts
@@ -186,6 +196,9 @@ Fix any errors before proceeding.
 
 Once `shared.md` exists and `validate-shared.sh` passed: skip Phases 4–9.5 entirely. Then:
 
+1. Standalone research needs no teardown; proceed directly to the research-only summary.
+
+
 2. Print the research-only summary: use "Research Complete Summary" from `references/checkpoint-messages.md` — read when emitting the research-only summary (standard or optimized variant), listing the artifacts this run created (standard: `research-*.md` ×4 + `shared.md`; optimized: the five unified `analysis-*.md` + `shared.md`) plus dispatch mode.
 3. Next step line: `/parallel-plan <feature>` or `/plan-workflow <feature> --plan-only`.
 4. **STOP** — no further writes or dispatch.
@@ -198,6 +211,9 @@ Use **ask the user**. Question: "Research complete for [feature-name]. Review th
 
 1. **Continue to planning** — proceed to Phase 5.
 2. **Review shared.md first** — display `${feature_dir}/shared.md`, then re-prompt with the same question.
+3. **Stop here** — display the research-phase completion summary and end the workflow. **STOP** — do not proceed to planning.
+
+
 
 Format from `references/checkpoint-messages.md` — read when prompting at the checkpoint ("Checkpoint Question (Phase 2)").
 
@@ -213,10 +229,14 @@ Read `~/.config/opencode/skills/plan-workflow/references/planning-agents.md` —
 
 **CRITICAL**: Deploy all 3 analysis agents in a **SINGLE message** with **MULTIPLE native `subagent` calls**. Every call sets `background=false`, uses the configured agent model, and follows the shared result policy below.
 
-| ---------------------- | --------------------------- | --------------------- | ------ | ---------------------- |
+
+| Name                  | Subagent Type               | Output File           | Model  | Focus                  |
+| --------------------- | --------------------------- | --------------------- | ------ | ---------------------- |
 | `context-synthesizer` | `codebase-research-analyst` | `analysis-context.md` | configured | Condense planning docs |
-| `code-analyzer` | `codebase-research-analyst` | `analysis-code.md` | configured | Extract code patterns |
-| `task-structurer` | `codebase-research-analyst` | `analysis-tasks.md` | configured | Suggest task breakdown |
+| `code-analyzer`       | `codebase-research-analyst` | `analysis-code.md`    | configured | Extract code patterns  |
+| `task-structurer`     | `codebase-research-analyst` | `analysis-tasks.md`   | configured | Suggest task breakdown |
+
+
 
 
 ## Phase 6: Validate and Persist Analysis Artifacts
@@ -388,3 +408,5 @@ Contract rules:
 Plans default to the git repository root `docs/plans/`, regardless of the subdirectory the skill runs from; `resolve-plans-dir.sh` handles detection. A `.plans-config` file customizes it — repo root (`plans_dir: docs/plans`) for centralized plans, or package-level (`plans_dir: docs/plans` + `scope: local`) for local plans.
 
 ## Notes
+
+- You are the planning orchestrator — coordinate all phases; choose dispatch mode from `$ARGUMENTS`; spawn each stage in parallel in a single message; pass the model parameters from the tables above; validate with scripts after agents complete; read condensed analysis, not raw files; multiple validation passes ensure quality.

@@ -92,7 +92,8 @@ Dry-run: print exact selected roster format; no spawning; if visual also print `
 
 ### Step 2.5 — Validate the plan before relaying
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/plan/references/plan-validation.md` after planner return/merge; run all four checks. Missing required structure or parallel annotations: re-dispatch with missing-section directive. Missing expected sections/paths/perspectives: append visible validation notes. Team re-dispatch occurs only after prior cleanup.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/plan/references/plan-validation.md` after planner return/merge; run all four checks. Missing required structure or parallel annotations: re-dispatch with missing-section directive. Missing expected sections/paths/perspectives: append visible validation notes.
+With `--team`, re-dispatch only after `TeamDelete` has completed prior cleanup.
 
 ## Step 3 — Relay
 
@@ -106,7 +107,10 @@ Wait; do not touch code until user responds:
 - modify/different approach/reorder: re-dispatch with requested change and previous plan as context; discard prior approach when requested.
 - no: stop, no implementation.
 
-Path B re-dispatch creates new team; prior team already deleted. Do not message old teammates. Path C re-dispatch uses fresh standalone roster. Unclear response: ask focused clarification.
+For standalone enhanced re-dispatch, use a fresh batch of five parallel calls per `references/personas-and-merge.md` (Re-dispatch).
+Claude: that fresh batch is five parallel `Task` calls with no `team_name=` or `name=`, which are exclusive to `Agent`+team dispatch.
+With `--team`, re-dispatch creates a new team after `TeamDelete`; do not message prior teammates.
+Unclear response: ask focused clarification.
 
 ## Step 5 — Visual rendering (VISUAL_MODE=true only)
 

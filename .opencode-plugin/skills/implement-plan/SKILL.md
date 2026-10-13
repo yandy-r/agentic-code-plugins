@@ -58,6 +58,7 @@ Usage: /implement-plan [--dry-run] [--worktree] [--no-worktree] <feature-name>
 
 ## Dispatch Lifecycle
 
+Read `~/.config/opencode/shared/references/standalone-dispatch.md` for standalone dispatch and common preparation (§§8–9).
 
 ## Phase 0: Prerequisites Check
 
@@ -94,6 +95,9 @@ Use standalone-dispatch.md §8.1 for precedence and variables in both modes. Ski
 
 ### Step 4: Build Dependency Graph
 
+Build the independent-vs-dependent graph using standalone-dispatch.md §9; example in `references/plan-inputs.md` (Dependency graph). Keep the graph for standalone batch ordering.
+
+
 
 ## Phase 2: Create Todo List
 
@@ -115,8 +119,13 @@ Use standalone-dispatch.md §8.2 in both dispatch modes for Git inspection, requ
 
 ### Step 7: Dry Run Gate
 
+If `--dry-run` is present, read `references/output-formats.md` (Dry-run formats), print the default batch roster, and do not dispatch any agents.
+**STOP HERE** after either dry-run output.
 
 ### Step 8: Execute standalone batches
+
+Execute the dependency-ready standalone batches described below.
+
 
 ### Path A — Standalone Sub-Agent Batches (default)
 
@@ -143,6 +152,8 @@ implementation requirements, validation commands, and final `STATUS:` format.
 Working directory: ${WT_PARENT_PATH}
 All parallel agents in this batch share this path; batching guarantees no two agents touch the same file.
 ```
+
+Implementor prompt template: `references/agent-task-prompt.md` — read once before the loop for the full task prompt.
 
 #### Process Batch Results (Path A)
 
@@ -201,4 +212,5 @@ Pair with the `/goal` session directive to loop the batch executor to completion
 ## References
 
 - `references/plan-inputs.md` — read when parsing tasks, building the dependency graph, generating todos, showing usage, or resolving the monorepo plans directory.
+- `references/agent-task-prompt.md` — read once before dispatching implementor agents.
 - `references/output-formats.md` — read when printing `--dry-run` output or the Phase 4 completion summary, or writing a `/goal` condition.

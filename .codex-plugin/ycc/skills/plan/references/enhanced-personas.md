@@ -10,7 +10,7 @@
 > - **Path C** (`--enhanced` alone) — 5 standalone parallel sub-agents, no `create an agent group`.
 > - **Path B enhanced** (`--enhanced --team`) — 5-persona agent team with shared `the task tracker`.
 >
-> Both enhanced personas use `research-specialist` distinguished by `name=`. They contribute slices that the synthesizer folds into the merged plan per `SKILL.md` §B.7 (Path B) or §C.5 (Path C). They do NOT write any files — they return findings inline.
+> Both enhanced personas use `research-specialist` distinguished by `name=`. They contribute slices that the synthesizer folds into the merged plan per `SKILL.md` (Merge outputs; Re-dispatch). They do NOT write any files — they return findings inline.
 
 ## Roster
 
