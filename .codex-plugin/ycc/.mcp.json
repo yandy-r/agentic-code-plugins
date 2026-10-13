@@ -4,6 +4,10 @@
       "command": "github-mcp-server",
       "args": ["stdio"]
     },
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp"
+    },
     "stripe": {
       "type": "http",
       "url": "https://mcp.stripe.com"

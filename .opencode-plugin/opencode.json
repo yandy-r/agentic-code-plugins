@@ -210,6 +210,10 @@
           "stdio"
         ]
       },
+      "context7": {
+        "type": "remote",
+        "url": "https://mcp.context7.com/mcp"
+      },
       "stripe": {
         "type": "remote",
         "url": "https://mcp.stripe.com"

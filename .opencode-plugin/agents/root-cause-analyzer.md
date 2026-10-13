@@ -7,124 +7,19 @@ permissions:
 - action: '*'
   resource: '*'
   effect: deny
-- action: shell
-  resource: '*'
-  effect: allow
-- action: glob
+- action: read
   resource: '*'
   effect: allow
 - action: grep
   resource: '*'
   effect: allow
-- action: read
+- action: glob
   resource: '*'
   effect: allow
 - action: webfetch
   resource: '*'
   effect: allow
 - action: websearch
-  resource: '*'
-  effect: allow
-- action: sql_execute-sql
-  resource: '*'
-  effect: allow
-- action: sql_describe-table
-  resource: '*'
-  effect: allow
-- action: sql_describe-functions
-  resource: '*'
-  effect: allow
-- action: sql_list-tables
-  resource: '*'
-  effect: allow
-- action: sql_get-function-definition
-  resource: '*'
-  effect: allow
-- action: sql_upload-file
-  resource: '*'
-  effect: allow
-- action: sql_delete-file
-  resource: '*'
-  effect: allow
-- action: sql_list-files
-  resource: '*'
-  effect: allow
-- action: sql_download-file
-  resource: '*'
-  effect: allow
-- action: sql_create-bucket
-  resource: '*'
-  effect: allow
-- action: sql_delete-bucket
-  resource: '*'
-  effect: allow
-- action: sql_move-file
-  resource: '*'
-  effect: allow
-- action: sql_copy-file
-  resource: '*'
-  effect: allow
-- action: sql_generate-signed-url
-  resource: '*'
-  effect: allow
-- action: sql_get-file-info
-  resource: '*'
-  effect: allow
-- action: sql_list-buckets
-  resource: '*'
-  effect: allow
-- action: sql_empty-bucket
-  resource: '*'
-  effect: allow
-- action: context7_resolve-library-id
-  resource: '*'
-  effect: allow
-- action: context7_get-library-docs
-  resource: '*'
-  effect: allow
-- action: zen_chat
-  resource: '*'
-  effect: allow
-- action: zen_thinkdeep
-  resource: '*'
-  effect: allow
-- action: zen_debug
-  resource: '*'
-  effect: allow
-- action: zen_analyze
-  resource: '*'
-  effect: allow
-- action: zen_listmodels
-  resource: '*'
-  effect: allow
-- action: zen_version
-  resource: '*'
-  effect: allow
-- action: static-analysis_analyze_file
-  resource: '*'
-  effect: allow
-- action: static-analysis_search_symbols
-  resource: '*'
-  effect: allow
-- action: static-analysis_get_symbol_info
-  resource: '*'
-  effect: allow
-- action: static-analysis_find_references
-  resource: '*'
-  effect: allow
-- action: static-analysis_analyze_dependencies
-  resource: '*'
-  effect: allow
-- action: static-analysis_find_patterns
-  resource: '*'
-  effect: allow
-- action: static-analysis_extract_context
-  resource: '*'
-  effect: allow
-- action: static-analysis_summarize_codebase
-  resource: '*'
-  effect: allow
-- action: static-analysis_get_compilation_errors
   resource: '*'
   effect: allow
 - action: external_directory

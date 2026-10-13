@@ -16,9 +16,6 @@ permissions:
 - action: glob
   resource: '*'
   effect: allow
-- action: shell
-  resource: '*'
-  effect: allow
 - action: external_directory
   resource: '*'
   effect: ask

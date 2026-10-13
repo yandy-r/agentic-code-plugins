@@ -145,7 +145,7 @@ If you cannot identify a concrete file, return early with the FAILURE response s
 - For unit-test: minimum source change that makes the assertion pass. Do not delete or skip tests.
 - For build: minimum change that compiles. Do not introduce stubs or TODOs.
 
-Use `Edit` or `MultiEdit`. Do not use `Write` (whole-file overwrites are too aggressive).
+Use `Edit`. Do not use `Write` (whole-file overwrites are too aggressive).
 
 ### 4. Validate locally if a command was provided
 

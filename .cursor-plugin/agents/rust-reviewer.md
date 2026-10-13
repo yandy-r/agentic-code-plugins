@@ -1,7 +1,15 @@
 ---
 name: rust-reviewer
-description: 'Expert Rust code reviewer specializing in ownership, lifetimes, error handling, unsafe usage, and idiomatic patterns. Use for all Rust code changes. MUST BE USED for Rust projects.'
-tools: ['Read', 'Grep', 'Glob', 'Bash']
+description: 'Expert Rust reviewer for ownership, lifetimes, error handling, unsafe usage, and idiomatic patterns. Use proactively after Rust code changes.'
+tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash(cargo:*)
+  - Bash(git diff:*)
+  - Bash(git log:*)
+  - Bash(git show:*)
+  - Bash(git status:*)
 model: claude-opus-5[effort=high,context=1m]
 ---
 
@@ -81,8 +89,8 @@ When invoked:
 cargo clippy -- -D warnings
 cargo fmt --check
 cargo test
-if command -v cargo-audit >/dev/null; then cargo audit; else echo "cargo-audit not installed"; fi
-if command -v cargo-deny >/dev/null; then cargo deny check; else echo "cargo-deny not installed"; fi
+cargo audit   # skip and note if cargo-audit is not installed
+cargo deny check   # skip and note if cargo-deny is not installed
 cargo build --release 2>&1 | head -50
 ```
 

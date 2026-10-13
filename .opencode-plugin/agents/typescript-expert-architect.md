@@ -3,6 +3,37 @@ description: Expert TypeScript/JavaScript assistance at the language, type-syste
   and tooling level including generic APIs, .d.ts authoring, tsconfig tuning, conditional/mapped
   types, npm libraries, monorepos, cross-runtime, and bundler optimization.
 mode: subagent
+permissions:
+- action: '*'
+  resource: '*'
+  effect: deny
+- action: read
+  resource: '*'
+  effect: allow
+- action: grep
+  resource: '*'
+  effect: allow
+- action: glob
+  resource: '*'
+  effect: allow
+- action: webfetch
+  resource: '*'
+  effect: allow
+- action: websearch
+  resource: '*'
+  effect: allow
+- action: external_directory
+  resource: '*'
+  effect: ask
+- action: read
+  resource: '*.env'
+  effect: ask
+- action: read
+  resource: '*.env.*'
+  effect: ask
+- action: read
+  resource: '*.env.example'
+  effect: allow
 color: '#EAB308'
 ---
 

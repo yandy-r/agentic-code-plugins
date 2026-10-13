@@ -3,6 +3,43 @@ description: Expert Python architecture guidance including package design, async
   framework selection (FastAPI/Flask/Django), data pipelines, CLI tools, packaging
   (hatch/poetry/uv), and testing strategies.
 mode: subagent
+permissions:
+- action: '*'
+  resource: '*'
+  effect: deny
+- action: read
+  resource: '*'
+  effect: allow
+- action: grep
+  resource: '*'
+  effect: allow
+- action: glob
+  resource: '*'
+  effect: allow
+- action: webfetch
+  resource: '*'
+  effect: allow
+- action: websearch
+  resource: '*'
+  effect: allow
+- action: skill
+  resource: python-patterns
+  effect: allow
+- action: skill
+  resource: python-testing
+  effect: allow
+- action: external_directory
+  resource: '*'
+  effect: ask
+- action: read
+  resource: '*.env'
+  effect: ask
+- action: read
+  resource: '*.env.*'
+  effect: ask
+- action: read
+  resource: '*.env.example'
+  effect: allow
 color: '#EAB308'
 ---
 

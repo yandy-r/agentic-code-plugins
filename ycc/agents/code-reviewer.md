@@ -1,7 +1,15 @@
 ---
 name: code-reviewer
-description: 'Expert code review specialist. Proactively reviews code for quality, security, and maintainability. Use immediately after writing or modifying code. MUST BE USED for all code changes.'
-tools: ['Read', 'Grep', 'Glob', 'Bash', 'Write']
+description: 'Expert code reviewer for quality, security, and maintainability. Use proactively after writing or modifying code.'
+tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash(git diff:*)
+  - Bash(git log:*)
+  - Bash(git show:*)
+  - Bash(git status:*)
+  - Write
 model: sonnet
 ---
 
@@ -183,7 +191,7 @@ Organize findings by severity. For each issue:
 path (`docs/prps/reviews/.review-scratch/<run-id>/<reviewer-name>.md`), write
 the findings block to that path via `Write` in addition to returning it as
 your final response — this gives the orchestrator a backstop if the inline
-`Task` return is ever lost.
+`Agent` return is ever lost.
 
 ```
 [CRITICAL] Hardcoded API key in source

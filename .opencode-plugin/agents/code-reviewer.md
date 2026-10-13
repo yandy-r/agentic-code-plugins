@@ -1,7 +1,6 @@
 ---
-description: Expert code review specialist. Proactively reviews code for quality,
-  security, and maintainability. Use immediately after writing or modifying code.
-  MUST BE USED for all code changes.
+description: Expert code reviewer for quality, security, and maintainability. Use
+  proactively after writing or modifying code.
 mode: subagent
 permissions:
 - action: '*'
@@ -17,7 +16,16 @@ permissions:
   resource: '*'
   effect: allow
 - action: shell
-  resource: '*'
+  resource: git diff *
+  effect: allow
+- action: shell
+  resource: git log *
+  effect: allow
+- action: shell
+  resource: git show *
+  effect: allow
+- action: shell
+  resource: git status *
   effect: allow
 - action: edit
   resource: '*'

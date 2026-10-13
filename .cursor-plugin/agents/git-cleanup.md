@@ -1,7 +1,12 @@
 ---
 name: git-cleanup
 description: Read-only git cleanup auditor. Collects git state (branches, worktrees, remote-tracking refs, stashes, tags) and remote state from GitHub/GitLab (PRs, issues), runs an active-code analysis pass to separate stale from load-bearing resources, and returns a structured report. Does NOT delete anything. Invoked by the git-cleanup skill for large-repo audits or when the orchestrator wants a clean read-only pass before the decision gate.
-tools: Read, Grep, Glob, Write, Bash
+tools:
+  - Read
+  - Grep
+  - Glob
+  - Write
+  - Bash
 model: claude-opus-5[effort=high,context=1m]
 ---
 

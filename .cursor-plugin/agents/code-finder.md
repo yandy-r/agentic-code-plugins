@@ -1,8 +1,13 @@
 ---
 name: code-finder
-title: Code Finder
 description: 'Quickly locate specific code files, functions, classes, or patterns within a codebase. Find implementations, search syntax patterns, and discover related code across files.'
-tools: Glob, Grep, Read, WebFetch, TodoWrite, WebSearch
+tools:
+  - Read
+  - Grep
+  - Glob
+  - WebFetch
+  - WebSearch
+  - TodoWrite
 model: claude-opus-5[effort=high,context=1m]
 color: yellow
 ---

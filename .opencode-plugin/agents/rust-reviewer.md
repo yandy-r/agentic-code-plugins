@@ -1,7 +1,6 @@
 ---
-description: Expert Rust code reviewer specializing in ownership, lifetimes, error
-  handling, unsafe usage, and idiomatic patterns. Use for all Rust code changes. MUST
-  BE USED for Rust projects.
+description: Expert Rust reviewer for ownership, lifetimes, error handling, unsafe
+  usage, and idiomatic patterns. Use proactively after Rust code changes.
 mode: subagent
 permissions:
 - action: '*'
@@ -17,7 +16,19 @@ permissions:
   resource: '*'
   effect: allow
 - action: shell
-  resource: '*'
+  resource: cargo *
+  effect: allow
+- action: shell
+  resource: git diff *
+  effect: allow
+- action: shell
+  resource: git log *
+  effect: allow
+- action: shell
+  resource: git show *
+  effect: allow
+- action: shell
+  resource: git status *
   effect: allow
 - action: skill
   resource: rust-patterns
@@ -112,8 +123,8 @@ When invoked:
 cargo clippy -- -D warnings
 cargo fmt --check
 cargo test
-if command -v cargo-audit >/dev/null; then cargo audit; else echo "cargo-audit not installed"; fi
-if command -v cargo-deny >/dev/null; then cargo deny check; else echo "cargo-deny not installed"; fi
+cargo audit   # skip and note if cargo-audit is not installed
+cargo deny check   # skip and note if cargo-deny is not installed
 cargo build --release 2>&1 | head -50
 ```
 

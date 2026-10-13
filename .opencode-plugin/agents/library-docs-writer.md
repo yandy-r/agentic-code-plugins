@@ -22,7 +22,7 @@ permissions:
 - action: context7_resolve-library-id
   resource: '*'
   effect: allow
-- action: context7_get-library-docs
+- action: context7_query-docs
   resource: '*'
   effect: allow
 - action: external_directory
@@ -49,7 +49,7 @@ Fetch the latest documentation for external libraries and compress it for LLM co
 **Your Process:**
 
 1. **Documentation Retrieval:**
-   - Use context7 to get library documentation (resolve-library-id then get-library-docs)
+   - Use context7 to get library documentation (resolve-library-id then query-docs)
    - Use WebFetch for official docs sites
    - Use WebSearch for latest patterns, updates, and community solutions
 

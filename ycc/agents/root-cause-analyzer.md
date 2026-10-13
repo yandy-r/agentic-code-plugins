@@ -1,8 +1,12 @@
 ---
 name: root-cause-analyzer
-title: Root Cause Analyzer
 description: "Diagnose why a bug is occurring without fixing it. Systematic investigation with multiple hypotheses and supporting evidence. Use when understanding the 'why' is crucial before attempting a fix."
-tools: Bash, Glob, Grep, LS, Read, WebFetch, TodoWrite, WebSearch, mcp__sql__execute-sql, mcp__sql__describe-table, mcp__sql__describe-functions, mcp__sql__list-tables, mcp__sql__get-function-definition, mcp__sql__upload-file, mcp__sql__delete-file, mcp__sql__list-files, mcp__sql__download-file, mcp__sql__create-bucket, mcp__sql__delete-bucket, mcp__sql__move-file, mcp__sql__copy-file, mcp__sql__generate-signed-url, mcp__sql__get-file-info, mcp__sql__list-buckets, mcp__sql__empty-bucket, mcp__context7__resolve-library-id, mcp__context7__get-library-docs, mcp__zen__chat, mcp__zen__thinkdeep, mcp__zen__debug, mcp__zen__analyze, mcp__zen__listmodels, mcp__zen__version, mcp__static-analysis__analyze_file, mcp__static-analysis__search_symbols, mcp__static-analysis__get_symbol_info, mcp__static-analysis__find_references, mcp__static-analysis__analyze_dependencies, mcp__static-analysis__find_patterns, mcp__static-analysis__extract_context, mcp__static-analysis__summarize_codebase, mcp__static-analysis__get_compilation_errors
+tools:
+  - Read
+  - Grep
+  - Glob
+  - WebFetch
+  - WebSearch
 model: opus
 color: cyan
 ---
