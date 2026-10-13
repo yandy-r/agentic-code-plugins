@@ -37,10 +37,21 @@ assert 'create no empty commit' in skill
 assert '--ref "$RELEASE_BRANCH"' in release
 assert '--run-id "$RETRY_RUN_ID" --expected-sha "$RETRY_SHA"' in release
 assert 'headSha == FIX_SHA' in release and 'createdAt >= DISPATCH_STARTED' in release
-assert 'Tag-only monitoring must not resume after a retry' in release
+assert 'Tag-only monitoring must not resume after a branch-ref dispatch' in release
 assert 'no safe branch-ref workflow_dispatch path' in release
-retry = release.split('5. **Dispatch validation')[1]
-assert 'gh release delete' not in retry and 'publish-release.sh' not in retry
+assert '--ci-recut=destructive` was passed, use the original destructive re-cut path' in release
+assert 'gh release delete v<new-version> --cleanup-tag --yes' in release
+assert 'publish-release.sh \\' in release
+assert 'reachable ONLY with an explicit `--ci-recut=destructive`' in (root/'ycc/skills/releaser/SKILL.md').read_text()
+assert 'only if `--ci-recut=destructive` was set' in release
+assert 'disabled' not in (root/'ycc/skills/releaser/SKILL.md').read_text()
+# Both retry paths share whole-string selector validation in the shared monitor.
+monitor = (root/'ycc/skills/_shared/scripts/release-ci-monitor.sh').read_text()
+assert 'grep -qE \'^[1-9][0-9]*$\'' not in monitor
+assert 'grep -qE \'^[0-9a-f]{40}$\'' not in monitor
+fixer = (root/'ycc/agents/pr-comment-fixer.md').read_text()
+assert 'Shape C' in fixer and 'DIAGNOSTIC_DATA_JSON' in fixer
+assert 'ci-unverifiable' in fixer and 'For Shape C, validate the failure against local source' in fixer
 print('[pass] diagnostic, terminal-signal, per-comment and retry contracts')
 
 # Execute the described per-comment git sequence. Two edits in one file remain

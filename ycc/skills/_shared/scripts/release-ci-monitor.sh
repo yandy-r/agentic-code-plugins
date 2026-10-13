@@ -430,11 +430,11 @@ main() {
 
   # Exact-run (retry) mode: --run-id and --expected-sha travel together.
   if [[ -n "$run_id_arg" || -n "$expected_sha" ]]; then
-    if ! printf '%s' "$run_id_arg" | grep -qE '^[1-9][0-9]*$'; then
+    if [[ ! "$run_id_arg" =~ ^[1-9][0-9]*$ ]]; then
       printf 'release-ci-monitor.sh: --run-id must be a positive integer\n' >&2
       exit 1
     fi
-    if ! printf '%s' "$expected_sha" | grep -qE '^[0-9a-f]{40}$'; then
+    if [[ ! "$expected_sha" =~ ^[0-9a-f]{40}$ ]]; then
       printf 'release-ci-monitor.sh: --expected-sha must be a full lowercase 40-hex SHA\n' >&2
       exit 1
     fi

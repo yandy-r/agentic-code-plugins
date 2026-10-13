@@ -87,6 +87,8 @@ run_case "run-id non-numeric"       1 "" no -- --tag v1.0.0 --workflow release.y
 run_case "short sha"                1 "" no -- --tag v1.0.0 --workflow release.yml --run-id 4242 --expected-sha abc123
 run_case "uppercase sha"            1 "" no -- --tag v1.0.0 --workflow release.yml --run-id 4242 --expected-sha "${SHA^^}"
 run_case "run-id needs --workflow"  1 "" no -- --tag v1.0.0 --run-id 4242 --expected-sha "$SHA"
+run_case "run-id with newline"      1 "" no -- --tag v1.0.0 --workflow release.yml --run-id $'4242\n9999' --expected-sha "$SHA"
+run_case "sha with newline"         1 "" no -- --tag v1.0.0 --workflow release.yml --run-id 4242 --expected-sha "$(printf "${SHA}\nabc123")"
 
 # --- green exact run ---
 reset_env

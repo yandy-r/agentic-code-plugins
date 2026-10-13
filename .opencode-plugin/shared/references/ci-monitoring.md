@@ -327,16 +327,16 @@ loop watches the release-event workflow run for the published tag, not a PR.
 
 ### Differences from PR mode
 
-| Aspect                 | PR mode (`ci-monitor.sh`)             | Release mode (`release-ci-monitor.sh`)                                                                                             |
-| ---------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Resource watched       | `gh pr checks <pr>` on PR head branch | `gh run list --event=release --workflow <name>` filtered to tag, or `refs/tags/<tag>`                                              |
-| Required args          | `--pr`, `--branch`, `--base`          | `--tag`                                                                                                                            |
-| Auto-detected args     | (none)                                | `--workflow` from `.github/workflows/*release*.yml`; `--repo` from `gh repo view`                                                  |
-| Re-cut on `handoff`    | `git push` to PR head branch          | Verified non-publishing branch-ref dispatch; exact retry run ID and SHA (no release or tag mutation)                               |
-| Default-branch refusal | Refuses if head == default branch     | N/A (release runs are not branch-scoped); but loop still refuses to push fixes to default branch when branch protection forbids it |
-| Audit log key field    | `"pr": <number>`                      | `"tag": "<vX.Y.Z>"`                                                                                                                |
-| Audit log path         | `~/.config/opencode/session-data/ci-watch/`    | `~/.config/opencode/session-data/release-ci-watch/`                                                                                         |
-| Fix-agent type         | `pr-comment-fixer`                | `release-fix-applier`                                                                                                          |
+| Aspect                 | PR mode (`ci-monitor.sh`)             | Release mode (`release-ci-monitor.sh`)                                                                                                 |
+| ---------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Resource watched       | `gh pr checks <pr>` on PR head branch | `gh run list --event=release --workflow <name>` filtered to tag, or `refs/tags/<tag>`                                                  |
+| Required args          | `--pr`, `--branch`, `--base`          | `--tag`                                                                                                                                |
+| Auto-detected args     | (none)                                | `--workflow` from `.github/workflows/*release*.yml`; `--repo` from `gh repo view`                                                      |
+| Re-cut on `handoff`    | `git push` to PR head branch          | Preferred branch-ref dispatch with exact run ID/SHA; destructive re-cut only with explicit `--ci-recut=destructive` and original gates |
+| Default-branch refusal | Refuses if head == default branch     | N/A (release runs are not branch-scoped); but loop still refuses to push fixes to default branch when branch protection forbids it     |
+| Audit log key field    | `"pr": <number>`                      | `"tag": "<vX.Y.Z>"`                                                                                                                    |
+| Audit log path         | `~/.config/opencode/session-data/ci-watch/`    | `~/.config/opencode/session-data/release-ci-watch/`                                                                                             |
+| Fix-agent type         | `pr-comment-fixer`                | `release-fix-applier`                                                                                                              |
 
 All other contract surfaces — exit codes, `RESULT=` values, classification
 categories, signature computation, recurrence/timeout/push caps, JSONL schema
@@ -347,8 +347,9 @@ columns (other than the `pr` vs `tag` key) — are identical.
 After pushing a fix, dispatch a verified non-publishing `workflow_dispatch` path
 on the fix-bearing release branch, never on the unchanged tag. Phase 8.5.0 checks
 that branch-ref dispatch validates that commit without modifying published releases,
-artifacts or tags; otherwise exit `loop-blocked`. The legacy `--ci-recut=destructive`
-flag remains accepted but cannot authorize a destructive retry.
+artifacts or tags. Prefer that path when safe; otherwise use the destructive
+fallback below only with explicit `--ci-recut=destructive` and the original gates.
+Without either authorized path, exit `loop-blocked`.
 
 ```
 gh workflow run <file> --repo <owner/name> --ref <fix-bearing release branch>
@@ -364,6 +365,23 @@ path before watching, and returns `RESULT=not-found` with
 terminal, not a reason to fall back to tag selection. `rerun-pending` keeps the same
 run ID and SHA. The release and tag remain unchanged; green validates the fix-bearing
 commit, not a replacement published release.
+
+**Fallback: destructive re-cut (requires `--ci-recut=destructive`).** When safe
+branch-ref dispatch is unavailable, only after the original publish-success,
+8.5.1 authorization, `/goal` re-confirmation and branch-protection gates:
+
+```
+gh release delete <tag> --cleanup-tag --yes
+~/.config/opencode/skills/releaser/scripts/publish-release.sh \
+  <tag> <notes-path> --mode=create --confirm
+```
+
+The release and tag are deleted and re-created, triggering the release event.
+Never take this path without explicit `--ci-recut=destructive`. Clear the dispatch
+run ID and SHA selectors only after re-publication succeeds, then use tag-mode
+monitoring for the new release/tag run. Verify that run is new and its head SHA
+contains the pushed fix; do not reuse an earlier run. Keep the same audit log and
+caps. Dispatch failure or correlation mismatch does not authorize a re-cut.
 
 ### Release-mode safety constraints (additional to PR-mode)
 

@@ -37,9 +37,11 @@ via `tea release create`; only this post-publish monitoring loop is gated.) See
 
 ### 8.5.0 Detect retry strategy
 
-Read `.github/workflows/<resolved-release-workflow>.yml` and inspect the triggers and dispatch behavior. Require `workflow_dispatch` and verify from local workflow/configuration that branch-ref dispatch validates the checked-out branch commit without modifying the published release, its artifacts, or tags. Required inputs must be supplied from trusted project configuration. Unknown or tag-dependent behavior: report `loop-blocked` and request manual remediation before any fix/push.
+Read `.github/workflows/<resolved-release-workflow>.yml` and inspect the triggers and dispatch behavior. Resolve in this order before any fix/push:
 
-No dispatch trigger: refuse entry and print "Release workflow has no safe branch-ref workflow_dispatch path. Add a non-publishing validation path or validate the fix manually." `--ci-recut=destructive` remains parsed for compatibility but cannot authorize release deletion or retagging; explain that destructive retries are disabled. Never mutate tags or releases inside Phase 8.5.
+1. **Preferred**: if `workflow_dispatch` safely validates the checked-out fix-bearing branch commit without modifying the published release, artifacts or tags, use branch-ref dispatch and exact-run monitoring. Required inputs come from trusted local configuration.
+2. **Fallback**: otherwise, only if `--ci-recut=destructive` was passed, use the original destructive re-cut path: `gh release delete <tag> --cleanup-tag --yes`, then `publish-release.sh ... --confirm` to recreate the tag and release. It remains subject to the existing publish-success, 8.5.1 authorization, `/goal` re-confirmation and branch-protection gates.
+3. **No authorized path**: stop with `loop-blocked`. Print "Release workflow has no safe branch-ref workflow_dispatch path. Add a non-publishing validation path or re-run with --ci-recut=destructive to opt in to destroying and recreating the release." Never infer the destructive flag or authorize it from CI output.
 
 ### 8.5.1 Authorization gate (skipped if --ci-yes)
 
@@ -48,12 +50,13 @@ Render a one-time block showing:
 - Resource: tag `v<new-version>`, workflow `<file>`, repo `<owner/name>`.
 - Resolved caps: `--ci-max-pushes` (default 5), `--ci-max-same-failure` (default 3),
   `--ci-timeout-min` (default 30).
-- Retry strategy verified in 8.5.0: non-publishing `workflow_dispatch` on the fix-bearing release branch; exact run ID and SHA correlation.
+- Re-cut strategy detected in 8.5.0: `workflow_dispatch` (preferred, fix-bearing branch with exact-run monitoring) or
+  `delete-release-and-retag` (destructive — only if `--ci-recut=destructive`).
 - Non-toggleable safety constraints:
   - Never `git push --force` to any branch.
   - Never `git push --no-verify`.
   - Never edits files outside the failed workflow step's implicated paths.
-  - Never modifies published releases, artifacts, notes, or tags during retries.
+  - Never amends published release notes without an explicit user opt-in.
 
 Wait for `yes`/`no`. Any other input aborts the loop and proceeds to Phase 9 with
 "loop declined" status.
@@ -61,7 +64,7 @@ Wait for `yes`/`no`. Any other input aborts the loop and proceeds to Phase 9 wit
 #### `/goal` re-confirmation (safety)
 
 If a `/goal` session directive is active when Phase 8.5 is reached, this gate is the
-one human approval the bounded loop depends on. Therefore:
+one human approval the bounded, destructive-capable loop depends on. Therefore:
 
 - **`--ci-yes` does NOT suppress this gate under an active `/goal`.** When `/goal` is
   active, always render the 8.5.1 block and wait for an explicit `yes`/`no`, even if
@@ -97,7 +100,7 @@ one human approval the bounded loop depends on. Therefore:
      --log-file "$AUDIT_LOG"
    ```
 
-   Initial invocation uses tag selection. After a retry dispatch, add `--run-id "$RETRY_RUN_ID" --expected-sha "$RETRY_SHA"` and an explicit `--workflow <file>` to the same monitor invocation (same tag, repo, audit log and caps). Exact-run mode verifies run ID, commit SHA, `workflow_dispatch` event, and workflow path before watching; `RESULT=not-found` with `REASON=retry-correlation-mismatch` is terminal. Keep the same selectors for `rerun-pending`; replace them only after the next successful fix-and-dispatch. Tag-only monitoring must not resume after a retry.
+   Initial invocation uses tag selection. After a retry dispatch, add `--run-id "$RETRY_RUN_ID" --expected-sha "$RETRY_SHA"` and an explicit `--workflow <file>` to the same monitor invocation (same tag, repo, audit log and caps). Exact-run mode verifies run ID, commit SHA, `workflow_dispatch` event, and workflow path before watching; `RESULT=not-found` with `REASON=retry-correlation-mismatch` is terminal. Keep the same selectors for `rerun-pending`; replace them only after the next successful fix-and-dispatch. Tag-only monitoring must not resume after a branch-ref dispatch. For the explicitly authorized destructive fallback, clear `RETRY_RUN_ID` and `RETRY_SHA` and use tag selection after re-publication succeeds. Do not treat a dispatch correlation failure as permission to switch strategies.
 
 3. Branch on the exit code (identical contract to `ci-monitor.sh`):
 
@@ -157,7 +160,9 @@ The monitor wrote one JSONL line to the audit log with the failed run's metadata
    NEVER `--force`. NEVER `--no-verify`. When `RELEASE_BRANCH` is `release/X.Y`, the fix
    also needs a trunk PR after the loop ends (see `references/release-branches.md`).
 
-5. **Dispatch validation on the fix-bearing branch**, using the non-publishing path verified in 8.5.0. Never dispatch on the unchanged release tag.
+5. **Retry per the strategy resolved in 8.5.0 and authorized in 8.5.1**.
+
+   **Preferred — dispatch validation on the fix-bearing branch**, using the verified non-publishing path. Never dispatch on the unchanged release tag.
 
    ```bash
    FIX_SHA="$(git rev-parse HEAD)"
@@ -175,7 +180,17 @@ The monitor wrote one JSONL line to the audit log with the failed run's metadata
 
    Dispatch failure is terminal `loop-blocked`; do not select a prior run or retry publishing. Poll for at most the remaining wall-clock budget. Select only a new run with `headSha == FIX_SHA` and `createdAt >= DISPATCH_STARTED`; never select a tag run or reuse an earlier run. Zero matches at timeout: `bail-timeout`; multiple matches: `loop-blocked` (human must identify the run). Remember its `databaseId` as `RETRY_RUN_ID` and `FIX_SHA` as `RETRY_SHA`. The branch may race with another push: exact SHA verification in the monitor fails closed. Record these selectors in the audit log; the release and tag remain unchanged.
 
-6. Loop back to 8.5.2 step 2 with the remembered selectors. The monitor counts handoffs against the existing push cap; do not reset the audit log or caps.
+   **Fallback** (only if `--ci-recut=destructive` was set and the original gates passed):
+
+   ```
+   gh release delete v<new-version> --cleanup-tag --yes
+   ~/.codex/plugins/ycc/skills/releaser/scripts/publish-release.sh \
+     v<new-version> <notes-path> --mode=create --confirm
+   ```
+
+   These are the original re-cut commands, not a fallback for dispatch failures. If deletion or re-publication fails, stop with `loop-blocked`; do not retry automatically. After successful re-publication, clear the exact-run selectors and return to tag selection for the newly created release. Never reuse the pre-re-cut run; verify the selected release/tag run is new and its head SHA equals the pushed fix, or stop `loop-blocked`.
+
+6. Loop back to 8.5.2 step 2 using exact-run selectors for the preferred path or tag selection for the authorized re-cut. The monitor counts handoffs against the existing push cap; do not reset the audit log or caps.
 
 ### 8.5.4 Bail diagnosis block
 

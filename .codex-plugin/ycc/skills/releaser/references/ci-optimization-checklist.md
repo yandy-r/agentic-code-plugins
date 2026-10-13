@@ -128,6 +128,7 @@ SHA. Require `workflow_dispatch:` and verify branch-ref checkout tests that
 commit without modifying published releases, artifacts or tags. The audit agent
 flags missing or unsafe dispatch support as **high**.
 
-Without that path the loop stops with `loop-blocked`; validate manually. The
-legacy `--ci-recut=destructive` flag stays parsed but destructive retries are
-disabled.
+Without that safe dispatch path, the destructive re-cut fallback remains available
+only with explicit `--ci-recut=destructive` and the original gates: delete the
+release with tag cleanup, then re-publish through `publish-release.sh --confirm`.
+Without that opt-in, stop with `loop-blocked`; validate manually.
