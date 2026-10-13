@@ -80,15 +80,25 @@ plugins, mods):
   base      Install/register the target's whole bundle (claude/codex: the
             ycc plugin; cursor/opencode: the mirrored bundle dirs).
   skills    Standalone skills, one entry each, in the tool's own skills dir.
+            On claude these skills are the slash commands; 'commands' below
+            is an alias for this step there.
   agents    Standalone agents, one entry each, in the tool's own agents dir.
-  commands  Standalone slash commands (claude, opencode).
+  commands  Slash-command surface. claude: alias for 'skills' (public skills
+            are native slash invocations; a successful skills install also
+            retires the command wrappers an older ycc wrote to
+            ~/.claude/commands — only entries recorded in
+            ~/.config/ycc/installed-units.json, never foreign files).
+            opencode: one thin generated command per public skill, each
+            loading its skill via the skill tool.
 
   Slices (skills/agents/commands) need no plugin. Each entry is copied with
   plugin-root paths and 'ycc:' prefixes rewritten so it works on its own;
   only entries ycc installed (or identical copies) are ever replaced or
   removed, so your own skills/agents in those dirs are left alone (--force
   overrides). Destinations:
-    claude    ~/.claude/{skills,agents,commands}/<name>
+    claude    ~/.claude/{skills,agents}/<name> (skills are the slash commands;
+              'commands' installs the same skills — nothing lands in
+              ~/.claude/commands)
     cursor    ~/.cursor/{skills,agents}/<name>
     codex     ~/.codex/skills/<name> (+ _shared), ~/.codex/agents/<name>.toml
     opencode  ~/.config/opencode/{skills,agents,commands}/<name> (+ shared/)
@@ -109,7 +119,7 @@ plugins, mods):
   Intent → step mapping per target:
     claude    base→base  settings→settings  rules→rules  mcp→mcp
               hooks→settings+hooks  plugins→settings  mods→mods
-              skills→skills  agents→agents  commands→commands
+              skills→skills  agents→agents  commands→skills (alias)
     cursor    base→base  skills→skills  agents→agents  settings→settings
               rules→rules  mcp→mcp
               commands, hooks, plugins, mods → no-op
@@ -140,6 +150,8 @@ Remove ('remove' subcommand):
     skills / agents / commands  the standalone entries ycc installed (or
                                 that are still identical to the bundle);
                                 never the plugin, never your own entries.
+                                claude commands: only the legacy ~/.claude/
+                                commands wrappers ycc recorded.
     mods (claude)               uninstall each mod + the ycc-mods marketplace.
 
   $(basename "$0") remove --target claude --only mcp            # project scope

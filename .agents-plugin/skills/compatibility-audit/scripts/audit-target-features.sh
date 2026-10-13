@@ -40,7 +40,7 @@ usage() {
 Usage: audit-target-features.sh [--format=human|json] [--strict] [--help]
 
 Parse the target capability matrix and cross-reference every ycc source surface
-(skills, commands, agents) against it to emit per-(surface, capability, target)
+(skills, agents) against it to emit per-(surface, capability, target)
 verdict lines.
 
 Flags:
@@ -100,7 +100,7 @@ esac
 #   ycc/skills/_shared/references/.
 #
 # REPO_ROOT: always resolved via the upward walk (independent of MATRIX_FILE),
-#   so downstream surface walkers (SKILLS_DIR, COMMANDS_DIR, AGENTS_DIR) work
+#   so downstream surface walkers (SKILLS_DIR, AGENTS_DIR) work
 #   correctly regardless of which MATRIX_FILE path was chosen.
 # ---------------------------------------------------------------------------
 
@@ -120,7 +120,7 @@ if [[ -n "${CLAUDE_PLUGIN_ROOT:-}" ]]; then
 fi
 
 # Always resolve REPO_ROOT via upward walk so that surface walkers
-# (SKILLS_DIR, COMMANDS_DIR, AGENTS_DIR) resolve correctly under ${REPO_ROOT}/ycc/.
+# (SKILLS_DIR, AGENTS_DIR) resolve correctly under ${REPO_ROOT}/ycc/.
 REPO_ROOT=""
 candidate="$SCRIPT_DIR"
 while [[ "$candidate" != "/" ]]; do
@@ -313,8 +313,9 @@ add_surface() {
 SKILLS_DIR="${REPO_ROOT}/ycc/skills"
 for skill_dir in "${SKILLS_DIR}"/*/; do
   skill_name="$(basename "$skill_dir")"
-  # Skip _shared — it is infrastructure, not a user-facing surface
-  [[ "$skill_name" == "_shared" ]] && continue
+  # Skip infrastructure and directories without a skill entrypoint.
+  [[ "$skill_name" == _* ]] && continue
+  [[ -f "${skill_dir}/SKILL.md" ]] || continue
 
   rel_path="ycc/skills/${skill_name}"
   caps="SKILLS"
@@ -332,26 +333,6 @@ for skill_dir in "${SKILLS_DIR}"/*/; do
   caps="$(echo "$caps" | tr ',' '\n' | awk '!seen[$0]++' | tr '\n' ',' | sed 's/,$//')"
   add_surface "$rel_path" "$caps"
 done
-
-# Walk ycc/commands/*.md → COMMANDS surface
-COMMANDS_DIR="${REPO_ROOT}/ycc/commands"
-if [[ -d "$COMMANDS_DIR" ]]; then
-  for cmd_file in "${COMMANDS_DIR}"/*.md; do
-    [[ -f "$cmd_file" ]] || continue
-    cmd_name="$(basename "$cmd_file")"
-    rel_path="ycc/commands/${cmd_name}"
-    caps="COMMANDS"
-
-    file_uses_hook  "$cmd_file" "PreToolUse"  && caps="${caps},HOOKS.PreToolUse"  || true
-    file_uses_hook  "$cmd_file" "PostToolUse" && caps="${caps},HOOKS.PostToolUse" || true
-    file_uses_hook  "$cmd_file" "Stop"        && caps="${caps},HOOKS.Stop"        || true
-    file_uses_mcp   "$cmd_file"               && caps="${caps},MCP"               || true
-    file_uses_dangerous_mode "$cmd_file"      && caps="${caps},DANGEROUS_MODE"    || true
-
-    caps="$(echo "$caps" | tr ',' '\n' | awk '!seen[$0]++' | tr '\n' ',' | sed 's/,$//')"
-    add_surface "$rel_path" "$caps"
-  done
-fi
 
 # Walk ycc/agents/*.md → AGENTS surface
 AGENTS_DIR="${REPO_ROOT}/ycc/agents"

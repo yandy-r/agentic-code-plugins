@@ -37,7 +37,6 @@ __all__ = [
     "YCC_DIR",
     "SRC_SKILLS_DIR",
     "SRC_AGENTS_DIR",
-    "SRC_COMMANDS_DIR",
     "SOURCE_PLUGIN_PATH",
     "SOURCE_MCP_PATH",
     "SOURCE_AGENTS_MD_CANDIDATES",
@@ -74,7 +73,6 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 YCC_DIR = REPO_ROOT / "ycc"
 SRC_SKILLS_DIR = YCC_DIR / "skills"
 SRC_AGENTS_DIR = YCC_DIR / "agents"
-SRC_COMMANDS_DIR = YCC_DIR / "commands"
 
 SOURCE_PLUGIN_PATH = YCC_DIR / ".claude-plugin" / "plugin.json"
 SOURCE_MCP_PATH = REPO_ROOT / "mcp-configs" / "mcp.json"
@@ -308,7 +306,6 @@ def apply_opencode_text_transforms(
     output = output.replace("'.claude-plugin'", "'.opencode-plugin'")
     if rewrite_source_paths:
         output = re.sub(r"\bycc/skills/", ".opencode-plugin/skills/", output)
-        output = re.sub(r"\bycc/commands/", ".opencode-plugin/commands/", output)
         output = re.sub(r"\bycc/agents/", ".opencode-plugin/agents/", output)
 
     # Home / config paths (XDG)

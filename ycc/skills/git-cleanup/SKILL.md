@@ -1,7 +1,7 @@
 ---
 name: git-cleanup
 description: This skill should be used when the user asks to "clean up git", "prune stale branches", "clean up worktrees", "close stale PRs/issues", "tidy up my repo", or mentions removing abandoned branches, worktrees, remote-tracking refs, tags, stashes, PRs, or issues on GitHub/GitLab. Analyzes active code before recommending deletions, presents a plan, and only acts after explicit approval. Dry-run and read-only audit by default.
-argument-hint: '[--dry-run|--apply] [--branches] [--worktrees] [--remotes] [--stashes] [--tags] [--prs] [--issues] [--stale-days=N] [--host=github|gitlab|auto] [--report-only]'
+argument-hint: '[--dry-run|--apply] [--branches] [--worktrees] [--remotes] [--stashes] [--tags] [--prs] [--issues] [--stale-days=N] [--host=github|gitlab|auto] [--protect=<pattern>] [--report-only]'
 allowed-tools:
   - Read
   - Grep

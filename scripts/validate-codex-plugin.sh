@@ -29,13 +29,11 @@ error = (
 raise SystemExit(error if registered_name else 0)
 PY
 
-echo "== Local-files command policy =="
+echo "== Local-files skill policy =="
 LOCAL_PLAN_DOCS=(
     "${REPO_ROOT}/ycc/skills/visual-plan/SKILL.md"
     "${REPO_ROOT}/ycc/skills/visual-recap/SKILL.md"
     "${REPO_ROOT}/ycc/skills/_shared/references/agent-native-setup.md"
-    "${REPO_ROOT}/ycc/commands/visual-plan.md"
-    "${REPO_ROOT}/ycc/commands/visual-recap.md"
     "${REPO_ROOT}"/ycc/skills/visual-plan/references/*.md
     "${REPO_ROOT}"/ycc/skills/visual-recap/references/*.md
 )

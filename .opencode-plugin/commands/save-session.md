@@ -1,24 +1,12 @@
 ---
-description: 'Save current session state to a dated file in ~/.config/opencode/session-data/
-  so work can be resumed in a future session with full context. Usage: [optional:
-  topic override]'
+description: 'Capture the current session state — what was built, what worked, what
+  failed, open questions, and exact next step — to a dated file at ~/.config/opencode/session-data/YYYY-MM-DD-{shortid}-session.tmp
+  so a future session can resume with full context. Use when the user says "save session",
+  "end of session", "preserve context", "before context limit", or says "/save-session".
+  The file is meant to be read by /resume-session at the start of the next session.
+  Usage: [optional: topic override]'
 ---
 
-# Save Session Command
+Use the skill tool to load the `save-session` skill, then follow its instructions with these arguments:
 
-Persist the current session's work, decisions, failures, and next steps.
-
-**Load and follow the `save-session` skill, passing through `$ARGUMENTS`.**
-
-The saved file is read by `/resume-session` at the start of the next session.
-
-```
-Usage: /save-session [optional topic]
-
-Examples:
-  /save-session
-  /save-session "JWT cookie auth refactor"
-
-Paired command:
-  /resume-session   # load the most recent session at the start of the next one
-```
+$ARGUMENTS

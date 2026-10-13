@@ -1,20 +1,13 @@
 ---
-description: 'Load a saved session and produce a structured briefing; wait for user
-  direction before starting work. Counterpart to /save-session. Usage: [YYYY-MM-DD
-  | path/to/session.tmp] (blank = most recent)'
+description: 'Load the most recent session file from ~/.config/opencode/session-data/
+  (or a specified one by date or path) and produce a structured briefing of what was
+  built, what worked, what NOT to retry, open questions, and the exact next step.
+  Does NOT start working automatically — waits for user direction. Counterpart to
+  /save-session. Use when the user says "resume session", "continue from last session",
+  "load context", or says "/resume-session". Usage: [YYYY-MM-DD | path/to/session.tmp]
+  (blank = most recent)'
 ---
 
-# Resume Session Command
+Use the skill tool to load the `resume-session` skill, then follow its instructions with these arguments:
 
-Load a saved session and produce a structured briefing. Does not start working — waits for user direction.
-
-**Load and follow the `resume-session` skill, passing through `$ARGUMENTS`.**
-
-```
-Usage: /resume-session [YYYY-MM-DD | path/to/session.tmp]
-
-Examples:
-  /resume-session
-  /resume-session 2024-01-15
-  /resume-session ~/.config/opencode/session-data/2024-01-15-abc123de-session.tmp
-```
+$ARGUMENTS

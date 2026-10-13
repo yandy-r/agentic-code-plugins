@@ -1,32 +1,11 @@
 ---
-description: 'Maintainer-only (ycc repo) — prepare a ycc bundle release: preflight,
-  bump, regenerate, validate, draft notes (no auto-commit) Usage: <new-version> [--dry-run]
-  [--skip-notes] [--no-publish]'
+description: 'Maintainer-only (ycc repo) — This skill should be used when the user
+  asks to "release ycc", "bump ycc version", "prepare a ycc release", "cut a new ycc
+  release", "tag a ycc release", or when the user wants to version, regenerate, validate,
+  and produce release notes for the ycc bundle. Orchestrates existing generators/validators;
+  never auto-commits. Usage: <new-version> [--dry-run] [--skip-notes] [--no-publish]'
 ---
 
-Prepare a `ycc` bundle release. Runs pre-flight, bumps the version in the two hand-edited source-of-truth JSON files, regenerates derived Cursor + Codex + opencode bundles (plus inventory), validates all targets, and drafts release notes. **Never auto-commits or publishes.**
+Use the skill tool to load the `bundle-release` skill, then follow its instructions with these arguments:
 
-Invoke the **bundle-release** skill to:
-
-1. Run pre-flight checks (clean tree, version parity, branch)
-2. Bump `ycc/.opencode-plugin/plugin.json` and `.opencode-plugin/marketplace.json`
-3. Run `./scripts/sync.sh` to regenerate inventory + Cursor + Codex + opencode bundles
-4. Run `./scripts/validate.sh` full validator sweep
-5. Draft `docs/releases/<new-version>.md` from the template
-6. Emit the exact `git add` / `git commit` / `git tag` / `gh release create` commands for the user to run
-
-Pass `$ARGUMENTS` through to the skill. Supported flags:
-
-- `--dry-run`: Run preflight and print the release plan, write nothing
-- `--skip-notes`: Do not draft release notes
-- `--no-publish`: Accepted for clarity; the skill never publishes automatically
-
-Examples:
-
-```
-/bundle-release 2.1.0                  # minor bump (new skill/command/agent)
-/bundle-release 2.0.1 --dry-run        # preview patch release
-/bundle-release 3.0.0 --skip-notes     # major bump, no notes file
-```
-
-See `.opencode-plugin/skills/bundle-release/references/version-policy.md` for semver rules and `release-checklist.md` for the full manual process.
+$ARGUMENTS

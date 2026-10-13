@@ -155,14 +155,16 @@ home="$(new_home)"
 mkdir -p "${home}/.claude/skills/my-own-skill"
 out="$(run_install "${home}" install --target claude --only skills,agents,commands)"
 assert_not_contains "${out}" "register repo checkout" "claude slices do not run base"
-for d in skills/git-workflow skills/_shared agents/codebase-advisor.md commands/clean.md; do
+for d in skills/git-workflow skills/clean skills/_shared agents/codebase-advisor.md; do
     if [[ -e "${home}/.claude/${d}" ]]; then ok "claude slice installs ~/.claude/${d}"; else ko "claude slice installs ~/.claude/${d}"; fi
 done
+if [[ ! -e "${home}/.claude/commands" ]]; then ok "claude commands slice installs no wrapper files"; else ko "claude commands slice installs no wrapper files"; fi
+assert_contains "$(grep -c 'install standalone' <<<"${out}")" "2" "claude skills+commands install skills once (plus agents)"
 if [[ ! -e "${home}/.claude/plugins" ]]; then ok "claude slices register no plugin"; else ko "claude slices register no plugin"; fi
 skill="$(cat "${home}/.claude/skills/git-workflow/SKILL.md")"
 assert_not_contains "${skill}" 'CLAUDE_PLUGIN_ROOT}/skills' "claude slice rewrites plugin-root paths"
 assert_contains "${skill}" "${home}/.claude/skills/" "claude slice points paths at ~/.claude/skills"
-assert_not_contains "$(cat "${home}/.claude/commands/"*.md)" '/ycc:clean' "claude slice strips the ycc: namespace"
+assert_not_contains "$(cat "${home}/.claude/skills/clean/SKILL.md")" '/ycc:clean' "claude slice strips the ycc: namespace"
 if [[ -d "${home}/.claude/skills/my-own-skill" ]]; then ok "claude slice leaves user skills alone"; else ko "claude slice leaves user skills alone"; fi
 out="$(run_install "${home}" install --target claude --only skills)"
 assert_contains "${out}" "entries up to date" "claude slice rerun is idempotent"
@@ -187,7 +189,89 @@ assert_not_contains "${out}" "Generate" "unsupported commands intent generates n
 home="$(new_home)"
 out="$(run_install "${home}" install --target claude,cursor --only commands)"
 assert_contains "${out}" "step 'commands' is not supported by target 'cursor' — skipping" "install --only skips a slice a target lacks"
-if [[ -e "${home}/.claude/commands/clean.md" ]]; then ok "install --only commands still runs where supported"; else ko "install --only commands still runs where supported" "${out}"; fi
+if [[ -e "${home}/.claude/skills/clean" ]]; then ok "install --only commands still runs where supported"; else ko "install --only commands still runs where supported" "${out}"; fi
+
+# Legacy wrappers: only names recorded in installed-units.json are retired,
+# and only after the skills install succeeded.
+echo "== install.sh: legacy claude command wrappers =="
+
+legacy_home() {
+    local h
+    h="$(new_home)"
+    mkdir -p "${h}/.claude/commands" "${h}/.config/ycc"
+    echo "wrapper" > "${h}/.claude/commands/clean.md"
+    echo "mine" > "${h}/.claude/commands/my-own.md"
+    echo "mine too" > "${h}/.claude/commands/plan.md"   # unrecorded, same name as a skill
+    printf '{"version": 1, "units": {"%s/.claude/commands": ["clean.md", "../escape.md"]}}\n' "${h}" \
+        > "${h}/.config/ycc/installed-units.json"
+    echo "outside" > "${h}/.claude/escape.md"
+    echo "${h}"
+}
+
+home="$(legacy_home)"
+out="$(run_install "${home}" install --target claude --only commands)"
+assert_contains "${out}" "retired 1 legacy command wrapper" "commands install retires recorded wrappers"
+if [[ ! -e "${home}/.claude/commands/clean.md" ]]; then ok "recorded wrapper removed"; else ko "recorded wrapper removed"; fi
+assert_contains "$(cat "${home}/.claude/commands/my-own.md" "${home}/.claude/commands/plan.md")" "mine too" "unrecorded command files kept"
+if [[ -e "${home}/.claude/escape.md" ]]; then ok "recorded path traversal ignored"; else ko "recorded path traversal ignored"; fi
+if [[ -e "${home}/.claude/skills/clean/SKILL.md" ]]; then ok "skills installed by commands alias"; else ko "skills installed by commands alias"; fi
+assert_not_contains "$(cat "${home}/.config/ycc/installed-units.json")" ".claude/commands" "state forgets retired wrapper dir"
+
+home="$(legacy_home)"
+mkdir -p "${home}/.claude/skills/clean" && echo "# mine" > "${home}/.claude/skills/clean/SKILL.md"
+out="$(run_install "${home}" install --target claude --only skills)"
+assert_contains "${out}" "refusing to replace" "skills conflict reported"
+if [[ -e "${home}/.claude/commands/clean.md" ]]; then ok "no wrapper cleanup after failed skills install"; else ko "no wrapper cleanup after failed skills install"; fi
+
+home="$(legacy_home)"
+rm -f "${home}/.claude/commands/my-own.md" "${home}/.claude/commands/plan.md"
+run_install "${home}" install --target claude --only skills >/dev/null
+if [[ ! -e "${home}/.claude/commands" ]]; then ok "emptied legacy commands dir removed"; else ko "emptied legacy commands dir removed"; fi
+
+home="$(legacy_home)"
+out="$(run_install "${home}" remove --target claude --only commands)"
+if [[ ! -e "${home}/.claude/commands/clean.md" && -e "${home}/.claude/commands/my-own.md" ]]; then ok "commands remove retires only recorded wrappers"; else ko "commands remove retires only recorded wrappers" "${out}"; fi
+
+home="$(legacy_home)"
+out="$(run_install "${home}" install --target claude --only agents)"
+if [[ -e "${home}/.claude/commands/clean.md" ]]; then ok "agents-only install leaves wrappers"; else ko "agents-only install leaves wrappers" "${out}"; fi
+assert_contains "$(cat "${home}/.config/ycc/installed-units.json")" ".claude/commands" "agents-only install keeps wrapper state"
+
+# A recorded name that is now a directory is user data: never removed.
+home="$(legacy_home)"
+rm -f "${home}/.claude/commands/clean.md"
+mkdir "${home}/.claude/commands/clean.md"
+echo "precious" > "${home}/.claude/commands/clean.md/user.txt"
+out="$(run_install "${home}" install --target claude --only commands)"
+assert_contains "$(cat "${home}/.claude/commands/clean.md/user.txt" 2>/dev/null)" "precious" "recorded name replaced by a directory is preserved"
+assert_contains "${out}" "kept ${home}/.claude/commands/clean.md: not a ycc wrapper file" "directory replacement reported"
+
+# A recorded wrapper that is a symlink: only the link goes, never its target.
+home="$(legacy_home)"
+rm -f "${home}/.claude/commands/clean.md"
+echo "external" > "${home}/external.md"
+ln -s "${home}/external.md" "${home}/.claude/commands/clean.md"
+run_install "${home}" install --target claude --only commands >/dev/null
+if [[ ! -L "${home}/.claude/commands/clean.md" ]]; then ok "recorded symlink wrapper unlinked"; else ko "recorded symlink wrapper unlinked"; fi
+assert_contains "$(cat "${home}/external.md" 2>/dev/null)" "external" "symlink wrapper target untouched"
+
+# A symlinked commands dir is never removed or replaced; foreign files inside stay.
+home="$(legacy_home)"
+mv "${home}/.claude/commands" "${home}/ext-commands"
+ln -s "${home}/ext-commands" "${home}/.claude/commands"
+run_install "${home}" install --target claude --only commands >/dev/null
+if [[ -L "${home}/.claude/commands" && -d "${home}/ext-commands" ]]; then ok "symlinked commands dir kept"; else ko "symlinked commands dir kept"; fi
+assert_contains "$(cat "${home}/ext-commands/my-own.md" 2>/dev/null)" "mine" "symlinked commands dir keeps user files"
+
+home="$(legacy_home)"
+rm -f "${home}/.claude/commands/my-own.md" "${home}/.claude/commands/plan.md"
+mv "${home}/.claude/commands" "${home}/ext-commands"
+ln -s "${home}/ext-commands" "${home}/.claude/commands"
+out="$(run_install "${home}" install --target claude --only commands)"
+if [[ -L "${home}/.claude/commands" && -d "${home}/ext-commands" && ! -e "${home}/ext-commands/clean.md" ]]; then ok "emptied symlinked commands dir kept"; else ko "emptied symlinked commands dir kept" "${out}"; fi
+
+# Failed unlink retention: deterministic mock-based unit test (chmod is unreliable as root).
+if out="$(python3 "${REPO_ROOT}/scripts/test_install_slices_legacy.py" 2>&1)"; then ok "failed unlink keeps name recorded, others removed"; else ko "failed unlink keeps name recorded, others removed" "${out}"; fi
 
 # A copy the 'base' step mirrored is identical to the bundle, so a slice
 # remove takes it back even without a recorded install.

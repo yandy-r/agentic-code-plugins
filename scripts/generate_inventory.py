@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate the canonical inventory of ycc skills, commands, and agents, and
+Generate the canonical inventory of ycc skills, slash invocations, and agents, and
 rewrite the three GENERATED-* regions in README.md.
 
 Outputs:
@@ -34,20 +34,20 @@ except ImportError:
 
     def _load_yaml(text: str) -> Any:  # type: ignore[misc]
         """Minimal tolerant YAML parser: extracts top-level string scalars only."""
-        result: dict[str, str] = {}
+        result: dict[str, Any] = {}
         for line in text.splitlines():
             m = re.match(r"^([a-zA-Z_][a-zA-Z0-9_-]*):\s*(.*)", line)
             if m:
                 key, val = m.group(1), m.group(2).strip()
-                if val.startswith(('"', "'")):
-                    val = val.strip("\"'")
-                result[key] = val
+                if val.lower() in {"true", "false"}:
+                    result[key] = val.lower() == "true"
+                else:
+                    result[key] = val.strip("\"'")
         return result
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SKILLS_DIR = REPO_ROOT / "ycc" / "skills"
-COMMANDS_DIR = REPO_ROOT / "ycc" / "commands"
 AGENTS_DIR = REPO_ROOT / "ycc" / "agents"
 INVENTORY_PATH = REPO_ROOT / "docs" / "inventory.json"
 README_PATH = REPO_ROOT / "README.md"
@@ -237,13 +237,17 @@ def discover_skills() -> list[dict[str, str]]:
 
 
 def discover_commands() -> list[dict[str, str]]:
-    """Return sorted list of {name, description} dicts for all command *.md files."""
+    """Return slash invocations from public skills (user-invocable defaults true)."""
     entries: list[dict[str, str]] = []
-    for cmd_md in sorted(COMMANDS_DIR.glob("*.md")):
-        fm = parse_frontmatter(cmd_md.read_text(encoding="utf-8"))
+    for skill_md in sorted(SKILLS_DIR.glob("*/SKILL.md")):
+        if skill_md.parent.name.startswith("_"):
+            continue
+        fm = parse_frontmatter(skill_md.read_text(encoding="utf-8"))
+        if fm.get("user-invocable") is False:
+            continue
         entries.append(
             {
-                "name": cmd_md.stem,
+                "name": skill_md.parent.name,
                 "description": str(fm.get("description") or ""),
             }
         )
@@ -264,18 +268,6 @@ def discover_agents() -> list[dict[str, str]]:
     return sorted(entries, key=lambda e: e["name"])
 
 
-def compute_parity(
-    skills: list[dict[str, str]],
-    commands: list[dict[str, str]],
-) -> dict[str, list[str]]:
-    skill_names = {e["name"] for e in skills}
-    command_names = {e["name"] for e in commands}
-    return {
-        "skills_without_commands": sorted(skill_names - command_names),
-        "commands_without_skills": sorted(command_names - skill_names),
-    }
-
-
 # ---------------------------------------------------------------------------
 # Inventory JSON builder
 # ---------------------------------------------------------------------------
@@ -285,7 +277,6 @@ def build_inventory(
     skills: list[dict[str, str]],
     commands: list[dict[str, str]],
     agents: list[dict[str, str]],
-    parity: dict[str, list[str]],
 ) -> dict[str, Any]:
     return {
         "skills": skills,
@@ -296,7 +287,6 @@ def build_inventory(
             "commands": len(commands),
             "agents": len(agents),
         },
-        "parity": parity,
     }
 
 
@@ -328,11 +318,7 @@ def render_counts_region(
     agents: list[dict[str, str]],
 ) -> str:
     ns, nc, na = len(skills), len(commands), len(agents)
-    body = (
-        f"The source plugin ships **{ns} skills**, "
-        f"**{nc} slash commands** (most skills have a matching command), "
-        f"and **{na} agents**."
-    )
+    body = f"The source plugin ships **{ns} skills**, " f"**{nc} slash-invocable skills**, " f"and **{na} agents**."
     return f"<!-- BEGIN:{MARKER_COUNTS} -->\n\n{body}\n\n<!-- END:{MARKER_COUNTS} -->"
 
 
@@ -439,7 +425,6 @@ def run_generate(
     skills: list[dict[str, str]],
     commands: list[dict[str, str]],
     agents: list[dict[str, str]],
-    parity: dict[str, list[str]],
     inventory: dict[str, Any],
     dry_run: bool,
 ) -> None:
@@ -473,14 +458,13 @@ def run_generate(
         README_PATH.write_text(new_readme, encoding="utf-8")
         print(f"Rewrote {README_PATH.relative_to(REPO_ROOT)}", file=sys.stderr)
 
-    _print_summary(skills, commands, agents, parity)
+    _print_summary(skills, commands, agents)
 
 
 def run_check(
     skills: list[dict[str, str]],
     commands: list[dict[str, str]],
     agents: list[dict[str, str]],
-    parity: dict[str, list[str]],
     inventory: dict[str, Any],
 ) -> int:
     """Check mode: regenerate in memory and diff against on-disk state."""
@@ -522,7 +506,7 @@ def run_check(
         return 1
 
     print("Inventory is up to date.", file=sys.stderr)
-    _print_summary(skills, commands, agents, parity)
+    _print_summary(skills, commands, agents)
     return 0
 
 
@@ -543,22 +527,11 @@ def _print_summary(
     skills: list[dict[str, str]],
     commands: list[dict[str, str]],
     agents: list[dict[str, str]],
-    parity: dict[str, list[str]],
 ) -> None:
     print(
-        f"Summary: {len(skills)} skills, {len(commands)} commands, {len(agents)} agents",
+        f"Summary: {len(skills)} skills, {len(commands)} slash invocations, {len(agents)} agents",
         file=sys.stderr,
     )
-    swc = parity["skills_without_commands"]
-    cws = parity["commands_without_skills"]
-    if swc:
-        print(f"  skills without commands: {', '.join(swc)}", file=sys.stderr)
-    else:
-        print("  skills without commands: (none)", file=sys.stderr)
-    if cws:
-        print(f"  commands without skills: {', '.join(cws)}", file=sys.stderr)
-    else:
-        print("  commands without skills: (none)", file=sys.stderr)
 
 
 # ---------------------------------------------------------------------------
@@ -586,13 +559,12 @@ def main() -> None:
     skills = discover_skills()
     commands = discover_commands()
     agents = discover_agents()
-    parity = compute_parity(skills, commands)
-    inventory = build_inventory(skills, commands, agents, parity)
+    inventory = build_inventory(skills, commands, agents)
 
     if args.check:
-        sys.exit(run_check(skills, commands, agents, parity, inventory))
+        sys.exit(run_check(skills, commands, agents, inventory))
 
-    run_generate(skills, commands, agents, parity, inventory, dry_run=args.dry_run)
+    run_generate(skills, commands, agents, inventory, dry_run=args.dry_run)
 
 
 if __name__ == "__main__":

@@ -45,7 +45,7 @@ Step behavior:
 | `base`     | Generates and validates `.opencode-plugin/{skills,agents,commands}/`, then rsyncs them into `~/.config/opencode/`.                                 |
 | `skills`   | Generates the skills and installs each into `skills/<name>`, plus the `shared/` helpers.                                                           |
 | `agents`   | Generates the agents and installs each into `agents/<name>.md`.                                                                                    |
-| `commands` | Generates the commands and installs each into `commands/<name>.md`.                                                                                |
+| `commands` | Generates one thin command per public skill from its `SKILL.md` and installs it as `commands/<name>.md`.                                           |
 | `settings` | Merges managed keys from `.opencode-plugin/opencode.json` into `~/.config/opencode/opencode.json`. Plugins live in this same file.                 |
 | `mcp`      | Merges `mcp.servers` from `.opencode-plugin/opencode.json` into `<project>/opencode.json` (or `~/.config/opencode/opencode.json` with `--global`). |
 | `rules`    | Symlinks `.opencode-plugin/AGENTS.md` into `~/.config/opencode/AGENTS.md`.                                                                         |
@@ -112,6 +112,13 @@ unused: V2 parses the field but does not resolve its files, globs, or URLs.
 Invoke skills with the built-in `skill` tool, agents with `@agent-name` mentions
 or the native v2 `subagent(agent, description, prompt, sessionID?, background?)`
 tool, and commands as `/<name>` in the TUI.
+
+Commands are generated from public skills (`user-invocable` not `false`), so
+`commands/` mirrors the skill set. Each command has no workflow body of its own: it
+tells the agent to load the matching skill with the `skill` tool and passes
+`$ARGUMENTS` through. Do not chain commands into other commands. The commands exist
+only for commands-only installs (`--intent commands` with no skills); skill logic
+stays in `SKILL.md`.
 
 ## Model Configuration
 

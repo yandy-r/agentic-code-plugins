@@ -10,7 +10,7 @@
     },
     {
       "name": "bundle-author",
-      "description": "Maintainer-only (ycc repo) \u2014 This skill should be used when the user asks to \"scaffold a new ycc skill\", \"add a skill to the bundle\", \"extend ycc\", \"create a new command under ycc\", \"add an agent to ycc\", or when the user wants to author new source-of-truth content in the ycc/ bundle (skills, commands, agents). Contributor workflow \u2014 not a generic plugin scaffolder. Respects the source-of-truth / regenerated-bundle split."
+      "description": "Maintainer-only (ycc repo) \u2014 This skill should be used when the user asks to \"scaffold a new ycc skill\", \"add a skill to the bundle\", \"extend ycc\", \"add an agent to ycc\", or when the user wants to author new source-of-truth content in the ycc/ bundle (skills, agents). Contributor workflow \u2014 not a generic plugin scaffolder. Respects the source-of-truth / regenerated-bundle split."
     },
     {
       "name": "bundle-release",
@@ -200,23 +200,23 @@
   "commands": [
     {
       "name": "backport",
-      "description": "Cherry-pick merged trunk PRs onto active maintenance branches (release/X.Y) and open backport PRs, following RELEASING.md and its backport:X.Y labels. Stops on conflicts unless --resolve; optional CI loop with --ci; --audit checks every backport landed before a patch tag."
+      "description": "Cherry-pick merged trunk PRs onto active maintenance branches (release/X.Y) and open one backport PR per target \u2014 driven by the project's RELEASING.md release-branches model and its backport:X.Y labels. Handles a single PR (`<PR#> [--to release/X.Y]`) or every pending labelled PR (`--pending`); stops on conflicts or dispatches a minimal conflict resolver (`--resolve`) and asks before pushing; optionally watches CI (`--ci`). `--audit` is the read-only pre-tag check that every labelled PR has a merged backport and that no fix merged since the line's last tag is unaccounted for. Never merges, tags, or pushes to release/* directly. Use when the user asks to \"backport PR"
     },
     {
       "name": "blueprint",
-      "description": "Whole-project source-of-truth spec generator. Interrogates a raw software idea through a multi-gate process and writes a durable project charter to docs/blueprint.md, then bootstraps the project (init + formatters) from its Bootstrap section. Upstream of prp-prd/prp-spec."
+      "description": "Interactive, whole-project source-of-truth spec generator. Takes a raw software idea, interrogates it through a multi-gate process (Foundation \u2192 Grounding \u2192 Scope \u2192 Tech Stack \u2192 Architecture \u2192 Generate), and writes a durable project charter at docs/blueprint.md \u2014 vision, users, scope, tech-stack decision, architecture, modules, NFRs, milestones, risks. Its machine-readable Bootstrap section then drives project bootstrap (code init, CI, formatters) by orchestrating /ycc:init and /ycc:formatters. Use when the user asks to \"create a project spec\", \"write a software spec\", \"whole-project spec\", \"source of truth spec\", \"scaffold/bootstrap a new software project from an idea\", \"project charter/blueprint\", or says \"/blueprint\". Sits UPSTREAM of prp-prd/prp-spec \u2014 those are per-feature; this is the whole software."
     },
     {
       "name": "bundle-author",
-      "description": "Maintainer-only (ycc repo) \u2014 scaffold new source-of-truth content in the ycc bundle (skill, optional matching command and agent)"
+      "description": "Maintainer-only (ycc repo) \u2014 This skill should be used when the user asks to \"scaffold a new ycc skill\", \"add a skill to the bundle\", \"extend ycc\", \"add an agent to ycc\", or when the user wants to author new source-of-truth content in the ycc/ bundle (skills, agents). Contributor workflow \u2014 not a generic plugin scaffolder. Respects the source-of-truth / regenerated-bundle split."
     },
     {
       "name": "bundle-release",
-      "description": "Maintainer-only (ycc repo) \u2014 prepare a ycc bundle release: preflight, bump, regenerate, validate, draft notes (no auto-commit)"
+      "description": "Maintainer-only (ycc repo) \u2014 This skill should be used when the user asks to \"release ycc\", \"bump ycc version\", \"prepare a ycc release\", \"cut a new ycc release\", \"tag a ycc release\", or when the user wants to version, regenerate, validate, and produce release notes for the ycc bundle. Orchestrates existing generators/validators; never auto-commits."
     },
     {
       "name": "clean",
-      "description": "Orchestrate parallel cleanup agents to find and remove unnecessary project files"
+      "description": "This skill should be used when the user asks to \"clean project files\", \"remove unnecessary files\", \"clean up project\", \"find unused files\", \"project cleanup\", or mentions removing build artifacts, temp files, or old code from a project directory. Orchestrates parallel cleanup agents with safety measures."
     },
     {
       "name": "code-report",
@@ -224,27 +224,27 @@
     },
     {
       "name": "code-review",
-      "description": "Code review \u2014 local uncommitted changes or a GitHub PR (pass PR number/URL for PR mode). Runs security + quality checks, executes validation commands, writes an artifact under docs/prps/reviews/, and posts the review. Pass --quick as a thin alias for /ycc:quick-review (interactive inline review, no file unless confirmed). For direct access to --yes, --save, or --severity, invoke /ycc:quick-review instead."
+      "description": "Dual-mode code review \u2014 local uncommitted changes or a GitHub PR. Writes a machine-parseable artifact under docs/prps/reviews/ with finding IDs and Status fields (Open/Fixed/Failed) that /ycc:review-fix consumes in place. PR mode reads changed files, runs validation commands, assigns severity, and posts the review via gh. Use when the user asks to \"review code\", \"review PR\", \"check uncommitted changes\", \"review pr N\", \"parallel review\", \"team review\", or says \"/code-review\"."
     },
     {
       "name": "compatibility-audit",
-      "description": "Maintainer-only (ycc repo) \u2014 audit cross-target compatibility of the ycc bundle across Claude, Cursor, Codex, and opencode targets"
+      "description": "Maintainer-only (ycc repo) \u2014 This skill should be used when the user asks to \"audit ycc compatibility\", \"check Cursor/Codex bundle health\", \"verify cross-target parity\", \"run a compatibility report for ycc\", \"is ycc ready to release\", \"are the generated bundles up to date\", \"check if the bundles are in sync\", \"validate generated targets\", \"are Cursor and Codex bundles current\", \"check bundle drift\", \"report on target feature gaps\", or when the user wants a structured per-target health report covering drift detection, install-assumption validation, and feature-capability gaps across the Claude, Cursor, Codex, and opencode targets without bumping versions or committing anything.\n"
     },
     {
       "name": "deep-research",
-      "description": "Conduct strategic multi-perspective research using the Asymmetric Research Squad methodology \u2014 8 specialized personas (historical, contrarian, analogical, systems, journalistic, archaeological, futurist, negative-space) deployed in parallel. For comprehensive research on complex topics requiring diverse viewpoints, competitive analysis, or strategic intelligence gathering."
+      "description": "Conduct strategic multi-perspective research using the Asymmetric Research Squad methodology with 8 specialized personas. Deploys parallel research agents covering historical, contrarian, analogical, systems, journalistic, archaeological, futurist, and negative-space perspectives. Pass `--team` (Claude Code only) to deploy the 14 research agents as teammates under a shared `TeamCreate`/`TaskList` with coordinated shutdown; default is standalone parallel sub-agents. Use for comprehensive research on complex topics requiring diverse viewpoints, competitive analysis, or strategic intelligence gathering."
     },
     {
       "name": "feature-research",
-      "description": "Research a feature comprehensively before implementation \u2014 analyzes requirements, gathers external API context, and produces a feature-spec.md ready for plan-workflow. Defaults to standalone parallel sub-agents; pass --team (Claude Code only) to deploy the 7 researchers as teammates under a shared TeamCreate/TaskList with coordinated shutdown. Use when starting a new feature and you need structured research before coding."
+      "description": "Run the 7-agent research pipeline for a new feature \u2014 deploys api-researcher, business-analyzer, tech-designer, ux-researcher, security-researcher, practices-researcher, and recommendations-agent in parallel to produce 7 research-*.md files and a consolidated feature-spec.md under docs/plans/[feature-name]/. Default is standalone parallel sub-agents via the Task tool. Pass `--team` (Claude Code only) to deploy the 7 researchers as teammates under a shared TeamCreate/TaskList with coordinated shutdown. Outputs to docs/plans/, NOT docs/prps/. Use when the user asks to \"research a feature\", \"run feature research\", \"deep-dive a feature before planning\", or says \"/feature-research\". For lightweight single-pass specs in the PRP workflow, use ycc:prp-spec instead.\n"
     },
     {
       "name": "formatters",
-      "description": "Bootstrap a best-practices lint/format environment \u2014 installs a self-contained scripts/style.sh bundle, per-language tool configs, runnable aliases (package.json/Makefile/justfile), README docs, and optionally CI + pre-commit hooks."
+      "description": "Use this skill when the user asks to \"initialize formatters\", \"bootstrap linting\", \"add lint and format scripts\", \"set up prettier / biome / ruff / clippy / golangci-lint / shellcheck\", \"add a Makefile lint target\", \"install a style bundle\", \"wire a pre-commit hook for linting\", or any request to stand up a best-practices lint/format environment in a project. Profiles the target, installs a self-contained `scripts/style.sh` bundle, configures per-language tool files, injects runnable aliases (package.json / Makefile / justfile), appends a \"Linting & Formatting\" section to the project docs, and optionally wires CI and pre-commit hooks. Idempotent via a managed manifest \u2014 safe to re-run with `--sync`."
     },
     {
       "name": "frontend-design",
-      "description": "Create distinctive, production-grade frontend interfaces with intentional visual direction \u2014 typography, color, spacing rhythm, layout composition, motion, and atmosphere. Use when the user asks to build a landing page, dashboard, app shell, or visual system from scratch, wants to upgrade a bland or generic-looking UI into something memorable, asks for a design direction (brutalist/editorial/luxury/playful/maximalist), asks about typography pairings, color systems, motion choreography, or wants a design point of view rather than just \"make it work\"."
+      "description": "Create distinctive, production-grade frontend interfaces with intentional visual direction \u2014 typography, color, spacing rhythm, layout composition, motion, and atmosphere. Use when the user asks to build a landing page, dashboard, app shell, or visual system from scratch, wants to upgrade a bland or generic-looking UI into something memorable, asks for a design direction (brutalist/editorial/luxury/playful/maximalist), asks how to avoid generic AI/SaaS-looking interfaces, asks about typography pairings, color systems, motion choreography, or wants a design point of view rather than just \"make it work\"."
     },
     {
       "name": "frontend-patterns",
@@ -252,7 +252,7 @@
     },
     {
       "name": "git-cleanup",
-      "description": "Audit and clean up stale git resources (branches, worktrees, remote-tracking refs, stashes, tags, PRs, issues) on GitHub/GitLab. Cross-references active code before recommending deletions. Dry-run by default."
+      "description": "This skill should be used when the user asks to \"clean up git\", \"prune stale branches\", \"clean up worktrees\", \"close stale PRs/issues\", \"tidy up my repo\", or mentions removing abandoned branches, worktrees, remote-tracking refs, tags, stashes, PRs, or issues on GitHub/GitLab. Analyzes active code before recommending deletions, presents a plan, and only acts after explicit approval. Dry-run and read-only audit by default."
     },
     {
       "name": "git-workflow",
@@ -268,59 +268,59 @@
     },
     {
       "name": "hooks-workflow",
-      "description": "Generate target-aware hook configuration from ycc rule guidance with graceful fallbacks."
+      "description": "Convert rule-file hook guidance into target-appropriate config. Reads hook recommendations from the resolved language rules, consults the target-capability matrix, and emits only config the target can execute (Claude \u2192 JSON; Cursor \u2192 advisory rule embedding where supported; Codex \u2192 advisory-only). Use when the user asks to \"generate hook config\", \"configure Claude hooks from ycc rules\", \"apply ycc hooks\", \"cross-target hook setup\", \"hook matrix for this repo\", or \"verify my hook config\"."
     },
     {
       "name": "implement-plan",
-      "description": "Execute a parallel implementation plan by deploying implementor agents in dependency-resolved batches. Step 3 of the planning workflow \u2014 requires parallel-plan.md from /ycc:plan-workflow."
+      "description": "Execute a parallel implementation plan by deploying implementor agents in dependency-resolved batches. Defaults to standalone sub-agents; pass --team (Claude Code only) to dispatch via an agent team with shared TaskList and up-front dependency wiring. Worktree isolation is ON by default and creates/reuses one feature worktree on a feature branch; pass --no-worktree to opt out and create/use only the current-checkout feature branch. --worktree is accepted as a legacy no-op. Use as Step 3 after parallel-plan."
     },
     {
       "name": "init",
-      "description": "Initialize workspace \u2014 profile project, emit CLAUDE.md/AGENTS.md/.cursor/rules, optional GitHub templates, git conventions, and Claude CLI config."
+      "description": "This skill should be used when the user asks to \"initialize workspace\", \"init project\", \"bootstrap CLAUDE.md\", \"generate AGENTS.md\", \"set up cursor rules\", \"add github issue templates\", \"add conventional commits config\", \"configure agents and MCPs for project\", or any workspace/project initialization request. Profiles the project, emits the AI-agent doc trio (CLAUDE.md, AGENTS.md, .cursor/rules/project.mdc), and optionally GitHub templates and git conventions."
     },
     {
       "name": "orchestrate",
-      "description": "Orchestrate multiple specialized agents to accomplish a complex task through intelligent decomposition and parallel execution. Defaults to standalone sub-agents; pass --team (Claude Code only) to dispatch via an agent team with shared TaskList and up-front dependency wiring. Worktree isolation is ON by default; all parallel and sequential agents share one feature worktree. Pass --no-worktree to opt out."
+      "description": "Orchestrate multiple specialized agents in parallel to accomplish complex tasks. Decomposes the task, deploys implementor agents in dependency-resolved batches, and synthesizes results. Defaults to standalone sub-agents; pass --team (Claude Code only) to dispatch via an agent team with shared TaskList, up-front TaskCreate/addBlockedBy dependency wiring, and coordinated inter-batch shutdown via SendMessage. Worktree isolation is ON by default; all parallel and sequential agents share one feature worktree. Pass --no-worktree to opt out."
     },
     {
       "name": "parallel-plan",
-      "description": "Generate a detailed parallel implementation plan with task dependencies, file ownership, and batch ordering. Step 2 of the planning workflow \u2014 requires shared-context output. Produces parallel-plan.md ready for implement-plan. Defaults to standalone parallel sub-agents via the Task tool; pass --team (Claude Code only) to orchestrate the analysis and validation stages as teammates under a shared TeamCreate/TaskList with coordinated shutdown."
+      "description": "Create detailed parallel implementation plans (alias for plan-workflow plan-only). Runs analysis and validation stages, then synthesizes dependency-aware tasks into parallel-plan.md. Use after shared-context to prepare implementation-ready planning artifacts. Pass `--team` (Claude Code only) to orchestrate analysis and validation stages as teammates under a shared TeamCreate/TaskList with coordinated shutdown."
     },
     {
       "name": "plan",
-      "description": "Lightweight conversational planner. Restates requirements, identifies risks, outlines phases, then WAITS for explicit confirmation before any code is written. Lighter than /ycc:plan-workflow (parallel research) and /ycc:prp-plan (PRD-driven, artifact-producing)."
+      "description": "Lightweight conversational planner \u2014 dispatches ycc:planner (or a multi-perspective fan-out) to produce a phased plan with file paths, dependencies, risks, and tests, then WAITS for confirmation. Lighter than plan-workflow or PRD-driven prp-plan. Use when the user asks to \"plan this\", \"outline an approach\", \"break this down before I code\", \"parallel plan\", \"multi-perspective plan\", \"enhanced plan\", or says \"/plan\"."
     },
     {
       "name": "plan-workflow",
-      "description": "Unified planning workflow \u2014 research, analyze, and generate parallel implementation plans in one command. Combines shared-context and parallel-plan with checkpoint support. Defaults to standalone parallel sub-agents via the Task tool; pass --team (Claude Code only) to orchestrate research, analysis, and validation stages as teammates under a shared TeamCreate/TaskList with coordinated shutdown."
+      "description": "Unified planning workflow - research, analyze, and generate parallel implementation plans in one command. Combines shared-context and parallel-plan with checkpoint support. Default is standalone parallel sub-agents via the Task tool. Pass `--team` (Claude Code only) to orchestrate research, analysis, and validation stages as teammates under a shared TeamCreate/TaskList with coordinated shutdown."
     },
     {
       "name": "pr-autofix",
-      "description": "Vendor-neutral PR comment auto-fix \u2014 discover every review thread, file-level review comment, and top-level PR comment from any author, dispatch per-comment fix agents, resolve threads on success or reply-then-resolve on skip, and optionally drive the PR to green via the bounded CI auto-fix loop (--ci)."
+      "description": "Vendor-neutral PR comment auto-fix \u2014 discover every review thread, file-level review comment, and top-level PR comment from any author (bot or human), dispatch per-comment fix agents, resolve threads on success or reply-then-resolve on skip, and optionally enter the bounded CI auto-fix loop (--ci) to drive the PR to green. Sister skill to /ycc:review-fix (which consumes /ycc:code-review artifacts); this one consumes GitHub PR comments directly. Use when the user asks to \"auto-fix PR comments\", \"apply reviewer feedback\", \"fix the PR review\", \"vendor-neutral autofix\", or says \"/pr-autofix\"."
     },
     {
       "name": "prp-commit",
-      "description": "Quick natural-language git commit helper \u2014 describe what to commit in plain English (blob glob, filter phrase, or topic). Lightweight sibling of /ycc:git-workflow."
+      "description": "Lightweight natural-language git commit helper. Interprets the argument as either a glob, a filter phrase (\"except tests\", \"only new files\"), a topic phrase (\"the auth changes\"), or leaves staging alone if the user says \"staged\". Stages the matching files and generates a conventional commit message. Use for quick single-purpose commits; use /ycc:git-workflow instead when you need documentation updates, parallel agents, or full PR orchestration. Adapted from PRPs-agentic-eng by Wirasm."
     },
     {
       "name": "prp-implement",
-      "description": "Execute a PRP plan file with per-task validation loops. Detects package manager, prepares git branch, runs 5 validation levels, writes a report to docs/prps/reports/, and archives the plan. Auto-detects parallel-capable plans and prompts for sequential or parallel execution."
+      "description": "Execute a PRP plan file with per-task validation loops. Detects package manager, prepares git branch, runs 5 validation levels (static/unit/build/integration/edge), writes a report to docs/prps/reports/, and archives the plan. Auto-detects parallel-capable plans and prompts for sequential or parallel execution. Use when the user asks to \"execute a PRP plan\", \"implement from a plan file\", \"run prp-implement\", \"parallel PRP implement\", \"team PRP implement\", or provides a path to a .plan.md file."
     },
     {
       "name": "prp-plan",
-      "description": "Create a single-pass implementation plan from a feature description or PRD. Runs codebase pattern extraction and optional external research, then writes docs/prps/plans/{name}.plan.md. Use --enhanced to grow research from 3 to 7 specialized researchers (same dimensions as ycc:feature-research) while keeping a single PRP-compliant plan file."
+      "description": "Create a self-contained feature implementation plan with codebase pattern extraction and optional external research. Detects PRD vs free-form input, runs codebase discovery via ycc:prp-researcher, and writes docs/prps/plans/{name}.plan.md ready for /ycc:prp-implement. Use when the user asks for a \"PRP plan\", \"implementation plan from PRD\", \"feature plan with patterns to mirror\", \"parallel PRP plan\", \"team PRP plan\", or says \"/prp-plan\"."
     },
     {
       "name": "prp-pr",
-      "description": "Create a GitHub PR from the current branch \u2014 discovers templates, analyzes commits, references PRP artifacts, pushes, and opens the PR via gh."
+      "description": "Create a GitHub pull request from the current branch \u2014 validates preconditions, discovers PR templates, analyzes commits and file diffs, references PRP artifacts (prds/plans/reports), pushes, and creates the PR via gh. Lightweight sibling of /ycc:git-workflow --pr; use this when you only need the PR, not the commit+docs orchestration. Adapted from PRPs-agentic-eng by Wirasm."
     },
     {
       "name": "prp-prd",
-      "description": "Interactive PRD generator \u2014 problem-first, hypothesis-driven product spec built through iterative questioning and dual-mode grounding research. Writes to docs/prps/prds/."
+      "description": "Interactive, problem-first PRD generator that runs an iterative questioning workflow \u2014 Foundation \u2192 Market Grounding \u2192 Vision \u2192 Technical Feasibility \u2192 Decisions \u2192 Generate. Produces a hypothesis-driven product spec at docs/prps/prds/{name}.prd.md. Use when the user asks to \"write a PRD\", \"create a product spec\", \"start a new feature with a PRD\", or says \"/prp-prd\". Adapted from PRPs-agentic-eng by Wirasm."
     },
     {
       "name": "prp-spec",
-      "description": "Generate a lightweight feature spec for the PRP workflow \u2014 single-pass with optional codebase/market grounding. Writes to docs/prps/specs/. Sits between prp-prd and prp-plan, or works standalone.\n"
+      "description": "Generate a lightweight feature spec for the PRP workflow \u2014 single-pass with optional codebase/market grounding via ycc:prp-researcher. Produces a concise spec at docs/prps/specs/{name}.spec.md covering problem statement, requirements, technical approach, integration points, and risks. Accepts a free-form description or starts with clarifying questions. Parallel entry point to prp-prd \u2014 use prp-spec when the problem is clear, prp-prd when it needs discovery. Both feed directly into prp-plan. Use when the user asks to \"write a spec\", \"spec out a feature\", \"quick spec\", \"create a PRP spec\", or says \"/prp-spec\". For heavyweight multi-agent research, use ycc:feature-research instead.\n"
     },
     {
       "name": "python-patterns",
@@ -332,31 +332,31 @@
     },
     {
       "name": "quick-fix",
-      "description": "Apply fixes from an inline /ycc:quick-review findings block without creating a review artifact. Use directly with pasted Quick Review findings, or indirectly from /ycc:quick-review \"Apply fixes\"."
+      "description": "Apply fixes directly from an inline /ycc:quick-review findings block without creating a review artifact. Use when quick-review hands off \"Apply fixes\", when the user asks to \"quick fix\" review findings, or when pasted Quick Review findings should be fixed without the docs/prps/reviews artifact workflow. Filters by severity, groups same-file findings, dispatches ycc:review-fixer agents, and reports fixed/failed results inline. This is the ephemeral counterpart to /ycc:review-fix, which remains artifact-driven."
     },
     {
       "name": "quick-review",
-      "description": "Fast interactive review of uncommitted changes. Findings print inline and writes nothing by default. Apply fixes hands findings directly to /ycc:quick-fix. Save to file writes an artifact and stops. Write file and apply fixes uses /ycc:review-fix. Pass --parallel or --team for 3-reviewer fan-out; --yes, --save, or --write-and-apply for scripted choices."
+      "description": "Fast interactive review of uncommitted changes \u2014 prints findings inline, writes nothing by default. \"Apply fixes\" hands findings to /ycc:quick-fix; \"Save to file\" writes an artifact under docs/prps/reviews; \"Write file and apply fixes\" hands off to /ycc:review-fix. For short changes where a full /ycc:code-review artifact is overkill. Use when the user asks to \"quick review\", \"fast review\", \"review what I have\", \"on-the-fly review\", or says \"/quick-review\"."
     },
     {
       "name": "release-model",
-      "description": "Create, upgrade, or audit a project's RELEASING.md branching and release model \u2014 surveys tags, release branches, CI, and version files, proposes trunk-only or release-branches, renders RELEASING.md with a machine-readable state block, and adds pointer sections to CLAUDE.md and AGENTS.md. Dry-run preview first; never commits or pushes."
+      "description": "This skill should be used when the user asks to \"create a RELEASING.md\", \"set up a branching model\", \"define a release process\", \"document how we branch and release\", \"add release branches\", \"switch to release branches\", \"upgrade the release model\", \"audit the release model\", \"check RELEASING.md\", or when a repo has no written branching/release model and a skill (init, blueprint, releaser) offers to create one. Surveys the repo (tags, release/* branches, CI triggers, version files, sync merges), proposes trunk-only (every release tagged from the trunk) or release-branches (minors from the trunk, patches from release/X.Y with backports), and renders a project-specific RELEASING.md with a machine-readable state block plus pointer sections in CLAUDE.md and AGENTS.md. --upgrade moves trunk-only to release-branches; --audit reports drift read-only. Never commits or pushes."
     },
     {
       "name": "releaser",
-      "description": "Prepare and cut a GitHub release for any project \u2014 detects toolchain, drafts changelog, plans platform/arch artifacts, optionally generates or audits release CI, optionally invokes the publish helper, and optionally drives the release CI to green via a bounded auto-fix loop (--ci). Emits commands; never auto-publishes without explicit --publish and --confirm. External-project counterpart to /ycc:bundle-release."
+      "description": "This skill should be used when the user asks to \"prepare a release\", \"cut a release\", \"tag a release\", \"create a GitHub release\", \"draft release notes\", \"set up release CI\", \"add a release workflow\", \"audit release pipeline\", \"publish a GitHub release\", or \"publish release notes\" for any project. Detects language/toolchain, drafts a changelog, plans platform/arch artifacts, optionally generates or audits GitHub Actions release CI, and emits the exact commands the user runs to tag and publish. Never auto-commits, pushes, or publishes without an explicit `--publish` and `--confirm` from the user. Generic external-project counterpart to `ycc:bundle-release` (which is scoped to this repo's ycc bundle)."
     },
     {
       "name": "research-to-issues",
-      "description": "Convert research, feature specs, and implementation plans into structured GitHub issues with tracking hierarchy, labels, and priority. Supports deep-research output, feature-spec documents, parallel-plan plans, and PRP plans. Creates detailed, agentic-engineering-friendly issues with mandatory reading, scope, and validation criteria."
+      "description": "This skill should be used when the user asks to \"create issues from research\", \"turn research into GitHub issues\", \"create issues from feature spec\", \"turn plan into issues\", \"issues from parallel plan\", \"create issues from PRP plan\", \"generate issues from deep-research output\", \"create tracking issues from plan\", \"parse plan into actionable issues\", or mentions converting documentation produced by ycc:deep-research, ycc:feature-research, ycc:parallel-plan, ycc:plan-workflow, or ycc:prp-plan into structured GitHub issues with labels and tracking hierarchy."
     },
     {
       "name": "resume-session",
-      "description": "Load a saved session and produce a structured briefing; wait for user direction before starting work. Counterpart to /ycc:save-session."
+      "description": "Load the most recent session file from ~/.claude/session-data/ (or a specified one by date or path) and produce a structured briefing of what was built, what worked, what NOT to retry, open questions, and the exact next step. Does NOT start working automatically \u2014 waits for user direction. Counterpart to /ycc:save-session. Use when the user says \"resume session\", \"continue from last session\", \"load context\", or says \"/resume-session\"."
     },
     {
       "name": "review-fix",
-      "description": "Plan and apply fixes for findings from a /ycc:code-review artifact. Parses the review file, filters by severity, dispatches review-fixer agents, updates Status in place (Open \u2192 Fixed/Failed), runs validation, and writes a fix report. The artifact is read from the PR branch (committed there by /ycc:code-review)."
+      "description": "Plan and apply fixes for findings in a /ycc:code-review artifact. Parses the review file, filters by severity, groups same-file findings into dependency-safe batches, dispatches ycc:review-fixer agents, updates Status in place (Open \u2192 Fixed/Failed), runs validation, and writes a fix report under docs/prps/reviews/fixes/. Use when the user asks to \"fix review findings\", \"apply review fixes\", \"review-fix PR 42\", \"fix the code review\", \"team review-fix\", or says \"/review-fix\"."
     },
     {
       "name": "rust-patterns",
@@ -368,11 +368,11 @@
     },
     {
       "name": "save-session",
-      "description": "Save current session state to a dated file in ~/.claude/session-data/ so work can be resumed in a future session with full context."
+      "description": "Capture the current session state \u2014 what was built, what worked, what failed, open questions, and exact next step \u2014 to a dated file at ~/.claude/session-data/YYYY-MM-DD-{shortid}-session.tmp so a future session can resume with full context. Use when the user says \"save session\", \"end of session\", \"preserve context\", \"before context limit\", or says \"/save-session\". The file is meant to be read by /ycc:resume-session at the start of the next session."
     },
     {
       "name": "shared-context",
-      "description": "Build shared context documentation for a feature \u2014 gathers files, conventions, dependencies, and existing patterns into a single artifact that downstream planning stages can reference. Step 1 of the planning workflow. Defaults to standalone parallel sub-agents via the Task tool; pass --team (Claude Code only) to deploy the 4 researchers as teammates under a shared TeamCreate/TaskList with coordinated shutdown."
+      "description": "Create shared context documentation for a feature (alias for plan-workflow research-only). Deploys researchers that write research artifacts, then synthesizes verified findings into shared.md. Use as Step 1 before parallel-plan when preparing implementation context. Pass `--team` (Claude Code only) to deploy researchers as teammates under a shared TeamCreate/TaskList with coordinated shutdown."
     },
     {
       "name": "ts-patterns",
@@ -384,11 +384,11 @@
     },
     {
       "name": "visual-plan",
-      "description": "Turn an existing text plan into a rich, interactive visual plan \u2014 diagrams, file maps, annotated code, open questions, and an optional UI/prototype review surface. Reads the plan (never edits it) and writes plan.mdx + canvas.mdx into a sibling visual/ directory. Hosted sharing is consent-gated behind --share; default is a local-files localhost preview."
+      "description": "Turn an existing text plan into a rich, interactive visual plan \u2014 diagrams, file maps, annotated code, open questions, and an optional UI/prototype review surface. Read-only with respect to the plan file. Use when the user asks to \"make this plan visual\", \"render a visual plan\", \"create a wireframe/canvas for this plan\", \"visualize the implementation plan\", says \"/visual-plan\", or when a planning skill hands off via the shared `--visual` decorator."
     },
     {
       "name": "visual-recap",
-      "description": "Turn a finished change (git range, branch, or tracked working-tree diff) into a LOCAL-ONLY interactive visual recap \u2014 annotated split diffs, file map, schema/API deltas, diagrams, and wireframes \u2014 written under docs/prps/reviews/visual/ and previewed in the browser via the 127.0.0.1 localhost bridge. Never uploads code; remote-agnostic across the public GitHub remote and the private Forgejo origin."
+      "description": "Turn a finished change \u2014 a git range, branch, or tracked working-tree diff \u2014 into a LOCAL-ONLY interactive visual recap (annotated diffs, file map, schema/API deltas, diagrams, wireframes) under docs/prps/reviews/visual/, previewed in the browser via the localhost bridge. Use when the user asks to \"recap this branch\", \"show what changed visually\", \"visual recap\", \"review the diff visually\", or says \"/visual-recap\". Never uploads code to a hosted service; remote-agnostic (identical on the public GitHub remote and the private Forgejo origin)."
     },
     {
       "name": "write-docs",
@@ -621,9 +621,5 @@
     "skills": 49,
     "commands": 49,
     "agents": 55
-  },
-  "parity": {
-    "skills_without_commands": [],
-    "commands_without_skills": []
   }
 }

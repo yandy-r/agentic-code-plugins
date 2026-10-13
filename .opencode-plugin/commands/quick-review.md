@@ -1,80 +1,13 @@
 ---
-description: 'Fast interactive review of uncommitted changes. Findings print inline
-  and writes nothing by default. Apply fixes hands findings directly to /quick-fix.
-  Save to file writes an artifact and stops. Write file and apply fixes uses /review-fix.
-  Pass --parallel for 3-reviewer fan-out; --yes, --save, or --write-and-apply for
-  scripted choices. Usage: [--parallel] [--yes | --save | --write-and-apply] [--severity
-  <level>] [--no-worktree]'
+description: 'Fast interactive review of uncommitted changes — prints findings inline,
+  writes nothing by default. "Apply fixes" hands findings to /quick-fix; "Save to
+  file" writes an artifact under docs/prps/reviews; "Write file and apply fixes" hands
+  off to /review-fix. For short changes where a full /code-review artifact is overkill.
+  Use when the user asks to "quick review", "fast review", "review what I have", "on-the-fly
+  review", or says "/quick-review". Usage: [--parallel] [--yes | --save | --write-and-apply]
+  [--severity <level>] [--no-worktree]'
 ---
 
-# Quick Review Command
+Use the skill tool to load the `quick-review` skill, then follow its instructions with these arguments:
 
-> **OpenCode V2 compatibility:** `--team` is unsupported. If it is supplied, abort before setup or dispatch and ask the caller to rerun without it. This target uses native standalone `subagent` calls only.
-
-Run a fast, inline, interactive review of uncommitted changes.
-
-**Load and follow the `quick-review` skill, passing through `$ARGUMENTS`.**
-
-Unlike `/code-review`, this skill:
-
-- Prints findings **inline** — no artifact is written by default
-- Asks **Apply fixes / Save to file / Discard** after normal reviews
-- Adds **Write file and apply fixes** for larger reviews (`5+` findings or `3+`
-  finding files)
-- Hands direct **Apply fixes** to `/quick-fix` without writing a file
-- Uses `/review-fix` only for explicit artifact-backed fixing
-
-Designed for short, low-friction code changes where opening a full
-`/code-review` artifact is overkill.
-
-**Flags**:
-
-- `--parallel` — Fan out the REVIEW phase across 3 standalone
-  `code-reviewer` sub-agents (correctness, security, quality) in parallel.
-  Works in opencode, Cursor, and Codex bundles.
-
-  per-reviewer task tracking, and coordinated shutdown before merge. Cursor and
-  Codex bundles lack the team tools — use `--parallel` there instead.
-
-- `--yes` — Skip the confirmation prompt and auto-confirm **Apply fixes**.
-  This invokes `/quick-fix` directly and writes no artifact. Mutually
-  exclusive with `--save` and `--write-and-apply`.
-
-- `--save` — Skip the confirmation prompt and auto-confirm **Save to file**
-  (writes the artifact and exits; does not run a fixer). Mutually exclusive
-  with `--yes` and `--write-and-apply`.
-
-- `--write-and-apply` — Skip the confirmation prompt, write the artifact, then
-  invoke `/review-fix`. This is the explicit old artifact-backed apply
-  path. Mutually exclusive with `--yes` and `--save`.
-
-- `--severity <CRITICAL|HIGH|MEDIUM|LOW>` — Minimum severity threshold forwarded
-  to `/quick-fix` or `/review-fix` during hand-off. Default: `HIGH`.
-  Ignored on "Save to file" and "Discard".
-
-- `--no-worktree` — Accepted as a **no-op**. Quick mode never creates a worktree.
-
-```
-Usage: /quick-review [--parallel] [--yes | --save | --write-and-apply] [--severity <level>] [--no-worktree]
-
-Examples:
-  /quick-review                               # inline review, prompt for confirmation
-  /quick-review --parallel                    # 3 parallel sub-agent reviewers, prompt for confirmation
-  /quick-review --yes                         # auto-confirm: direct /quick-fix, no artifact
-  /quick-review --save                        # auto-confirm: write artifact + exit
-  /quick-review --write-and-apply             # write artifact + invoke /review-fix
-  /quick-review --yes --severity MEDIUM       # direct quick-fix with lower threshold
-  /quick-review --parallel --yes              # parallel review + direct quick-fix
-```
-
-The skill will:
-
-1. `git diff --name-only HEAD` — abort if nothing is changed
-2. REVIEW — single-pass, `--parallel`, dispatch
-3. Print findings **inline** in Review Artifact Format (no file written yet)
-4. Ask for the action, adding an artifact-backed option for large reviews
-5. Invoke `/quick-fix` for direct apply, or `/review-fix` only after an
-   explicit artifact write
-
-`/code-review --quick` delegates here. Use this command directly to access
-`--yes`, `--save`, `--write-and-apply`, and `--severity`.
+$ARGUMENTS

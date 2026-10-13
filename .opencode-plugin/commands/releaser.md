@@ -1,54 +1,18 @@
 ---
-description: 'Prepare and cut a GitHub release for any project — detects toolchain,
-  drafts changelog, plans platform/arch artifacts, optionally generates or audits
-  release CI, optionally invokes the publish helper, and optionally drives the release
-  CI to green via a bounded auto-fix loop (--ci). Emits commands; never auto-publishes
-  without explicit --publish and --confirm. External-project counterpart to /bundle-release.
-  Usage: [version] [--arch=list] [--os=list] [--ci-config[=generate|audit]] [--platform=name]
-  [--skip-notes] [--dry-run] [--exclude-internal] [--publish[=create|edit|auto]] [--confirm]
-  [--ci] [--ci-max-pushes=N] [--ci-max-same-failure=N] [--ci-timeout-min=N] [--ci-yes]
-  [--ci-recut=destructive]'
+description: 'This skill should be used when the user asks to "prepare a release",
+  "cut a release", "tag a release", "create a GitHub release", "draft release notes",
+  "set up release CI", "add a release workflow", "audit release pipeline", "publish
+  a GitHub release", or "publish release notes" for any project. Detects language/toolchain,
+  drafts a changelog, plans platform/arch artifacts, optionally generates or audits
+  GitHub Actions release CI, and emits the exact commands the user runs to tag and
+  publish. Never auto-commits, pushes, or publishes without an explicit `--publish`
+  and `--confirm` from the user. Generic external-project counterpart to `bundle-release`
+  (which is scoped to this repo''s ycc bundle). Usage: [version] [--arch=list] [--os=list]
+  [--ci-config[=generate|audit]] [--platform=name] [--skip-notes] [--dry-run] [--exclude-internal]
+  [--publish[=create|edit|auto]] [--confirm] [--ci] [--ci-max-pushes=N] [--ci-max-same-failure=N]
+  [--ci-timeout-min=N] [--ci-yes] [--ci-recut=destructive]'
 ---
 
-Invoke the **releaser** skill with `$ARGUMENTS` passed through.
+Use the skill tool to load the `releaser` skill, then follow its instructions with these arguments:
 
-The skill:
-
-1. Detects the project's language, build system, and version-bearing manifests.
-2. Proposes a semver bump from conventional-commit history if no version is supplied,
-   then checks the version is being released from the branch the repo's `RELEASING.md`
-   names (minor/major from the trunk; under release-branches, a patch from
-   `release/X.Y`). A wrong branch stops with the exact fix commands. Without
-   `RELEASING.md` it suggests `/release-model` and otherwise behaves as before.
-3. Resolves the `{os × arch}` release matrix from language defaults or explicit flags.
-4. Drafts a grouped changelog and a release-notes file (use `--exclude-internal` to
-   drop the Maintenance section).
-5. Bumps version in manifests (package.json / pyproject.toml / Cargo.toml) without
-   editing anything else.
-6. Optionally generates a release workflow (`--ci-config=generate`) or audits the
-   existing one (`--ci-config=audit`) for supply-chain, caching, and permissions
-   best practices.
-7. Emits the exact `git tag`, `git push`, and `gh release create` commands to run.
-   Under release-branches a minor/major also records `release/X.Y` in `RELEASING.md`
-   and emits the commands that create the branch and its backport label; a patch adds
-   the step that forward-ports its CHANGELOG entry to the trunk.
-8. When `--publish[=create|edit|auto]` is passed, runs `publish-release.sh` in
-   print-only mode so the operator reviews the resolved `gh` command. Re-running with
-   `--confirm` actually executes it. `--dry-run` always beats `--publish`.
-9. When `--ci` is passed AND `--publish --confirm` actually publishes, enters the
-   bounded **release-CI auto-fix loop** (Phase 8.5): polls the release-event
-   workflow run, classifies failures, dispatches `release-fix-applier` on the
-   implicated files, commits and pushes the fix, re-cuts the release via
-   `gh workflow run` (preferred) or the destructive fallback (only with
-   `--ci-recut=destructive`), and loops until green or a bail cap fires. Bounded by
-   `--ci-max-pushes`, `--ci-max-same-failure`, `--ci-timeout-min`. Use `--ci-yes`
-   to skip the one-time authorization prompt for non-interactive callers.
-
-Never auto-commits, pushes, or publishes without an explicit `--publish` and
-`--confirm` from the user. Use `/bundle-release` for this repo's internal ycc
-bundle release — this command is the generic external-project variant.
-
-> **Flag rename:** `--ci[=generate|audit]` was renamed to `--ci-config[=generate|audit]`
-> to free up the bare `--ci`/`--ci-yes` namespace for the auto-fix loop, matching
-> `/git-workflow`, `/prp-pr`, and `/pr-autofix`. Old invocations using
-> `--ci=generate` or `--ci=audit` must be updated.
+$ARGUMENTS

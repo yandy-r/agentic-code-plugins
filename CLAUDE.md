@@ -5,8 +5,8 @@
 This repository ships the `ycc` Claude Code plugin from a single marketplace at
 `.claude-plugin/marketplace.json`. `ycc` — Yandy's Claude Code bundle — covers
 dev-focused workflows: planning, implementation, git, research, docs, and
-orchestration. Source lives under `ycc/`; reached as `ycc:{skill}`,
-`/ycc:{command}`, and `subagent_type: "ycc:{agent}"`.
+orchestration. Source lives under `ycc/`; invoke skills as `/ycc:{skill}` and agents
+as `subagent_type: "ycc:{agent}"`. `user-invocable: false` hides skills from Claude slash invocation.
 
 The `ycc/` source tree is the single source of truth; it generates native
 compatibility bundles for Cursor, Codex, and opencode:
@@ -52,7 +52,6 @@ claude-plugins/
 │   ├── .claude-plugin/
 │   │   └── plugin.json       # name: "ycc", version bumped by /ycc:bundle-release
 │   ├── mods/                 # Claude Code mods + their own 'ycc-mods' marketplace
-│   ├── commands/             # slash commands (one .md per command)
 │   ├── agents/               # agents (one .md per agent)
 │   └── skills/
 │       ├── _shared/          # cross-skill helper scripts
@@ -73,8 +72,8 @@ claude-plugins/
 - Skills: `kebab-case` directory under `ycc/skills/`. The directory name becomes
   the skill identifier within the `ycc:` namespace (e.g., `ycc/skills/git-workflow/`
   → `ycc:git-workflow`).
-- Commands: `kebab-case.md` under `ycc/commands/`. The basename becomes the slash
-  command (e.g., `ycc/commands/clean.md` → `/ycc:clean`).
+- Public skills are native Claude slash invocations; `user-invocable: false` hides
+  passive skills from the slash menu.
 - Agents: `kebab-case.md` under `ycc/agents/`. The basename becomes the agent
   identifier (e.g., `ycc/agents/codebase-advisor.md` → `subagent_type: "ycc:codebase-advisor"`).
 - Scripts: `kebab-case.sh` with bash shebang.
@@ -138,18 +137,19 @@ This repo's `ycc` marketplace is registered as a **`directory` source**, so Clau
 Code loads it **in place** from the repo — it never copies the plugin into
 `~/.claude/plugins/cache/`. A missing `~/.claude/plugins/cache/ycc/ycc/<version>` is
 **expected, not breakage**; the `installPath` in `installed_plugins.json` is a nominal
-record for directory sources. Install health is proven by `ycc:` skills/agents/commands
-being available in-session, not by cache presence. When an agent needs to read plugin
-content, read the source of truth at `ycc/skills/{skill}/SKILL.md` (and `ycc/agents/`,
-`ycc/commands/`) — **not** the cache and **not** the generated `.opencode-plugin/`
-mirror. `${CLAUDE_PLUGIN_ROOT}` resolves to `…/claude-plugins/ycc` at runtime.
+record for directory sources. Install health is proven by `ycc:` skills and agents being
+available in-session, not by cache presence. When an agent needs to read plugin content,
+read source at `ycc/skills/{skill}/SKILL.md` and `ycc/agents/` — **not** the cache
+or generated `.opencode-plugin/` mirror. `${CLAUDE_PLUGIN_ROOT}` resolves to
+`…/claude-plugins/ycc` at runtime.
 
 ## Generated Compatibility Targets
 
 - `ycc/skills/` is the source of truth for Cursor, Codex, and opencode skill generation.
 - `ycc/agents/` is the source of truth for Cursor, Codex, and opencode agent generation.
-- `ycc/commands/` is the source of truth for opencode command generation (Cursor does not
-  natively consume `.md` commands; Codex has no slash-command layer).
+- Claude slash invocation comes from public skills. opencode retains generated thin native
+  commands sourced from public skill `SKILL.md` files for commands-only installs; command
+  bodies load the skill through the skill tool, not command recursion.
 - Do not hand-edit generated files under `.cursor-plugin/`, `.codex-plugin/`, or
   `.opencode-plugin/` unless you are first changing the generator.
 - Codex does not support this repo's custom slash-command layer as installable artifacts.
@@ -170,9 +170,9 @@ After modifying anything under `ycc/`:
 2. Verify all `${CLAUDE_PLUGIN_ROOT}` paths resolve (no broken references).
 3. Confirm shell scripts remain executable:
    `find ycc/skills -name "*.sh" -not -executable` (should output nothing).
-4. Test the skill or command in a live Claude Code session via its `ycc:` prefix.
+4. Test the skill or agent in a live Claude Code session via its `ycc:` prefix.
 
-If you changed `ycc/skills/`, `ycc/agents/`, or `ycc/commands/`, also regenerate and
+If you changed `ycc/skills/` or `ycc/agents/`, also regenerate and
 validate the compatibility bundles (Cursor / Codex / opencode). When adding, renaming,
 or removing an agent under `ycc/agents/`, you **must** also add or update its entry in
 `ycc/settings/models.json` under `targets.opencode.agents` mapped to an appropriate model

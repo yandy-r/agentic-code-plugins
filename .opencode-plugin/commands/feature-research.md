@@ -1,21 +1,15 @@
 ---
-description: 'Research a feature comprehensively before implementation — analyzes
-  requirements, gathers external API context, and produces a feature-spec.md ready
-  for plan-workflow. Defaults to standalone parallel sub-agents. Use when starting
-  a new feature and you need structured research before coding. Usage: [--description
-  "..."] [--dry-run] [feature-name]'
+description: 'Run the 7-agent research pipeline for a new feature — deploys api-researcher,
+  business-analyzer, tech-designer, ux-researcher, security-researcher, practices-researcher,
+  and recommendations-agent in parallel to produce 7 research-*.md files and a consolidated
+  feature-spec.md under docs/plans/[feature-name]/. Default is standalone parallel
+  sub-agents via the native `subagent` tool. Outputs to docs/plans/, NOT docs/prps/.
+  Use when the user asks to "research a feature", "run feature research", "deep-dive
+  a feature before planning", or says "/feature-research". For lightweight single-pass
+  specs in the PRP workflow, use prp-spec instead. Usage: [--description "..."] [--dry-run]
+  [feature-name]'
 ---
 
-# Feature Research Command
+Use the skill tool to load the `feature-research` skill, then follow its instructions with these arguments:
 
-> **OpenCode V2 compatibility:** `--team` is unsupported. If it is supplied, abort before setup or dispatch and ask the caller to rerun without it. This target uses native standalone `subagent` calls only.
-
-Research the specified feature and produce a `feature-spec.md`.
-
-**Load and follow the `feature-research` skill**, passing through `$ARGUMENTS`.
-
-The skill deploys 7 parallel researchers (api, business, tech, UX, security, practices, recommendations) to gather requirements, external API context, and prior art, then synthesizes the findings into a structured feature specification under `docs/plans/[feature-name]/`.
-
-**Flags** (pass before the feature name):
-
-- `--description "..."` — Brief description of the feature; guides the researchers.
+$ARGUMENTS

@@ -43,10 +43,14 @@ class Unit:
     only: tuple[str, ...] = ()
 
 
+# Claude has no commands slice of its own: skills are the slash commands, so
+# 'commands' aliases 'skills' there. Wrappers an older ycc installed under this
+# directory are retired by ownership (see retire_legacy_commands).
+LEGACY_COMMANDS_DEST = ".claude/commands"
+
 SPECS: dict[tuple[str, str], tuple[Unit, ...]] = {
     ("claude", "skills"): (Unit("ycc/skills", ".claude/skills"),),
     ("claude", "agents"): (Unit("ycc/agents", ".claude/agents"),),
-    ("claude", "commands"): (Unit("ycc/commands", ".claude/commands"),),
     ("cursor", "skills"): (Unit(".cursor-plugin/skills", ".cursor/skills"),),
     ("cursor", "agents"): (Unit(".cursor-plugin/agents", ".cursor/agents"),),
     # Codex keeps shared helpers beside skills/ in the plugin; standalone
@@ -281,6 +285,45 @@ def remove_unit(unit: Unit, ctx: Context) -> int:
     return 0
 
 
+def retire_legacy_commands(ctx: Context) -> None:
+    """Delete the command wrappers ycc recorded under ~/.claude/commands.
+
+    Only names recorded in installed-units.json go; foreign or unrecorded
+    entries (even with --force) stay, and the directory goes only when this
+    leaves it empty.
+    """
+    dest = ctx.home / LEGACY_COMMANDS_DEST
+    key = str(dest)
+    removed = 0
+    left: list[str] = []
+    for name in ctx.state.get(key, []):
+        if name in ("", ".", "..") or Path(name).name != name:
+            continue  # state is user-editable; a recorded name is a plain entry
+        target = dest / name
+        if not exists(target):
+            continue
+        # ycc only ever wrote wrapper files; a directory here is user data.
+        if not (target.is_symlink() or target.is_file()):
+            print(f"[!!]  kept {target}: not a ycc wrapper file")
+            continue
+        try:
+            target.unlink()
+            removed += 1
+        except OSError as err:
+            print(f"[!!]  could not retire {target}: {err}", file=sys.stderr)
+            left.append(name)
+    if left:
+        ctx.state[key] = left
+    else:
+        ctx.state.pop(key, None)
+    if not removed:
+        return
+    print(f"[ok]  retired {removed} legacy command wrapper{'' if removed == 1 else 's'} from {dest}")
+    if not dest.is_symlink() and dest.is_dir() and not any(dest.iterdir()):
+        dest.rmdir()
+        print(f"[ok]  removed empty directory {dest}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("action", choices=("install", "remove"))
@@ -289,18 +332,25 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args(argv)
 
-    units = SPECS.get((args.target, args.slice))
+    install = args.action == "install"
+    claude_commands = args.target == "claude" and args.slice == "commands"
+    slice_name = "skills" if claude_commands and install else args.slice
+    # Removing claude 'commands' only retires recorded legacy wrappers.
+    units = () if claude_commands and not install else SPECS.get((args.target, slice_name))
     if units is None:
         print(f"[err] target '{args.target}' has no '{args.slice}' slice", file=sys.stderr)
         return 1
     home = Path.home()
     path = state_path()
     ctx = Context(home, args.force, rewrites_for(args.target, home), namespace_pattern(args.target), load_state(path))
-    run = install_unit if args.action == "install" else remove_unit
+    run = install_unit if install else remove_unit
     conflicts = 0
     try:
         for unit in units:
             conflicts += run(unit, ctx)
+        # Wrappers are redundant only once the skills are in place.
+        if args.target == "claude" and not conflicts and (claude_commands or (install and slice_name == "skills")):
+            retire_legacy_commands(ctx)
     finally:
         save_state(path, ctx.state)
     return 1 if conflicts else 0

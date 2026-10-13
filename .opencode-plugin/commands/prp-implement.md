@@ -1,61 +1,13 @@
 ---
 description: 'Execute a PRP plan file with per-task validation loops. Detects package
-  manager, prepares git branch, runs 5 validation levels, writes a report to docs/prps/reports/,
-  and archives the plan. Auto-detects parallel-capable plans and prompts for sequential
-  or parallel execution. Usage: [--parallel] [--worktree] [--no-worktree] [--dry-run]
-  <path/to/plan.md>'
+  manager, prepares git branch, runs 5 validation levels (static/unit/build/integration/edge),
+  writes a report to docs/prps/reports/, and archives the plan. Auto-detects parallel-capable
+  plans and prompts for sequential or parallel execution. Use when the user asks to
+  "execute a PRP plan", "implement from a plan file", "run prp-implement", "parallel
+  PRP implement", "team PRP implement", or provides a path to a .plan.md file. Usage:
+  [--parallel] [--worktree] [--no-worktree] [--dry-run] <path/to/plan.md>'
 ---
 
-# PRP Implement Command
+Use the skill tool to load the `prp-implement` skill, then follow its instructions with these arguments:
 
-> **OpenCode V2 compatibility:** `--team` is unsupported. If it is supplied, abort before setup or dispatch and ask the caller to rerun without it. This target uses native standalone `subagent` calls only.
-
-Execute a PRP plan file with rigorous per-task validation.
-
-**Load and follow the `prp-implement` skill, passing through `$ARGUMENTS`.**
-
-The skill walks the plan's Step-by-Step Tasks, runs immediate validation after each change, drives all 5 validation levels (static, unit, build, integration, edge cases) at the end, writes an implementation report, and archives the plan.
-
-**Execution modes**:
-
-- **Sequential** (default) — Process one task at a time with per-task type-check.
-
-**Flags**:
-
-- `--parallel` — Force parallel sub-agent execution. Skips the interactive prompt when the plan is parallel-capable. Falls back to sequential with a warning if the plan has no `Batches` section.
-- `--worktree` — (legacy — now default; pass `--no-worktree` to opt out) Accepted as a silent no-op. Worktree isolation is on by default; this flag matches the new default and has no additional effect.
-- `--no-worktree` — Force worktree mode **OFF** regardless of plan annotations. Tasks run directly in the current checkout. Use when you want to avoid worktree creation for a specific run.
-
-`--parallel` are **mutually exclusive** — pick one.
-
-**Auto-detection**: If you omit both flags and the plan is parallel-capable, the skill prompts you to choose sequential / parallel sub-agents before executing. Worktree mode is **on by default** — it activates unless `--no-worktree` is passed. If the plan contains a `## Worktree Setup` section, those annotations are used as-is; otherwise the skill derives parent/child paths from the plan name automatically.
-
-```
-Usage: /prp-implement [--parallel] [--worktree] [--no-worktree] [--dry-run] <path/to/plan.md>
-
-Examples:
-  /prp-implement docs/prps/plans/rate-limiting.plan.md
-    # default: worktree isolation ON; plan annotations used when present, derived paths otherwise
-
-  /prp-implement --parallel docs/prps/plans/rate-limiting.plan.md
-    # force parallel sub-agent batch execution (worktree still on by default)
-
-    # force agent-team batch execution (worktree still on by default)
-
-  /prp-implement --no-worktree docs/prps/plans/rate-limiting.plan.md
-    # opt out of worktree isolation; tasks run directly in the current checkout
-
-    # agent-team execution without worktrees
-
-    # preview team graph (no agents spawned)
-
-  /goal Implement docs/prps/plans/<name>.plan.md via the prp-implement workflow;
-        done when the transcript shows all 7 Goal Signals PASS; stop after 25 turns.
-    # loop to completion across every CHECKPOINT without re-prompting (Anthropic terminal / Codex CLI only)
-
-Next step after implementation completes:
-  /prp-pr            # Create a pull request
-  /code-review       # Review changes locally first
-
-Tip: for unattended loop-to-completion, pair with /goal — see the skill's ## /goal pairing section for the full condition template and caveats.
-```
+$ARGUMENTS

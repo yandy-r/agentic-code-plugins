@@ -151,10 +151,10 @@ _REQUIRED_FRAGMENTS: dict[str, tuple[str, ...]] = {
         "`background=false`",
         "record its `sessionID`",
     ),
-    "commands/plan-workflow.md": ("tool. Usage:",),
-    "commands/parallel-plan.md": ("tool. Usage:",),
-    "commands/shared-context.md": ("tool. Usage:",),
-    "commands/feature-research.md": ("sub-agents. Use when",),
+    "commands/plan-workflow.md": ("Use the skill tool to load the `plan-workflow` skill", "$ARGUMENTS"),
+    "commands/parallel-plan.md": ("Use the skill tool to load the `parallel-plan` skill", "$ARGUMENTS"),
+    "commands/shared-context.md": ("Use the skill tool to load the `shared-context` skill", "$ARGUMENTS"),
+    "commands/feature-research.md": ("Use the skill tool to load the `feature-research` skill", "$ARGUMENTS"),
 }
 
 

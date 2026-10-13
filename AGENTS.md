@@ -16,7 +16,7 @@ This repository's source of truth is the Claude-facing `ycc/` tree.
 
 - Add new workflow logic under `ycc/`, not under `.cursor-plugin/`, `.codex-plugin/`, or `.opencode-plugin/`.
 - Treat `.cursor-plugin/`, `.codex-plugin/`, and `.opencode-plugin/` as generated outputs unless you are changing the generators themselves.
-- After changing `ycc/skills/`, `ycc/agents/`, or `ycc/commands/`, run `./scripts/sync.sh` and `./scripts/validate.sh` before considering the work done.
+- After changing `ycc/skills/` or `ycc/agents/`, run `./scripts/sync.sh` and `./scripts/validate.sh` before considering the work done.
 - Keep the plugin name `ycc` stable across all targets.
 - For Codex, the native install surface is:
   - plugin source under `.codex-plugin/ycc/`

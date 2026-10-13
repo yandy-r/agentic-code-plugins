@@ -69,18 +69,18 @@ symlink pointing elsewhere unless you pass `--force`. Without bash-completion or
 the zsh `fpath` entry, source the script instead: `eval "$(ycc completion --shell bash)"`
 or `source <(ycc completion --shell zsh)`.
 
-| Intent     | Meaning                                                                                    |
-| ---------- | ------------------------------------------------------------------------------------------ |
-| `base`     | Install or register the target's native bundle surface.                                    |
-| `skills`   | Standalone skills, one entry each, in the tool's own skills dir (no plugin).               |
-| `agents`   | Standalone agents, one entry each, in the tool's own agents dir (no plugin).               |
-| `commands` | Standalone slash commands (claude, opencode).                                              |
-| `settings` | Merge repo-managed config keys (models, effort levels, statusline, ...).                   |
-| `rules`    | Symlink shared rule files so rule edits flow across runtimes.                              |
-| `mcp`      | Merge MCP server definitions into the target's MCP surface.                                |
-| `hooks`    | Merge hook configuration; Claude also links the hook scripts directory.                    |
-| `plugins`  | Merge plugin enablement and marketplace entries. Add `base` for CLI-side registration too. |
-| `mods`     | Install the Claude Code mods under `ycc/mods` (claude only for now).                       |
+| Intent     | Meaning                                                                                     |
+| ---------- | ------------------------------------------------------------------------------------------- |
+| `base`     | Install or register the target's native bundle surface.                                     |
+| `skills`   | Standalone skills, one entry each, in the tool's own skills dir (no plugin).                |
+| `agents`   | Standalone agents, one entry each, in the tool's own agents dir (no plugin).                |
+| `commands` | Slash commands: standalone skills on claude (alias), generated native commands on opencode. |
+| `settings` | Merge repo-managed config keys (models, effort levels, statusline, ...).                    |
+| `rules`    | Symlink shared rule files so rule edits flow across runtimes.                               |
+| `mcp`      | Merge MCP server definitions into the target's MCP surface.                                 |
+| `hooks`    | Merge hook configuration; Claude also links the hook scripts directory.                     |
+| `plugins`  | Merge plugin enablement and marketplace entries. Add `base` for CLI-side registration too.  |
+| `mods`     | Install the Claude Code mods under `ycc/mods` (claude only for now).                        |
 
 Per-target mapping (intents a target cannot execute are skipped with a notice):
 
@@ -89,7 +89,7 @@ Per-target mapping (intents a target cannot execute are skipped with a notice):
 | `base`     | `base`             | `base`     | `base`     | `base`     |
 | `skills`   | `skills`           | `skills`   | `skills`   | `skills`   |
 | `agents`   | `agents`           | `agents`   | `agents`   | `agents`   |
-| `commands` | `commands`         | no-op      | no-op      | `commands` |
+| `commands` | `skills` (alias)   | no-op      | no-op      | `commands` |
 | `settings` | `settings`         | `settings` | `settings` | `settings` |
 | `rules`    | `rules`            | `rules`    | `rules`    | `rules`    |
 | `mcp`      | `mcp`              | `mcp`      | `mcp`      | `mcp`      |
@@ -102,11 +102,13 @@ Per-target mapping (intents a target cannot execute are skipped with a notice):
 ### Standalone Slices
 
 `skills`, `agents` and `commands` install entries one by one into each tool's
-own user directories, with no plugin or marketplace registration:
+own user directories, with no plugin or marketplace registration. On claude the
+`commands` intent is an alias for `skills` — public skills are native slash
+invocations there, so there is nothing separate to copy:
 
 | Target   | Destinations                                                                                   |
 | -------- | ---------------------------------------------------------------------------------------------- |
-| claude   | `~/.claude/skills/<name>`, `~/.claude/agents/<name>.md`, `~/.claude/commands/<name>.md`        |
+| claude   | `~/.claude/skills/<name>`, `~/.claude/agents/<name>.md` (skills are the slash commands)        |
 | cursor   | `~/.cursor/skills/<name>`, `~/.cursor/agents/<name>.md`                                        |
 | codex    | `~/.codex/skills/<name>` (helpers in `~/.codex/skills/_shared`), `~/.codex/agents/<name>.toml` |
 | opencode | `~/.config/opencode/{skills,agents,commands}/<name>` (+ `shared/`)                             |
@@ -118,6 +120,10 @@ own user directories, with no plugin or marketplace registration:
   existing entry is replaced only when ycc installed it or it is identical;
   your own skills or agents with the same name need `--force`. Entries the
   bundle no longer ships are pruned on the next sync.
+- On claude, older ycc installs wrote wrappers to `~/.claude/commands/`. A
+  successful skills install (via `--intent skills` or the `commands` alias)
+  retires only wrappers recorded in `~/.config/ycc/installed-units.json`;
+  foreign or unrecorded entries stay, even with `--force`.
 - With the plugin (`base`) also installed, skills appear twice (`ycc:<name>`
   and `<name>`); the installer warns.
 - `--only` / `--intent` skip a slice a target has no home for (e.g.
@@ -234,15 +240,15 @@ requires `--only` or `--intent`, and rejects `--mode` and the additive
 `--settings`/`--rules`/`--mcp`/`--hooks` flags. Only what the installer owns is
 taken back:
 
-| Step / intent                  | What `remove` does                                                                                                                                                                                                      |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `settings`, `plugins`, `hooks` | Strips repo-managed keys from the structured config (`settings.json`, `cli-config.json`, `config.toml`, `opencode.json`). List entries (plugin lists, Cursor permissions) lose only the items the installer appended.   |
-| `mcp`                          | Strips managed MCP servers, including ones the repo has since dropped. Servers you added are never touched.                                                                                                             |
-| `rules`, claude `hooks` dir    | Removes the symlinks, only while they still point at this checkout. A real file you put there is never deleted.                                                                                                         |
-| claude statusline script       | Removed while identical to the repo copy; an edited copy needs `--force`.                                                                                                                                               |
-| `base`                         | claude: `claude plugin uninstall ycc@ycc` + marketplace remove. cursor / opencode: the bundle's entries in the synced dirs (your own skills stay). codex: plugin links, plugin cache, custom agents, marketplace entry. |
-| `skills`, `agents`, `commands` | Removes the standalone entries ycc recorded (or that are still identical to the bundle). Never the plugin, never your own entries without `--force`.                                                                    |
-| `mods` (claude)                | Uninstalls each mod and the `ycc-mods` marketplace.                                                                                                                                                                     |
+| Step / intent                  | What `remove` does                                                                                                                                                                                                                          |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `settings`, `plugins`, `hooks` | Strips repo-managed keys from the structured config (`settings.json`, `cli-config.json`, `config.toml`, `opencode.json`). List entries (plugin lists, Cursor permissions) lose only the items the installer appended.                       |
+| `mcp`                          | Strips managed MCP servers, including ones the repo has since dropped. Servers you added are never touched.                                                                                                                                 |
+| `rules`, claude `hooks` dir    | Removes the symlinks, only while they still point at this checkout. A real file you put there is never deleted.                                                                                                                             |
+| claude statusline script       | Removed while identical to the repo copy; an edited copy needs `--force`.                                                                                                                                                                   |
+| `base`                         | claude: `claude plugin uninstall ycc@ycc` + marketplace remove. cursor / opencode: the bundle's entries in the synced dirs (your own skills stay). codex: plugin links, plugin cache, custom agents, marketplace entry.                     |
+| `skills`, `agents`, `commands` | Removes the standalone entries ycc recorded (or that are still identical to the bundle). Never the plugin, never your own entries without `--force`. On claude, `commands` retires only the recorded legacy `~/.claude/commands/` wrappers. |
+| `mods` (claude)                | Uninstalls each mod and the `ycc-mods` marketplace.                                                                                                                                                                                         |
 
 - A managed value you edited is kept with a warning; `--force` removes it.
 - A config file left empty is deleted. Codex TOML removal keeps comments,

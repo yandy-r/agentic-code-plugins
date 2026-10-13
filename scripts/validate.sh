@@ -8,7 +8,7 @@
 #   ./scripts/validate.sh --only cursor,codex   # comma-separated subset
 #
 # Targets: inventory, cursor, codex, opencode, agents, json, config, release, mods, practices
-#   - inventory  validates ycc skill↔command pairing and the shared inventory
+#   - inventory  validates ycc skill frontmatter and the shared inventory
 #   - json       validates .claude-plugin/marketplace.json plus ycc/.claude-plugin/plugin.json
 #   - config     tests the managed-config merge helper and install.sh sync CLI
 #   - release    runs every scripts/test-release-*.sh (release-model state scripts,
@@ -85,8 +85,8 @@ run_target() {
         inventory)
             echo "== validate: inventory =="
             "${REPO_ROOT}/scripts/validate-inventory.sh" || fail "validate-inventory.sh"
-            echo "== validate: ycc skill↔command pairing =="
-            "${REPO_ROOT}/scripts/validate-ycc-commands.sh" || fail "validate-ycc-commands.sh"
+            echo "== validate: ycc skill frontmatter =="
+            "${REPO_ROOT}/scripts/validate-ycc-skills.sh" || fail "validate-ycc-skills.sh"
             echo "== validate: formatter bundle smoke =="
             "${REPO_ROOT}/scripts/validate-formatters-bundle.sh" || fail "validate-formatters-bundle.sh"
             echo "== validate: style.sh Node CLI resolution =="

@@ -10,7 +10,7 @@ A single Claude Code plugin (`ycc`) bundling workflow orchestration, parallel pl
 
 <!-- BEGIN:GENERATED-COUNTS -->
 
-The source plugin ships **49 skills**, **49 slash commands** (most skills have a matching command), and **55 agents**.
+The source plugin ships **49 skills**, **49 slash-invocable skills**, and **55 agents**.
 
 <!-- END:GENERATED-COUNTS -->
 
@@ -18,54 +18,54 @@ The source plugin ships **49 skills**, **49 slash commands** (most skills have a
 
 | Command / Skill            | Purpose                                                                                                                                                                                 |
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/ycc:backport`            | Cherry-pick merged trunk PRs onto active maintenance branches (release/X.Y) and open backport PRs, following RELEASING.md and its backport:X.Y labels.                                  |
-| `/ycc:blueprint`           | Whole-project source-of-truth spec generator.                                                                                                                                           |
-| `/ycc:bundle-author`       | Maintainer-only (ycc repo) — scaffold new source-of-truth content in the ycc bundle (skill, optional matching command and agent)                                                        |
-| `/ycc:bundle-release`      | Maintainer-only (ycc repo) — prepare a ycc bundle release: preflight, bump, regenerate, validate, draft notes (no auto-commit)                                                          |
-| `/ycc:clean`               | Orchestrate parallel cleanup agents to find and remove unnecessary project files                                                                                                        |
+| `/ycc:backport`            | Cherry-pick merged trunk PRs onto active maintenance branches (release/X.Y) and open one backport PR per target — driven by the project's RELEASING.md release-branches model and it... |
+| `/ycc:blueprint`           | Interactive, whole-project source-of-truth spec generator.                                                                                                                              |
+| `/ycc:bundle-author`       | Maintainer-only (ycc repo) — This skill should be used when the user asks to "scaffold a new ycc skill", "add a skill to the bundle", "extend ycc", "add an agent to ycc", or when t... |
+| `/ycc:bundle-release`      | Maintainer-only (ycc repo) — This skill should be used when the user asks to "release ycc", "bump ycc version", "prepare a ycc release", "cut a new ycc release", "tag a ycc release... |
+| `/ycc:clean`               | This skill should be used when the user asks to "clean project files", "remove unnecessary files", "clean up project", "find unused files", "project cleanup", or mentions removing...  |
 | `/ycc:code-report`         | Generate structured implementation reports documenting changes made during plan execution.                                                                                              |
-| `/ycc:code-review`         | Code review — local uncommitted changes or a GitHub PR (pass PR number/URL for PR mode).                                                                                                |
-| `/ycc:compatibility-audit` | Maintainer-only (ycc repo) — audit cross-target compatibility of the ycc bundle across Claude, Cursor, Codex, and opencode targets                                                      |
-| `/ycc:deep-research`       | Conduct strategic multi-perspective research using the Asymmetric Research Squad methodology — 8 specialized personas (historical, contrarian, analogical, systems, journalistic, ar... |
-| `/ycc:feature-research`    | Research a feature comprehensively before implementation — analyzes requirements, gathers external API context, and produces a feature-spec.md ready for plan-workflow.                 |
-| `/ycc:formatters`          | Bootstrap a best-practices lint/format environment — installs a self-contained scripts/style.sh bundle, per-language tool configs, runnable aliases (package.json/Makefile/justfile)... |
+| `/ycc:code-review`         | Dual-mode code review — local uncommitted changes or a GitHub PR.                                                                                                                       |
+| `/ycc:compatibility-audit` | Maintainer-only (ycc repo) — This skill should be used when the user asks to "audit ycc compatibility", "check Cursor/Codex bundle health", "verify cross-target parity", "run a com... |
+| `/ycc:deep-research`       | Conduct strategic multi-perspective research using the Asymmetric Research Squad methodology with 8 specialized personas.                                                               |
+| `/ycc:feature-research`    | Run the 7-agent research pipeline for a new feature — deploys api-researcher, business-analyzer, tech-designer, ux-researcher, security-researcher, practices-researcher, and recomm... |
+| `/ycc:formatters`          | Use this skill when the user asks to "initialize formatters", "bootstrap linting", "add lint and format scripts", "set up prettier / biome / ruff / clippy / golangci-lint / shellch... |
 | `/ycc:frontend-design`     | Create distinctive, production-grade frontend interfaces with intentional visual direction — typography, color, spacing rhythm, layout composition, motion, and atmosphere.             |
 | `/ycc:frontend-patterns`   | Frontend patterns for React and Next.js — composition, compound components, render props, custom hooks, state management with Context+useReducer, data fetching, performance optimiz... |
-| `/ycc:git-cleanup`         | Audit and clean up stale git resources (branches, worktrees, remote-tracking refs, stashes, tags, PRs, issues) on GitHub/GitLab.                                                        |
+| `/ycc:git-cleanup`         | This skill should be used when the user asks to "clean up git", "prune stale branches", "clean up worktrees", "close stale PRs/issues", "tidy up my repo", or mentions removing aban... |
 | `/ycc:git-workflow`        | Git commit and documentation workflow manager.                                                                                                                                          |
 | `/ycc:go-patterns`         | Idiomatic Go patterns, best practices, and conventions for building robust, efficient, and maintainable Go applications.                                                                |
 | `/ycc:go-testing`          | Go testing patterns including table-driven tests, subtests, benchmarks, fuzzing, and test coverage.                                                                                     |
-| `/ycc:hooks-workflow`      | Generate target-aware hook configuration from ycc rule guidance with graceful fallbacks.                                                                                                |
+| `/ycc:hooks-workflow`      | Convert rule-file hook guidance into target-appropriate config.                                                                                                                         |
 | `/ycc:implement-plan`      | Execute a parallel implementation plan by deploying implementor agents in dependency-resolved batches.                                                                                  |
-| `/ycc:init`                | Initialize workspace — profile project, emit CLAUDE.md/AGENTS.md/.cursor/rules, optional GitHub templates, git conventions, and Claude CLI config.                                      |
-| `/ycc:orchestrate`         | Orchestrate multiple specialized agents to accomplish a complex task through intelligent decomposition and parallel execution.                                                          |
-| `/ycc:parallel-plan`       | Generate a detailed parallel implementation plan with task dependencies, file ownership, and batch ordering.                                                                            |
-| `/ycc:plan`                | Lightweight conversational planner.                                                                                                                                                     |
-| `/ycc:plan-workflow`       | Unified planning workflow — research, analyze, and generate parallel implementation plans in one command.                                                                               |
-| `/ycc:pr-autofix`          | Vendor-neutral PR comment auto-fix — discover every review thread, file-level review comment, and top-level PR comment from any author, dispatch per-comment fix agents, resolve thr... |
-| `/ycc:prp-commit`          | Quick natural-language git commit helper — describe what to commit in plain English (blob glob, filter phrase, or topic).                                                               |
+| `/ycc:init`                | This skill should be used when the user asks to "initialize workspace", "init project", "bootstrap CLAUDE.md", "generate AGENTS.md", "set up cursor rules", "add github issue templa... |
+| `/ycc:orchestrate`         | Orchestrate multiple specialized agents in parallel to accomplish complex tasks.                                                                                                        |
+| `/ycc:parallel-plan`       | Create detailed parallel implementation plans (alias for plan-workflow plan-only).                                                                                                      |
+| `/ycc:plan`                | Lightweight conversational planner — dispatches ycc:planner (or a multi-perspective fan-out) to produce a phased plan with file paths, dependencies, risks, and tests, then WAITS fo... |
+| `/ycc:plan-workflow`       | Unified planning workflow - research, analyze, and generate parallel implementation plans in one command.                                                                               |
+| `/ycc:pr-autofix`          | Vendor-neutral PR comment auto-fix — discover every review thread, file-level review comment, and top-level PR comment from any author (bot or human), dispatch per-comment fix agen... |
+| `/ycc:prp-commit`          | Lightweight natural-language git commit helper.                                                                                                                                         |
 | `/ycc:prp-implement`       | Execute a PRP plan file with per-task validation loops.                                                                                                                                 |
-| `/ycc:prp-plan`            | Create a single-pass implementation plan from a feature description or PRD.                                                                                                             |
-| `/ycc:prp-pr`              | Create a GitHub PR from the current branch — discovers templates, analyzes commits, references PRP artifacts, pushes, and opens the PR via gh.                                          |
-| `/ycc:prp-prd`             | Interactive PRD generator — problem-first, hypothesis-driven product spec built through iterative questioning and dual-mode grounding research.                                         |
-| `/ycc:prp-spec`            | Generate a lightweight feature spec for the PRP workflow — single-pass with optional codebase/market grounding.                                                                         |
+| `/ycc:prp-plan`            | Create a self-contained feature implementation plan with codebase pattern extraction and optional external research.                                                                    |
+| `/ycc:prp-pr`              | Create a GitHub pull request from the current branch — validates preconditions, discovers PR templates, analyzes commits and file diffs, references PRP artifacts (prds/plans/report... |
+| `/ycc:prp-prd`             | Interactive, problem-first PRD generator that runs an iterative questioning workflow — Foundation → Market Grounding → Vision → Technical Feasibility → Decisions → Generate.           |
+| `/ycc:prp-spec`            | Generate a lightweight feature spec for the PRP workflow — single-pass with optional codebase/market grounding via ycc:prp-researcher.                                                  |
 | `/ycc:python-patterns`     | Idiomatic Python patterns, PEP 8 conventions, type hints, dataclasses, context managers, decorators, and best practices for building robust, maintainable Python applications.          |
 | `/ycc:python-testing`      | Python testing patterns using pytest — TDD methodology, fixtures (function/module/session scopes), parametrization, markers, mocking with unittest.mock, async tests with pytest-asy... |
-| `/ycc:quick-fix`           | Apply fixes from an inline /ycc:quick-review findings block without creating a review artifact.                                                                                         |
-| `/ycc:quick-review`        | Fast interactive review of uncommitted changes.                                                                                                                                         |
-| `/ycc:release-model`       | Create, upgrade, or audit a project's RELEASING.md branching and release model — surveys tags, release branches, CI, and version files, proposes trunk-only or release-branches, ren... |
-| `/ycc:releaser`            | Prepare and cut a GitHub release for any project — detects toolchain, drafts changelog, plans platform/arch artifacts, optionally generates or audits release CI, optionally invokes... |
-| `/ycc:research-to-issues`  | Convert research, feature specs, and implementation plans into structured GitHub issues with tracking hierarchy, labels, and priority.                                                  |
-| `/ycc:resume-session`      | Load a saved session and produce a structured briefing; wait for user direction before starting work.                                                                                   |
-| `/ycc:review-fix`          | Plan and apply fixes for findings from a /ycc:code-review artifact.                                                                                                                     |
+| `/ycc:quick-fix`           | Apply fixes directly from an inline /ycc:quick-review findings block without creating a review artifact.                                                                                |
+| `/ycc:quick-review`        | Fast interactive review of uncommitted changes — prints findings inline, writes nothing by default.                                                                                     |
+| `/ycc:release-model`       | This skill should be used when the user asks to "create a RELEASING.md", "set up a branching model", "define a release process", "document how we branch and release", "add release...  |
+| `/ycc:releaser`            | This skill should be used when the user asks to "prepare a release", "cut a release", "tag a release", "create a GitHub release", "draft release notes", "set up release CI", "add a... |
+| `/ycc:research-to-issues`  | This skill should be used when the user asks to "create issues from research", "turn research into GitHub issues", "create issues from feature spec", "turn plan into issues", "issu... |
+| `/ycc:resume-session`      | Load the most recent session file from ~/.claude/session-data/ (or a specified one by date or path) and produce a structured briefing of what was built, what worked, what NOT to re... |
+| `/ycc:review-fix`          | Plan and apply fixes for findings in a /ycc:code-review artifact.                                                                                                                       |
 | `/ycc:rust-patterns`       | Idiomatic Rust patterns, ownership, error handling, traits, concurrency, and best practices for building safe, performant applications.                                                 |
 | `/ycc:rust-testing`        | Rust testing patterns including unit tests, integration tests, async testing, property-based testing, mocking, and coverage.                                                            |
-| `/ycc:save-session`        | Save current session state to a dated file in ~/.claude/session-data/ so work can be resumed in a future session with full context.                                                     |
-| `/ycc:shared-context`      | Build shared context documentation for a feature — gathers files, conventions, dependencies, and existing patterns into a single artifact that downstream planning stages can refere... |
+| `/ycc:save-session`        | Capture the current session state — what was built, what worked, what failed, open questions, and exact next step — to a dated file at ~/.claude/session-data/YYYY-MM-DD-{shortid}-s... |
+| `/ycc:shared-context`      | Create shared context documentation for a feature (alias for plan-workflow research-only).                                                                                              |
 | `/ycc:ts-patterns`         | Idiomatic TypeScript patterns — strict type system, discriminated unions, generic inference, `satisfies`, branded types, errors as values, ESM/CJS modules with `exports` maps, Prom... |
 | `/ycc:ts-testing`          | TypeScript testing patterns using Vitest as the primary runner — TDD workflow, unit tests, integration tests, async tests with fake timers, parameterized tests via `test.each`, pro... |
 | `/ycc:visual-plan`         | Turn an existing text plan into a rich, interactive visual plan — diagrams, file maps, annotated code, open questions, and an optional UI/prototype review surface.                     |
-| `/ycc:visual-recap`        | Turn a finished change (git range, branch, or tracked working-tree diff) into a LOCAL-ONLY interactive visual recap — annotated split diffs, file map, schema/API deltas, diagrams,...  |
+| `/ycc:visual-recap`        | Turn a finished change — a git range, branch, or tracked working-tree diff — into a LOCAL-ONLY interactive visual recap (annotated diffs, file map, schema/API deltas, diagrams, wir... |
 | `/ycc:write-docs`          | Orchestrate 5 specialized documentation agents in parallel to analyze codebase and create comprehensive documentation.                                                                  |
 
 <!-- END:GENERATED-COMMANDS -->
@@ -106,7 +106,7 @@ The plugin bundles **55** specialized agents covering codebase analysis, languag
 - **Codex:** generated, Codex-native custom-agent TOMLs live in [`.codex-plugin/agents/`](.codex-plugin/agents/) (produced from `ycc/agents/` — see the [Codex install guide](docs/install/codex.md)).
 - **opencode:** generated, opencode-native agent markdown files live in [`.opencode-plugin/agents/`](.opencode-plugin/agents/) (produced from `ycc/agents/` — see the [opencode install guide](docs/install/opencode.md)). Invoke via `@agent-name` or the native v2 `subagent` tool.
 
-**Contributing:** before proposing a new skill, command, or agent, read the Scope & Guardrails policy in [`CONTRIBUTING.md`](CONTRIBUTING.md#scope--guardrails).
+**Contributing:** before proposing a new skill or agent, read the Scope & Guardrails policy in [`CONTRIBUTING.md`](CONTRIBUTING.md#scope--guardrails).
 
 - **Credits:** `ycc:visual-plan` and `ycc:visual-recap` are adapted from [BuilderIO/skills](https://github.com/BuilderIO/skills).
 
@@ -153,7 +153,8 @@ The `mcp` step defaults to the current project; pass `--global` for user-global
 config. `base` ships a target's whole bundle (the `ycc` plugin for Claude and
 Codex). `skills`, `agents` and `commands` instead install standalone entries,
 one per skill/agent/command, into each tool's own directories
-(`~/.claude/skills/<name>`, `~/.codex/agents/<name>.toml`, ...) with no plugin;
+(`~/.claude/skills/<name>`, `~/.codex/agents/<name>.toml`, ...) with no plugin.
+On Claude, `commands` is an alias for `skills` (skills are the slash commands);
 your own entries there are never touched. `remove` undoes any intent on any target
 (`base`, `skills`, `agents`, `commands`, `settings`, `rules`, `mcp`, `hooks`,
 `plugins`, `mods`), taking back only what the installer owns and leaving your
@@ -257,7 +258,7 @@ claude-plugins/
 │   └── skills/                # generated from ycc/skills (run scripts/generate-cursor-skills.sh)
 ├── .opencode-plugin/          # opencode bundle (synced by install.sh install --target opencode)
 │   ├── agents/                # generated from ycc/agents
-│   ├── commands/              # generated from ycc/commands
+│   ├── commands/              # generated from public ycc/skills (thin, skill-tool dispatch)
 │   ├── skills/                # generated from ycc/skills
 │   ├── shared/                # generated from ycc/skills/_shared
 │   ├── AGENTS.md              # generated rules file (transformed from CLAUDE.md)
@@ -291,7 +292,7 @@ claude-plugins/
 │   ├── generate_opencode_agents.py    # ycc/agents → .opencode-plugin/agents
 │   ├── validate-opencode-agents.sh    # sync check + frontmatter lint + content policy
 │   ├── generate-opencode-commands.sh  # wrapper → generate_opencode_commands.py
-│   ├── generate_opencode_commands.py  # ycc/commands → .opencode-plugin/commands
+│   ├── generate_opencode_commands.py  # public ycc/skills → .opencode-plugin/commands
 │   ├── validate-opencode-commands.sh  # sync check + frontmatter lint + content policy
 │   ├── generate-opencode-plugin.sh    # wrapper → generate_opencode_plugin.py
 │   ├── generate_opencode_plugin.py    # opencode.json + AGENTS.md + MCP translation
@@ -301,11 +302,10 @@ claude-plugins/
 ├── ycc/                       # the consolidated Claude Code plugin
 │   ├── .claude-plugin/
 │   │   └── plugin.json        # name: "ycc", current version in plugin.json
-│   ├── commands/              # slash commands (count in generated region above)
 │   ├── agents/                # agents (source for Cursor/Codex/opencode generation)
 │   ├── rules/                 # language-specific rules (common + per-language); source for Cursor .mdc generation
 │   ├── settings/              # shared Claude settings: settings.json, models.json, hooks/, rules/, statusline
-│   └── skills/                # skills + _shared (source for Cursor/Codex/opencode generation)
+│   └── skills/                # skills + _shared; public skills are Claude slash commands (source for Cursor/Codex/opencode generation)
 │       ├── _shared/           # shared scripts (e.g., resolve-plans-dir.sh)
 │       └── {skill-name}/
 │           ├── SKILL.md

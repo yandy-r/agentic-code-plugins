@@ -35,15 +35,15 @@ install the plugin marketplace. The step-flag `install` form is equivalent:
 
 Step behavior:
 
-| Step                           | Effect                                                                                                                                                                                                                                   |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `base`                         | Runs `claude plugin marketplace add <repo> --scope user` and `claude plugin install ycc@ycc --scope user`.                                                                                                                               |
-| `settings`                     | Merges managed keys from `ycc/settings/settings.json` into `~/.claude/settings.json` and copies `ycc/settings/statusline-command.sh` into `~/.claude/`.                                                                                  |
-| `rules`                        | Symlinks `ycc/settings/rules/CLAUDE.md` and `AGENTS.md` into `~/.claude/`.                                                                                                                                                               |
-| `mcp`                          | Merges `mcp-configs/mcp.json` into `<project>/.mcp.json` (or `~/.claude.json` with `--global`).                                                                                                                                          |
-| `hooks`                        | Symlinks `ycc/settings/hooks/` into `~/.claude/hooks/`.                                                                                                                                                                                  |
-| `skills`, `agents`, `commands` | Copies each ycc skill / agent / command into `~/.claude/skills/`, `~/.claude/agents/`, `~/.claude/commands/` as standalone entries (paths re-pointed, `ycc:` dropped) — no plugin. See [Standalone Slices](README.md#standalone-slices). |
-| `mods`                         | Registers `ycc/mods/` as the local `ycc-mods` marketplace and installs every mod it lists. Sync with `--intent mods`; see [`ycc/mods`](../../ycc/mods/README.md).                                                                        |
+| Step                           | Effect                                                                                                                                                                                                                                                                                    |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `base`                         | Runs `claude plugin marketplace add <repo> --scope user` and `claude plugin install ycc@ycc --scope user`.                                                                                                                                                                                |
+| `settings`                     | Merges managed keys from `ycc/settings/settings.json` into `~/.claude/settings.json` and copies `ycc/settings/statusline-command.sh` into `~/.claude/`.                                                                                                                                   |
+| `rules`                        | Symlinks `ycc/settings/rules/CLAUDE.md` and `AGENTS.md` into `~/.claude/`.                                                                                                                                                                                                                |
+| `mcp`                          | Merges `mcp-configs/mcp.json` into `<project>/.mcp.json` (or `~/.claude.json` with `--global`).                                                                                                                                                                                           |
+| `hooks`                        | Symlinks `ycc/settings/hooks/` into `~/.claude/hooks/`.                                                                                                                                                                                                                                   |
+| `skills`, `agents`, `commands` | Claude `skills` installs standalone skill entries; `commands` is a compatibility alias for that same install. `agents` copies standalone agents. Skills are native `/name` invocations; `user-invocable: false` skills stay hidden. See [Standalone Slices](README.md#standalone-slices). |
+| `mods`                         | Registers `ycc/mods/` as the local `ycc-mods` marketplace and installs every mod it lists. Sync with `--intent mods`; see [`ycc/mods`](../../ycc/mods/README.md).                                                                                                                         |
 
 Settings are merge-safe: unmanaged local keys are preserved, and managed keys
 you changed locally are kept unless `--force` is passed. Model defaults are
@@ -100,6 +100,20 @@ the current directory, else the current directory). Pass `--global` for
 See [Project Vs Global Scope](README.md#project-vs-global-scope) and
 [Removing Installed Config](README.md#removing-installed-config) for the rules shared by
 every target.
+
+## Skills As Slash Commands
+
+Claude Code has no separate command layer for ycc. Public skills are native
+`/ycc:<name>` slash invocations; skills with `user-invocable: false` stay hidden
+from the slash menu.
+
+Standalone installs use the same skills. On Claude, `commands` is an alias for
+`skills`: `--intent commands` or `--only commands` installs the standalone skills
+(including `_shared` helpers) into `~/.claude/skills/`. Older ycc releases wrote
+per-command wrappers to `~/.claude/commands/`. A successful skills install removes
+only the wrappers ycc recorded in `~/.config/ycc/installed-units.json`; foreign or
+unrecorded files stay, even with `--force`. The directory is removed only when empty.
+`remove --target claude --intent commands` retires only those recorded wrappers.
 
 ## Live Iteration
 
