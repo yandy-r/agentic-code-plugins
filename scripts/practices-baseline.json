@@ -521,28 +521,8 @@
       "size": 1475
     },
     {
-      "id": "S1:ycc/skills/implement-plan/SKILL.md:body-lines",
-      "size": 774
-    },
-    {
-      "id": "S1:ycc/skills/orchestrate/SKILL.md:body-lines",
-      "size": 735
-    },
-    {
-      "id": "S1:ycc/skills/plan-workflow/SKILL.md:body-lines",
-      "size": 977
-    },
-    {
-      "id": "S1:ycc/skills/plan/SKILL.md:body-lines",
-      "size": 673
-    },
-    {
       "id": "S1:ycc/skills/pr-autofix/SKILL.md:body-lines",
       "size": 658
-    },
-    {
-      "id": "S1:ycc/skills/prp-implement/SKILL.md:body-lines",
-      "size": 781
     },
     {
       "id": "S1:ycc/skills/releaser/SKILL.md:body-lines",
@@ -651,9 +631,6 @@
       "id": "S6:ycc/skills/init/SKILL.md:unmentioned file references/label-taxonomy.md"
     },
     {
-      "id": "S6:ycc/skills/plan-workflow/SKILL.md:unmentioned file scripts/regression-validate-plan.sh"
-    },
-    {
       "id": "S6:ycc/skills/write-docs/SKILL.md:unmentioned file references/agent-task-prompts.md"
     },
     {
@@ -727,22 +704,6 @@
     {
       "id": "S7:ycc/skills/init/references/template-library.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
       "size": 102
-    },
-    {
-      "id": "S7:ycc/skills/orchestrate/references/agent-catalog.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
-      "size": 594
-    },
-    {
-      "id": "S7:ycc/skills/orchestrate/references/agent-prompts.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
-      "size": 719
-    },
-    {
-      "id": "S7:ycc/skills/orchestrate/references/task-breakdown.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
-      "size": 400
-    },
-    {
-      "id": "S7:ycc/skills/plan/references/enhanced-personas.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",
-      "size": 127
     },
     {
       "id": "S7:ycc/skills/pr-autofix/references/comment-sources.md:missing '## Contents' immediately after optional frontmatter/title and blank lines",

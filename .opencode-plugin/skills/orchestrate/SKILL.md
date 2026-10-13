@@ -11,9 +11,9 @@ description: Coordinates specialized agents in dependency-resolved batches. Use 
 
 You are an orchestration expert coordinating multiple specialized agents to accomplish complex tasks. **Your role is to coordinate agents, not do the work yourself.** **Operational context:** Worktree isolation is on by default; all parallel and sequential agents share one feature worktree. --no-worktree runs in the current checkout. Standalone sub-agents are default.
 
-Parallelism is the baseline of this skill — every batch's tasks dispatch concurrently. The only choice is **how** the implementor agents are dispatched:
+Parallelism is the baseline: every batch's tasks dispatch concurrently. The only choice is how the implementor agents are dispatched:
 
-- **Standalone sub-agents** (default) — plain native `subagent` calls per batch, no shared task list. Works in opencode, Cursor, and Codex.
+- **Standalone sub-agents** (default): plain native `subagent` calls per batch, no shared task list. Works in opencode, Cursor, and Codex.
 
 ## Current Task
 
@@ -21,119 +21,42 @@ Parallelism is the baseline of this skill — every batch's tasks dispatch concu
 
 Parse flags first, then treat the remainder as the task description:
 
-- `--plan-only` — Create orchestration plan file at `docs/orchestration/[sanitized-task].md` without execution. When worktree mode is active, the plan gains a `## Worktree Setup` section.
-- `--sequential` — Force sequential execution (single-task batches, for tightly dependent tasks). When worktree mode is active, all sequential tasks run in the single feature worktree.
-- `--worktree` — (legacy — now default; safe to omit) Accepted as a silent no-op. Worktree isolation is on by default; this flag matches the new default and has no additional effect.
-- `--no-worktree` — Force worktree mode **OFF** regardless of task structure. All tasks run directly in the current checkout; no feature worktree is created.
-- `<task-description>`: The complex task to orchestrate (required, can be multi-word).
+- `--plan-only`: write the plan to `docs/orchestration/[sanitized-task].md` without execution. With worktree mode active, the plan gains a `## Worktree Setup` section.
+- `--sequential`: force single-task batches (tightly dependent tasks). With worktree mode active, all sequential tasks run in the single feature worktree.
+- `--worktree`: legacy, now default; accepted as a silent no-op.
+- `--no-worktree`: force worktree mode off. All tasks run in the current checkout; no feature worktree is created.
+- `<task-description>`: the task to orchestrate (required, may be multi-word).
 
-Strip flags from `$ARGUMENTS` and set ``, `DRY_RUN=true|false`, `PLAN_ONLY=true|false`, `SEQUENTIAL=true|false`, `WORKTREE_MODE=true|false`. Join the remaining non-flag tokens into `TASK_DESCRIPTION`.
-
-
-If no task description is provided after stripping flags, abort with usage instructions:
-
-```
-Usage: /orchestrate [--dry-run] [--plan-only] [--sequential] [--worktree] [--no-worktree] <task-description>
-
-Examples:
-  /orchestrate "Implement user authentication with tests and docs"
-    # default: all parallel and sequential tasks share one feature worktree
-
-    # agent-team dispatch (worktree still on by default for parallel tasks)
-
-  /orchestrate --dry-run "Debug payment processing failure"
-  /orchestrate --plan-only "Refactor database layer"
-  /orchestrate --sequential "Migrate legacy config"
-
-  /orchestrate --no-worktree "Refactor the auth middleware"
-    # opt out of worktree isolation; all tasks run in the current checkout
-
-    # agent-team dispatch without worktrees
-```
+Strip flags from `$ARGUMENTS` and set ``, `DRY_RUN=true|false`, `PLAN_ONLY=true|false`, `SEQUENTIAL=true|false`, `WORKTREE_MODE=true|false` (true unless `--no-worktree`). Join the remaining tokens into `TASK_DESCRIPTION`.
 
 
+## Gates (hold across the whole run)
 
----
+1. No task description after stripping flags: print the usage block from `~/.config/opencode/skills/orchestrate/references/dispatch-playbook.md` section 1 (read it only on this abort path), then abort.
+4. Set all flag variables before any side effect.
+5. `DRY_RUN=true` or `PLAN_ONLY=true`: no branch prep, no worktree script calls, no team or agent calls. Stop after Phase 3 output.
+6. Non-dry runs: prepare the feature branch (Phase 2.5) before any agent dispatch, or agents commit on the starting branch (usually `main`).
+7. Never pass `isolation: "worktree"` to dispatch calls: it makes one harness worktree per agent and breaks the single-worktree contract.
 
 ## Phase 0: Task Analysis
 
-### Step 1: Parse Task Description
-
-Extract the task description from `$ARGUMENTS` (everything before any flags).
-
-Run the task analysis script:
+**Step 1**: run the analysis script (outputs complexity estimate, decomposition approach, likely agent types, parallel vs sequential recommendation):
 
 ```bash
 ~/.config/opencode/skills/orchestrate/scripts/analyze-task.sh "$TASK_DESCRIPTION"
 ```
 
-The script provides:
+**Step 2**: read `~/.config/opencode/skills/orchestrate/references/agent-catalog.md` (agents by category, capabilities, use cases; read now, use its Contents to jump).
 
-- Task complexity estimate
-- Suggested decomposition approach
-- Potential agent types needed
-- Recommended execution mode (parallel vs sequential)
-
-### Step 2: Load Agent Catalog
-
-Read the complete agent catalog:
-
-```bash
-cat ~/.config/opencode/skills/orchestrate/references/agent-catalog.md
-```
-
-This provides the complete reference of available agents organized by category, capabilities, and use cases.
-
-### Step 3: Initial Assessment
-
-Analyze the task to determine:
-
-- **Scope**: Is this a feature, bug, refactor, documentation, or infrastructure task?
-- **Components**: Which parts of the system are involved?
-- **Complexity**: Simple (1-2 agents), Medium (3-5 agents), Complex (6+ agents)
-- **Dependencies**: Are subtasks independent or sequential?
-
----
+**Step 3**: assess the task: scope (feature, bug, refactor, docs, infrastructure), components involved, complexity (Simple 1-2 agents, Medium 3-5, Complex 6+), and whether subtasks are independent or sequential.
 
 ## Phase 1: Task Decomposition & Team Creation
 
-### Step 4: Read Decomposition Template
+**Step 4**: read `~/.config/opencode/skills/orchestrate/references/task-breakdown.md` (patterns for decomposing by feature area, technical layer, cross-cutting concern, and dependency).
 
-```bash
-cat ~/.config/opencode/skills/orchestrate/references/task-breakdown.md
-```
+**Step 5**: register subtasks via the selected dispatch contract. Path A: local `the todo tracker` items, tracking batch completion in-context. Path B: one team `orch-<FEATURE_SLUG>`, every subtask across all batches registered and wired up front; abort on creation failure and clean up on registration/wiring failure. With `DRY_RUN=true` or `PLAN_ONLY=true`, skip team creation and registration and proceed to Step 10, computing the team name in memory only. Read dispatch-playbook.md section 10 now for exact registration formats.
 
-This template provides patterns for breaking down tasks by feature area, technical layer, cross-cutting concerns, and dependencies.
-
-### Step 5: Register Subtasks
-
-Use standalone execution:
-
-- `STANDALONE_MODE=true` → **Path A (default)**: register subtasks locally via `the todo tracker`. No team is created. Skip to Step 6.
-
-#### Path A — Local todos (default)
-
-Using **the todo tracker**, register each subtask as a todo item:
-
-```
-- id: "subtask-1", content: "[Subtask 1 title] — agent: [agent-type] — depends: [none/list]", status: "pending"
-- id: "subtask-2", content: "[Subtask 2 title] — agent: [agent-type] — depends: [subtask-1]", status: "pending"
-```
-
-Track batch completion in-context after each batch's native `subagent` calls return.
-
-### Step 6: Validate Task Decomposition
-
-Ensure each subtask meets quality standards:
-
-- [ ] Clear, specific scope (not too broad)
-- [ ] Single responsibility (doesn't overlap with others)
-- [ ] Appropriate size (completable in one focused session)
-- [ ] Dependencies explicitly stated
-- [ ] Success criteria clear
-- [ ] Agent type assignment justified
-
-Optionally run validation script:
+**Step 6**: validate each subtask: clear specific scope, single responsibility, completable in one focused session, dependencies stated, success criteria clear, agent assignment justified. Optionally run:
 
 ```bash
 if [[ -f "~/.config/opencode/skills/orchestrate/scripts/validate-agents.sh" ]]; then
@@ -141,13 +64,9 @@ if [[ -f "~/.config/opencode/skills/orchestrate/scripts/validate-agents.sh" ]]; 
 fi
 ```
 
----
-
 ## Phase 2: Agent Assignment
 
-### Step 7: Map Subtasks to Agents
-
-For each subtask, determine the optimal agent type based on:
+**Step 7**: map each subtask to an agent:
 
 | Task Type                | Recommended Agent                                         |
 | ------------------------ | --------------------------------------------------------- |
@@ -162,453 +81,68 @@ For each subtask, determine the optimal agent type based on:
 | Infrastructure           | `terraform-architect`, `cloudflare-architect`             |
 | DevOps/automation        | `ansible-automation-expert`, `systems-engineering-expert` |
 
-### Step 8: Read Agent Prompt Templates
+**Step 8**: read `~/.config/opencode/skills/orchestrate/references/agent-prompts.md` (standard prompt templates, Path A coordination block, Path B team communication section; read before building prompts).
 
-```bash
-cat ~/.config/opencode/skills/orchestrate/references/agent-prompts.md
-```
-
-Use standard prompts for common orchestration patterns to ensure consistency.
-
-### Step 9: Prepare Agent Instructions
-
-For each subtask, prepare:
-
-1. **Context**: What the agent needs to know
-2. **Scope**: Specific files/areas to focus on
-3. **Deliverables**: Expected outputs
-4. **Constraints**: What NOT to do (avoid overlap)
-
----
+**Step 9**: prepare per subtask: context, scope (files/areas), deliverables, constraints (what not to do, to avoid overlap).
 
 ## Phase 2.5: Worktree Setup
 
-### How Worktree Mode Is Decided
+Follow standalone-dispatch §8 for mode decision (with this skill's inputs: no `## Worktree Setup` auto-detect, so `--no-worktree` is the only opt-out; EXECUTION_MODE and PLAN_ONLY are orchestrate-local), preparation, and agent lines. Summary inputs: `FEATURE_SLUG` per team-sanitizer (20 chars, fallback `untitled`); one shared parent worktree `<repo-root>/.config/opencode/worktrees/<repo>-<FEATURE_SLUG>/`.
 
-The decision follows a strict precedence order:
+When `DRY_RUN=false` and `PLAN_ONLY=false`, follow standalone-dispatch §8.2: prepare the feature branch before any worktree setup or dispatch; if `WORKTREE_MODE=true`, create one parent with `<repo-name>` + `FEATURE_SLUG` and store its echoed path as `PARENT_WORKTREE_PATH`; otherwise skip setup. No plan-move call here (orchestrate builds its own decomposition, not a pre-existing plan file). Every agent uses §8.3 directory lines; treat `PARENT_WORKTREE_PATH` as `WT_PARENT_PATH` and derive `REPO_ROOT` there. Branch-prep exit contract: `~/.config/opencode/shared/references/branch-prep.md`.
 
-1. **`--no-worktree` present** → `WORKTREE_MODE=false`. Worktree isolation is forced off. All tasks run directly in the current checkout. No feature worktree is created.
-2. **Neither `--no-worktree` nor any explicit flag** → `WORKTREE_MODE=true` **(new default — was false)**. All parallel and sequential agents share one feature worktree.
+- `WORKTREE_MODE=true` and `DRY_RUN=true`: no script calls; compute `<repo-root>/.config/opencode/worktrees/<repo>-<FEATURE_SLUG>/` for the dry-run output.
+- `WORKTREE_MODE=true` and `PLAN_ONLY=true`: no script calls; add the worktree annotation to the written plan.
 
-`--worktree` is accepted as a silent no-op and matches the new default; it has no additional effect. Note: this skill does not auto-detect `## Worktree Setup` annotations from a plan (it creates its own decomposition), so the only opt-out is `--no-worktree`.
-
-### Branch Preparation
-
-When `DRY_RUN=false` and `PLAN_ONLY=false`, **always prepare the feature branch** before any worktree setup or agent dispatches. Without this, agents inherit whatever branch the orchestrator started on (typically `main`) and commit there:
-
-```bash
-FEATURE_BRANCH=$(bash ~/.config/opencode/shared/scripts/prepare-feature-branch.sh "${FEATURE_SLUG}")
-```
-
-See `~/.config/opencode/shared/references/branch-prep.md` for the helper's behavior and exit-code contract. Skip both this call and the worktree setup below when `DRY_RUN=true` or `PLAN_ONLY=true`.
-
-When `WORKTREE_MODE=false` (`--no-worktree`), skip parent worktree setup after branch preparation.
-
-### When `WORKTREE_MODE=true` and `DRY_RUN=false` and `PLAN_ONLY=false`
-
-Determine the repository name from the current directory (`basename $(git rev-parse --show-toplevel)`). Use the `FEATURE_SLUG` derived during flag parsing.
-
-Create the parent worktree **once**, before any batch dispatches:
-
-```bash
-bash ~/.config/opencode/shared/scripts/setup-worktree.sh parent <repo-name> <FEATURE_SLUG>
-```
-
-Store the echoed path as `PARENT_WORKTREE_PATH`. All parallel and sequential agents in every batch share this path.
-
-When `WORKTREE_MODE=true` and `SEQUENTIAL=true`: sequential tasks run in `PARENT_WORKTREE_PATH` — the same single worktree used for parallel tasks.
-
-When `WORKTREE_MODE=true` and `DRY_RUN=true`: skip all script calls. Instead, compute the expected parent path as `<repo-root>/.config/opencode/worktrees/<repo>-<FEATURE_SLUG>/` and proceed to Phase 3 to include it in the dry-run output.
-
-When `WORKTREE_MODE=true` and `PLAN_ONLY=true`: skip all script calls. Include the worktree annotation in the written plan (see Phase 3).
-
----
+Read `~/.config/opencode/shared/references/worktree-strategy.md` when writing the `## Worktree Setup` plan section (section 2 annotation format).
 
 ## Phase 3: Dry Run Check
 
-### Step 10: Check for Dry Run or Plan-Only Mode
-
-If `--dry-run` is present:
-
-
-```markdown
-# Dry Run: Orchestration Plan for [Task]
-
-## Task Analysis
-
-- Complexity: [Simple/Medium/Complex]
-- Execution Mode: [Parallel/Sequential]
-- Total Subtasks: [count]
-
-## Subtask Breakdown
-
-### Batch 1 (Independent Tasks)
-
-1. **[Subtask 1]**
-   - Agent: [agent-type]
-   - Focus: [brief description]
-   - Output: [expected deliverable]
-
-2. **[Subtask 2]**
-   - Agent: [agent-type]
-   - Focus: [brief description]
-   - Output: [expected deliverable]
-
-### Batch 2 (After Batch 1)
-
-1. **[Subtask 3]**
-   - Agent: [agent-type]
-   - Dependencies: [subtask-1]
-   - Focus: [brief description]
-   - Output: [expected deliverable]
-
-## Agent Deployment Summary
-
-- Total Agents: [count]
-- Parallel Batches: [count]
-- Max Parallelism: [largest batch size]
-
-## Next Steps
-
-Remove --dry-run flag to execute the orchestration.
-```
 
 
 
 
-```
-Worktree:   feature=<repo-root>/.config/opencode/worktrees/<repo>-<FEATURE_SLUG>/  (all subtasks)
-```
+`--plan-only`:
 
-Do not dispatch any `subagent` calls in dry-run mode.
-
-If `--plan-only` is present:
-
-- Create the plan as `docs/orchestration/[sanitized-task-name].md`
-- Save the complete orchestration plan for later execution
-- Display the plan location and summary
-- No team cleanup required — team creation is skipped entirely in plan-only mode
-- When `WORKTREE_MODE=true`: include a `## Worktree Setup` section in the written plan (immediately after frontmatter, before Batch 1). Follow the annotation format in `.opencode-plugin/skills/_shared/references/worktree-strategy.md` §2: list only the parent path. Do NOT add child paths or a `**Children**:` list.
-- **STOP HERE** — do not deploy agents
-
----
+- Write the plan to `docs/orchestration/[sanitized-task-name].md`, save the complete orchestration plan for later execution, display its location and a summary.
+- Team creation is skipped entirely; no team cleanup needed.
+- With `WORKTREE_MODE=true`, read dispatch-playbook.md section 3 now and include a `## Worktree Setup` section immediately after frontmatter and before Batch 1, listing only the parent path. No child paths, no `**Children**:` list.
+- **Stop here.** Do not deploy agents.
 
 ## Phase 4: Parallel Agent Deployment
 
-### Step 11: Organize into Execution Batches
+**Step 11**: group subtasks by dependency using standalone-dispatch §9.1. With `--sequential`, create single-task batches.
 
-Group subtasks by dependencies:
+**Step 12**: execute dependency-resolved batches per the shared dispatch contract (Gate 8) and the orchestrate-specific rules in dispatch-playbook.md sections 10-11; sections 4-5 hold the exact Path A/Path B call shapes. Spawn each batch in one message, never start a subtask before its dependencies complete, continue independent work after failures, and report deadlock and stop if pending subtasks remain but none can be unblocked. Registration, failure handling, dry-run formats, worktree rules, agent assignments, and output formats defined here take precedence over the generic confirmed-plan defaults.
 
-**Batch 1**: All subtasks with no dependencies (fully independent)
-**Batch 2**: Subtasks depending only on Batch 1
-**Batch 3**: Subtasks depending on Batch 1 and/or 2
-...and so on
-
-If `--sequential` flag is present, create single-task batches.
-
-### Step 12: Deploy Batch
-
-Use standalone execution:
-
-- `STANDALONE_MODE=true` → **Path A — Standalone sub-agent batches** (default).
-
----
-
-#### Path A — Standalone Sub-Agent Batches (default)
-
-See `~/.config/opencode/shared/references/standalone-dispatch.md` for the full native standalone dispatch, result, and failure contract this path follows.
-
-For each batch, do the following **in order**:
-
-**1. Build the per-batch agent list** — determine each subtask's name, agent type, focus, and deliverables.
-
-**2. Spawn ALL batch agents in a SINGLE message** using multiple native `subagent` calls with `background=false`. Use only `agent`, `description`, and the complete `prompt`; validate every candidate report and owned artifact before accepting it.
-
-When `WORKTREE_MODE=true`, each native subagent call includes `Working directory: <PARENT_WORKTREE_PATH>` in the prompt. Do **not** pass `isolation: "worktree"` here: that creates a distinct harness worktree per agent and breaks the single-worktree contract. Add a coordination note: `All parallel agents in this batch share this path; batching guarantees no two agents touch the same file.`:
-
-```
-subagent(
-  agent = "nodejs-backend-architect",
-  description = "Implement auth system",
-  prompt = "Working directory: <repo-root>/.config/opencode/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path A coordination block]",
-  background = false
-)
-subagent(
-  agent = "test-strategy-planner",
-  description = "Create auth test plan",
-  prompt = "Working directory: <repo-root>/.config/opencode/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path A coordination block]",
-  background = false
-)
-subagent(
-  agent = "documentation-writer",
-  description = "Document auth API",
-  prompt = "Working directory: <repo-root>/.config/opencode/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path A coordination block]",
-  background = false
-)
-```
-
-When `WORKTREE_MODE=false` (--no-worktree), omit the `Working directory:` line — standard Path A semantics.
-
-**4. Wait for batch completion** — every native `subagent` call sets `background=false`. Process the batch after all calls return candidate reports, then validate each report and owned artifact before marking completion.
-
-**5. Process results** — review each returned summary. Update the corresponding `the todo tracker` items to `completed`.
-
-**6. Handle failures** — if a subtask fails, note the failure, determine if dependent subtasks can proceed, and continue with independent subtasks.
-
-**7. Identify next batch** — scan the `the todo tracker` list for pending subtasks whose dependencies are now all `completed`. If subtasks remain but none are unblocked, report deadlock and stop.
-
-Foreground child calls require no separate shutdown; every child has already returned its candidate report.
-
----
-
-### Step 13: Repeat Until Complete
-
-Repeat Step 12 for each subsequent batch until all subtasks are completed or no more can be unblocked.
-
----
+**Step 13**: repeat Step 12 for each subsequent batch until all subtasks are completed or none can be unblocked.
 
 ## Phase 5: Result Synthesis & Summary
 
-### Step 14: Consolidate Agent Outputs
-
-Run the summarization script:
+**Step 14**: consolidate outputs:
 
 ```bash
 ~/.config/opencode/skills/orchestrate/scripts/summarize-results.sh
 ```
 
-Collect outputs from all agents and organize by:
+Organize agent outputs by files created, files modified, documentation added, tests created, issues encountered.
 
-- Files created
-- Files modified
-- Documentation added
-- Tests created
-- Issues encountered
+**Step 15**: integration check: no conflicting changes between agents, dependencies integrated, cross-references valid, consistent patterns and conventions.
 
-### Step 15: Integration Check
 
-Verify that agent outputs work together:
-
-- [ ] No conflicting changes between agents
-- [ ] All dependencies properly integrated
-- [ ] Cross-references between components valid
-- [ ] Consistent patterns and conventions used
-
-### Step 17: Final Summary
-
-When `WORKTREE_MODE=true`, call `list-worktrees.sh` and append its output to the summary:
+**Step 17**: final summary. With `WORKTREE_MODE=true`, run this and append its output (feature worktree path, branch, and the `git worktree remove` command for manual cleanup; the worktree survives until removed, and there are no child worktrees):
 
 ```bash
 bash ~/.config/opencode/shared/scripts/list-worktrees.sh <repo-name> <FEATURE_SLUG>
 ```
 
-This prints the feature worktree path, its branch, and the `git worktree remove` command for manual cleanup. The worktree survives until manually removed — there are no child worktrees to clean up.
-
-Provide comprehensive completion summary:
-
-```markdown
-# Orchestration Complete: [Task]
-
-## Execution Mode
-
-[Standalone sub-agents]
-
-
-- Team: orch-<sanitized-task>
-- Total sub-agents spawned: [count across all batches]
-- Batches executed: [count]
-- Inter-agent sharing: Enabled (sub-agents shared findings within batches via re-dispatch the affected sub-agent with the needed guidance)
-
-## Execution Summary
-
-- **Total Subtasks**: [count]
-- **Completed**: [count]
-- **Failed**: [count]
-- **Execution Batches**: [count]
-
-## Results by Agent
-
-### [Agent Type 1] - [Subtask 1]
-
-**Status**: Success
-**Outputs**:
-
-- Created: [files]
-- Modified: [files]
-- Notes: [key points]
-
-### [Agent Type 2] - [Subtask 2]
-
-**Status**: Success
-**Outputs**:
-
-- Created: [files]
-- Modified: [files]
-- Notes: [key points]
-
-## Files Changed
-
-### Created
-
-- /path/to/new/file1.ext
-- /path/to/new/file2.ext
-
-### Modified
-
-- /path/to/modified/file1.ext
-- /path/to/modified/file2.ext
-
-## Integration Status
-
-- [x] All agent outputs integrated successfully
-- [x] No conflicting changes detected
-- [x] Cross-references validated
-- [ ] Manual review needed for: [items]
-
-## Issues Encountered
-
-[List any problems, warnings, or areas needing attention]
-
-## Next Steps
-
-1. Review the changes in your editor
-2. Test the integrated functionality
-3. Address any failed subtasks if needed
-4. Commit the changes when satisfied
-```
-
----
-
-## Quality Standards
-
-### Task Decomposition Checklist
-
-Each subtask must have:
-
-- [ ] Clear, specific scope (not too broad or vague)
-- [ ] Single responsibility (no overlapping work)
-- [ ] Appropriate size (completable in one session)
-- [ ] Explicit dependencies stated
-- [ ] Clear success criteria
-- [ ] Agent type assignment justified
-
-### Agent Assignment Checklist
-
-Each agent assignment must have:
-
-- [ ] Agent type matches subtask requirements
-- [ ] No duplicate work between agents
-- [ ] Context files identified for agent
-- [ ] Expected output format specified
-- [ ] Non-overlapping scope with other agents
-- [ ] Clear boundaries defined
-
-### Execution Checklist
-
-The orchestration must:
-
-- [ ] Parse flags and set ``, `DRY_RUN`, `PLAN_ONLY`, `SEQUENTIAL`, `WORKTREE_MODE` before any side effects (default: `WORKTREE_MODE=true` unless `--no-worktree` is passed)
-- [ ] Deploy independent tasks in parallel (single message, multiple native `subagent` calls)
-- [ ] Respect dependency ordering between batches
-- [ ] Track progress via `the todo tracker` (Path A) or `the todo tracker` (Path B)
-- [ ] Handle failures gracefully
-- [ ] Synthesize results on completion
-- [ ] Verify integration between agent outputs
-
-### Result Quality Checklist
-
-The final result must have:
-
-- [ ] All subtasks attempted
-- [ ] Clear status for each subtask (success/fail)
-- [ ] Complete list of files changed
-- [ ] Integration issues identified
-- [ ] Failed subtasks documented
-- [ ] Next steps provided
-
----
-
-## Best Practices
-
-### Coordination Principles
-
-1. **Delegate Everything**: Only coordinate; don't implement yourself
-2. **Maximize Parallelism**: Run independent tasks simultaneously
-3. **Clear Boundaries**: Ensure no overlap between agents
-4. **Single Goal**: Keep all agents aligned to the main objective
-5. **Track Progress**: `the todo tracker` in Path A, `the todo tracker` in Path B
-6. **Synthesize Results**: Integrate outputs into coherent whole
-
-### When to Use Sequential Mode
-
-Use `--sequential` flag when:
-
-- Subtasks have tight coupling
-- Each step informs the next
-- Risk of conflicts is high
-- Debugging or exploratory work
-
-### When to Use Plan-Only Mode
-
-Use `--plan-only` flag when:
-
-- Need approval before execution
-- Task is very large or risky
-- Want to review approach first
-- Building reusable orchestration pattern
-
-### Common Orchestration Patterns
-
-**Feature Implementation**:
-
-- Research agent -> multiple implementation agents -> test agent -> docs agent
-
-**Bug Investigation**:
-
-- Root cause analyzer -> fix implementor -> test verifier -> docs updater
-
-**Refactoring**:
-
-- Architecture analyst -> multiple refactor agents -> test updater -> docs updater
-
-**Documentation Update**:
-
-- Code analyzer -> multiple doc writers -> cross-link validator
-
----
-
-## Important Notes
-
-- **You are the orchestrator** — coordinate agents, don't implement
-- **Parallelism is the baseline** — every batch dispatches concurrently regardless of path
-- **Deploy in batches** — single message with multiple native `subagent` calls per batch
-- **Respect dependencies** — never start a subtask before its dependencies complete
-- **Handle failures** — continue with independent subtasks if one fails
-- **Track progress** — `the todo tracker` updates (Path A) or `the todo tracker` (Path B)
-- **Quality over speed** — ensure proper coordination and integration
-
----
-
-## Troubleshooting
-
-### Issue: Agents producing conflicting changes
-
-**Solution**: Review subtask boundaries, ensure non-overlapping scopes, redeploy with clearer instructions
-
-### Issue: Dependencies not properly sequenced
-
-**Solution**: Review dependency graph, adjust batch organization, ensure proper ordering
-
-### Issue: Agent outputs don't integrate
-
-**Solution**: Add integration subtask, deploy agent to resolve conflicts, update instructions for clarity
-
-### Issue: Too many agents for single batch
-
-**Solution**: Break into smaller batches, stagger deployment, or use sequential mode
-
-### Issue: Unclear what to orchestrate
-
-**Solution**: Ask clarifying questions before decomposition, use dry-run to preview, iterate on plan
-
----
+Then print the completion summary using the template in `~/.config/opencode/skills/orchestrate/references/dispatch-playbook.md` section 6 (read it now).
+
+## Reference Index
+
+- `~/.config/opencode/skills/orchestrate/references/agent-catalog.md`: read in Step 2.
+- `~/.config/opencode/skills/orchestrate/references/task-breakdown.md`: read in Step 4.
+- `~/.config/opencode/skills/orchestrate/references/agent-prompts.md`: read in Step 8.
+- `~/.config/opencode/skills/orchestrate/references/dispatch-playbook.md`: usage block (section 1, abort path), dry-run and plan-only formats (sections 2-3, Phase 3), dispatch call shapes (sections 4-5, Step 12), final summary (section 6, Step 17), registration formats (section 10, Step 5), batch adapter (section 11, Step 12), quality checklists (section 7, Steps 6 and 15), coordination principles and patterns (section 8) and troubleshooting (section 9; read when agents conflict, batches misorder, or the task is unclear).
+- `~/.config/opencode/shared/references/branch-prep.md`: read in Phase 2.5 when helper behavior matters.
+- `~/.config/opencode/shared/references/worktree-strategy.md`: read in Phase 2.5 for plan-only annotations.

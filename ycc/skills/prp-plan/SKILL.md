@@ -143,7 +143,7 @@ Gather codebase intelligence across 8 categories and 5 traces.
 
 When `ENHANCED_MODE=true`, run `${CLAUDE_PLUGIN_ROOT}/skills/prp-plan/scripts/preflight-enhanced-agents.sh` and abort with the script's stderr if it exits non-zero. This catches missing agent dependencies before any researcher is dispatched. The script auto-derives the plugin root from its own install location; no argument needed at runtime.
 
-> **Standalone dispatch rule (Path A / Path B / Path B-enhanced)**: Standalone research sub-agents — whether a single researcher (Path A) or a parallel fan-out (Path B / Path B-enhanced) — are dispatched via the blocking `Task` tool in ONE message, never via `Agent`, and never with `name`, `team_name`, or `run_in_background` set. In the normal case `Task` blocks the turn and its return value IS the report, delivered inline. If a batch doesn't return inline (async fallback), don't background it or `sleep`-loop/poll waiting on it — yield/end the turn so the completion notification can flush, then resume merging. See `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/standalone-dispatch.md` for the full contract and anti-patterns.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/standalone-dispatch.md` when `AGENT_TEAM_MODE=false` for standalone research dispatch; read `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/agent-team-dispatch.md` only when `--team` is passed for Path C lifecycle.
 
 ### Path A — Sequential (default)
 
@@ -185,21 +185,7 @@ After all 3 return: merge tables, de-duplicate, verify all 8 categories covered.
 
 ### Path C — Agent team (`AGENT_TEAM_MODE=true`, Claude Code only)
 
-> **MANDATORY — AGENT TEAMS REQUIRED**
->
-> In Path C you MUST follow the agent-team lifecycle. Do NOT mix standalone sub-agents
-> with team dispatch. Every `Agent` call below MUST include `team_name=` AND `name=`.
->
-> 1. `TeamCreate` FIRST
-> 2. `TaskCreate` for each researcher
-> 3. `Agent` with `team_name=` — one message, three calls
-> 4. `TaskList` — wait for all teammates to complete
-> 5. `SendMessage({type:"shutdown_request"})` — shut down all 3 teammates
-> 6. `TeamDelete` — clean up
->
-> If `TeamCreate` fails, abort the skill. Refer to
-> `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/agent-team-dispatch.md`
-> for the full lifecycle contract.
+Use shared team lifecycle with prefix `prpp-` and researcher roster from Path B (seven enhanced researchers when requested).
 
 #### C.1 Build the team name
 
@@ -241,39 +227,9 @@ Dependencies:   none  (flat graph)
 
 Do **not** call any team/task/agent tools. Exit the skill.
 
-#### C.3 Create the team
+#### C.3–C.5 Register and dispatch
 
-```
-TeamCreate: team_name="prpp-<sanitized-feature>", description="PRP-plan research team for: <feature description>"
-```
-
-On failure, abort.
-
-#### C.4 Register subtasks
-
-Create 3 tasks in the shared task list (flat graph — no dependencies between
-researchers):
-
-```
-TaskCreate: subject="patterns-research: codebase patterns for <feature>", description="Categories: Similar Implementations, Naming, Types. Traces: Entry Points, Contracts."
-TaskCreate: subject="quality-research: codebase quality for <feature>",    description="Categories: Error Handling, Logging, Tests. Traces: State Changes, Patterns."
-TaskCreate: subject="infra-research: codebase infrastructure for <feature>", description="Categories: Configuration, Dependencies. Traces: Data Flow."
-```
-
-#### C.5 Spawn the 3 teammates (single message, three Agent calls)
-
-Use the same researcher categories/traces table from Path B. Spawn all three in **ONE
-message** with **THREE `Agent` tool calls**, each with
-`team_name="prpp-<sanitized-feature>"` and the role-specific `name`
-(`patterns-research`, `quality-research`, `infra-research`), all using
-`subagent_type: "ycc:prp-researcher"` in codebase mode.
-
-Apply the same researcher prompt constraints as Path B: 5-line max snippets, discovery
-table format only, no prose summaries.
-
-By default (`WORKTREE_MODE=true`), append the following directive to each teammate prompt. Omit when `--no-worktree` was passed (`WORKTREE_MODE=false`):
-
-> **WORKTREE MODE:** The plan you are helping to build will include worktree annotations. In the emitted plan, include a `## Worktree Setup` section with a single `**Parent**:` line naming the feature worktree; no `**Children**:` list; no per-task `**Worktree**:` annotations. All tasks (parallel and sequential) share this one feature worktree path. Follow `ycc/skills/_shared/references/worktree-strategy.md` for the naming scheme and annotation format.
+Use shared lifecycle §§2 and 8.1: flat researcher roster from Path B, full category/trace spec per task; 5-line snippet cap and discovery-table-only prompts. Default worktree annotations use standalone-dispatch §8.4; omit for --no-worktree.
 
 #### C.6 Monitor and merge
 
@@ -289,22 +245,14 @@ If a teammate errors:
 
 #### C.7 Shutdown and cleanup
 
-```
-SendMessage(to="patterns-research", message={type:"shutdown_request"})
-SendMessage(to="quality-research",  message={type:"shutdown_request"})
-SendMessage(to="infra-research",    message={type:"shutdown_request"})
-TeamDelete
-```
-
-Always `TeamDelete` before continuing to Phase 3.
+Complete shared lifecycle cleanup before continuing to Phase 3, even on partial failure or abort.
 
 #### Path C (enhanced) — when `ENHANCED_MODE=true`
 
 - Team name stays `prpp-<sanitized-feature>`.
 - Register 7 tasks instead of 3 via `TaskCreate`, using the role names from `${CLAUDE_PLUGIN_ROOT}/skills/prp-plan/references/enhanced-researchers.md` (`api-researcher`, `business-analyzer`, `tech-designer`, `ux-researcher`, `security-researcher`, `practices-researcher`, `recommendations-agent`).
 - Spawn 7 teammates in a **single message** with `team_name="prpp-<sanitized-feature>"` and the role name in `name=`, all using `subagent_type: "ycc:prp-researcher"` with the role-specific prompt from `enhanced-researchers.md`.
-- Monitor via `TaskList` until all 7 complete.
-- Shutdown all 7 via `SendMessage({type:"shutdown_request"})` before `TeamDelete`.
+- Apply shared lifecycle to all seven teammates.
 - Failure policy: a single teammate failure → continue with a stub note in synthesis ("{role} did not complete — {section} may be incomplete"); ≥4 teammate failures → abort, shutdown survivors, `TeamDelete`, fall back to suggesting the user re-run with `--enhanced --parallel`.
 
 ---

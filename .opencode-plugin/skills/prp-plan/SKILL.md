@@ -112,14 +112,6 @@ Gather codebase intelligence across 8 categories and 5 traces.
 
 When `ENHANCED_MODE=true`, run `~/.config/opencode/skills/prp-plan/scripts/preflight-enhanced-agents.sh` and abort with the script's stderr if it exits non-zero. This catches missing agent dependencies before any researcher is dispatched. The script auto-derives the plugin root from its own install location; no argument needed at runtime.
 
-> **OpenCode V2 standalone dispatch:** Issue the independent calls in one
-> parallel tool batch and set `background=false` on every call. Each call waits
-> for a candidate report. Require nonempty report text, validate the declared
-> artifact or diff independently, and do not treat a terminal lifecycle state
-> as proof of the deliverable. Apply the contentless-completion and bounded
-> retry policy from
-> [standalone-dispatch.md](~/.config/opencode/shared/references/standalone-dispatch.md).
-
 
 ### Path A — Sequential (default)
 

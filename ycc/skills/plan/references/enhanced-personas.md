@@ -1,5 +1,10 @@
 # Enhanced Personas (5-persona roster for ycc:plan --enhanced)
 
+## Contents
+
+- Security-reviewer
+- UX-reviewer
+
 > **Contract**: When `ENHANCED_MODE=true`, the `ycc:plan` skill spawns the 3 baseline personas (`architect`, `risk-analyst`, `test-strategist` — prompts inline in `SKILL.md` §B.5 / §C.3) plus the 2 enhanced personas defined here. The roster is identical regardless of dispatch path:
 >
 > - **Path C** (`--enhanced` alone) — 5 standalone parallel sub-agents, no `TeamCreate`.

@@ -1,5 +1,21 @@
 # Agent Prompt Templates
 
+## Contents
+
+- Template Variables
+- Path A Coordination Block (default — standalone sub-agents)
+- Path B Team Communication Section (Include ONLY
+
+- Pattern 1: Feature Implementation
+- Pattern 2: Bug Investigation & Fix
+- Pattern 3: Refactoring
+- Pattern 4: Documentation Update
+- Pattern 5: Testing Strategy
+- Pattern 6: API Development
+- Pattern 7: Database Schema Changes
+- Best Practices for Using Templates
+- Customizing Templates
+
 Standard prompt templates for common orchestration patterns. Use these to ensure consistent, high-quality agent instructions.
 
 Every template contains a coordination section that must be swapped based on the dispatch path chosen by the `orchestrate` skill:
