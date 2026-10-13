@@ -55,6 +55,7 @@ Usage:
     --log-file <path> \
     [--workflow <name-or-path>] \
     [--repo <owner/name>] \
+    [--run-id <id> --expected-sha <40-hex>] \
     [--dry-run]
 
   release-ci-monitor.sh --help
@@ -70,6 +71,12 @@ Options:
                           .github/workflows/*release*.yml when omitted.
   --repo <owner/name>     Target repo. Auto-detects via `gh repo view` when
                           omitted.
+  --run-id <id>           Monitor exactly this run instead of selecting by tag
+                          (workflow_dispatch retry, or the new release-event run
+                          after a re-cut). Requires --expected-sha and an
+                          explicit --workflow file; any metadata mismatch exits
+                          2 (RESULT=not-found, REASON=retry-correlation-mismatch).
+  --expected-sha <sha>    Full lowercase 40-hex head SHA the run must have.
   --dry-run               Skip CI polling; emit RESULT=green and exit 0
 
 Exit codes:
@@ -317,6 +324,31 @@ latest_run_for_tag() {
   printf '%s|%s' "$run_id" "${workflow_name:-unknown}"
 }
 
+# Verify --run-id is the exact retry target: repo-scoped run metadata must match
+# the id, expected head SHA, event workflow_dispatch (branch-ref retry) or
+# release (post-re-cut re-publish) and the workflow file path. The expected SHA
+# is the fix-bearing commit, so a pre-re-cut run on the same tag fails closed.
+# Prints the workflow name on success; returns 1 on any mismatch or fetch error.
+verify_exact_run() {
+  local run_id="$1" sha="$2" workflow_file="$3" repo="$4"
+  [[ -n "$repo" ]] || return 1
+  local meta id head event name api path
+  meta="$(gh run view --repo "$repo" "$run_id" \
+    --json databaseId,headSha,event,workflowName \
+    --jq '[.databaseId,.headSha,.event,.workflowName]|@tsv' 2>/dev/null)" || return 1
+  # Fail closed on anything but a single metadata line (read -r sees line 1 only).
+  [[ "$meta" != *$'\n'* ]] || return 1
+  IFS=$'\t' read -r id head event name <<<"$meta"
+  [[ "$id" == "$run_id" && "$head" == "$sha" ]] || return 1
+  [[ "$event" == "workflow_dispatch" || "$event" == "release" ]] || return 1
+  # gh run view exposes no workflow path field; the run API does.
+  api="$(gh api "repos/$repo/actions/runs/$run_id" --jq '[.id,.path]|@tsv' 2>/dev/null)" || return 1
+  [[ "$api" != *$'\n'* ]] || return 1
+  IFS=$'\t' read -r id path <<<"$api"
+  [[ "$id" == "$run_id" && "$path" == ".github/workflows/$workflow_file" ]] || return 1
+  printf '%s' "${name:-unknown}"
+}
+
 # Watch a single run to completion.
 watch_run() {
   local run_id="$1"
@@ -359,7 +391,7 @@ extract_job_name() {
 # ---------------------------------------------------------------------------
 
 main() {
-  local tag="" workflow="" repo="" max_pushes="" max_same_failure="" timeout_min="" log_file="" dry_run="false"
+  local tag="" workflow="" repo="" max_pushes="" max_same_failure="" timeout_min="" log_file="" dry_run="false" run_id_arg="" expected_sha=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -370,6 +402,8 @@ main() {
       --max-same-failure)  max_same_failure="${2:-}"; shift 2 ;;
       --timeout-min)       timeout_min="${2:-}";      shift 2 ;;
       --log-file)          log_file="${2:-}";         shift 2 ;;
+      --run-id)            run_id_arg="${2:-}";       shift 2 ;;
+      --expected-sha)      expected_sha="${2:-}";     shift 2 ;;
       --dry-run)           dry_run="true";            shift   ;;
       --help|-h)           usage; exit 0 ;;
       --version)           printf 'release-ci-monitor.sh %s\n' "$VERSION"; exit 0 ;;
@@ -400,6 +434,19 @@ main() {
       exit 1
     fi
   done
+
+  # Exact-run (retry) mode: --run-id and --expected-sha travel together.
+  if [[ -n "$run_id_arg" || -n "$expected_sha" ]]; then
+    if [[ ! "$run_id_arg" =~ ^[1-9][0-9]*$ ]]; then
+      printf 'release-ci-monitor.sh: --run-id must be a positive integer\n' >&2
+      exit 1
+    fi
+    if [[ ! "$expected_sha" =~ ^[0-9a-f]{40}$ ]]; then
+      printf 'release-ci-monitor.sh: --expected-sha must be a full lowercase 40-hex SHA\n' >&2
+      exit 1
+    fi
+    require_arg "--workflow" "$workflow"
+  fi
 
   # Resolve workflow + repo (auto-detect when unset).
   local resolved_workflow resolved_repo
@@ -470,30 +517,49 @@ main() {
     fi
   fi
 
-  # Wait for the release workflow run to register.
-  if ! wait_for_release_run "$tag" "$resolved_workflow" "$resolved_repo"; then
-    local ts iteration
-    ts="$(now_utc)"
-    iteration="$(( $(log_line_count "$log_file") + 1 ))"
-    log_jsonl "$log_file" "$ts" "$iteration" "$tag" "0" "$resolved_workflow" "" "" "bail-timeout" "$push_count" ""
-    printf 'release-ci-monitor.sh: No release workflow run registered for %s within backoff window.\n' "$tag" >&2
-    printf 'RESULT=bail-timeout\n'
-    exit 13
-  fi
-
-  # Resolve the current run id.
   local run_meta run_id workflow_name
-  run_meta="$(latest_run_for_tag "$tag" "$resolved_workflow" "$resolved_repo")"
-  if [[ -z "$run_meta" ]]; then
+  if [[ -n "$run_id_arg" ]]; then
+    # Exact-run mode: fail closed unless the requested run matches; re-checked
+    # on every invocation. Tag selection is skipped.
+    if ! workflow_name="$(verify_exact_run "$run_id_arg" "$expected_sha" "$resolved_workflow" "$resolved_repo")"; then
+      local ts iteration
+      ts="$(now_utc)"
+      iteration="$(( $(log_line_count "$log_file") + 1 ))"
+      log_jsonl "$log_file" "$ts" "$iteration" "$tag" "$run_id_arg" "$resolved_workflow" "" "" "bail-nonfixable" "$push_count" "" "\"head_sha\":\"${expected_sha}\",\"reason\":\"retry-correlation-mismatch\""
+      printf 'RESULT=not-found\n'
+      printf 'REASON=retry-correlation-mismatch\n'
+      exit 2
+    fi
+    run_id="$run_id_arg"
     local ts iteration
     ts="$(now_utc)"
     iteration="$(( $(log_line_count "$log_file") + 1 ))"
-    log_jsonl "$log_file" "$ts" "$iteration" "$tag" "0" "$resolved_workflow" "" "" "bail-nonfixable" "$push_count" ""
-    printf 'RESULT=not-found\n'
-    exit 2
+    log_jsonl "$log_file" "$ts" "$iteration" "$tag" "$run_id" "$workflow_name" "" "" "retry-verified" "$push_count" "" "\"head_sha\":\"${expected_sha}\""
+  else
+    # Wait for the release workflow run to register.
+    if ! wait_for_release_run "$tag" "$resolved_workflow" "$resolved_repo"; then
+      local ts iteration
+      ts="$(now_utc)"
+      iteration="$(( $(log_line_count "$log_file") + 1 ))"
+      log_jsonl "$log_file" "$ts" "$iteration" "$tag" "0" "$resolved_workflow" "" "" "bail-timeout" "$push_count" ""
+      printf 'release-ci-monitor.sh: No release workflow run registered for %s within backoff window.\n' "$tag" >&2
+      printf 'RESULT=bail-timeout\n'
+      exit 13
+    fi
+
+    # Resolve the current run id.
+    run_meta="$(latest_run_for_tag "$tag" "$resolved_workflow" "$resolved_repo")"
+    if [[ -z "$run_meta" ]]; then
+      local ts iteration
+      ts="$(now_utc)"
+      iteration="$(( $(log_line_count "$log_file") + 1 ))"
+      log_jsonl "$log_file" "$ts" "$iteration" "$tag" "0" "$resolved_workflow" "" "" "bail-nonfixable" "$push_count" ""
+      printf 'RESULT=not-found\n'
+      exit 2
+    fi
+    run_id="${run_meta%%|*}"
+    workflow_name="${run_meta#*|}"
   fi
-  run_id="${run_meta%%|*}"
-  workflow_name="${run_meta#*|}"
 
   printf 'release-ci-monitor.sh: Watching release workflow run %s (%s) for %s...\n' "$run_id" "$workflow_name" "$tag" >&2
 
