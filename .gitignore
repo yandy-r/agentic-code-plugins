@@ -44,3 +44,5 @@ opencode.json
 
 # Agent-managed git worktrees
 .claude/worktrees/
+
+.slim/deepwork/
