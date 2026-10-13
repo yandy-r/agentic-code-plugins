@@ -3,12 +3,19 @@
 
 from __future__ import annotations
 
+import re
 import tempfile
 import unittest
 from pathlib import Path
 
 from generate_opencode_commands import discover_skills, transform_command
-from generate_opencode_common import SRC_SKILLS_DIR, load_agent_aliases, load_model_aliases
+from generate_opencode_common import (
+    SRC_SKILLS_DIR,
+    apply_opencode_text_transforms,
+    load_agent_aliases,
+    load_model_aliases,
+    rewrite_plugin_paths,
+)
 from generate_opencode_dispatch import (
     project_opencode_dispatch,
     project_opencode_dispatch_description,
@@ -105,8 +112,56 @@ class OpenCodeDispatchProjectionTestCase(unittest.TestCase):
         self.assertIn("does not verify the deliverables", rendered)
         self.assertIn("contentless completion is incomplete", rendered)
         self.assertIn("Inspect the working tree", rendered)
-        self.assertIn("one retry", rendered)
         self.assertEqual(find_dispatch_residue(rendered, "standalone-dispatch.md"), [])
+
+    def test_shared_reference_carries_preparation_and_batching_sections(self) -> None:
+        rendered = render_standalone_dispatch_reference()
+
+        for fragment in (
+            "## 8. Worktree and Branch Preparation",
+            "### 8.1 How worktree mode is decided",
+            "### 8.2 Prepare (before any implementor dispatch)",
+            "prepare-feature-branch.sh",
+            "setup-worktree.sh parent",
+            "move-plan-to-worktree.sh",
+            "### 8.3 Agent prompt lines",
+            "## 9. Dependency Resolution and Batching",
+            "### 9.1 Graph and batches",
+            "## 10. Executing a Confirmed Plan",
+            "## 11. Unsupported team mode",
+        ):
+            self.assertIn(fragment, rendered)
+        self.assertEqual(find_dispatch_residue(rendered, "standalone-dispatch.md"), [])
+
+    def test_consumer_section_pointers_resolve_in_generated_shared_reference(self) -> None:
+        shared = render_standalone_dispatch_reference()
+        destinations = set(re.findall(r"^#{2,3} (\d+(?:\.\d+)?)[. ]", shared, re.MULTILINE))
+        self.assertTrue({"8", "8.1", "8.2", "8.3", "9", "9.1", "10"} <= destinations, sorted(destinations))
+        aliases = load_agent_aliases()
+        number = r"(\d+(?:\.\d+)?)"
+        pointer = re.compile(rf"(?:\u00a7+|\bsections?\s+){number}(?:\s*[\u2013\u2014-]\s*{number})?")
+        for skill in ("plan", "plan-workflow", "implement-plan", "orchestrate", "prp-implement"):
+            for source_path in sorted((SRC_SKILLS_DIR / skill).glob("**/*.md")):
+                relative = source_path.relative_to(SRC_SKILLS_DIR)
+                text = source_path.read_text(encoding="utf-8")
+                if source_path.name == "SKILL.md":
+                    rendered = transform_skill_markdown(text, aliases, relative)
+                else:
+                    rendered = project_opencode_dispatch(
+                        apply_opencode_text_transforms(rewrite_plugin_paths(text), aliases), relative
+                    )
+                with self.subTest(source=relative.as_posix()):
+                    dangling = []
+                    for line in rendered.splitlines():
+                        if "standalone-dispatch" not in line:
+                            continue
+                        for first, last in pointer.findall(line):
+                            for target in filter(None, (first, last)):
+                                if target not in destinations:
+                                    dangling.append(f"{target}: {line.strip()[:120]}")
+                    self.assertEqual(
+                        dangling, [], f"unresolved standalone-dispatch pointers; has {sorted(destinations)}"
+                    )
 
     def test_implement_plan_uses_foreground_native_dispatch_and_verifies_work(self) -> None:
         source = """# Parallel Plan Executor

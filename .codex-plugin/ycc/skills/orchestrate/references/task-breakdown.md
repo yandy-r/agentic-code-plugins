@@ -1,5 +1,15 @@
 # Task Breakdown Template
 
+## Contents
+
+- Decomposition Principles
+- Decomposition Strategies
+- Decomposition Workflow
+- Common Decomposition Patterns
+- Decomposition Checklist
+- Example: Full Decomposition
+- Tips & Best Practices
+
 Guide for decomposing complex tasks into parallelizable subtasks for agent orchestration.
 
 ## Decomposition Principles

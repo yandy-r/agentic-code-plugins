@@ -1,6 +1,7 @@
 # Agent Team Dispatch — Canonical Lifecycle Reference
 
-Used by `ycc:plan`, `ycc:prp-plan`, `ycc:prp-implement`, and `ycc:deep-research`
+Used by `ycc:plan`, `ycc:plan-workflow`, `ycc:prp-plan`, `ycc:prp-implement`,
+`ycc:implement-plan`, `ycc:orchestrate` and `ycc:deep-research`
 when the `--team` flag is passed. This file documents the universal TeamCreate → TaskCreate → Agent →
 TaskList → SendMessage → TeamDelete lifecycle. Individual skills own their teammate
 roster and prompt templates; only the mechanism lives here.
@@ -18,6 +19,17 @@ roster and prompt templates; only the mechanism lives here.
 > pass — for now, `TeamCreate`/`TaskCreate`/`TeamDelete` calls in this doc's lifecycle
 > remain as documented, and skills should continue to call them where their target CLI
 > still supports them, but this may need revisiting.
+
+## Contents
+
+1. Team Name Sanitization
+2. Lifecycle (6 steps)
+3. Spawn Rule
+4. Failure Policy
+5. Dry-Run Semantics
+6. Multi-Batch Runs
+7. Worktree-aware team dispatch
+8. Skill Adapters: Planning and Batched Executors
 
 ---
 
@@ -43,6 +55,8 @@ Team names follow the pattern: `<skill-prefix>-<sanitized-context>`.
 | `ycc:prp-implement`  | `prpi-` | `prpi-user-auth-flow`   |
 | `ycc:implement-plan` | `impl-` | `impl-user-auth-flow`   |
 | `ycc:deep-research`  | `drpr-` | `drpr-ai-deployment`    |
+| `ycc:plan-workflow`  | `pw-`   | `pw-user-auth-flow`     |
+| `ycc:orchestrate`    | `orch-` | `orch-user-auth-flow`   |
 
 If the sanitized context would be empty (e.g., only symbols), fall back to
 `untitled`.
@@ -258,3 +272,64 @@ Worktree:   feature=<repo-root>/.claude/worktrees/<repo>-<feature>/  (all teamma
 ```
 
 No `setup-worktree.sh` or `merge-children.sh` calls are made in dry-run mode.
+
+---
+
+## 8. Skill Adapters: Planning and Batched Executors
+
+Worktree/branch preparation, dependency-batch resolution and plan-execution mechanics are
+mode-independent: use standalone-dispatch.md sections 8-10 even for `--team`. This section owns only
+what differs when `--team` is passed.
+
+Prerequisites: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, else abort with
+`--team requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1. Use --parallel instead, or set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in your Claude Code settings if you intentionally want agent-team dispatch.`
+Cursor/Codex abort: `--team requires team tools, which Cursor/Codex bundles do not ship. Use --parallel instead.`
+
+### 8.1 Planning team adapter (`plan`, `prp-plan`)
+
+Flat roster: register one `TaskCreate` per teammate (no `addBlockedBy`), one `Agent` message with
+`team_name=` and `name=`, `TaskList` until complete, merge, `SendMessage` shutdown to every spawned
+teammate, `TeamDelete` always (even on abort/partial failure). Prompt per teammate: role focus,
+verbatim request/context, coordination via `SendMessage` with the roster for overlapping scope,
+output directives (`standalone-dispatch.md` sections 8.4 and 9.2). Teams are deleted before the
+plan is relayed; any re-dispatch creates a new team (same name fine) and never messages the old one.
+Critical teammate failure: abort, shut down the rest, `TeamDelete`.
+
+Plan adapter exact registration subjects (description: `Multi-perspective planning team for: <user request>`):
+
+```
+TaskCreate: subject="architect: structural plan for <user request>", description="..."
+TaskCreate: subject="risk-analyst: risks and edge cases for <user request>", description="..."
+TaskCreate: subject="test-strategist: testing strategy for <user request>", description="..."
+# When ENHANCED_MODE=true, also:
+TaskCreate: subject="security-reviewer: threat model for <user request>", description="..."
+TaskCreate: subject="ux-reviewer: user-facing impact for <user request>", description="..."
+```
+
+### 8.2 Batched executor adapter (`implement-plan`, `prp-implement`, `orchestrate`)
+
+1. `TeamCreate` once, with `description` naming the skill and feature.
+2. `TaskCreate` for every task across all batches with subject `<task-id>: <title>` and the full
+   spec; then `TaskUpdate ... addBlockedBy=[...]` for each dependency (section 6). Any failure:
+   `TeamDelete`, then abort.
+3. Per batch: identify tasks whose dependencies are done; single-message `Agent` calls with
+   `team_name`, `name` equal to task ID, `subagent_type`, description, task-template prompt that
+   requires reading listed files first, self-validation and `TaskUpdate` completion, plus the
+   section 7 / standalone section 8.3 working-directory lines.
+4. `TaskList` until batch is complete; answer teammate issues via `SendMessage`.
+5. Skill's between-batch validation (e.g. `prp-implement` Levels 1+2) inside the execution tree.
+6. `SendMessage(to="<task-id>", message={type:"shutdown_request"})` to every teammate of the
+   batch; wait before next batch. Print the skill's `[done] Batch BN: ...` marker.
+7. `TeamDelete` once after the last batch or on abort.
+
+Failure: no auto-retry, no skipping. Ask the user via `AskUserQuestion`: fix manually and resume,
+switch to sequential/standalone for remaining batches, or abort. Switch/abort: shutdown active
+teammates then `TeamDelete`. Resume: shut down current batch teammates and continue. The feature
+worktree survives abort for manual inspection/cleanup.
+
+### 8.3 Dry-run for executors
+
+Print team name, `Total tasks: <N> (across <M> batches, max parallel width <X>)`,
+`Dependencies: <K edges>`, per-batch task IDs (`(depends on Batch N-1)`), and the per-batch
+teammate roster (`<task-id> subagent_type=ycc:implementor task=<short>`). Call no team, task,
+agent, `SendMessage` or `TeamDelete` tools; stop.

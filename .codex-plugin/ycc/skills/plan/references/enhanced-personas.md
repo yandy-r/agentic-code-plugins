@@ -1,11 +1,16 @@
 # Enhanced Personas (5-persona roster for plan --enhanced)
 
+## Contents
+
+- Security-reviewer
+- UX-reviewer
+
 > **Contract**: When `ENHANCED_MODE=true`, the `plan` skill spawns the 3 baseline personas (`architect`, `risk-analyst`, `test-strategist` — prompts inline in `SKILL.md` §B.5 / §C.3) plus the 2 enhanced personas defined here. The roster is identical regardless of dispatch path:
 >
 > - **Path C** (`--enhanced` alone) — 5 standalone parallel sub-agents, no `create an agent group`.
 > - **Path B enhanced** (`--enhanced --team`) — 5-persona agent team with shared `the task tracker`.
 >
-> Both enhanced personas use `research-specialist` distinguished by `name=`. They contribute slices that the synthesizer folds into the merged plan per `SKILL.md` §B.7 (Path B) or §C.5 (Path C). They do NOT write any files — they return findings inline.
+> Both enhanced personas use `research-specialist` distinguished by `name=`. They contribute slices that the synthesizer folds into the merged plan per `SKILL.md` (Merge outputs; Re-dispatch). They do NOT write any files — they return findings inline.
 
 ## Roster
 

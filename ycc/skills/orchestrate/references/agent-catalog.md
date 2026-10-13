@@ -1,5 +1,12 @@
 # Agent Catalog
 
+## Contents
+
+- Agent Categories
+- Selection Matrix
+- Agent Selection Guidelines
+- Common Orchestration Patterns
+
 Complete reference of all available agents for orchestration.
 
 ## Agent Categories
