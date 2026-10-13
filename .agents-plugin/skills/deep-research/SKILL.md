@@ -14,8 +14,9 @@ Preserve contradictions and uncertainty; do not replace missing research with gu
 
 Parse `$ARGUMENTS`: flags first, remaining text is the required research subject.
 
-- `--team`: Claude Code only; opt into a shared team of 14 agents across three batches.
-  Default: standalone parallel sub-agents. Cursor and Codex lack team tools.
+Default: standalone parallel sub-agents.
+
+- `--team`: Claude Code only; opt into a shared team of 14 agents across three batches. Cursor and Codex lack team tools.
 - `--output-dir "..."`: output directory; default `research/[sanitized-subject]`.
 - `--dry-run`: display the plan without running checks, creating files, or dispatching.
 
@@ -37,10 +38,14 @@ Display the subject, output path, four phases (8 personas, 2 crucible agents,
 4 strategic agents, report synthesis), and this artifact tree: `objective.md`,
 `persona-findings/{historian,contrarian,analogist,systems-thinker,journalist,archaeologist,futurist,negative-space}.md`,
 `synthesis/{crucible-analysis,contradiction-mapping,tension-mapping,pattern-recognition,negative-space,innovation}.md`,
-`evidence/verification-log.md`, `report.md`. With `--team`, also show `drpr-<sanitized-subject>`, 14 teammates, and dependencies:
+`evidence/verification-log.md`, `report.md`.
+**STOP**: do not run prerequisite scripts, dispatch agents, create directories, or write artifacts.
+
+#### Agent-team dry-run additions
+
+With `--team`, also show `drpr-<sanitized-subject>`, 14 teammates, and dependencies:
 Batch 2 blocked by all Batch 1 tasks; Batch 3 blocked by both Batch 2 tasks.
-**STOP**. Do not call prerequisite scripts, TeamCreate, TaskCreate, Task, Agent,
-SendMessage, or TeamDelete; do not create directories or write artifacts.
+Do not call TeamCreate, TaskCreate, Task, Agent, SendMessage, or TeamDelete.
 
 ### Infrastructure and objective (not dry run)
 
@@ -83,12 +88,13 @@ persona agent reads its own file. The table gives exact paths and read condition
 
 See `~/.agents/ycc-shared/references/standalone-dispatch.md` for the
 standalone-dispatch contract (Task vs Agent+team, anti-patterns, backstop policy).
-Spawn each batch in one message; no `team_name` or `name`. Each agent writes its
-declared artifact. If a `Task` call's inline return is empty or truncated, re-read the
-corresponding artifact from disk as the source of truth before treating it as a failure.
-Use no TaskList or SendMessage in standalone mode.
+Spawn each batch in one message. Each agent writes its declared artifact. When a
+result comes back empty or cut short, re-read the matching artifact from disk and
+treat it as authoritative before declaring that dispatch failed.
+Record a single failure as a gap in its artifact; adapt later phases. If at least
+half a batch fails, abort and report the gaps instead of fabricating results.
 
-### Team opt-in
+### Agent-team dispatch (`--team` only)
 
 Read `~/.agents/ycc-shared/references/agent-team-dispatch.md` when
 `--team` is used. Do not mix standalone Task calls with team Agent calls.
@@ -128,8 +134,10 @@ All eight use `research-specialist`. Output paths are relative to `$OUTPUT_DIR`.
 | Futurist                | `futurist`                | `references/persona-futurist.md`       | `persona-findings/futurist.md`        |
 | Negative Space Explorer | `negative-space-explorer` | `references/persona-negative-space.md` | `persona-findings/negative-space.md`  |
 
-**CRITICAL**: Deploy all 8 persona agents in a **SINGLE message** with **MULTIPLE `Task` tool calls**, even for a small topic. Pass the resolved absolute persona
-file path, not its text. Each prompt follows this shape, with concrete values:
+**CRITICAL**: Deploy all 8 persona agents in a **SINGLE message** with **MULTIPLE `Task` tool calls**.
+
+Even for a small topic, pass each resolved absolute persona file path, not its text.
+Each prompt follows this shape, with concrete values:
 
 ```text
 Read <absolute plugin root>/skills/deep-research/references/persona-<name>.md first.
@@ -142,12 +150,17 @@ Write <absolute output file> and return findings. User constraints: <constraints
 
 Require 8–10 diverse queries per persona; brief findings do not mean skipping
 personas. Track completion of each persona and its artifact. Wait for all eight
-(or explicit failure records) before Phase 2. In team mode, shut down Batch 1.
+(or explicit failure records) before Phase 2.
+
+In team mode, shut down Batch 1.
 
 ## Phase 2: The Crucible (Batch 2)
 
-Read all eight persona artifacts and objective. **CRITICAL**: Deploy both analysis agents in a **SINGLE message** with **MULTIPLE `Task` tool calls**,
-passing `references/analysis-prompts.md` resolved path and the named mandate,
+Read all eight persona artifacts and objective.
+
+**CRITICAL**: Deploy both analysis agents in a **SINGLE message** with **MULTIPLE `Task` tool calls**.
+
+Pass the `references/analysis-prompts.md` resolved path and the named mandate,
 subject, output directory, and input artifact paths. Agents read their own section.
 
 | Agent / teammate name                         | Subagent type               | Output                               |
@@ -160,11 +173,15 @@ Contradiction Mapper: preserve disagreements, assess sources, identify patterns.
 After completion, triangulate critical claims: fetch primary sources, document
 confirmations, partial confirmations, confidence, competing evidence, and unresolved
 contradictions in `$OUTPUT_DIR/evidence/verification-log.md`. Claims repeated by
-multiple personas still need verification, not a vote. In team mode, shut down Batch 2.
+multiple personas still need verification, not a vote.
+
+In team mode, shut down Batch 2.
 
 ## Phase 3: Emergent Insights (Batch 3)
 
-**CRITICAL**: Deploy all 4 strategic analysis agents in a **SINGLE message** with **MULTIPLE `Task` tool calls**. Give each the resolved `references/analysis-prompts.md`
+**CRITICAL**: Deploy all 4 strategic analysis agents in a **SINGLE message** with **MULTIPLE `Task` tool calls**.
+
+Give each the resolved `references/analysis-prompts.md`
 path, named mandate, objective, all persona findings, both crucible outputs, and
 verification log. Require the following artifacts:
 
@@ -176,8 +193,9 @@ verification log. Require the following artifacts:
 | Innovation Agent / `innovation-agent`             | `general-purpose`           | `synthesis/innovation.md`          |
 
 Keep `negative-space-analyst` distinct from Phase 1's `negative-space-explorer`.
-Consume all four results (or gap records). In team mode, shut down Batch 3 and
-TeamDelete now, not after reporting.
+Consume all four results (or gap records).
+
+In team mode, shut down Batch 3 and TeamDelete now, not after reporting.
 
 ## Phase 4: Strategic Synthesis (Orchestrator Only)
 

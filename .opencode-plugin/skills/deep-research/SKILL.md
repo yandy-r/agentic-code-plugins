@@ -16,7 +16,8 @@ Preserve contradictions and uncertainty; do not replace missing research with gu
 
 Parse `$ARGUMENTS`: flags first, remaining text is the required research subject.
 
-  Default: standalone parallel sub-agents. Cursor and Codex lack team tools.
+Default: standalone parallel sub-agents.
+
 - `--output-dir "..."`: output directory; default `research/[sanitized-subject]`.
 - `--dry-run`: display the plan without running checks, creating files, or dispatching.
 
@@ -35,7 +36,8 @@ Display the subject, output path, four phases (8 personas, 2 crucible agents,
 4 strategic agents, report synthesis), and this artifact tree: `objective.md`,
 `persona-findings/{historian,contrarian,analogist,systems-thinker,journalist,archaeologist,futurist,negative-space}.md`,
 `synthesis/{crucible-analysis,contradiction-mapping,tension-mapping,pattern-recognition,negative-space,innovation}.md`,
-Batch 2 blocked by all Batch 1 tasks; Batch 3 blocked by both Batch 2 tasks.
+`evidence/verification-log.md`, `report.md`.
+**STOP**: do not run prerequisite scripts, dispatch agents, create directories, or write artifacts.
 
 ### Infrastructure and objective (not dry run)
 
@@ -78,26 +80,11 @@ persona agent reads its own file. The table gives exact paths and read condition
 
 See `~/.config/opencode/shared/references/standalone-dispatch.md` for the
 standalone-dispatch contract (Task vs Agent+team, anti-patterns, backstop policy).
-Spawn each batch in one message; Every call uses only native OpenCode arguments. Each agent writes its
-If a child report is empty or contentless, record its `sessionID`, inspect the declared artifact or working-tree edits, preserve valid work, and make at most one retry before reporting the child result incomplete. An artifact can preserve work but does not prove a child response. Follow `~/.config/opencode/shared/references/standalone-dispatch.md`.
-If a child report is empty or contentless, record its `sessionID`, inspect the declared artifact or working-tree edits, preserve valid work, and make at most one retry before reporting the child result incomplete. An artifact can preserve work but does not prove a child response. Follow `~/.config/opencode/shared/references/standalone-dispatch.md`.
-Use no the todo tracker or re-dispatch the affected sub-agent with the needed guidance in standalone mode.
-
-### Team opt-in
-
-
-1. Sanitize subject for team name: lowercase; replace `[^a-z0-9-]` with `-`;
-   collapse hyphens, trim edges, truncate to 20 characters; fallback `untitled`.
-   On failure, abort; no silent fallback.
-3. track the task all 14 roster tasks up front, using sub-agent name as subject prefix.
-   Capture real task IDs. update the todo tracker both Batch 2 tasks with all eight Batch 1 IDs
-   in `addBlockedBy`; each Batch 3 task gets both Batch 2 IDs. On registration
-4. Spawn each batch in one message with multiple Agent calls. Every call carries
-5. Confirm that batch's tasks are `completed` via the todo tracker before consuming outputs.
-   Send `shutdown_request` via re-dispatch the affected sub-agent with the needed guidance to every sub-agent in that batch before
-   advancing. Keep the team through Phases 1–3.
-
-Failure policy: record a single failure as a gap in its artifact and adapt later
+Spawn each batch in one message. Each agent writes its declared artifact. When a
+result comes back empty or cut short, re-read the matching artifact from disk and
+treat it as authoritative before declaring that dispatch failed.
+Record a single failure as a gap in its artifact; adapt later phases. If at least
+half a batch fails, abort and report the gaps instead of fabricating results.
 
 ## Phase 1: Asymmetric Persona Deployment (Batch 1)
 
@@ -115,7 +102,9 @@ All eight use `research-specialist`. Output paths are relative to `$OUTPUT_DIR`.
 | Negative Space Explorer | `negative-space-explorer` | `references/persona-negative-space.md` | `persona-findings/negative-space.md`  |
 
 **CRITICAL**: Deploy all 8 persona agents in a **SINGLE message** with **MULTIPLE native `subagent` calls**. Every call sets `background=false`, uses the configured agent model, and follows the shared result policy below.
-file path, not its text. Each prompt follows this shape, with concrete values:
+
+Even for a small topic, pass each resolved absolute persona file path, not its text.
+Each prompt follows this shape, with concrete values:
 
 ```text
 Read <absolute plugin root>/skills/deep-research/references/persona-<name>.md first.
@@ -128,11 +117,16 @@ Write <absolute output file> and return findings. User constraints: <constraints
 
 Require 8–10 diverse queries per persona; brief findings do not mean skipping
 personas. Track completion of each persona and its artifact. Wait for all eight
+(or explicit failure records) before Phase 2.
+
 
 ## Phase 2: The Crucible (Batch 2)
 
-Read all eight persona artifacts and objective. **CRITICAL**: Deploy both analysis agents in a **SINGLE message** with **MULTIPLE native `subagent` calls**. Every call sets `background=false`, uses the configured agent model, and follows the shared result policy below.
-passing `references/analysis-prompts.md` resolved path and the named mandate,
+Read all eight persona artifacts and objective.
+
+**CRITICAL**: Deploy both analysis agents in a **SINGLE message** with **MULTIPLE native `subagent` calls**. Every call sets `background=false`, uses the configured agent model, and follows the shared result policy below.
+
+Pass the `references/analysis-prompts.md` resolved path and the named mandate,
 subject, output directory, and input artifact paths. Agents read their own section.
 
 | Agent / sub-agent name                         | Subagent type               | Output                               |
@@ -145,10 +139,14 @@ Contradiction Mapper: preserve disagreements, assess sources, identify patterns.
 After completion, triangulate critical claims: fetch primary sources, document
 confirmations, partial confirmations, confidence, competing evidence, and unresolved
 contradictions in `$OUTPUT_DIR/evidence/verification-log.md`. Claims repeated by
+multiple personas still need verification, not a vote.
+
 
 ## Phase 3: Emergent Insights (Batch 3)
 
 **CRITICAL**: Deploy all 4 strategic analysis agents in a **SINGLE message** with **MULTIPLE native `subagent` calls**. Every call sets `background=false`, uses the configured agent model, and follows the shared result policy below.
+
+Give each the resolved `references/analysis-prompts.md`
 path, named mandate, objective, all persona findings, both crucible outputs, and
 verification log. Require the following artifacts:
 
@@ -160,6 +158,8 @@ verification log. Require the following artifacts:
 | Innovation Agent / `innovation-agent`             | `general-purpose`           | `synthesis/innovation.md`          |
 
 Keep `negative-space-analyst` distinct from Phase 1's `negative-space-explorer`.
+Consume all four results (or gap records).
+
 
 ## Phase 4: Strategic Synthesis (Orchestrator Only)
 
@@ -238,3 +238,5 @@ outweighing evidence: fetch primary sources. Shallow research: inspect query log
 Missing contradictions: seek disconfirming evidence rather than smoothing tensions.
 Summary-only report: reread artifacts and synthesize insights. Missing gaps: revisit
 both negative-space roles. Never silently invent evidence to fill a failed artifact.
+
+If a child report is empty or contentless, record its `sessionID`, inspect the declared artifact or working-tree edits, preserve valid work, and make at most one retry before reporting the child result incomplete. An artifact can preserve work but does not prove a child response. Follow `~/.config/opencode/shared/references/standalone-dispatch.md`.
