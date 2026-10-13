@@ -54,6 +54,20 @@ for f in .codex/rules/default.rules .codex/CLAUDE.md .codex/AGENTS.md; do
 done
 
 
+echo "== install.sh install: codex base mirrors custom agents =="
+
+home="$(new_home)"
+out="$(run_install "${home}" install --target codex --only base --skills-home native)"
+first_agent="$(find "${REPO_ROOT}/.codex-plugin/agents" -maxdepth 1 -name '*.toml' -printf '%f\n' | sort | head -n 1)"
+if [[ -n "${first_agent}" && -f "${home}/.codex/agents/${first_agent}" ]]; then ok "codex native base install populates ~/.codex/agents"; else ko "codex native base install populates ~/.codex/agents" "${out}"; fi
+if [[ "$(find "${home}/.codex/agents" -maxdepth 1 -name '*.toml' 2>/dev/null | wc -l)" -eq "$(find "${REPO_ROOT}/.codex-plugin/agents" -maxdepth 1 -name '*.toml' | wc -l)" ]]; then ok "codex native base install mirrors every custom agent"; else ko "codex native base install mirrors every custom agent"; fi
+assert_contains "${out}" "Sync custom agents" "codex native base install runs the agents sync step"
+assert_contains "${out}" "(skills agents plugin)" "codex native base install runs the agents generator pass"
+last_step="$(grep -oE '\[[0-9]+/[0-9]+\]' <<< "${out}" | tail -n 1)"
+if [[ "${last_step}" == "[6/6]" ]]; then ok "codex native base install numbers its steps to the total"; else ko "codex native base install numbers its steps to the total" "last step: ${last_step}"; fi
+
+echo
+
 echo "== install.sh remove: codex base =="
 
 home="$(new_home)"

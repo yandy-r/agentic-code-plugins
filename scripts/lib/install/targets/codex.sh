@@ -211,6 +211,11 @@ sync_codex_target() {
         slices=(agents)
         do_plugin=0
     fi
+    # Local base mirrors the custom agents, unless the agents slice already
+    # installs them (explicit --only agents, or the consolidated branch above).
+    if [[ $do_plugin -eq 1 && "${MODE:-local}" == "local" && " ${slices[*]} " != *" agents "* ]]; then
+        do_agents=1
+    fi
     step_enabled settings && do_settings=1
     step_enabled rules && do_rules=1
     step_enabled mcp && do_mcp=1
