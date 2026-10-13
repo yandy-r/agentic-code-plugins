@@ -1,6 +1,7 @@
 ---
 name: code-report
 description: Generate structured implementation reports documenting changes made during plan execution. Use as optional Step 4 after implement-plan to create reports in docs/plans/[feature-name]/report.md with overview, files changed, features, and test guidance.
+argument-hint: '[feature-name] [--dry-run]'
 ---
 
 # Code Report Generator

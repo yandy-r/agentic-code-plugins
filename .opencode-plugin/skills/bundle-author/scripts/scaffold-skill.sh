@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 # scaffold-skill.sh — Scaffold a new skill in .opencode-plugin/skills/<skill-name>/.
 #
-# Default: also creates the matching command at .opencode-plugin/commands/<skill-name>.md
-# because every skill pairs with a slash command unless explicitly opted out.
-# Pass --skill-only to suppress the command AND stamp `command: false` into
-# the skill's frontmatter (required so validate-ycc-commands.sh stays green).
+# Skills are directly slash-invocable by default. --skill-only marks passive
+# guidance with user-invocable: false. No wrapper commands are created.
 #
 # Usage: scaffold-skill.sh <skill-name> [--skill-only] [--with-agent]
 #
@@ -18,23 +16,21 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
 
 SKILL_NAME=""
-WITH_COMMAND=1
+SKILL_ONLY=0
 WITH_AGENT=0
 
 usage() {
     cat <<EOF
 Usage: scaffold-skill.sh <skill-name> [--skill-only] [--with-agent]
 
-Scaffold a new skill in .opencode-plugin/skills/<skill-name>/. By default also creates
-the matching command under .opencode-plugin/commands/<skill-name>.md. Optionally
-creates an agent under .opencode-plugin/agents/<skill-name>.md.
+Scaffold a directly invocable skill in .opencode-plugin/skills/<skill-name>/. Optionally
+create an agent under .opencode-plugin/agents/<skill-name>.md.
 Templates are read from .opencode-plugin/skills/bundle-author/references/templates/.
 
 Options:
-  --skill-only     Do NOT create .opencode-plugin/commands/<skill-name>.md and stamp
-                   'command: false' into the skill frontmatter. Use only
-                   when the skill is never directly slash-invokable
-                   (e.g., passive behavioral guidelines).
+  --skill-only     Stamp 'user-invocable: false' into the skill frontmatter.
+                   Use only for passive guidance hidden from the slash menu.
+  --with-command   Legacy no-op; skills are directly invocable by default
   --with-agent     Also create .opencode-plugin/agents/<skill-name>.md
   -h, --help       Show this help
 EOF
@@ -43,12 +39,11 @@ EOF
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --skill-only)
-            WITH_COMMAND=0
+            SKILL_ONLY=1
             shift
             ;;
         --with-command)
-            # Accepted for backward compatibility; command is now the default.
-            WITH_COMMAND=1
+            # Legacy no-op; never overrides --skill-only.
             shift
             ;;
         --with-agent)
@@ -96,13 +91,6 @@ fi
     exit 1
 }
 
-if [[ "${WITH_COMMAND}" -eq 1 ]]; then
-    [[ -e "${REPO_ROOT}/.opencode-plugin/commands/${SKILL_NAME}.md" ]] && {
-        echo "scaffold-skill.sh: refuse: .opencode-plugin/commands/${SKILL_NAME}.md already exists" >&2
-        exit 1
-    }
-fi
-
 if [[ "${WITH_AGENT}" -eq 1 ]]; then
     [[ -e "${REPO_ROOT}/.opencode-plugin/agents/${SKILL_NAME}.md" ]] && {
         echo "scaffold-skill.sh: refuse: .opencode-plugin/agents/${SKILL_NAME}.md already exists" >&2
@@ -120,27 +108,26 @@ TEMPLATES_DIR="${REPO_ROOT}/.opencode-plugin/skills/bundle-author/references/tem
 # Default description placeholder
 DESC="TODO: one-line description for ${SKILL_NAME}"
 
-# Skill-only mode stamps `command: false` into the frontmatter so
-# validate-ycc-commands.sh recognizes the missing command as intentional.
-if [[ "${WITH_COMMAND}" -eq 0 ]]; then
-    COMMAND_OPT_OUT="command: false"$'\n'
+# Passive skills stay available to the model, but not the slash menu.
+if [[ "${SKILL_ONLY}" -eq 1 ]]; then
+    INVOCATION_OPT_OUT="user-invocable: false"$'\n'
 else
-    COMMAND_OPT_OUT=""
+    INVOCATION_OPT_OUT=""
 fi
 
-# Helper: render a template with NAME, DESCRIPTION, and COMMAND_OPT_OUT substitutions.
-# COMMAND_OPT_OUT is a multi-line-capable value, so use a Python helper rather than sed.
+# Helper: render a template with NAME, DESCRIPTION, and INVOCATION_OPT_OUT substitutions.
+# INVOCATION_OPT_OUT is a multi-line-capable value, so use a Python helper rather than sed.
 render() {
     local src="$1"
     local dst="$2"
     local name="$3"
     local desc="$4"
     local opt_out="${5:-}"
-    NAME="$name" DESCRIPTION="$desc" COMMAND_OPT_OUT="$opt_out" \
+    NAME="$name" DESCRIPTION="$desc" INVOCATION_OPT_OUT="$opt_out" \
         python3 -c '
 import os, sys
 text = open(sys.argv[1], encoding="utf-8").read()
-for key in ("NAME", "DESCRIPTION", "COMMAND_OPT_OUT"):
+for key in ("NAME", "DESCRIPTION", "INVOCATION_OPT_OUT"):
     text = text.replace("{{" + key + "}}", os.environ.get(key, ""))
 open(sys.argv[2], "w", encoding="utf-8").write(text)
 ' "$src" "$dst"
@@ -153,18 +140,8 @@ render \
     "${REPO_ROOT}/.opencode-plugin/skills/${SKILL_NAME}/SKILL.md" \
     "${SKILL_NAME}" \
     "${DESC}" \
-    "${COMMAND_OPT_OUT}"
+    "${INVOCATION_OPT_OUT}"
 echo "${REPO_ROOT}/.opencode-plugin/skills/${SKILL_NAME}/SKILL.md"
-
-# Optionally render command stub (default; suppressed by --skill-only)
-if [[ "${WITH_COMMAND}" -eq 1 ]]; then
-    render \
-        "${TEMPLATES_DIR}/command-template.md" \
-        "${REPO_ROOT}/.opencode-plugin/commands/${SKILL_NAME}.md" \
-        "${SKILL_NAME}" \
-        "${DESC}"
-    echo "${REPO_ROOT}/.opencode-plugin/commands/${SKILL_NAME}.md"
-fi
 
 # Optionally render agent stub
 if [[ "${WITH_AGENT}" -eq 1 ]]; then

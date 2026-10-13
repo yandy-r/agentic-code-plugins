@@ -7,8 +7,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from generate_opencode_commands import transform_command
-from generate_opencode_common import load_agent_aliases, load_model_aliases
+from generate_opencode_commands import discover_skills, transform_command
+from generate_opencode_common import SRC_SKILLS_DIR, load_agent_aliases, load_model_aliases
 from generate_opencode_dispatch import (
     project_opencode_dispatch,
     project_opencode_dispatch_description,
@@ -33,7 +33,7 @@ class OpenCodeDispatchProjectionTestCase(unittest.TestCase):
 
         for command in commands:
             with self.subTest(command=command):
-                source_path = REPO_ROOT / "ycc" / "commands" / f"{command}.md"
+                source_path = REPO_ROOT / "ycc" / "skills" / command / "SKILL.md"
                 rendered = transform_command(
                     command,
                     source_path.read_text(encoding="utf-8"),
@@ -290,6 +290,35 @@ Accept the choice → **Path A**, **Path B**, or **Path C**.
                 find_dispatch_residue(path.read_text(encoding="utf-8"), str(path)),
                 [],
             )
+
+    def test_generated_commands_are_skill_dispatches(self) -> None:
+        aliases = load_agent_aliases()
+        model_aliases = load_model_aliases()
+        rendered = transform_command(
+            "clean",
+            (REPO_ROOT / "ycc" / "skills" / "clean" / "SKILL.md").read_text(encoding="utf-8"),
+            aliases,
+            model_aliases,
+        )
+        self.assertIn("$ARGUMENTS", rendered)
+        self.assertIn("clean", rendered)
+        self.assertNotIn("Task(", rendered)
+        self.assertNotIn("subagent_type", rendered)
+
+    def test_command_discovery_skips_private_skills(self) -> None:
+        stems = [path.parent.name for path in discover_skills(SRC_SKILLS_DIR)]
+        self.assertNotIn("_shared", stems)
+
+    def test_command_description_keeps_argument_hint(self) -> None:
+        aliases = load_agent_aliases()
+        model_aliases = load_model_aliases()
+        rendered = transform_command(
+            "clean",
+            (REPO_ROOT / "ycc" / "skills" / "clean" / "SKILL.md").read_text(encoding="utf-8"),
+            aliases,
+            model_aliases,
+        )
+        self.assertNotIn("usage: none", rendered.lower())
 
 
 if __name__ == "__main__":

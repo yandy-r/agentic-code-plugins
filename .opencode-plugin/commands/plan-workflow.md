@@ -1,35 +1,11 @@
 ---
-description: 'Unified planning workflow — research, analyze, and generate parallel
+description: 'Unified planning workflow - research, analyze, and generate parallel
   implementation plans in one command. Combines shared-context and parallel-plan with
-  checkpoint support. Defaults to standalone parallel sub-agents via the native `subagent`
+  checkpoint support. Default is standalone parallel sub-agents via the native `subagent`
   tool. Usage: [--research-only] [--plan-only] [--no-checkpoint] [--optimized] [--dry-run]
   [--no-worktree] [--visual] [feature-name]'
 ---
 
-# Plan Workflow Command
+Use the skill tool to load the `plan-workflow` skill, then follow its instructions with these arguments:
 
-> **OpenCode V2 compatibility:** `--team` is unsupported. If it is supplied, abort before setup or dispatch and ask the caller to rerun without it. This target uses native standalone `subagent` calls only.
-
-Run the unified planning pipeline for the specified feature.
-
-**Load and follow the `plan-workflow` skill**, passing through `$ARGUMENTS`.
-
-The skill orchestrates research → shared-context → parallel-plan in a single coordinated flow.
-
-**Flags** (pass before the feature name):
-
-- `--research-only` — Stop after research phase (creates `shared.md` only).
-- `--plan-only` — Skip research, use existing `shared.md`.
-- `--no-checkpoint` — No pause between research and planning.
-- `--optimized` — Use 7-agent optimized deployment (default: 10-agent standard).
-- `--worktree` — (legacy — now default; pass `--no-worktree` to opt out) Worktree annotations are emitted by default. This flag is accepted as a silent no-op so existing pipelines continue to work.
-- `--no-worktree` — Opt out of worktree annotations in the generated `parallel-plan.md`. No effect with `--research-only`. Honored with `--plan-only`. See `.opencode-plugin/skills/_shared/references/worktree-strategy.md`.
-- `--visual` — Render the finished plan as an Agent-Native visual artifact (MDX) via `visual-plan`; local-files by default, hosted link requires `--share`. Terminal decorator — runs after the plan is written and validated; `--dry-run` short-circuits it. See `.opencode-plugin/skills/_shared/references/visual-mode.md`.
-
-**Examples**:
-
-```
-/plan-workflow add a billing dashboard                       # worktree annotations included by default
-/plan-workflow --no-worktree add a billing dashboard         # skip worktree annotations
-/plan-workflow --visual add a billing dashboard              # render the finished plan as a visual artifact
-```
+$ARGUMENTS

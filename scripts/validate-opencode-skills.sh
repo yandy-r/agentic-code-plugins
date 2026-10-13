@@ -13,6 +13,9 @@ python3 "${REPO_ROOT}/scripts/generate_opencode_skills.py" --check
 echo "== Native V2 dispatch projection regressions =="
 python3 "${REPO_ROOT}/scripts/test_generate_opencode_dispatch.py"
 
+echo "== Skill-derived command regressions =="
+python3 "${REPO_ROOT}/scripts/test_generate_opencode_commands.py"
+
 echo "== Frontmatter lint =="
 python3 - <<'PY' "${SKILLS_DIR}"
 import re

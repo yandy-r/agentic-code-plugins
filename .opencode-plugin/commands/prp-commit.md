@@ -1,25 +1,13 @@
 ---
-description: 'Quick natural-language git commit helper — describe what to commit in
-  plain English (blob glob, filter phrase, or topic). Lightweight sibling of /git-workflow.
-  Usage: [target description] (blank = all changes)'
+description: 'Lightweight natural-language git commit helper. Interprets the argument
+  as either a glob, a filter phrase ("except tests", "only new files"), a topic phrase
+  ("the auth changes"), or leaves staging alone if the user says "staged". Stages
+  the matching files and generates a conventional commit message. Use for quick single-purpose
+  commits; use /git-workflow instead when you need documentation updates, parallel
+  agents, or full PR orchestration. Adapted from PRPs-agentic-eng by Wirasm. Usage:
+  [target description] (blank = all changes)'
 ---
 
-# PRP Commit Command
+Use the skill tool to load the `prp-commit` skill, then follow its instructions with these arguments:
 
-Stage and commit changes with a natural-language target.
-
-**Load and follow the `prp-commit` skill, passing through `$ARGUMENTS`.**
-
-For full commit + documentation + agent orchestration, use `/git-workflow` instead.
-
-```
-Usage: /prp-commit [target description]
-
-Examples:
-  /prp-commit                              # stage all, auto message
-  /prp-commit staged                       # commit what is already staged
-  /prp-commit *.ts                         # only TypeScript files
-  /prp-commit except tests                 # everything except test files
-  /prp-commit the auth changes             # natural-language filter
-  /prp-commit only new files               # untracked only
-```
+$ARGUMENTS

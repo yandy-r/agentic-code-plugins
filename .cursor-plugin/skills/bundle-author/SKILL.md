@@ -1,6 +1,6 @@
 ---
 name: bundle-author
-description: Maintainer-only (ycc repo) — This skill should be used when the user asks to "scaffold a new ycc skill", "add a skill to the bundle", "extend ycc", "create a new command under ycc", "add an agent to ycc", or when the user wants to author new source-of-truth content in the ycc/ bundle (skills, commands, agents). Contributor workflow — not a generic plugin scaffolder. Respects the source-of-truth / regenerated-bundle split.
+description: Maintainer-only (ycc repo) — This skill should be used when the user asks to "scaffold a new ycc skill", "add a skill to the bundle", "extend ycc", "add an agent to ycc", or when the user wants to author new source-of-truth content in the ycc/ bundle (skills, agents). Contributor workflow — not a generic plugin scaffolder. Respects the source-of-truth / regenerated-bundle split.
 argument-hint: '<skill-name> [--skill-only] [--with-agent] [--dry-run]'
 allowed-tools:
   - Read
@@ -16,9 +16,9 @@ allowed-tools:
 
 # ycc Bundle Author
 
-This skill scaffolds new source-of-truth surfaces under `ycc/` — skills, and optionally
-matching commands and agents. It is a contributor workflow scoped strictly to this repo's
-`ycc/` tree. It writes nothing under `.cursor-plugin/` or `.codex-plugin/` (those are
+This skill scaffolds new source-of-truth surfaces under `ycc/` — skills and optional
+agents. Skills themselves provide slash invocation. It is a contributor workflow scoped
+strictly to this repo's `ycc/` tree. It writes nothing under `.cursor-plugin/` or `.codex-plugin/` (those are
 regenerated), and it emits the exact follow-up commands needed to sync the derived
 bundles after scaffolding completes.
 
@@ -28,16 +28,14 @@ Parse `$ARGUMENTS`:
 
 - **skill-name** (required, first positional) — kebab-case identifier, no leading or
   trailing hyphens.
-- **--skill-only** — suppress the matching command and stamp `command: false` into
-  the skill frontmatter. Use only for passive skills that are never slash-invoked
-  (e.g., passive coding guidance loaded when relevant). Without this flag, the scaffolder
-  **always** creates the paired command because every normal skill pairs with a
-  slash command under the `validate-ycc-commands.sh` policy.
+- **--skill-only** — stamp `user-invocable: false` into skill frontmatter for
+  passive guidance that should not appear in the slash menu. Model invocation
+  remains available. Otherwise the skill is user-invocable as a native slash command.
 - **--with-agent** — also scaffold `ycc/agents/<skill-name>.md`.
 - **--dry-run** — preview only; writes nothing.
 
-The older `--with-command` flag is still accepted (it's now the default) but
-prefer omitting it.
+The older `--with-command` flag is accepted as a legacy no-op. It never creates
+a wrapper or overrides `--skill-only`.
 
 ## Phase 0: Guards
 
@@ -48,11 +46,10 @@ with a clear, specific message.
    uppercase letters, leading/trailing hyphens, or consecutive hyphens.
 2. None of the target paths already exist:
    - `ycc/skills/<skill-name>/`
-   - Unless `--skill-only`: `ycc/commands/<skill-name>.md`
    - If `--with-agent`: `ycc/agents/<skill-name>.md`
      Use `test -e` for each path and abort if any returns true.
-3. Name does not collide with an existing skill, command, or agent. Use `ls` on
-   `ycc/skills/`, `ycc/commands/`, and `ycc/agents/` to confirm.
+3. Name does not collide with an existing skill or agent. Use `ls` on
+   `ycc/skills/` and `ycc/agents/` to confirm.
 4. Re-read `${CURSOR_PLUGIN_ROOT}/skills/bundle-author/references/when-not-to-scaffold.md`
    and check whether any anti-pattern applies to the user's request. If a match is
    detected, surface it explicitly and ask whether to proceed before continuing.
@@ -62,10 +59,9 @@ with a clear, specific message.
 Read `${CURSOR_PLUGIN_ROOT}/skills/bundle-author/references/surface-map.md`. Present the
 user with the full list of files that will be created:
 
-- `ycc/skills/<skill-name>/SKILL.md` (with `command: false` stamped in the
+- `ycc/skills/<skill-name>/SKILL.md` (with `user-invocable: false` stamped in the
   frontmatter when `--skill-only` is set)
 - `ycc/skills/<skill-name>/references/` (directory, no files created by default)
-- Unless `--skill-only`: `ycc/commands/<skill-name>.md` (default behavior)
 - If `--with-agent`: `ycc/agents/<skill-name>.md`
 
 Note that `scripts/` subdirectories are not created by default. If the skill will need
@@ -95,18 +91,15 @@ the failure.
 ## Phase 4: Post-scaffold steps
 
 Always emit the following block to the user after a successful scaffold, substituting
-`<skill-name>` with the actual name. Omit lines 2 and 3 when the corresponding
-flags changed the scaffolded surface.
+`<skill-name>` with the actual name. Omit line 2 unless `--with-agent` was passed.
 
 ```
 Next steps:
 1. Edit ycc/skills/<skill-name>/SKILL.md to replace TODOs.
-2. Unless --skill-only: edit ycc/commands/<skill-name>.md to add flag docs,
-   usage examples, and any sibling-command cross-references.
-3. If --with-agent: edit ycc/agents/<skill-name>.md.
-4. If you added scripts under ycc/skills/<skill-name>/scripts/: chmod +x them.
-5. Regenerate derived bundles: ./scripts/sync.sh
-6. Validate: ./scripts/validate.sh
+2. If --with-agent: edit ycc/agents/<skill-name>.md.
+3. If you added scripts under ycc/skills/<skill-name>/scripts/: chmod +x them.
+4. Regenerate derived bundles: ./scripts/sync.sh
+5. Validate: ./scripts/validate.sh
 ```
 
 ## Important Notes

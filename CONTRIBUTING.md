@@ -58,7 +58,7 @@ default and creates worktrees under `<repo>/.claude/worktrees/` (the path the po
 
 This repo ships the `ycc` Claude Code plugin — dev-focused workflows under `ycc/`,
 cross-generated to Cursor, Codex, and opencode. New functionality goes into `ycc/`
-as a new skill, command, or agent. **New top-level plugins in this repo require
+as a new skill or agent. **New top-level plugins in this repo require
 PRD approval** — see Scope & Guardrails below for the decision gate.
 
 > **Related**: the consulting / systems-integration toolkit (`yci`) lives in the
@@ -69,7 +69,7 @@ PRD approval** — see Scope & Guardrails below for the decision gate.
 ## Scope & Guardrails
 
 New bundle additions are evaluated against written policy, not memory. These rules come from
-`research/plugin-additions/report.md` and apply to every proposal for a new skill, command,
+`research/plugin-additions/report.md` and apply to every proposal for a new skill
 or agent.
 
 - **Do not add another wave of narrow expert skills.** The bundle already ships broad
@@ -93,12 +93,12 @@ or agent.
 
 ### Proposing New Capabilities
 
-Before opening a PR for a new skill, command, or agent, answer each question below. If any
+Before opening a PR for a new skill or agent, answer each question below. If any
 answer points elsewhere, revise the proposal before writing code.
 
 - Could this extend an existing skill (a new phase, flag, or reference file) instead of
   becoming a new one?
-- Does this belong in `ycc`? If yes, add it under `ycc/skills/`, `ycc/commands/`, or `ycc/agents/`.
+- Does this belong in `ycc`? If yes, add it under `ycc/skills/` or `ycc/agents/`.
 - Does this belong in a sibling repo (e.g., consulting/SI scope → `claude-infra-plugins`)?
   If yes, PR it there.
 - Would this require a NEW top-level plugin and a new `marketplace.json` entry in this
@@ -136,48 +136,39 @@ stay for single-plugin parity rather than because scripts import them.
 ## Naming Conventions
 
 - Directories and files: `kebab-case`
-- Skills match their slash command name (e.g., skill `git-workflow` -> `/git-workflow`)
+- Public skills are slash-invocable by skill name (e.g., skill `git-workflow` -> `/ycc:git-workflow`)
 
-## Skills and Commands: When to Pair
+## Skills and Slash Commands
 
-Every skill under `ycc/skills/<name>/SKILL.md` ships with a matching
-`ycc/commands/<name>.md` **unless** the skill's frontmatter declares
-`command: false`. The pairing is enforced by
-`scripts/validate-ycc-commands.sh` (wired into `./scripts/validate.sh`).
+Public skills under `ycc/skills/<name>/SKILL.md` are native Claude slash invocations
+(`/ycc:<name>`). Skill frontmatter controls visibility and invocation:
 
-The two artifacts play **different roles** — they are not duplicates, and
-generating one from the other would destroy UX content:
+- `user-invocable: false` hides passive guidance from the slash menu. Use it for
+  skills the model reads when relevant, never typed by users.
+- `disable-model-invocation`, `argument-hint`, and `allowed-tools` are native
+  skill frontmatter keys. Set them on the skill itself.
+- Wrapper files under `ycc/commands/` are retired. Do not add new ones. The
+  `command` key and the `command: false` opt-out no longer exist.
 
-| Artifact    | Description surface                                           | Body content                                                                                                                                          |
-| ----------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Skill**   | Auto-trigger matcher (verbose, keyword-dense, scenario-based) | Workflow phases, reference reads, tool invocations.                                                                                                   |
-| **Command** | Slash-menu label (concise, flag-aware)                        | Flag documentation tables, usage examples, sibling-command cross-references, agent-type pinning, `$ARGUMENTS` handling, slash-scoped `allowed-tools`. |
-
-**When to opt out with `command: false`**: the skill is passive guidance that
-is never directly slash-invoked — coding guidance the model reads when relevant
-work triggers it, rather than via `/ycc:<name>`.
-
-**When NOT to opt out**: if a user might ever type `/ycc:<name>` to run the
-skill deterministically, keep the command — even a minimal one. Argument
-hints, `allowed-tools` tuned for slash-invocation, and the distinct menu
-description are all command-only affordances.
-
-The `bundle-author` skill scaffolds both artifacts by default. Pass
-`--skill-only` to suppress the command and stamp `command: false` into the
-skill frontmatter in one step.
+`scripts/validate-ycc-skills.sh` (wired into `./scripts/validate.sh`) enforces this:
+it checks frontmatter, boolean keys, the absence of a legacy `command` key, and that
+`ycc/commands/` does not exist. The `bundle-author` skill scaffolds a skill with
+`user-invocable: false` when you pass `--skill-only`.
 
 ### Cross-target implications
 
-Commands matter for **Claude Code** (native `/ycc:<name>` slash invocation +
-argument hints) and **opencode** (first-class slash commands generated from
-`ycc/commands/`). Cursor and Codex ignore commands entirely (Cursor folds
+Claude Code invokes public skills directly. opencode still gets native slash commands:
+`scripts/generate_opencode_commands.py` emits one thin command per public skill into
+`.opencode-plugin/commands/`, sourced from that skill's `SKILL.md` frontmatter. Each
+command loads the skill through the opencode `skill` tool and forwards `$ARGUMENTS`.
+This exists only so commands-only installs keep working; it does not make slash
+commands a general feature. Cursor and Codex do not consume commands (Cursor folds
 guidance into rule files; Codex has no command layer). See
-`ycc/skills/_shared/references/target-capability-matrix.md` for the full
-matrix.
+`ycc/skills/_shared/references/target-capability-matrix.md` for the full matrix.
 
 ## Regeneration
 
-After changing `ycc/skills/`, `ycc/agents/`, or `ycc/commands/`, regenerate and validate
+After changing `ycc/skills/` or `ycc/agents/`, regenerate and validate
 the compatibility bundles.
 
 ### Adding, Renaming, or Removing Agents

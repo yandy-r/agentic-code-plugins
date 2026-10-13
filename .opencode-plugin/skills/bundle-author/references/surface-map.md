@@ -1,6 +1,6 @@
 # Surface Map
 
-Reference for every source-of-truth location a new skill, command, or agent occupies in
+Reference for every source-of-truth location a new skill or agent occupies in
 the `ycc/` tree. Use this when scaffolding to know exactly what to create and where.
 
 ---
@@ -13,14 +13,14 @@ the `ycc/` tree. Use this when scaffolding to know exactly what to create and wh
 | -------------------- | ------------------------------------------------------------------------------ |
 | Path                 | `.opencode-plugin/skills/<kebab-name>/SKILL.md`                                             |
 | Required frontmatter | `name`, `description`                                                          |
-| Optional frontmatter | `argument-hint`, `allowed-tools`, `disable-model-invocation`, `command: false` |
+| Optional frontmatter | `argument-hint`, `allowed-tools`, `disable-model-invocation`, `user-invocable` |
 | Subdirs              | `references/` (static content), `scripts/` (bash helpers)                      |
 
-Set `command: false` only when the skill should NOT have a matching slash
-command under `.opencode-plugin/commands/` — typically because it's a passive behavioral
-ruleset that's never invoked directly. The pairing validator
-(`scripts/validate-ycc-commands.sh`) enforces this as an explicit opt-out: a
-skill without `command: false` MUST have a matching command.
+Skills are user-invocable as native slash commands by default.
+Set `user-invocable: false` for passive guidance that should not appear in the
+slash menu. Set `disable-model-invocation: true` for explicitly user-triggered
+workflows. Both fields must be booleans. `scripts/validate-ycc-skills.sh`
+validates frontmatter and rejects the retired `.opencode-plugin/commands/` directory.
 
 The `description` field is the trigger surface for opencode — include plain-language
 phrasing that describes when the skill should activate.
@@ -36,49 +36,17 @@ The skill body is freeform markdown organized into phases.
 
 ---
 
-### Command
-
-| Field                | Value                                             |
-| -------------------- | ------------------------------------------------- |
-| Path                 | `.opencode-plugin/commands/<kebab-name>.md`                    |
-| Required frontmatter | `description`                                     |
-| Optional frontmatter | `argument-hint`, `allowed-tools`                  |
-| Invocation           | Matching slash command (same kebab-case basename) |
-
-Every command has a matching skill (same kebab-case name). The relationship is:
-
-- **Skill** = workflow instructions + auto-trigger description (verbose,
-  keyword-dense, scenario-based — tuned for the model to auto-match).
-- **Command** = slash-menu surface + UI affordances that don't belong in the
-  skill (flag documentation tables, usage examples, sibling-command
-  cross-references, agent-type pinning, `$ARGUMENTS` injection, slash-scoped
-  `allowed-tools`).
-
-They are expected to differ. The command body dispatches to the skill and layers
-on slash-specific UX; logic belongs in the skill.
-
-Minimal body (scaffolded by `bundle-author`):
-
-```
-Invoke the **<kebab-name>** skill with `$ARGUMENTS` passed through.
-```
-
-Many commands grow beyond the minimal form — see `.opencode-plugin/commands/plan.md` for an
-example with flag tables, cross-refs, or agent pinning.
-
----
-
 ### Agent
 
-| Field                | Value                                             |
-| -------------------- | ------------------------------------------------- |
-| Path                 | `.opencode-plugin/agents/<kebab-name>.md`                      |
-| Required frontmatter | `name`, `description`                             |
-| Optional frontmatter | `tools`, `model`                                  |
-| Invocation           | Invoked by skills and commands via the native `subagent` tool |
+| Field                | Value                                |
+| -------------------- | ------------------------------------ |
+| Path                 | `.opencode-plugin/agents/<kebab-name>.md`         |
+| Required frontmatter | `name`, `description`                |
+| Optional frontmatter | `tools`, `model`                     |
+| Invocation           | Invoked by skills via the native `subagent` tool |
 
-The agent body is the system prompt. Agents are invoked by skills or commands, not
-directly by users. Always ensure a skill or command will consume the agent before
+The agent body is the system prompt. Agents are invoked by skills, not
+directly by users. Always ensure a skill will consume the agent before
 adding it.
 
 ---
@@ -137,18 +105,16 @@ ycc/
 │   ├── _shared/
 │   │   └── scripts/        ← shared bash helpers
 │   └── <kebab-name>/
-│       ├── SKILL.md         ← required (add `command: false` for skill-only)
+│       ├── SKILL.md         ← required (add `user-invocable: false` for passive guidance)
 │       ├── references/      ← static reference docs
 │       └── scripts/         ← skill-scoped bash helpers
-├── commands/
-│   └── <kebab-name>.md      ← slash-command UX layer for the skill
 └── agents/
     └── <kebab-name>.md      ← agent system prompt
 ```
 
-Pairing policy: every skill under `skills/<kebab-name>/` has a matching
-`commands/<kebab-name>.md` UNLESS the skill declares `command: false`.
-Enforced by `scripts/validate-ycc-commands.sh`.
+Invocation policy: workflow, arguments, examples, and tool permissions live in
+`SKILL.md`; no wrapper command is created. Enforced by
+`scripts/validate-ycc-skills.sh`.
 
 ---
 

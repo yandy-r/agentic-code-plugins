@@ -314,10 +314,16 @@ sync_claude_target() {
         ran=1
         warn "Run /reload-plugins or start a new Claude Code session to load the mods."
     fi
-    local slice
+    local slice skills_ran=0
     for slice in $(selected_slices skills agents commands); do
+        # Skills are Claude's slash commands; install once for either alias.
+        if [[ "${slice}" == "commands" ]]; then
+            [[ ${skills_ran} -eq 1 ]] && continue
+            slice="skills"
+        fi
         printf '\n%sClaude: install standalone %s into ~/.claude/%s%s\n' "${BOLD}" "${slice}" "${slice}" "${NC}"
         run_slice claude "${slice}"
+        [[ "${slice}" == "skills" ]] && skills_ran=1
         ran=1
         if [[ -n "$(claude_ycc_plugin_installed)" ]]; then
             warn "The ycc plugin is also installed; its ${slice} now appear twice (ycc:<name> and <name>). Drop one: ${CLI_NAME} remove --target claude --intent base"

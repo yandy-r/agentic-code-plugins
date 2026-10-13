@@ -4,4 +4,6 @@ description: 'Orchestrate 5 specialized documentation agents in parallel to anal
   agent deployment, and quality assurance. Usage: [scope] [--update|--fresh|--dry-run]'
 ---
 
-Invoke the `write-docs` skill with the provided arguments.
+Use the skill tool to load the `write-docs` skill, then follow its instructions with these arguments:
+
+$ARGUMENTS

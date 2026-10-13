@@ -42,14 +42,21 @@ Follow these rules exactly or the parser will misread cells:
 
 ## Notes
 
+**COMMANDS:claude**
+Claude Code has no separate ycc command-wrapper layer. Public skills are native slash
+invocations (`/ycc:<name>`); `user-invocable: false` hides a skill from the slash menu.
+The standalone installer's Claude `commands` intent aliases `skills`. It retires only
+legacy wrappers recorded in installer ownership state, and only after a successful
+skills install. Foreign wrappers are never touched.
+
 **COMMANDS:cursor**
 Cursor does not natively execute Claude Code slash commands as installable artifacts. The
-`ycc` command layer is surfaced to Cursor users only through rule-embedded guidance in
+`ycc` skill guidance is surfaced to Cursor users only through rule-embedded guidance in
 `.cursor-plugin/`. Interactive slash-command dispatch is not available.
 
 **COMMANDS:codex**
 The Codex customization platform does not support a slash-command layer. Skills are exposed
-via the plugin bundle; the `ycc/commands/` source tree has no Codex analog.
+via the plugin bundle; there is no Codex analog for slash commands.
 
 **AGENTS:cursor**
 Cursor supports background agents (`docs.cursor.com/ko/background-agents`) but does not
@@ -127,10 +134,11 @@ are limited to 1024 chars. opencode also reads `.claude/skills/*/SKILL.md` and
 `.agents/skills/*/SKILL.md` as compatibility fallbacks. Source: opencode.ai/docs/skills/.
 
 **COMMANDS:opencode**
-Native slash-command support at `.opencode/commands/<name>.md`. Frontmatter fields:
-`description`, `agent`, `model`, `subtask`. Body supports the same `$ARGUMENTS` / `$1` /
-``!`shell` `` / `@file` placeholders as Claude Code commands. opencode is the only non-Claude
-target with first-class command support. Source: opencode.ai/docs/commands/.
+Generated thin native commands, one per public skill, sourced from that skill's
+`SKILL.md` (frontmatter drives description, argument hint, and model mapping). Each
+command body loads the skill through the `skill` tool and forwards `$ARGUMENTS`;
+workflow logic stays in the skill. They exist for commands-only compatibility; use
+the skill tool rather than chaining commands. Source: opencode.ai/docs/commands/.
 
 **AGENTS:opencode**
 Native agent support at `.opencode/agents/<name>.md`. Frontmatter: `description` (required),

@@ -1,34 +1,9 @@
 #!/usr/bin/env python3
-"""
-Generate opencode-native slash commands under .opencode-plugin/commands from
-ycc/commands.
+"""Generate opencode commands from public ycc/skills/*/SKILL.md.
 
-opencode reads commands from <workspace>/.opencode/commands/<name>.md or
-~/.config/opencode/commands/<name>.md. The filename stem becomes the command
-name; invoked as ``/<name>`` in the TUI.
-
-Authoritative opencode command frontmatter (per opencode.ai/docs/commands):
-    description, agent, model, subtask.
-
-The body supports:
-- ``$ARGUMENTS`` — full argument string.
-- ``$1`` / ``$2`` / ... — positional arguments.
-- ``!`shell-cmd` `` — inject stdout of a shell command.
-- ``@path/to/file`` — inject file contents.
-
-All four placeholders are identical to Claude Code's custom-command syntax
-and carry over untouched.
-
-This generator performs:
-1. Keeps `description` only (folds any `argument-hint` text into it).
-2. Keeps `model` (mapped via opencode_model_aliases.json) and `subtask`.
-3. Keeps `agent` when present; otherwise opencode defaults to the current
-   agent at runtime.
-4. Drops `allowed-tools` — opencode commands don't restrict tools; the
-   executing agent's own `permission` / `tools` controls the surface.
-5. Rewrites body text with apply_opencode_text_transforms.
-
-Source of truth: ycc/commands/*.md.
+Keep native commands for commands-only installs. Each command loads its skill
+via the skill tool and forwards $ARGUMENTS; workflow logic stays in SKILL.md.
+Description, argument hints and model mappings come from skill frontmatter.
 """
 
 from __future__ import annotations
@@ -41,7 +16,7 @@ from pathlib import Path
 
 from generate_opencode_common import (
     OPENCODE_COMMANDS_DIR,
-    SRC_COMMANDS_DIR,
+    SRC_SKILLS_DIR,
     apply_opencode_text_transforms,
     dump_frontmatter,
     is_model_drop_sentinel,
@@ -50,16 +25,15 @@ from generate_opencode_common import (
     map_model,
     parse_frontmatter,
 )
-from generate_opencode_dispatch import (
-    project_opencode_dispatch,
-    project_opencode_dispatch_description,
-)
+from generate_opencode_dispatch import project_opencode_dispatch_description
 
 
 def _stringify_argument_hint(value: object) -> str:
     """Argument hints may be strings, lists, or dicts in the Claude source.
     Return a plain string suitable for prepending to the description.
     """
+    if value is None:
+        return ""
     if isinstance(value, str):
         return value.strip()
     if isinstance(value, list):
@@ -75,7 +49,7 @@ def transform_command(
     aliases: dict[str, str],
     model_aliases: dict[str, str],
 ) -> str:
-    frontmatter, body = parse_frontmatter(raw)
+    frontmatter, _ = parse_frontmatter(raw)
 
     description = str(frontmatter.get("description") or "").strip()
     transformed_description = apply_opencode_text_transforms(description, aliases).strip()
@@ -110,9 +84,23 @@ def transform_command(
     if isinstance(subtask, bool):
         payload["subtask"] = subtask
 
-    transformed_body = apply_opencode_text_transforms(body, aliases)
-    transformed_body = project_opencode_dispatch(transformed_body, f"commands/{stem}.md")
-    return dump_frontmatter(payload) + transformed_body
+    body = (
+        f"\nUse the skill tool to load the `{stem}` skill, then follow its instructions "
+        "with these arguments:\n\n$ARGUMENTS\n"
+    )
+    return dump_frontmatter(payload) + body
+
+
+def discover_skills(source: Path) -> list[Path]:
+    """Return public skill entrypoints; private directories have no commands."""
+    skills: list[Path] = []
+    for path in sorted(source.glob("*/SKILL.md")):
+        if path.parent.name.startswith("_"):
+            continue
+        frontmatter, _ = parse_frontmatter(path.read_text(encoding="utf-8"))
+        if frontmatter.get("user-invocable") is not False:
+            skills.append(path)
+    return skills
 
 
 def write_all(dest: Path, dry_run: bool) -> set[Path]:
@@ -120,8 +108,8 @@ def write_all(dest: Path, dry_run: bool) -> set[Path]:
     model_aliases = load_model_aliases()
     written: set[Path] = set()
 
-    for src in sorted(SRC_COMMANDS_DIR.glob("*.md")):
-        stem = src.stem
+    for src in discover_skills(SRC_SKILLS_DIR):
+        stem = src.parent.name
         output = transform_command(
             stem,
             src.read_text(encoding="utf-8"),

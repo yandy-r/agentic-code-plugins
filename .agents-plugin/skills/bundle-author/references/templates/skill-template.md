@@ -1,7 +1,7 @@
 ---
 name: '{{NAME}}'
 description: '{{DESCRIPTION}}'
-{{COMMAND_OPT_OUT}}argument-hint: '[--dry-run]'
+{{INVOCATION_OPT_OUT}}argument-hint: '[--dry-run]'
 allowed-tools:
   - Read
   - Grep

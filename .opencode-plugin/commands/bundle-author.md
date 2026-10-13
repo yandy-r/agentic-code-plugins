@@ -1,31 +1,12 @@
 ---
-description: 'Maintainer-only (ycc repo) — scaffold new source-of-truth content in
-  the ycc bundle (skill, optional matching command and agent) Usage: <skill-name>
-  [--with-command] [--with-agent] [--dry-run]'
+description: 'Maintainer-only (ycc repo) — This skill should be used when the user
+  asks to "scaffold a new ycc skill", "add a skill to the bundle", "extend ycc", "add
+  an agent to ycc", or when the user wants to author new source-of-truth content in
+  the ycc/ bundle (skills, agents). Contributor workflow — not a generic plugin scaffolder.
+  Respects the source-of-truth / regenerated-bundle split. Usage: <skill-name> [--skill-only]
+  [--with-agent] [--dry-run]'
 ---
 
-Scaffold a new skill (and optionally a matching command and/or agent) in the `ycc/` source-of-truth tree.
+Use the skill tool to load the `bundle-author` skill, then follow its instructions with these arguments:
 
-Invoke the **bundle-author** skill to:
-
-1. Validate kebab-case name and refuse collisions with existing skills, commands, or agents
-2. Preview the files that will be created
-3. Scaffold from templates under `.opencode-plugin/skills/bundle-author/references/templates/`
-4. Emit the exact follow-up commands (sync, validate, chmod) needed after scaffolding
-
-Pass `$ARGUMENTS` through to the skill. Supported flags:
-
-- `--with-command`: Also scaffold `.opencode-plugin/commands/<skill-name>.md`
-- `--with-agent`: Also scaffold `.opencode-plugin/agents/<skill-name>.md`
-- `--dry-run`: Preview only, write nothing
-
-Examples:
-
-```
-/bundle-author my-new-skill                          # skill only
-/bundle-author my-new-skill --with-command           # skill + command
-/bundle-author my-new-skill --with-command --with-agent
-/bundle-author my-new-skill --dry-run                # preview only
-```
-
-Refuses generic scaffolding for external repos — see `.opencode-plugin/skills/bundle-author/references/when-not-to-scaffold.md` for anti-patterns.
+$ARGUMENTS

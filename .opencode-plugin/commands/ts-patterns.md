@@ -1,5 +1,5 @@
 ---
-description: 'Idiomatic TypeScript patterns — strict type system, discriminated unions,
+description: Idiomatic TypeScript patterns — strict type system, discriminated unions,
   generic inference, `satisfies`, branded types, errors as values, ESM/CJS modules
   with `exports` maps, Promise combinators and AbortController, iterators and higher-order
   functions, runtime selection across Node/Deno/Bun/browser/edge, and the Vite + Vitest
@@ -8,21 +8,9 @@ description: 'Idiomatic TypeScript patterns — strict type system, discriminate
   generics/conditional types/discriminated unions/branded types/`satisfies`, asks
   about ESM/CJS dual publishing and `exports` maps, asks about Promise combinators/AbortController/async
   iterators, asks about Vite config or `vite build --lib`, chooses between Node/Deno/Bun/browser/edge
-  runtimes, or wants TypeScript idioms and anti-patterns. Usage: None'
+  runtimes, or wants TypeScript idioms and anti-patterns.
 ---
 
-# TypeScript Patterns Command
+Use the skill tool to load the `ts-patterns` skill, then follow its instructions with these arguments:
 
-Provide idiomatic TypeScript patterns, strict type-system techniques, and toolchain guidance for building robust libraries and applications.
-
-**Load and follow the `ts-patterns` skill**, passing through `$ARGUMENTS`.
-
-The skill covers a wide range of TypeScript topics, including:
-
-- Strict type system: discriminated unions, generic inference, `satisfies`, branded types
-- Errors as values and result-type patterns
-- ESM/CJS dual publishing with `exports` maps
-- `Promise` combinators, `AbortController`, async iterators
-- Runtime selection across Node, Deno, Bun, browser, and edge
-- Vite and Vitest toolchain configuration
-- TypeScript idioms and anti-patterns
+$ARGUMENTS
