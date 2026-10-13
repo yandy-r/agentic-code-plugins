@@ -37,7 +37,9 @@ assert 'create no empty commit' in skill
 assert '--ref "$RELEASE_BRANCH"' in release
 assert '--run-id "$RETRY_RUN_ID" --expected-sha "$RETRY_SHA"' in release
 assert 'headSha == FIX_SHA' in release and 'createdAt >= DISPATCH_STARTED' in release
-assert 'Tag-only monitoring must not resume after a branch-ref dispatch' in release
+assert 'Tag-only monitoring must not resume after a retry' in release
+assert 'headSha == FIX_SHA' in release and 'createdAt >= REPUBLISH_STARTED' in release
+assert 'Set `RETRY_RUN_ID`/`RETRY_SHA` from that run' in release
 assert 'no safe branch-ref workflow_dispatch path' in release
 assert '--ci-recut=destructive` was passed, use the original destructive re-cut path' in release
 assert 'gh release delete v<new-version> --cleanup-tag --yes' in release

@@ -359,7 +359,8 @@ Correlate a unique new dispatch run by workflow, branch, expected commit SHA and
 dispatch time. Then re-invoke `release-ci-monitor.sh` with the same tag, repo, caps
 and log plus `--run-id <id> --expected-sha <40-hex fix SHA> --workflow <file>`.
 These selectors are optional and paired; existing tag-mode callers stay unchanged.
-Exact-run mode verifies the ID, head SHA, `workflow_dispatch` event and workflow
+Exact-run mode verifies the ID, head SHA, event (`workflow_dispatch` for a
+dispatch retry, `release` for the post-re-cut run) and workflow
 path before watching, and returns `RESULT=not-found` with
 `REASON=retry-correlation-mismatch` on any mismatch or unavailable metadata. This is
 terminal, not a reason to fall back to tag selection. `rerun-pending` keeps the same
@@ -377,11 +378,15 @@ ${CURSOR_PLUGIN_ROOT}/skills/releaser/scripts/publish-release.sh \
 ```
 
 The release and tag are deleted and re-created, triggering the release event.
-Never take this path without explicit `--ci-recut=destructive`. Clear the dispatch
-run ID and SHA selectors only after re-publication succeeds, then use tag-mode
-monitoring for the new release/tag run. Verify that run is new and its head SHA
-contains the pushed fix; do not reuse an earlier run. Keep the same audit log and
-caps. Dispatch failure or correlation mismatch does not authorize a re-cut.
+Never take this path without explicit `--ci-recut=destructive`. Deleting a release
+does not delete old runs, so do not resume plain tag-mode selection: after
+re-publication, resolve the new `release`-event run whose head SHA equals the
+pushed fix and whose creation time is at or after re-publication, then monitor it
+with the same exact-run selectors (the event check accepts `release` for this
+path; the expected SHA is the fix commit, so the pre-re-cut run cannot match).
+Ambiguity or no new run within the remaining budget stops the loop. Keep the same
+audit log and caps. Dispatch failure or correlation mismatch does not authorize a
+re-cut.
 
 ### Release-mode safety constraints (additional to PR-mode)
 

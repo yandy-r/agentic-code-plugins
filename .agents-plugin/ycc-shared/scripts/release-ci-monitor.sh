@@ -71,8 +71,9 @@ Options:
                           .github/workflows/*release*.yml when omitted.
   --repo <owner/name>     Target repo. Auto-detects via `gh repo view` when
                           omitted.
-  --run-id <id>           Monitor exactly this workflow_dispatch run instead of
-                          selecting by tag. Requires --expected-sha and an
+  --run-id <id>           Monitor exactly this run instead of selecting by tag
+                          (workflow_dispatch retry, or the new release-event run
+                          after a re-cut). Requires --expected-sha and an
                           explicit --workflow file; any metadata mismatch exits
                           2 (RESULT=not-found, REASON=retry-correlation-mismatch).
   --expected-sha <sha>    Full lowercase 40-hex head SHA the run must have.
@@ -324,7 +325,9 @@ latest_run_for_tag() {
 }
 
 # Verify --run-id is the exact retry target: repo-scoped run metadata must match
-# the id, expected head SHA, event workflow_dispatch and workflow file path.
+# the id, expected head SHA, event workflow_dispatch (branch-ref retry) or
+# release (post-re-cut re-publish) and the workflow file path. The expected SHA
+# is the fix-bearing commit, so a pre-re-cut run on the same tag fails closed.
 # Prints the workflow name on success; returns 1 on any mismatch or fetch error.
 verify_exact_run() {
   local run_id="$1" sha="$2" workflow_file="$3" repo="$4"
@@ -334,7 +337,8 @@ verify_exact_run() {
     --json databaseId,headSha,event,workflowName \
     --jq '[.databaseId,.headSha,.event,.workflowName]|@tsv' 2>/dev/null)" || return 1
   IFS=$'\t' read -r id head event name <<<"$meta"
-  [[ "$id" == "$run_id" && "$head" == "$sha" && "$event" == "workflow_dispatch" ]] || return 1
+  [[ "$id" == "$run_id" && "$head" == "$sha" ]] || return 1
+  [[ "$event" == "workflow_dispatch" || "$event" == "release" ]] || return 1
   # gh run view exposes no workflow path field; the run API does.
   api="$(gh api "repos/$repo/actions/runs/$run_id" --jq '[.id,.path]|@tsv' 2>/dev/null)" || return 1
   IFS=$'\t' read -r id path <<<"$api"

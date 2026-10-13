@@ -100,6 +100,16 @@ else
 fi
 if grep -q 'run list' "$GH_CALLS"; then ko "exact mode skips tag selection"; else ok "exact mode skips tag selection"; fi
 
+# --- post-re-cut release run uses exact selection, not historical tag selection ---
+reset_env; export GH_EVENT=release
+exact "exact post-recut release green" 0 "RESULT=green" yes
+if grep -q 'run list' "$GH_CALLS"; then ko "post-recut mode skips historical runs"; else ok "post-recut mode skips historical runs"; fi
+reset_env; export GH_EVENT=release GH_SHA="$OTHER_SHA"
+exact "old release commit rejected" 2 "REASON=retry-correlation-mismatch" no
+# Multi-line event metadata is rejected by the exact match.
+reset_env; export GH_EVENT=$'release\nxyz'
+exact "release event with extra line rejected" 2 "RESULT=not-found" no
+
 # --- correlation mismatches fail closed, no watch ---
 MISMATCH="RESULT=not-found"
 reset_env; export GH_SHA="$OTHER_SHA"
