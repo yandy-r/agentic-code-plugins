@@ -7,7 +7,6 @@ tools:
   - Glob
   - WebFetch
   - WebSearch
-  - TodoWrite
 model: claude-opus-5[effort=high,context=1m]
 color: yellow
 ---

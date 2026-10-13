@@ -7,7 +7,6 @@ tools:
   - Glob
   - WebFetch
   - WebSearch
-  - TodoWrite
 model: sonnet
 color: yellow
 ---

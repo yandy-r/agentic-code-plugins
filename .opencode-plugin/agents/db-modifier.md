@@ -20,7 +20,16 @@ permissions:
   resource: '*'
   effect: allow
 - action: shell
-  resource: '*'
+  resource: psql *
+  effect: allow
+- action: shell
+  resource: supabase *
+  effect: allow
+- action: shell
+  resource: ls *
+  effect: allow
+- action: shell
+  resource: test *
   effect: allow
 - action: external_directory
   resource: '*'

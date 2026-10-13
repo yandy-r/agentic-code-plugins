@@ -91,6 +91,7 @@ Read only on this path:
 - `~/.codex/plugins/ycc/shared/references/standalone-dispatch.md` (`--parallel`)
 - `~/.codex/plugins/ycc/shared/references/agent-team-dispatch.md` (`--team`)
 
+<<<<<<< HEAD
 Use the Local / Quick Mode Roster and Standard Findings Format from
 `review-checklist.md`; merge via its Merge Procedure into one list for Phase 3.
 The reviewer prompt states: flag only gaps that affect correctness or the
@@ -98,6 +99,205 @@ stated requirements. Scratch under
 `docs/prps/reviews/.review-scratch/quick-<TIMESTAMP>/` is always removed at the
 end of Phase 5, even on "Discard" and "Apply fixes" — the one ephemeral
 exception to the artifact-free guarantee.
+||||||| parent of 4bc30c8 (fix(agents): scope db-modifier Bash, drop stray write tools, clarify reviewer duties)
+Dispatch **3 standalone `code-reviewer` sub-agents in parallel** in a SINGLE
+message with MULTIPLE `Task` tool calls. Use the **Local / Quick Mode Roster**
+and **Standard Findings Format** from:
+
+```
+~/.codex/plugins/ycc/shared/references/review-checklist.md
+```
+
+Each reviewer prompt must include:
+
+1. The list of changed files (`git diff --name-only HEAD`)
+2. Its assigned focus and checklist items (from the roster table)
+3. The severity rubric
+4. A directive to return findings in the Standard Findings Format
+5. Its own scratch backstop path — `docs/prps/reviews/.review-scratch/quick-<TIMESTAMP>/<reviewer-name>.md`
+   — per the scratch-backstop contract in that reference
+
+After all 3 `Task` calls return: for any reviewer whose inline return is
+empty, missing, or malformed, re-read its scratch file at that path before
+merging. Apply the **Merge Procedure** defined in the reference to produce a
+single combined findings list for Phase 3.
+
+**Scratch cleanup is unconditional**: unlike the permanent review artifact
+(only written on "Save to file" / "Write file and apply fixes"), the scratch
+directory `docs/prps/reviews/.review-scratch/quick-<TIMESTAMP>/` is always
+removed at the end of Phase 5 (HAND-OFF) — even on "Discard" or "Apply
+fixes", which never write a permanent artifact. This is the one ephemeral
+exception to quick-review's artifact-free guarantee: the scratch file exists
+only transiently during this Path B dispatch and is gone before the skill
+returns control to the user.
+
+### Path C — Agent Team Review (`AGENT_TEAM_MODE=true`, Codex runtime only; not available in bundle invocations)
+
+> **MANDATORY — AGENT TEAMS REQUIRED**
+>
+> You MUST follow the agent-team lifecycle. Every `Agent` call MUST include
+> `team_name=` AND `name=`. See
+> `~/.codex/plugins/ycc/shared/references/agent-team-dispatch.md`.
+
+Roster and category split identical to Path B.
+
+#### C.1 Build the team name
+
+Team name: `qrev-local-<YYYYMMDD-HHMMSS>`. Generate the timestamp once at the
+start of Phase 2 and reuse it if the user later selects an artifact-writing
+path.
+
+#### C.2 Create the team
+
+```
+create an agent group: team_name="qrev-local-<timestamp>", description="Quick review team for uncommitted local changes"
+```
+
+On failure, abort.
+
+#### C.3 Register subtasks
+
+Create 3 tasks in the shared task list (flat graph — reviewers are independent):
+
+```
+record the task: subject="correctness-reviewer: code-quality review of uncommitted changes", description="<full reviewer prompt>"
+record the task: subject="security-reviewer: security review of uncommitted changes",        description="<full reviewer prompt>"
+record the task: subject="quality-reviewer: best-practices review of uncommitted changes",   description="<full reviewer prompt>"
+```
+
+If any `record the task` fails -> `close the agent group`, abort.
+
+#### C.4 Spawn the 3 reviewers
+
+Single message, three `Agent` calls. Every call MUST include `team_name`, `name`
+(matching the `record the task` subject prefix), `subagent_type="code-reviewer"`,
+description, and a prompt equivalent to Path B's reviewer prompt plus a note
+that the teammate shares a task list with two siblings (name them) and may
+`send follow-up instructions` them on overlaps, and must call `update the task tracker` to mark its task
+complete before returning.
+
+#### C.5 Monitor and collect results
+
+Use `the task tracker` until all 3 tasks are `completed`. Failure policy:
+
+- All 3 error -> `close the agent group`, abort with a clear error.
+- 1 or 2 error -> record "partial review — {role} did not complete" and proceed
+  with the remaining findings. Note the gap when printing inline.
+
+#### C.6 Shutdown and cleanup
+
+```
+send follow-up instructions(to="correctness-reviewer", message={type:"shutdown_request"})
+send follow-up instructions(to="security-reviewer",    message={type:"shutdown_request"})
+send follow-up instructions(to="quality-reviewer",     message={type:"shutdown_request"})
+close the agent group
+```
+
+Always `close the agent group` — even on abort or partial failure.
+
+#### C.7 Merge findings
+
+Apply the reference's Merge Procedure and pass the combined findings to Phase 3.
+=======
+Dispatch **3 standalone `code-reviewer` sub-agents in parallel** in a SINGLE
+message with MULTIPLE `Task` tool calls. Use the **Local / Quick Mode Roster**
+and **Standard Findings Format** from:
+
+```
+~/.codex/plugins/ycc/shared/references/review-checklist.md
+```
+
+Each reviewer prompt must include:
+
+1. The list of changed files (`git diff --name-only HEAD`)
+2. Its assigned focus and checklist items (from the roster table)
+3. The severity rubric
+4. A directive to return findings in the Standard Findings Format
+5. Diff and command output; reviewers are read-only. The calling skill writes
+   each valid inline return to its scratch backstop path — `docs/prps/reviews/.review-scratch/quick-<TIMESTAMP>/<reviewer-name>.md`
+   — per the scratch-backstop contract in that reference
+
+After all 3 `Task` calls return: persist each valid inline return to its scratch
+path; mark empty, missing, or malformed returns as failed before merging. Apply the **Merge Procedure** defined in the reference to produce a
+single combined findings list for Phase 3.
+
+**Scratch cleanup is unconditional**: unlike the permanent review artifact
+(only written on "Save to file" / "Write file and apply fixes"), the scratch
+directory `docs/prps/reviews/.review-scratch/quick-<TIMESTAMP>/` is always
+removed at the end of Phase 5 (HAND-OFF) — even on "Discard" or "Apply
+fixes", which never write a permanent artifact. This is the one ephemeral
+exception to quick-review's artifact-free guarantee: the scratch file exists
+only transiently during this Path B dispatch and is gone before the skill
+returns control to the user.
+
+### Path C — Agent Team Review (`AGENT_TEAM_MODE=true`, Codex runtime only; not available in bundle invocations)
+
+> **MANDATORY — AGENT TEAMS REQUIRED**
+>
+> You MUST follow the agent-team lifecycle. Every `Agent` call MUST include
+> `team_name=` AND `name=`. See
+> `~/.codex/plugins/ycc/shared/references/agent-team-dispatch.md`.
+
+Roster and category split identical to Path B.
+
+#### C.1 Build the team name
+
+Team name: `qrev-local-<YYYYMMDD-HHMMSS>`. Generate the timestamp once at the
+start of Phase 2 and reuse it if the user later selects an artifact-writing
+path.
+
+#### C.2 Create the team
+
+```
+create an agent group: team_name="qrev-local-<timestamp>", description="Quick review team for uncommitted local changes"
+```
+
+On failure, abort.
+
+#### C.3 Register subtasks
+
+Create 3 tasks in the shared task list (flat graph — reviewers are independent):
+
+```
+record the task: subject="correctness-reviewer: code-quality review of uncommitted changes", description="<full reviewer prompt>"
+record the task: subject="security-reviewer: security review of uncommitted changes",        description="<full reviewer prompt>"
+record the task: subject="quality-reviewer: best-practices review of uncommitted changes",   description="<full reviewer prompt>"
+```
+
+If any `record the task` fails -> `close the agent group`, abort.
+
+#### C.4 Spawn the 3 reviewers
+
+Single message, three `Agent` calls. Every call MUST include `team_name`, `name`
+(matching the `record the task` subject prefix), `subagent_type="code-reviewer"`,
+description, and a prompt equivalent to Path B's reviewer prompt plus a note
+that the teammate shares a task list with two siblings (name them) and may
+`send follow-up instructions` them on overlaps, and must call `update the task tracker` to mark its task
+complete before returning.
+
+#### C.5 Monitor and collect results
+
+Use `the task tracker` until all 3 tasks are `completed`. Failure policy:
+
+- All 3 error -> `close the agent group`, abort with a clear error.
+- 1 or 2 error -> record "partial review — {role} did not complete" and proceed
+  with the remaining findings. Note the gap when printing inline.
+
+#### C.6 Shutdown and cleanup
+
+```
+send follow-up instructions(to="correctness-reviewer", message={type:"shutdown_request"})
+send follow-up instructions(to="security-reviewer",    message={type:"shutdown_request"})
+send follow-up instructions(to="quality-reviewer",     message={type:"shutdown_request"})
+close the agent group
+```
+
+Always `close the agent group` — even on abort or partial failure.
+
+#### C.7 Merge findings
+
+Apply the reference's Merge Procedure and pass the combined findings to Phase 3.
+>>>>>>> 4bc30c8 (fix(agents): scope db-modifier Bash, drop stray write tools, clarify reviewer duties)
 
 ---
 

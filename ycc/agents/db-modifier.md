@@ -7,7 +7,10 @@ tools:
   - Glob
   - Edit
   - Write
-  - Bash
+  - Bash(psql:*)
+  - Bash(supabase:*)
+  - Bash(ls:*)
+  - Bash(test:*)
 model: sonnet
 color: red
 ---

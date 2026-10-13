@@ -7,7 +7,10 @@ tools:
   - Glob
   - Edit
   - Write
-  - Bash
+  - Bash(psql:*)
+  - Bash(supabase:*)
+  - Bash(ls:*)
+  - Bash(test:*)
 model: claude-opus-5[effort=high,context=1m]
 color: red
 ---

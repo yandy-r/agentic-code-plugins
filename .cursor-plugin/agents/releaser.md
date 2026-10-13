@@ -110,7 +110,7 @@ If everything passes, say so and name the strongest aspects of the workflow.>
 
 ## What to Return to the Caller
 
-Return the Markdown document as your final message. The caller (`releaser`) will:
+Return the Markdown document as your final message. The calling `/releaser` skill (not you) will:
 
 1. Print a condensed version (title + severity counts + summary) to the user.
 2. Persist the full report to `docs/prps/reviews/ci-release-audit.md` so
