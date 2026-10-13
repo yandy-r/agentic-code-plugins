@@ -24,9 +24,17 @@ WRITE_TOOLS = frozenset({"Write", "Edit", "NotebookEdit", "Bash"})
 
 
 def is_read_only(tools: object) -> bool:
-    """True when an explicit tools list has no write-capable tool (scoped ``Bash(...)`` counts)."""
+    """True when an explicit tools list has no write-capable tool.
+
+    Scoped ``Bash(...)`` counts as its Bash head, and any ``mcp__*`` entry
+    counts as write-capable (fail-safe: an MCP server may expose mutating
+    tools). No ycc read-only agent ships MCP tools today; if a read-only
+    docs-lookup server is ever needed, allowlist its prefix here.
+    """
     entries = parse_tools(tools)
-    return bool(entries) and not any(entry.split("(")[0] in WRITE_TOOLS for entry in entries)
+    return bool(entries) and not any(
+        entry.split("(", 1)[0].startswith("mcp__") or entry.split("(", 1)[0] in WRITE_TOOLS for entry in entries
+    )
 
 
 def encode_toml_string(value: str) -> str:

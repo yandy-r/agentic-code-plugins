@@ -30,6 +30,10 @@ class ReadOnlyDetectionTestCase(unittest.TestCase):
     def test_scoped_bash_counts_as_write(self) -> None:
         self.assertFalse(is_read_only(["Read", "Bash(git diff:*)"]))
 
+    def test_mcp_tools_count_as_write(self) -> None:
+        self.assertFalse(is_read_only(["Read", "mcp__sql__execute-sql"]))
+        self.assertFalse(is_read_only(["Read", "mcp__context7__query-docs"]))
+
     def test_missing_tools_is_not_read_only(self) -> None:
         self.assertFalse(is_read_only(None))
         self.assertFalse(is_read_only([]))

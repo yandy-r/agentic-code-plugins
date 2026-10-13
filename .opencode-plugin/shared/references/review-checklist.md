@@ -121,9 +121,9 @@ Each reviewer prompt MUST include:
    above).
 4. The severity rubric.
 5. A directive to return findings in the **Standard Findings Format** below.
-6. (Path B only) Require `background=false`, nonempty findings in the Standard Findings Format, and independent scratch-artifact validation before accepting the reviewer result.
-7. (Path B only) A directive that the reviewer is dispatched read-only: it
-   MUST return its findings inline as that native `subagent` call's result — never
+6. (Path B only) A directive that the reviewer is dispatched read-only via the
+   foreground native `subagent` call (`background=false`) and MUST return its findings inline as that call's
+   result — never
    background, poll, or sleep-wait for it (see
    [standalone-dispatch.md](~/.config/opencode/shared/references/standalone-dispatch.md)).
    The calling skill owns persistence: after each reviewer returns, write its
@@ -174,8 +174,9 @@ After all 3 foreground reviewer calls return candidate reports and their scratch
 
 1. For any reviewer whose `subagent` return was empty, missing, or malformed,
    treat that reviewer as a failure for that role (do not fabricate findings
-   for it); the scratch backstop is the calling skill's own copy of the inline
-   returns it already received, not a second source to recover from.
+   for it). In Path B only, the scratch backstop is the calling skill's own
+   copy of the inline returns it already received, not a second source to
+   recover from.
 2. Combine by severity (CRITICAL first, then HIGH, MEDIUM, LOW).
 3. De-duplicate findings at the same `file:line` (if two reviewers flagged the
    same issue, keep the more severe one and annotate which reviewers concurred).
