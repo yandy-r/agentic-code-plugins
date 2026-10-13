@@ -30,7 +30,9 @@ Run-id and scratch paths per mode:
 Each reviewer prompt includes the instruction "flag only gaps that affect correctness or the stated requirements", plus:
 
 1. The list of changed files (mode-specific: `git diff --name-only HEAD` for
-   local/quick; PR number + head revision + changed-file list for PR).
+   local/quick; PR number + head revision + changed-file list for PR), plus the
+   diff itself and any command output (validation, build, test results) the
+   reviewer needs — reviewers are read-only and cannot run commands.
 2. Relevant context (CLAUDE.md rules, PRP artifacts, PR description) — PR mode only.
 3. Its assigned focus / categories and what to check (from the roster tables
    in `review-checklist.md` — `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/review-checklist.md`).
