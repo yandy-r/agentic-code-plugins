@@ -2,6 +2,8 @@
 name: bundle-author
 description: Scaffolds ycc skills and agents for ycc maintainers only. Use when adding
   a ycc skill, adding a ycc agent, or extending bundle source.
+metadata:
+  opencode/autoinvoke: 'false'
 ---
 
 # ycc Bundle Author

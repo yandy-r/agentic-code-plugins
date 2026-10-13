@@ -10,6 +10,9 @@ echo "== install.sh install: agents =="
 
 home="$(new_home)"
 run_install "${home}" install --target agents >/dev/null
+assert_not_contains "$(cat "${home}/.agents/skills/releaser/SKILL.md")" 'disable-model-invocation' "agents install omits unsupported releaser invocation policy"
+assert_not_contains "$(cat "${home}/.agents/skills/init/SKILL.md")" 'disable-model-invocation' "agents install keeps init unrestricted"
+assert_contains "$(cat "${home}/.agents/skills/releaser/SKILL.md")" 'Prepares external-project releases' "agents install keeps releaser description"
 skill_count="$(find "${home}/.agents/skills" -mindepth 1 -maxdepth 1 -type d | wc -l)"
 bundle_count="$(find "${REPO_ROOT}/.agents-plugin/skills" -mindepth 1 -maxdepth 1 -type d | wc -l)"
 if [[ -f "${home}/.agents/skills/backport/SKILL.md" && "${skill_count}" -eq "${bundle_count}" ]]; then

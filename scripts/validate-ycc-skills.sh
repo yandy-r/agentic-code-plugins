@@ -21,11 +21,7 @@ import re
 import sys
 from pathlib import Path
 
-try:
-    import yaml
-    HAVE_YAML = True
-except ImportError:
-    HAVE_YAML = False
+import yaml
 
 FM_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
 BOOLEAN_KEYS = ("user-invocable", "disable-model-invocation")
@@ -37,28 +33,13 @@ def load_frontmatter(text: str):
     if not m:
         return None, "missing YAML frontmatter"
     raw = m.group(1)
-    if HAVE_YAML:
-        try:
-            data = yaml.safe_load(raw) or {}
-        except yaml.YAMLError as exc:
-            return None, f"invalid YAML frontmatter: {exc}"
-        if not isinstance(data, dict):
-            return None, "frontmatter is not a mapping"
-        return data, None
-    # Tolerant fallback: top-level scalars only; folded values stay non-empty.
-    out: dict = {}
-    for line in raw.splitlines():
-        km = re.match(r"^([a-zA-Z_][a-zA-Z0-9_-]*):\s*(.*)$", line)
-        if not km:
-            continue
-        key, val = km.group(1), km.group(2).strip()
-        if val.startswith(('"', "'")):
-            val = val.strip("\"'")
-        if val.lower() in {"true", "false"}:
-            out[key] = val.lower() == "true"
-        else:
-            out[key] = val
-    return out, None
+    try:
+        data = yaml.safe_load(raw) or {}
+    except yaml.YAMLError as exc:
+        return None, f"invalid YAML frontmatter: {exc}"
+    if not isinstance(data, dict):
+        return None, "frontmatter is not a mapping"
+    return data, None
 
 
 skills_dir = Path(sys.argv[1])

@@ -1,5 +1,6 @@
 ---
 name: hooks-workflow
+disable-model-invocation: true
 description: 'Generates hook configuration from language rules. Use when configuring Claude hooks, translating rule hook guidance, or verifying existing hook config.'
 argument-hint: '<language> [--target=claude|cursor|codex] [--event=PreToolUse|PostToolUse|Stop|all] [--out=<path>] [--dry-run] [--verify] [--force]'
 allowed-tools:

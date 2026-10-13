@@ -56,6 +56,12 @@ if [[ -z "${leftover}" ]]; then ok "opencode base remove drops the bundle"; else
 echo "== install.sh: opencode slices =="
 
 home="$(new_home)"
+HOME="${home}" YCC_MANAGED_CONFIG_STATE="${home}/.config/ycc/managed-config-state.json" \
+    python3 "${REPO_ROOT}/scripts/install_slices.py" install --target opencode --slice skills >/dev/null
+assert_contains "$(cat "${home}/.config/opencode/skills/releaser/SKILL.md")" "opencode/autoinvoke: 'false'" "opencode slice retains releaser manual invocation policy"
+assert_not_contains "$(cat "${home}/.config/opencode/skills/init/SKILL.md")" 'opencode/autoinvoke' "opencode slice keeps init model-invocable"
+
+home="$(new_home)"
 for unit in skills agents commands shared; do
     mkdir -p "${home}/.config/opencode/${unit}"
     cp -R "${REPO_ROOT}/.opencode-plugin/${unit}/." "${home}/.config/opencode/${unit}/"

@@ -3,6 +3,8 @@ name: compatibility-audit
 description: Audits ycc compatibility for ycc maintainers only. Use when checking
   generated bundle drift, verifying install assumptions, or comparing target feature
   gaps.
+metadata:
+  opencode/autoinvoke: 'false'
 ---
 
 # compatibility-audit

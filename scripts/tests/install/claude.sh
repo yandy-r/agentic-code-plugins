@@ -165,6 +165,8 @@ skill="$(cat "${home}/.claude/skills/git-workflow/SKILL.md")"
 assert_not_contains "${skill}" 'CLAUDE_PLUGIN_ROOT}/skills' "claude slice rewrites plugin-root paths"
 assert_contains "${skill}" "${home}/.claude/skills/" "claude slice points paths at ~/.claude/skills"
 assert_not_contains "$(cat "${home}/.claude/skills/clean/SKILL.md")" '/ycc:clean' "claude slice strips the ycc: namespace"
+assert_contains "$(cat "${home}/.claude/skills/releaser/SKILL.md")" 'disable-model-invocation: true' "claude slice retains releaser manual invocation policy"
+assert_not_contains "$(cat "${home}/.claude/skills/init/SKILL.md")" 'disable-model-invocation' "claude slice keeps init model-invocable"
 if [[ -d "${home}/.claude/skills/my-own-skill" ]]; then ok "claude slice leaves user skills alone"; else ko "claude slice leaves user skills alone"; fi
 out="$(run_install "${home}" install --target claude --only skills)"
 assert_contains "${out}" "entries up to date" "claude slice rerun is idempotent"

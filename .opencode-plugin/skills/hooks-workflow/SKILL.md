@@ -2,6 +2,8 @@
 name: hooks-workflow
 description: Generates hook configuration from language rules. Use when configuring
   Claude hooks, translating rule hook guidance, or verifying existing hook config.
+metadata:
+  opencode/autoinvoke: 'false'
 ---
 
 # hooks-workflow

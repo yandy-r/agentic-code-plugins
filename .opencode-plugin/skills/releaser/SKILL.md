@@ -3,6 +3,8 @@ name: releaser
 description: Prepares external-project releases, notes, and release CI. Use when cutting
   an application release, planning platform artifacts, or auditing a GitHub Actions
   release workflow.
+metadata:
+  opencode/autoinvoke: 'false'
 ---
 
 # Generic Release Orchestrator

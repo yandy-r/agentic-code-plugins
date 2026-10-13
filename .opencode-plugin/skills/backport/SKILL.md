@@ -2,6 +2,8 @@
 name: backport
 description: Backports merged trunk PRs to maintenance branches. Use when backporting
   a fix, opening backport PRs, or auditing pending backports.
+metadata:
+  opencode/autoinvoke: 'false'
 ---
 
 # Backport

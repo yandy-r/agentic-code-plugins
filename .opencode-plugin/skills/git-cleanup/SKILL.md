@@ -2,6 +2,8 @@
 name: git-cleanup
 description: Audits stale Git resources and cleans them with approval. Use when pruning
   branches, removing abandoned worktrees, or closing stale PRs and issues.
+metadata:
+  opencode/autoinvoke: 'false'
 ---
 
 # git-cleanup

@@ -136,6 +136,14 @@ def parse_frontmatter(text: str) -> tuple[dict[str, Any], str]:
     return data, body
 
 
+def model_invocation_disabled(frontmatter: dict[str, Any], skill: str) -> bool:
+    """Read the source-only invocation flag without coercing YAML values."""
+    value = frontmatter.get("disable-model-invocation", False)
+    if type(value) is not bool:
+        raise ValueError(f"skill '{skill}': 'disable-model-invocation' must be a boolean, got {value!r}")
+    return value
+
+
 def dump_frontmatter(data: dict[str, Any]) -> str:
     serialized = yaml.safe_dump(
         data,

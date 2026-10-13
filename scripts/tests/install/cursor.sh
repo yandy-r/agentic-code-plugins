@@ -47,6 +47,12 @@ if [[ ! -e "${home}/.cursor/agents" ]]; then ok "cursor base remove drops emptie
 echo "== install.sh: cursor slices =="
 
 home="$(new_home)"
+HOME="${home}" YCC_MANAGED_CONFIG_STATE="${home}/.config/ycc/managed-config-state.json" \
+    python3 "${REPO_ROOT}/scripts/install_slices.py" install --target cursor --slice skills >/dev/null
+assert_contains "$(cat "${home}/.cursor/skills/releaser/SKILL.md")" 'disable-model-invocation: true' "cursor slice retains releaser manual invocation policy"
+assert_not_contains "$(cat "${home}/.cursor/skills/init/SKILL.md")" 'disable-model-invocation' "cursor slice keeps init model-invocable"
+
+home="$(new_home)"
 for unit in skills agents rules; do
     mkdir -p "${home}/.cursor/${unit}"
     cp -R "${REPO_ROOT}/.cursor-plugin/${unit}/." "${home}/.cursor/${unit}/"

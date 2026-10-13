@@ -2,6 +2,8 @@
 name: blueprint
 description: Creates whole-project blueprints and bootstraps new software. Use when
   defining a project charter, choosing system architecture, or scaffolding an idea.
+metadata:
+  opencode/autoinvoke: 'false'
 ---
 
 # Project Blueprint Generator

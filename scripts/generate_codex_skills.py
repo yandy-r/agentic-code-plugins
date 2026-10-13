@@ -23,6 +23,7 @@ from generate_codex_common import (
     compress_skill_description,
     dump_frontmatter,
     load_agent_aliases,
+    model_invocation_disabled,
     parse_frontmatter,
 )
 
@@ -73,6 +74,7 @@ def rewrite_plugin_paths(text: str) -> str:
 def transform_skill_markdown(raw: str, aliases: dict[str, str]) -> str:
     frontmatter, body = parse_frontmatter(raw)
     name = str(frontmatter.get("name") or "skill")
+    model_invocation_disabled(frontmatter, name)
     description = str(frontmatter.get("description") or "").strip()
     transformed_description = apply_codex_text_transforms(
         rewrite_plugin_paths(description),
@@ -141,6 +143,26 @@ def prune_orphans(dest_root: Path, expected_files: set[Path]) -> None:
 def write_tree(dest_root: Path, dry_run: bool) -> set[Path]:
     aliases = load_agent_aliases()
     written: set[Path] = set()
+    manual_skills: list[Path] = []
+    for src in sorted(SRC_SKILLS_DIR.glob("*/SKILL.md")):
+        frontmatter, _ = parse_frontmatter(src.read_text(encoding="utf-8"))
+        if model_invocation_disabled(frontmatter, src.parent.name):
+            # ponytail: no authored sidecars yet; add a field-preserving merge when needed.
+            if (src.parent / "agents/openai.yaml").exists():
+                raise ValueError(
+                    f"skill '{src.parent.name}': authored agents/openai.yaml conflicts with generated policy"
+                )
+            manual_skills.append(src.parent.relative_to(SRC_SKILLS_DIR))
+
+    for rel in manual_skills:
+        out = dest_root / "skills" / rel / "agents/openai.yaml"
+        written.add(out.relative_to(dest_root))
+        if dry_run:
+            print(f"Would write {out.relative_to(dest_root)}")
+        else:
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text("policy:\n  allow_implicit_invocation: false\n", encoding="utf-8")
+
     for src in iter_source_files():
         rel = src.relative_to(SRC_SKILLS_DIR)
         dst = plugin_output_path(rel)
@@ -199,6 +221,10 @@ def compare_trees(generated: Path, repo_dest: Path, expected_files: set[Path]) -
             continue
         if left.read_bytes() != right.read_bytes():
             diffs.append(f"drift: {rel}")
+    for sub in OWNED_SUBDIRS:
+        for path in sorted((repo_dest / sub).rglob("*")):
+            if path.is_file() and path.relative_to(repo_dest) not in expected_files:
+                diffs.append(f"extra in repo: {path.relative_to(repo_dest)}")
     return diffs
 
 

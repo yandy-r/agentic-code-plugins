@@ -25,6 +25,8 @@ from __future__ import annotations
 
 import re
 
+from generate_codex_common import model_invocation_disabled
+
 # Frontmatter + text helpers are target-agnostic; reuse them directly.
 from generate_opencode_common import (
     SRC_SKILLS_DIR,
@@ -145,6 +147,7 @@ def transform_skill_markdown(raw: str, aliases: dict[str, str]) -> str:
     """
     frontmatter, body = parse_frontmatter(raw)
     name = str(frontmatter.get("name") or "skill")
+    model_invocation_disabled(frontmatter, name)  # strict validation; flag is not emitted
     description = str(frontmatter.get("description") or "").strip()
     transformed_description = compress_skill_description(
         apply_agents_text_transforms(
