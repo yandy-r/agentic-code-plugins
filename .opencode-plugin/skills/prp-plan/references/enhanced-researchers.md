@@ -1,5 +1,16 @@
 # Enhanced Researcher Prompts (7-agent fan-out for prp-plan --enhanced)
 
+## Contents
+
+- Roster
+- Prompt: api-researcher
+- Prompt: business-analyzer
+- Prompt: tech-designer
+- Prompt: ux-researcher
+- Prompt: security-researcher
+- Prompt: practices-researcher
+- Prompt: recommendations-agent
+
 > **Contract**: Each of these 7 researchers feeds the `prp-plan` synthesizer in Phase 6. They are dispatched standalone via the foreground native `subagent` call (`background=false`) (see `~/.config/opencode/shared/references/standalone-dispatch.md`). Each researcher returns its findings inline as structured rows that map directly to a section of the PRP plan template at `~/.config/opencode/skills/prp-plan/references/plan-template.md`, **AND** additionally writes the same discovery table to a backstop file at `docs/prps/plans/.prp-research/<feature-slug>/<role-name>.md` using the `Write` tool, so the findings are never lost even if the inline return is interrupted or truncated. All 7 use `@prp-researcher`, distinguished only by `description` plus the role-specific `prompt` and the role-specific prompt below.
 
 ## Roster

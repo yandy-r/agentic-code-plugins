@@ -1,5 +1,14 @@
 # Plan document quality — single source of truth
 
+## Contents
+
+- Block families (resolve exact tags via `get-plan-blocks`)
+- Decisions
+- Diagram primitives
+- Open questions live at the bottom as a form
+- `custom-html` is a bounded escape hatch only
+- Verification must exercise the real workflow
+
 The canonical quality bar for the plan document below the canvas: how it reads,
 which block families to use, how open questions are surfaced, and the pre-handoff
 check. Read it in full before authoring the plan document. Resolve exact tag

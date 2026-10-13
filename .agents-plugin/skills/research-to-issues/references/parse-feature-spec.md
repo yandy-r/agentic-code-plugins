@@ -1,5 +1,17 @@
 # Parse Feature-Spec Output
 
+## Contents
+
+- Expected Source Structure
+- Step 1: Extract Project Context
+- Step 2: Extract Phase and Task Structure
+- Step 3: Build Agentic Context for Child Issues
+- Step 4: Extract Decision Items (Optional)
+- Step 5: Extract Risk Context
+- Issue Mapping
+- Priority Classification
+- Source-Specific Labels
+
 Extraction instructions for `feature-spec.md` documents produced by `feature-research`.
 
 ## Expected Source Structure

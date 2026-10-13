@@ -1,14 +1,5 @@
 # Standalone Dispatch — Task Tool Reference
 
-Used by `prp-plan`, `deep-research`, `prp-implement`, `review-fix`,
-`quick-fix`, `orchestrate`, `feature-research`, `parallel-plan`,
-`shared-context`, `plan-workflow`, `clean`, and `git-workflow` for
-**standalone** sub-agent fan-out (no shared team, no `--team` flag). This file documents
-the `Task`-tool spawn/return contract. See [agent-team-dispatch.md](./agent-team-dispatch.md)
-for the separate `Agent`+`team_name` lifecycle used by `--team`/Path C runs. Sections 8-10
-hold the dispatch-mode-independent worktree, dependency-batching and plan-execution
-mechanics that `--team` runs reuse; only the dispatch primitive differs.
-
 ## Contents
 
 1. What `Task` Is
@@ -21,6 +12,15 @@ mechanics that `--team` runs reuse; only the dispatch primitive differs.
 8. Worktree and Branch Preparation
 9. Dependency Resolution and Batching
 10. Executing a Confirmed Plan
+
+Used by `prp-plan`, `deep-research`, `prp-implement`, `review-fix`,
+`quick-fix`, `orchestrate`, `feature-research`, `parallel-plan`,
+`shared-context`, `plan-workflow`, `clean`, and `git-workflow` for
+**standalone** sub-agent fan-out (no shared team, no `--team` flag). This file documents
+the `Task`-tool spawn/return contract. See `agent-team-dispatch.md` in this directory
+for the separate `Agent`+`team_name` lifecycle used by `--team`/Path C runs. Sections 8-10
+hold the dispatch-mode-independent worktree, dependency-batching and plan-execution
+mechanics that `--team` runs reuse; only the dispatch primitive differs.
 
 ---
 
@@ -108,7 +108,7 @@ hand — proceed directly to merging, no waiting required.
 
 ## 4. Hard Anti-Patterns
 
-These mirror the Failure Policy intent of [agent-team-dispatch.md](./agent-team-dispatch.md)
+These mirror the Failure Policy intent of `agent-team-dispatch.md` in this directory
 §4, but for the standalone path. Each of the following is a bug, not a stylistic
 preference:
 
@@ -178,7 +178,7 @@ the gap — a quietly missing finding is worse than a reported one.
 This file is the Claude-facing source contract. Cursor, Codex, and opencode generators
 must project it onto the target's actual tools and lifecycle rather than copying Claude
 identifiers or return assumptions. `Agent`+`team_name` remains Claude-Code-only. Per the
-`AGENTS:cursor` note in [target-capability-matrix.md](./target-capability-matrix.md), those
+`AGENTS:cursor` note in `target-capability-matrix.md` in this directory, those
 generated targets have no Claude agent-team surface (`create an agent group`/`record the task`/
 `send follow-up instructions`/`close the agent group`); their standalone path must use the target-native dispatch
 primitive, and their generated `--team` path must fail closed when no equivalent exists.

@@ -1,5 +1,19 @@
 # Parse PRD Output
 
+## Contents
+
+- Expected Source Structure
+- Step 1: Extract Project Context
+- Step 2: Extract Phase and Task Structure
+- Step 3: Extract Feature Items from MoSCoW
+- Step 4: Build Agentic Context for Child Issues
+- Step 5: Extract Anti-Scope Items
+- Step 6: Extract Decision Items
+- Step 7: Extract Risk Context
+- Issue Mapping
+- Priority Classification
+- Source-Specific Labels
+
 Extraction instructions for `*.prd.md` documents produced by `prp-prd`.
 
 ## Expected Source Structure

@@ -1,5 +1,13 @@
 # Rust Testing Patterns: Unit and Integration Tests
 
+## Contents
+
+- TDD Workflow for Rust
+- Unit Tests
+- Error and Panic Testing
+- Integration Tests
+- Async Tests
+
 ## TDD Workflow for Rust
 
 ### The RED-GREEN-REFACTOR Cycle

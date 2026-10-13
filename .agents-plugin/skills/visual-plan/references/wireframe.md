@@ -1,5 +1,7 @@
 # HTML wireframe quality — single source of truth
 
+## Contents
+
 The canonical quality bar for HTML wireframe content. Read it in full before
 authoring ANY wireframe; do not author wireframes from memory or paraphrase these
 rules per mode.

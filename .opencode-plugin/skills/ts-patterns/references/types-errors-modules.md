@@ -1,5 +1,11 @@
 # TypeScript Development Patterns: Types, Errors, and Modules
 
+## Contents
+
+- Type System
+- Error Handling
+- Modules and Packaging
+
 ## Type System
 
 ### Discriminated Unions with Exhaustiveness

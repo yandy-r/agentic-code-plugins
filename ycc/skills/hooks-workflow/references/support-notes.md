@@ -1,5 +1,15 @@
 # hooks-workflow: per-target support notes
 
+## Contents
+
+- Overview
+- Claude Code
+- Cursor
+- Codex
+- Why we refuse to fabricate unsupported config
+- Template placeholders
+- How to update this doc
+
 ## Overview
 
 This document records the per-target hook maturity for the three deployment targets

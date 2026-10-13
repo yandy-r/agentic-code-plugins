@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Regression checks for validate-workflow-plan.sh and validate-shared.sh
-# Usage: regression-validate-plan.sh
+# Usage: scripts/test-plan-workflow-validators.sh
 # - temp fixtures via mktemp, trap cleanup; no test framework
 set -uo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/../ycc/skills/plan-workflow/scripts" && pwd)"
 VAL_PLAN="${SCRIPT_DIR}/validate-workflow-plan.sh"
 VAL_SHARED="${SCRIPT_DIR}/validate-shared.sh"
 FAIL=0

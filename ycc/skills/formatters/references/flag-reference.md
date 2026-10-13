@@ -1,5 +1,10 @@
 # Flag Reference
 
+## Contents
+
+- Flag Matrix
+- Per-Flag Examples
+
 Detailed reference for every flag accepted by `ycc:formatters`. See `SKILL.md` for live phase logic.
 
 ---

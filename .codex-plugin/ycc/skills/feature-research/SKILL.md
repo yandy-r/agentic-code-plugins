@@ -343,6 +343,8 @@ Create `docs/plans/[feature-name]/feature-spec.md` following the template.
 
 ### Step 15: Validate Spec
 
+Run after Step 14 creates `feature-spec.md`:
+
 ```bash
 ~/.codex/plugins/ycc/skills/feature-research/scripts/validate-spec.sh docs/plans/[feature-name]/feature-spec.md
 ```

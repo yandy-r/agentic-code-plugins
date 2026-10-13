@@ -1,5 +1,11 @@
 # Good vs. bad exemplar — single source of truth
 
+## Contents
+
+- A worked example — UI-first plan MDX
+- GOOD — the bar
+- BAD — never produce this
+
 The canonical worked example of a great plan (and the anti-patterns to avoid).
 Read it alongside `document-quality.md` and `canvas.md` before authoring a plan;
 it is the bar these plans must clear. Resolve exact block tags against the live

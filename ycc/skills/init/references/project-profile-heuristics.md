@@ -96,5 +96,3 @@ When `is_empty=true` (no manifest files found, fewer than 3 source files total):
   bootstrapping from a pre-seeded directory).
 
 ---
-
-See also: [`flag-reference.md`](flag-reference.md), [`template-library.md`](template-library.md).

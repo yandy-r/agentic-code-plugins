@@ -76,7 +76,7 @@ Also resolve, without network writes:
 - **Project name:** the `origin` remote's repository name
   (`basename -s .git "$(git remote get-url origin)"`), else the `name` field of the first
   version file, else the basename of `ROOT`.
-- **Tracker candidates** (see `references/signals-and-proposal.md#tracker-detection`).
+- **Tracker candidates** — read `references/signals-and-proposal.md#tracker-detection` when listing tracker candidates.
 
 ## Phase 2 — Proposal and questions
 
@@ -100,8 +100,8 @@ left (under release-branches with an ambiguous tracker, default the support wind
 `latest-minor`, say so in the proposal, and ask about the tracker instead).
 
 `--yes` skips every question and accepts the proposal; an ambiguous tracker becomes
-`none`, noted in the summary. Details and the reason-to-model mapping are in
-`references/signals-and-proposal.md`.
+`none`, noted in the summary. Read `references/signals-and-proposal.md` when
+assembling the Phase 2 proposal — it holds the details and the reason-to-model mapping.
 
 ## Phase 3 — Render RELEASING.md (create)
 
@@ -145,16 +145,17 @@ Build the file in a scratch directory (`SCRATCH=$(mktemp -d)`), never in `ROOT` 
 ## Phase 4 — Pointer sections
 
 For each of `AGENTS.md`, `AGENTS.md`, and `.github/copilot-instructions.md` that exists in
-`ROOT` (never create one), add the pointer section from
-`references/pointer-and-labels.md#pointer-section` unless a line matching
+`ROOT` (never create one), read the pointer section in
+`references/pointer-and-labels.md#pointer-section` and add it unless a line matching
 `^## Branching & releases` is already present — then leave the file untouched and report
 "already present". Append it at the end of the file, separated by one blank line. When
 neither `AGENTS.md` nor `AGENTS.md` exists, report that and suggest `$init`.
 
 ## Phase 5 — Labels doc (release-branches only)
 
-If `.github/labels.md` exists and does not mention `backport:`, add the `backport:X.Y`
-family exactly as described in `references/pointer-and-labels.md#labels-doc`. Otherwise
+If `.github/labels.md` exists and does not mention `backport:`, read
+`references/pointer-and-labels.md#labels-doc` and add the `backport:X.Y`
+family exactly as it describes. Otherwise
 skip. Never create or edit labels on the forge.
 
 ## Phase 6 — Preview, then write

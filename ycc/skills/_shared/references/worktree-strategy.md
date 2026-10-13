@@ -1,5 +1,16 @@
 # Worktree Strategy — Canonical Reference
 
+## Contents
+
+- 0. Default Behavior
+- 1. Single feature worktree
+- 2. Plan annotation format
+- 3. Lifecycle (high level)
+- 4. Per-Target Dispatch Matrix
+- 5. End-of-Run Cleanup
+- 7. Plan-artifact handoff
+- 8. Harness `WorktreeCreate` Hook Integration
+
 Used by `ycc:plan`, `ycc:prp-plan`, `ycc:parallel-plan`, `ycc:plan-workflow`,
 `ycc:prp-implement`, `ycc:orchestrate`, and `ycc:implement-plan` for default
 worktree isolation. Also used by `ycc:code-review` and `ycc:review-fix` — with
@@ -20,7 +31,7 @@ contract. `setup-worktree.sh child` and `merge-children.sh` are **compatibility
 shims** (see shared scripts) until all executors are updated. New planners and
 executors should follow **only** the single-worktree contract below.
 
-See [agent-team-dispatch.md](./agent-team-dispatch.md) for the team lifecycle
+See `agent-team-dispatch.md` in this directory for the team lifecycle
 and how a single worktree pairs with parallel teammate dispatch.
 
 ---
@@ -54,7 +65,7 @@ annotations and the default.
 **Artifact location for `code-review`** — In PR mode the review artifact is
 written _into the active worktree_ at
 `<worktree>/docs/prps/reviews/pr-<N>-review.md`, then committed and pushed to
-the PR's head branch. See [code-review/SKILL.md](../../code-review/SKILL.md) for
+the PR's head branch. See `ycc/skills/code-review/SKILL.md` for
 the full lifecycle (draft→ready promotion, artifact commit+push, post-review
 worktree removal, opt-outs `--keep-draft` and `--keep-worktree`).
 
@@ -191,7 +202,7 @@ need not emit per-task `**Worktree**:` lines for new work.
 | Docs-only / manual runtimes | Docs-only (emit commands; no auto-create)                                            | User runs manually      |
 
 Parallel teammates all target the **same** feature worktree path in prompts.
-See [target-capability-matrix.md](./target-capability-matrix.md) for the full
+See `target-capability-matrix.md` in this directory for the full
 per-target table.
 
 ---

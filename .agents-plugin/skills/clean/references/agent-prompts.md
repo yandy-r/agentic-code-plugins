@@ -1,5 +1,16 @@
 # Cleanup Agent Prompts
 
+## Contents
+
+- Agent Configuration Table
+- Code Files Agent Prompt
+- Binaries Agent Prompt
+- Assets Agent Prompt
+- Documentation Agent Prompt
+- Configuration Agent Prompt
+- Docker/Container Agent Prompt
+- Common Output Format
+
 Detailed prompts for each of the 6 parallel cleanup agents. Each agent focuses on a specific category and follows strict safety protocols.
 
 ---

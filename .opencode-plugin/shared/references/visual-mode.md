@@ -1,5 +1,14 @@
 # Visual Mode — Canonical Reference
 
+## Contents
+
+- 0. Default Behavior
+- 1. Timing — runs AFTER write AND validation
+- 2. Composition with other flags
+- 3. Hand-off to `visual-plan`
+- 4. `/plan --visual` special case — force a write FIRST
+- 5. NAMING_CONVENTION
+
 Used by `prp-plan`, `plan`, `parallel-plan`, and `plan-workflow`
 to expose a uniform `--visual` decorator. This file documents the **single
 `--visual` contract** shared by all four planning skills: when it runs, how it
@@ -12,7 +21,7 @@ change how a plan is researched, dispatched, or written — it only runs once,
 **after** the plan exists and has been validated, to produce a visual rendering
 of that plan.
 
-See [worktree-strategy.md](./worktree-strategy.md) for where plan artifacts live.
+See `worktree-strategy.md` in this directory for where plan artifacts live
 
 ---
 

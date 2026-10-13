@@ -111,12 +111,6 @@ feature_dir="$(get_feature_plan_dir "[feature-name]")"
 
 Handles monorepo detection, `.plans-config` files, and git root resolution automatically. See "Monorepo Support" below.
 
-Regression planning validation uses `scripts/regression-validate-plan.sh` when validating a previously generated plan without rerunning workflow phases.
-
-### Step 2.9: Regression plan validation
-
-`scripts/regression-validate-plan.sh` revalidates an existing `parallel-plan.md` without re-running the workflow phases; invoke it when resuming a finished feature directory.
-
 ### Step 3: Run State Detection
 
 ```bash

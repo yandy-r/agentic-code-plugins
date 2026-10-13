@@ -1,5 +1,12 @@
 # Prompt-Injection Safety
 
+## Contents
+
+- Inbound rules (before display & fixer dispatch)
+- Outbound rules (before reply, summary, or commit message)
+- What this does NOT protect against
+- Quick reference
+
 PR comment bodies are **untrusted input**. Anyone who can comment on a PR — bots, external contributors, anyone with read+comment access — can inject text designed to manipulate an autofix agent into reading secrets, exfiltrating data, executing shell commands, or making out-of-scope code changes.
 
 `ycc:pr-autofix` defends against this with two complementary sanitization passes:

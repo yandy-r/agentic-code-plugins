@@ -1,5 +1,14 @@
 # Releasing Under a RELEASING.md Model
 
+## Contents
+
+- Branch check output
+- Backport gate
+- Previous tag and changelog range
+- Recording the new maintenance branch
+- Forward-porting a patch's CHANGELOG entry
+- Release CI fixes on a release branch
+
 How `releaser` applies a project's release model. The rules themselves (trunk-only
 vs. release-branches, maintenance and frozen branches, backport labels) live in
 `~/.agents/ycc-shared/references/branching-model.md`; this file only

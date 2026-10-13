@@ -105,6 +105,8 @@ The work list is a set of `(PR, target, merge_sha, title)` rows.
 
 ### `--pending`
 
+Run when `--pending` is passed (Phase 2 work-list build):
+
 ```bash
 bash "~/.codex/plugins/ycc/skills/backport/scripts/find-pending.sh" --repo .
 ```
@@ -144,6 +146,8 @@ Print the list as a table (PR, title, target, merge SHA, planned branch
 Process rows in order (lowest PR first). For each row:
 
 ### 3.1 Cherry-pick
+
+Run for each planned row in Phase 3 order:
 
 ```bash
 bash "~/.codex/plugins/ycc/skills/backport/scripts/cherry-pick-pr.sh" \

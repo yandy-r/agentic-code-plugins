@@ -1,5 +1,16 @@
 # Canvas & artboard placement — single source of truth
 
+## Contents
+
+- Canvas block families
+- Emitted files
+- The coordinate rule
+- Lay out mixed canvases in lanes
+- Annotations are designer notes on the artboard
+- Patching
+- Never emit a titled artboard with no interior wireframe content
+- UI mockups belong in the top visual review area
+
 The canonical guide for how the visual-plan canvas works: artboard placement,
 lane layout, annotations, patching, and emitted files. Read it in full before
 authoring or editing any canvas/artboard content; do not author canvas layouts

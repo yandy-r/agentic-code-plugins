@@ -1,5 +1,11 @@
 # Flag Reference
 
+## Contents
+
+- Flag Matrix
+- Per-Flag Examples
+- Composition Rules
+
 Detailed reference for every flag accepted by `init`. See also `SKILL.md` for the live phase logic.
 
 ---
@@ -209,5 +215,3 @@ Flags are independent and composable. Any combination is valid:
 | `--update --force --templates`         | Refresh everything aggressively — merge semantics + overwrite on conflict |
 
 ---
-
-See also: [`project-profile-heuristics.md`](project-profile-heuristics.md), [`template-library.md`](template-library.md).

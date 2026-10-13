@@ -186,3 +186,21 @@ Produce a summary with these sections:
 - **Runtime-neutral aliases.** When the target has no `package.json`, the skill installs Makefile targets instead. Node is never required downstream.
 - **Composing with `$init`.** `$init --formatters` delegates here and passes through `--dry-run` and `--force`. Invoke this skill directly for full flag coverage (CI, hooks, per-stack overrides).
 - For per-language tool rationale (why biome over eslint, ruff over flake8, etc.), see `references/best-practices.md`.
+
+## Support files
+
+Pointers below are conditional reads, not extra execution steps. Helpers consume templates automatically.
+
+- Read `references/templates/package-json-scripts.json.tmpl`, `references/templates/makefile-snippet.mk.tmpl`, and `references/templates/justfile-snippet.just.tmpl` when inspecting alias output for package.json, Makefile, or justfile respectively.
+- Read `references/templates/readme-section.md.tmpl` when inspecting generated documentation (`--no-docs` skips it).
+- Read `references/templates/lint.yml.tmpl` when inspecting `--ci` check output; read `references/templates/lint-autofix.yml.tmpl` when `--ci` enables autofix (not `--no-autofix`).
+- Read `references/templates/lefthook.yml.tmpl` when inspecting lefthook output; read `references/templates/husky-pre-commit.tmpl` when inspecting Husky output under `--hooks`.
+- Run `scripts/bundle/style.sh` when installing/syncing the bundle in Phase 4. Read `scripts/bundle/init-formatters.sh` when inspecting its install behavior; `style.sh` runs it, do not run it separately.
+- Read `scripts/bundle/format.sh` and `scripts/bundle/lint.sh` when inspecting installed format/lint dispatch; downstream `style.sh` runs them, do not run them separately here.
+- Read `scripts/bundle/go-tools.sh` when inspecting Go tool setup; read `scripts/bundle/install-shellcheck.sh` when inspecting pinned ShellCheck setup. Installer/dispatcher runs them as needed; do not run them separately here.
+- Read `scripts/bundle/lib/excludes.sh` when inspecting ignore rules and `scripts/bundle/lib/modified-files.sh` when inspecting changed-file selection. Sourceable helpers, not standalone commands.
+- Read `scripts/bundle/lib/shellcheck-resolve.sh` when inspecting ShellCheck lookup and `scripts/bundle/lib/shellcheck-version.sh` when inspecting its pinned version. Sourceable helpers, not standalone commands.
+- Read `scripts/bundle/templates/biome.json` and `scripts/bundle/templates/tsconfig.json` when inspecting TypeScript/JavaScript config output.
+- Read `scripts/bundle/templates/clippy.toml` and `scripts/bundle/templates/rustfmt.toml` when inspecting Rust config output.
+- Read `scripts/bundle/templates/python-pyproject.toml` when inspecting Python config output.
+- Read `scripts/bundle/templates/markdownlint.json`, `scripts/bundle/templates/markdownlintignore`, `scripts/bundle/templates/prettierrc.json`, and `scripts/bundle/templates/prettierignore` when inspecting docs config output.

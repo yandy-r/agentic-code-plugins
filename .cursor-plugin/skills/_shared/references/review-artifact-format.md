@@ -1,10 +1,5 @@
 # Review Artifact Format (Shared Reference)
 
-Canonical schema for review artifacts written to `docs/prps/reviews/`.
-`/code-review` writes it (both modes). `/review-fix`, `/quick-fix`,
-and `/quick-review` parse it. Do not deviate — downstream skills parse
-these fields mechanically.
-
 ## Contents
 
 - File locations
@@ -13,6 +8,11 @@ these fields mechanically.
 - Finding ID rules
 - Status field rules
 - Required fields per finding
+
+Canonical schema for review artifacts written to `docs/prps/reviews/`.
+`/code-review` writes it (both modes). `/review-fix`, `/quick-fix`,
+and `/quick-review` parse it. Do not deviate — downstream skills parse
+these fields mechanically.
 
 ## File locations
 

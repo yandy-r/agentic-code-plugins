@@ -133,7 +133,7 @@ Do not dispatch agents or run worktree scripts in dry-run mode.
 
 ## Phase 5: Result Synthesis & Summary
 
-**Step 14**: consolidate outputs:
+**Step 14**: consolidate outputs by running:
 
 ```bash
 ~/.config/opencode/skills/orchestrate/scripts/summarize-results.sh

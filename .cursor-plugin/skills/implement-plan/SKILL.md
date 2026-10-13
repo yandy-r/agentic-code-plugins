@@ -112,6 +112,8 @@ Also read files listed in the "Critically Relevant Files" section of parallel-pl
 
 ### Step 3: Extract Tasks
 
+Run when building the execution graph (Phase 1 task extraction):
+
 ```bash
 ${CURSOR_PLUGIN_ROOT}/skills/implement-plan/scripts/parse-dependencies.sh docs/plans/[feature-name]/parallel-plan.md
 ```

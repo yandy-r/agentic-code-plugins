@@ -1,5 +1,13 @@
 # Python Development Patterns: Core Idioms
 
+## Contents
+
+- Core Principles
+- Type Hints
+- Error Handling Patterns
+- Context Managers
+- Comprehensions and Generators
+
 ## Core Principles
 
 ### 1. Readability Counts

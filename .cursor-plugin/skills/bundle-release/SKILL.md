@@ -116,7 +116,7 @@ Unless `--skip-notes` was passed, run:
 ycc/skills/bundle-release/scripts/draft-notes.sh <new-version>
 ```
 
-This fills the release notes template and writes `docs/releases/<new-version>.md`.
+This reads `references/release-notes-template.md` and writes `docs/releases/<new-version>.md`.
 Prompt the user to review and edit the Summary and Upgrade Notes sections before
 committing. If the script exits non-zero, surface stderr and STOP.
 
@@ -152,4 +152,5 @@ passed.
 - Rollback command for any mid-run failure after Phase 3:
   `git checkout -- ycc/.claude-plugin/plugin.json .claude-plugin/marketplace.json .opencode-plugin/ && ./scripts/sync.sh`
 - See `references/release-checklist.md` for the full manual checklist.
+- `references/release-notes-template.md` is the release-notes template; `scripts/draft-notes.sh` reads it (Phase 6), so read it directly only when editing the notes layout.
 - See `references/version-policy.md` for semver bump rules and the never-edit list.

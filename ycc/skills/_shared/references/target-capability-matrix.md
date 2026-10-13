@@ -1,5 +1,12 @@
 # Target Capability Matrix
 
+## Contents
+
+- Parser Grammar
+- Capability Matrix
+- Notes
+- How to Update This Document
+
 As of 2026-10-03
 
 This file is the authoritative source for which ycc bundle capabilities are supported on each

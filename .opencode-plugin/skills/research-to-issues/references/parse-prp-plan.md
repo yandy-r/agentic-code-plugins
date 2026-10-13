@@ -1,5 +1,16 @@
 # Parse PRP Plan Output
 
+## Contents
+
+- Expected Source Structure
+- Step 1: Detect Plan Mode
+- Step 2: Extract Plan Context
+- Step 3: Extract Tasks
+- Step 4: Build Tracking Issue Content
+- Issue Mapping
+- Priority Classification
+- Source-Specific Labels
+
 Extraction instructions for plan documents produced by `prp-plan`.
 
 ## Expected Source Structure

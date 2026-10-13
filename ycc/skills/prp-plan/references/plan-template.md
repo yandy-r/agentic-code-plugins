@@ -1,5 +1,25 @@
 # Plan: [Feature Name]
 
+## Contents
+
+- Summary
+- User Story
+- Problem → Solution
+- Metadata
+- UX Design
+- Mandatory Reading
+- External Documentation
+- Patterns to Mirror
+- Files to Change
+- NOT Building
+- Step-by-Step Tasks
+- Testing Strategy
+- Validation Commands
+- Acceptance Criteria
+- Completion Checklist
+- Risks
+- Notes
+
 ## Summary
 
 [2-3 sentence overview]

@@ -45,6 +45,7 @@ validate_scope_targets_for_path() {
 
         # Single-target tests and validators.
         scripts/test-release-*.sh) echo "release" ;;
+        scripts/test-plan-workflow-validators.sh) echo "inventory" ;;
         scripts/validate-mods.sh) echo "mods" ;;
         scripts/validate-practices.sh | scripts/validate_practices.py) echo "practices" ;;
         scripts/practices_parse.py | scripts/practices-baseline.json) echo "practices" ;;

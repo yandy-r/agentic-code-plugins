@@ -1,5 +1,14 @@
 # Reading the compatibility-audit report
 
+## Contents
+
+- What each section means
+- Per-target verdict semantics
+- How to fix drift
+- How to fix install-assumption failures
+- Why we don't collapse to a single pass/fail
+- Annotated sample report
+
 This document explains how to interpret the output of `ycc:compatibility-audit`: the
 structure of the human-format report, what each per-target verdict means, and how to act
 on the most common failure classes.

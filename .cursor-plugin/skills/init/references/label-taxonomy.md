@@ -1,5 +1,14 @@
 # Label Taxonomy
 
+## Contents
+
+- `type:` — Change category
+- `area:` — Subsystem (stubs — customise per project)
+- `priority:` — Urgency
+- `status:` — Workflow state
+- Standalone labels
+- Applying the Taxonomy
+
 Suggested GitHub label families. Prune per-project to what's actually relevant.
 
 ---
@@ -104,5 +113,3 @@ gh label create "help wanted"      --color "008672" --description "Extra attenti
 > commands tailored to the detected project. Remove any labels your project won't use.
 
 ---
-
-See also: [`conventional-commits.md`](conventional-commits.md), [`flag-reference.md`](flag-reference.md).

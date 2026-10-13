@@ -1,5 +1,20 @@
 # CI Release-Pipeline Optimization Checklist
 
+## Contents
+
+- 1. Triggering
+- 2. Permissions (Supply-Chain Hardening)
+- 3. Action Pinning
+- 4. Caching
+- 5. Build Matrix
+- 6. Artifacts & Provenance
+- 7. Release Notes
+- 8. Error Handling
+- 9. Documentation
+- 10. Observability
+- Generator Quality Gate
+- Compatibility with `--ci` (Phase 8.5 auto-fix loop)
+
 Audit criteria used by the `releaser` agent in `--ci-config=audit` mode, and the
 default quality gate that generated workflows must meet in `--ci-config=generate`
 mode. Each item is categorized by severity.

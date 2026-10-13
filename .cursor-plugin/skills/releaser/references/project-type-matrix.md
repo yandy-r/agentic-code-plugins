@@ -1,5 +1,15 @@
 # Project Type Matrix
 
+## Contents
+
+- Node / TypeScript
+- Python
+- Go
+- Rust
+- Docker / Container Images
+- Mixed / Monorepo
+- Generic (fallback)
+
 Reference for `detect-project.sh` output and for Phase 5 manifest edits. Each row
 lists the detection signals, the manifest file(s) that carry the version string, the
 default OS/arch matrix for release artifacts, and the recommended CI generator template.

@@ -148,13 +148,17 @@ exact tag names, required fields, and prop shapes.
 These are provider-neutral quality bars. Read the relevant one IN FULL before
 authoring; do not paraphrase from memory:
 
-- `~/.config/opencode/skills/visual-plan/references/document-quality.md` — the
+- `~/.config/opencode/skills/visual-plan/references/document-quality.md` — read
+  before authoring any plan document: the
   plan-document quality bar and block families.
-- `~/.config/opencode/skills/visual-plan/references/canvas.md` — canvas /
+- `~/.config/opencode/skills/visual-plan/references/canvas.md` — read before
+  building a canvas surface: canvas /
   artboard / annotation mechanics and patch ops.
-- `~/.config/opencode/skills/visual-plan/references/wireframe.md` — the HTML
+- `~/.config/opencode/skills/visual-plan/references/wireframe.md` — read before
+  authoring wireframe blocks: the HTML
   wireframe quality bar (`.wf-*` tokens, surfaces, icons, skeletons).
-- `~/.config/opencode/skills/visual-plan/references/exemplar.md` — a worked
+- `~/.config/opencode/skills/visual-plan/references/exemplar.md` — read when
+  checking composition or anti-patterns: a worked
   example plus the anti-patterns to avoid.
 
 ## Planning is read-only

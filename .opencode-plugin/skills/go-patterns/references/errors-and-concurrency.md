@@ -1,5 +1,11 @@
 # Go Development Patterns: Errors and Concurrency
 
+## Contents
+
+- Core Principles
+- Error Handling Patterns
+- Concurrency Patterns
+
 ## Core Principles
 
 ### 1. Simplicity and Clarity

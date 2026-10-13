@@ -1,5 +1,14 @@
 # Rust Development Patterns: Concurrency, Unsafe, and Modules
 
+## Contents
+
+- Structs and Data Modeling
+- Iterators and Closures
+- Concurrency
+- Unsafe Code
+- Module System and Crate Structure
+- Tooling Integration
+
 ## Structs and Data Modeling
 
 ### Builder Pattern for Complex Construction

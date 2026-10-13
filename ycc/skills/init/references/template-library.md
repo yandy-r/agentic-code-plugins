@@ -1,5 +1,12 @@
 # Template Library
 
+## Contents
+
+- Template Catalog
+- Placeholder Reference
+- Conditional Blocks
+- Notes
+
 Every template the skill can render, its target path, and the variables it substitutes.
 
 ---
@@ -98,5 +105,3 @@ plan` in the title get a failing required check, not a silent merge. The
   diff-and-skip update semantics.
 
 ---
-
-See also: [`flag-reference.md`](flag-reference.md), [`project-profile-heuristics.md`](project-profile-heuristics.md).

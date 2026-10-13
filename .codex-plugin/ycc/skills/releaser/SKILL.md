@@ -239,9 +239,9 @@ If a file cannot be read, say so.
 
 Scripts (invoke as `~/.codex/plugins/ycc/skills/releaser/scripts/<name>`):
 
-- `scripts/detect-project.sh` — Read when: Phase 1 detection (emits JSON).
-- `scripts/check-release-branch.sh` — Read when: Phase 2 branch check after the
+- `scripts/detect-project.sh` — Run when: Phase 1 detection (emits JSON).
+- `scripts/check-release-branch.sh` — Run when: Phase 2 branch check after the
   version is confirmed.
-- `scripts/draft-changelog.sh` — Read when: Phase 4 notes drafting.
-- `scripts/publish-release.sh` — Read when: Phase 8 `--publish` preview/apply and the
+- `scripts/draft-changelog.sh` — Run when: Phase 4 notes drafting.
+- `scripts/publish-release.sh` — Run when: Phase 8 `--publish` preview/apply and the
   destructive 8.5.3 re-cut fallback.

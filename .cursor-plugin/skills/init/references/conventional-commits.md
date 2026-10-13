@@ -1,5 +1,14 @@
 # Conventional Commits
 
+## Contents
+
+- Commit Types
+- Scope Syntax
+- Breaking Change Syntax
+- Body and Footer Rules
+- Internal Docs Convention
+- Examples
+
 Condensed Conventional Commits 1.0.0 spec, embedded verbatim in every generated `CLAUDE.md`.
 
 ---
@@ -103,5 +112,3 @@ Reverts commit abc1234. Rate limiting caused false positives for mobile clients.
 ```
 
 ---
-
-See also: [`label-taxonomy.md`](label-taxonomy.md), [`flag-reference.md`](flag-reference.md).
