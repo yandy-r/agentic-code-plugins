@@ -19,7 +19,7 @@ Input: `$ARGUMENTS`.
 
 ## Phase 0 — DETECT
 
-Flag table (strip flags; remainder is the selector):
+Extract flags from `$ARGUMENTS` before treating the remainder as the input:
 
 | Flag                 | Effect                                                                                                                             |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
@@ -29,8 +29,9 @@ Flag table (strip flags; remainder is the selector):
 | `--worktree`         | Legacy no-op; worktree mode is default (auto-detect from artifact)                                                                 |
 | `--no-worktree`      | Apply fixes directly in current working tree                                                                                       |
 
-Set `PARALLEL_MODE`, `MIN_SEVERITY`, `DRY_RUN`, and ``;
-`WORKTREE_MODE=true` unless `--no-worktree`. Gates:
+Strip the supported flags from `$ARGUMENTS` and set `PARALLEL_MODE`, `MIN_SEVERITY`, `DRY_RUN`, and `WORKTREE_MODE=true` unless `--no-worktree` is present. The remaining text is the input selector.
+
+**Validation**:
 
 - Both `--parallel`:
 
@@ -43,8 +44,9 @@ Error paths:
 
 - Nothing found: `Error: No review artifact found.` + `Run /code-review first to produce a review artifact.`
 - Missing explicit path: `Error: review file not found: <path>`
-- Unparseable: `Error: Review file has no parseable findings or is not in the expected format.`
-  Artifact schema lives in shared reference — see Phase 1.
+- Unparseable: stop with
+  `Error: Review file has no parseable findings or is not in the expected format.`
+  - `See ~/.config/opencode/shared/references/review-artifact-format.md`.
 - No Open findings: stop with Fixed/Failed counts, `Nothing to do.`
 
 Package manager detection (`TYPECHECK_CMD`, `TEST_CMD`):
@@ -65,8 +67,31 @@ Parse artifact per finding schema and status rules:
 
 `~/.config/opencode/shared/references/review-artifact-format.md`
 
+Build an in-memory list of `Finding` objects with fields:
+
+- `id` (e.g., `F042`)
+- `severity` (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`)
+- `file`
+- `line`
+- `description`
+- `status`
+- `category`
+- `suggested_fix`
+
+If every finding already has `Status: Fixed` or `Status: Failed`, stop with:
+
+```
+All findings in this review have already been processed.
+  Fixed:  N
+  Failed: M
+Nothing to do.
+```
+
+**CHECKPOINT**: Review loaded. All findings parsed. At least one `Status: Open` finding exists.
+
 Finding missing Status → treat as Open, warn:
-`Warning: Finding F### has no Status field. Treating as Open.`
+`Warning: Finding F### has no Status field. Treating as Open.` +
+`Fix the source review file format — see review-artifact-format.md (shared reference above).`
 
 Scan for `^## Worktree Setup`:
 
@@ -91,14 +116,88 @@ suggested fix/Missing files/Eligible). `M == 0` → `No eligible findings to fix
 
 ## Phase 3 — PLAN
 
-Grouping: same-file findings share one fixer, sorted by line descending;
-different files are parallel candidates; batches ordered by severity
-(CRITICAL first). With `WORKTREE_ACTIVE=true`, batch = one severity level,
-same-file grouping preserved within each batch.
+Read the batching contract before building batches:
 
-If `DRY_RUN=true`, stop here after printing the plan (defer exit to Phase 4
-`Dry run complete. To apply fixes, re-run without --dry-run:
+`~/.config/opencode/skills/review-fix/references/plan.md`
+
+Post the plan as a `Fix Plan:` block (counts M/G/B/W, per-batch listing with
+IDs, `file:line`, severity and file counts). Worktree mode prints the
+plan summary with severity batches from that reference. `--dry-run` with
+`--worktree` prints that summary and exits; all batches would run inside the
+parent worktree at `$PARENT_PATH`.
+
+### Dry-run gate
+
+If `DRY_RUN=true`, stop here. Print a reminder:
+
+```
+Dry run complete. To apply fixes, re-run without --dry-run:
   /review-fix $REVIEW_FILE [--parallel] [--severity <level>]
+```
+
+
+**CHECKPOINT**: Plan built. Batches computed. User has seen the plan.
+
+## Phase 4 — EXECUTE
+
+Read fixer prompt contract, Path B/C fan-out and failure handling:
+
+`~/.config/opencode/skills/review-fix/references/fixer-dispatch.md`
+
+Use Path B when `PARALLEL_MODE=true`; otherwise use sequential Path A.
+
+### Worktree-mode lifecycle (`WORKTREE_ACTIVE=true`)
+
+Read when `WORKTREE_ACTIVE=true`: the "Worktree-mode lifecycle" section of
+`~/.config/opencode/skills/review-fix/references/plan.md` and
+`~/.config/opencode/shared/references/worktree-strategy.md` §1.
+All batches run inside
+`$PARENT_PATH`; validation per batch:
+
+```bash
+( cd "$PARENT_PATH" && $TYPECHECK_CMD ) && ( cd "$PARENT_PATH" && $TEST_CMD )
+```
+
+One-time parent setup only when forced and not yet ensured.
+
+Status updates in place via `Edit` after each agent returns: Fixed on
+`STATUS: Fixed`, Failed on `STATUS: Failed`. Track per-batch todos. In Path B/C,
+between-batch validation failure stops and asks for the path-specific choices
+in fixer-dispatch.md. Path A continues; no stop-and-ask gate.
+
+## Phase 5 — VERIFY
+
+Run `$TYPECHECK_CMD` and `$TEST_CMD`; record pass/fail. Diagnostic only — no
+rollback; user decides.
+
+## Phase 6 — REPORT
+
+Read report template and worktree summary:
+
+`~/.config/opencode/skills/review-fix/references/fix-report.md`
+
+Write to `docs/prps/reviews/fixes/<source-name>-fixes.md` under the active
+checkout root. In worktree mode, stage and commit the report alongside fix
+commits and push. GitHub-only: detect forge first (see
+`~/.config/opencode/shared/references/forge-detection.md`); on
+non-GitHub providers skip commit/push with notice
+`PR posting is GitHub-only on provider <provider>; fixes applied locally — commit and push them yourself.` and `REPORT_COMMITTED: n/a`.
+
+## Phase 7 — OUTPUT
+
+Start the output with this literal heading:
+
+```markdown
+## Review Fixes Complete
+```
+
+Report source path, report path, mode, eligible/fixed/failed/skipped/open
+counts, updated statuses, validation results, next steps
+(`/code-review <target>` re-review, `/git-workflow --commit`).
+
+Print under `### Goal Signals (machine-readable — printed verbatim for /goal)`,
+as the last lines, one `KEY: PASS|FAIL` per line (always include the value):
+
 ```
 PLAN_VALID: <PASS|FAIL>
 REVIEW_UPDATED: <PASS|FAIL>

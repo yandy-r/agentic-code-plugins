@@ -31,7 +31,9 @@ its report, then `Edit` the finding's `**Status**: Open` line to `Fixed` on
 `STATUS: Fixed` or `Failed` on `STATUS: Failed`. Track `[done] F042 — Fixed` /
 `[failed] F043 — Failed: <blocker>` in todos. Continue after a failure so the
 user gets the full picture. In worktree mode run the between-batch validation
-inside `${PARENT_PATH}` before advancing to the next severity.
+inside `${PARENT_PATH}` before advancing to the next severity. Path A has no
+stop-and-ask gate: between-batch validation is diagnostic here and never
+pauses the pipeline; the fail-stop gate applies to Path B and Path C only.
 
 ### Path B — Parallel Sub-Agent Execution (`PARALLEL_MODE=true`)
 

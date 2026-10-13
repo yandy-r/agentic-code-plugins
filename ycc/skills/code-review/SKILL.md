@@ -60,9 +60,7 @@ Extract flags before interpreting the remaining text as the selector:
 | `--keep-worktree`   | PR: keep worktree after successful publish                   |
 | `--quick`           | Alias for `/ycc:quick-review` after validation               |
 
-Set `QUICK_MODE=true|false`, `PARALLEL_MODE=true|false`, `AGENT_TEAM_MODE=true|false`,
-`NO_WORKTREE_MODE=true|false`, `KEEP_DRAFT=true|false`, `KEEP_WORKTREE=true|false`; `WORKTREE_MODE` defaults true unless
-`--no-worktree`. Worktree flags have no isolation effect in local mode.
+Strip these from `$ARGUMENTS` and set `QUICK_MODE=true|false`, `PARALLEL_MODE=true|false`, `AGENT_TEAM_MODE=true|false`, `NO_WORKTREE_MODE=true|false`, `KEEP_DRAFT=true|false`, and `KEEP_WORKTREE=true|false`. Compute `WORKTREE_MODE=true` unless `--no-worktree` is present (default-on in PR mode; ignored for local mode as before). The remaining text is the mode selector (PR number/URL or blank for local).
 
 Gates (abort on invalid combinations):
 
@@ -135,7 +133,9 @@ If explicit `--worktree`, print:
    `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/review-artifact-format.md`.
    Generate one timestamp per invocation, reused for any fan-out run-id and
    `docs/prps/reviews/local-{YYYYMMDD-HHMMSS}-review.md`. Write even when no
-   findings. Use schema's ID order, initial Status and required fields.
+   findings. Apply the schema's Finding ID rules — IDs ordered by severity
+   (CRITICAL first), then by file path — plus initial Status and required
+   fields.
    Omit Worktree Setup. Include validation table; mark unrun checks Skipped.
    After successful write remove this invocation's parallel scratch directory.
 

@@ -51,7 +51,7 @@ Input: `$ARGUMENTS`.
 
 ## Phase 0 — DETECT
 
-Flag table (strip flags; remainder is the selector):
+Extract flags from `$ARGUMENTS` before treating the remainder as the input:
 
 | Flag                 | Effect                                                                                                                             |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
@@ -62,8 +62,9 @@ Flag table (strip flags; remainder is the selector):
 | `--worktree`         | Legacy no-op; worktree mode is default (auto-detect from artifact)                                                                 |
 | `--no-worktree`      | Apply fixes directly in current working tree                                                                                       |
 
-Set `PARALLEL_MODE`, `MIN_SEVERITY`, `DRY_RUN`, and `AGENT_TEAM_MODE`;
-`WORKTREE_MODE=true` unless `--no-worktree`. Gates:
+Strip these flags from `$ARGUMENTS` and set `PARALLEL_MODE`, `AGENT_TEAM_MODE`, `MIN_SEVERITY`, `DRY_RUN`, and `WORKTREE_MODE=true` unless `--no-worktree` is present. The remaining text is the input selector.
+
+**Validation**:
 
 - Both `--parallel` and `--team`:
   `--parallel and --team are mutually exclusive. Pick one.`
@@ -80,8 +81,9 @@ Error paths:
 
 - Nothing found: `Error: No review artifact found.` + `Run /ycc:code-review first to produce a review artifact.`
 - Missing explicit path: `Error: review file not found: <path>`
-- Unparseable: `Error: Review file has no parseable findings or is not in the expected format.`
-  Artifact schema lives in shared reference — see Phase 1.
+- Unparseable: stop with
+  `Error: Review file has no parseable findings or is not in the expected format.`
+  - `See ${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/review-artifact-format.md`.
 - No Open findings: stop with Fixed/Failed counts, `Nothing to do.`
 
 Package manager detection (`TYPECHECK_CMD`, `TEST_CMD`):
@@ -102,8 +104,31 @@ Parse artifact per finding schema and status rules:
 
 `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/review-artifact-format.md`
 
+Build an in-memory list of `Finding` objects with fields:
+
+- `id` (e.g., `F042`)
+- `severity` (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`)
+- `file`
+- `line`
+- `description`
+- `status`
+- `category`
+- `suggested_fix`
+
+If every finding already has `Status: Fixed` or `Status: Failed`, stop with:
+
+```
+All findings in this review have already been processed.
+  Fixed:  N
+  Failed: M
+Nothing to do.
+```
+
+**CHECKPOINT**: Review loaded. All findings parsed. At least one `Status: Open` finding exists.
+
 Finding missing Status → treat as Open, warn:
-`Warning: Finding F### has no Status field. Treating as Open.`
+`Warning: Finding F### has no Status field. Treating as Open.` +
+`Fix the source review file format — see review-artifact-format.md (shared reference above).`
 
 Scan for `^## Worktree Setup`:
 
@@ -128,14 +153,28 @@ suggested fix/Missing files/Eligible). `M == 0` → `No eligible findings to fix
 
 ## Phase 3 — PLAN
 
-Grouping: same-file findings share one fixer, sorted by line descending;
-different files are parallel candidates; batches ordered by severity
-(CRITICAL first). With `WORKTREE_ACTIVE=true`, batch = one severity level,
-same-file grouping preserved within each batch.
+Read the batching contract before building batches:
 
-If `DRY_RUN=true`, stop here after printing the plan (defer exit to Phase 4
-C.2 under `--team` so the roster prints too); reminder:
-`Dry run complete. To apply fixes, re-run without --dry-run:` + command form.
+`${CLAUDE_PLUGIN_ROOT}/skills/review-fix/references/plan.md`
+
+Post the plan as a `Fix Plan:` block (counts M/G/B/W, per-batch listing with
+IDs, `file:line`, severity and file counts). Worktree mode prints the
+plan summary with severity batches from that reference. `--dry-run` with
+`--worktree` prints that summary and exits; all batches would run inside the
+parent worktree at `$PARENT_PATH`.
+
+### Dry-run gate
+
+If `DRY_RUN=true` and `AGENT_TEAM_MODE=false`, stop here. Print a reminder:
+
+```
+Dry run complete. To apply fixes, re-run without --dry-run:
+  /ycc:review-fix $REVIEW_FILE [--parallel | --team] [--severity <level>]
+```
+
+If `DRY_RUN=true` and `AGENT_TEAM_MODE=true`, defer the final exit to Phase 4 C.2 so the team name and per-batch teammate roster can be printed alongside the fix plan. Do NOT proceed to any team/task/agent tool calls.
+
+**CHECKPOINT**: Plan built. Batches computed. User has seen the plan.
 
 ## Phase 4 — EXECUTE
 
@@ -143,20 +182,32 @@ Read fixer prompt contract, Path B/C fan-out and failure handling:
 
 `${CLAUDE_PLUGIN_ROOT}/skills/review-fix/references/fixer-dispatch.md`
 
-Path selection: neither flag → Path A sequential; `--parallel` → Path B
-standalone parallel batches; `--team` → Path C agent team.
+Branch based on `PARALLEL_MODE` and `AGENT_TEAM_MODE`:
 
-Worktree lifecycle (`WORKTREE_ACTIVE=true`, per
-`worktree-strategy.md` §1): all batches run inside `$PARENT_PATH`; no
-per-severity child worktrees, no fan-in merge. Per batch: dispatch with
-`Working directory: $PARENT_PATH` (no `isolation: "worktree"`), validate
-(`$TYPECHECK_CMD` + `$TEST_CMD`) in `$PARENT_PATH`, advance. One-time parent
-setup only when forced and not yet ensured.
+| Flags             | Path                                               |
+| ----------------- | -------------------------------------------------- |
+| Neither set       | **Path A** — sequential execution (default)        |
+| `PARALLEL_MODE`   | **Path B** — parallel standalone sub-agent batches |
+| `AGENT_TEAM_MODE` | **Path C** — agent-team batch execution            |
+
+### Worktree-mode lifecycle (`WORKTREE_ACTIVE=true`)
+
+Read when `WORKTREE_ACTIVE=true`: the "Worktree-mode lifecycle" section of
+`${CLAUDE_PLUGIN_ROOT}/skills/review-fix/references/plan.md` and
+`${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/worktree-strategy.md` §1.
+All batches run inside
+`$PARENT_PATH`; validation per batch:
+
+```bash
+( cd "$PARENT_PATH" && $TYPECHECK_CMD ) && ( cd "$PARENT_PATH" && $TEST_CMD )
+```
+
+One-time parent setup only when forced and not yet ensured.
 
 Status updates in place via `Edit` after each agent returns: Fixed on
-`STATUS: Fixed`, Failed on `STATUS: Failed`. Track per-batch todos. Between
-batches, failed validation stops the pipeline and asks: resume sequentially /
-switch to parallel / abort / skip to Phase 5.
+`STATUS: Fixed`, Failed on `STATUS: Failed`. Track per-batch todos. In Path B/C,
+between-batch validation failure stops and asks for the path-specific choices
+in fixer-dispatch.md. Path A continues; no stop-and-ask gate.
 
 ## Phase 5 — VERIFY
 
@@ -177,6 +228,12 @@ non-GitHub providers skip commit/push with notice
 `PR posting is GitHub-only on provider <provider>; fixes applied locally — commit and push them yourself.` and `REPORT_COMMITTED: n/a`.
 
 ## Phase 7 — OUTPUT
+
+Start the output with this literal heading:
+
+```markdown
+## Review Fixes Complete
+```
 
 Report source path, report path, mode, eligible/fixed/failed/skipped/open
 counts, updated statuses, validation results, next steps

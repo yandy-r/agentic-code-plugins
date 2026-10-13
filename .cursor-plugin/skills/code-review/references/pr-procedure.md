@@ -12,16 +12,6 @@
 
 Skip this phase entirely when `WORKTREE_MODE=false` (i.e., `--no-worktree` was passed).
 
-### Local mode with `--worktree`
-
-Uncommitted changes cannot be branch-isolated in a worktree. Emit:
-
-```
-Note: --worktree has no effect in local mode; uncommitted changes are not branch-isolated.
-```
-
-Continue with Local Review Mode; set `WORKTREE_ACTIVE=false`. **Do not** emit a `## Worktree Setup` section in the artifact.
-
 ### PR mode with `--worktree`
 
 1. Resolve `<repo>`:
@@ -173,7 +163,9 @@ Special cases:
 
 ### Phase 6 — REPORT
 
-Assign finding IDs and initial Status after merge per the shared artifact schema loaded by the skill.
+Assign finding IDs and initial Status after merge per the shared artifact
+schema (`${CURSOR_PLUGIN_ROOT}/skills/_shared/references/review-artifact-format.md`,
+Finding ID rules: ordered by severity, CRITICAL first, then by file path).
 
 #### Draft Promotion
 
@@ -197,7 +189,9 @@ Write the artifact to `$(git rev-parse --show-toplevel)/docs/prps/reviews/pr-<N>
 mkdir -p "$(git rev-parse --show-toplevel)/docs/prps/reviews"
 ```
 
-Use the shared Review Artifact Format loaded by the skill. The artifact must include finding IDs and `Status: Open` on every finding so that `/review-fix` can later update the file in place.
+Use the shared Review Artifact Format at
+`${CURSOR_PLUGIN_ROOT}/skills/_shared/references/review-artifact-format.md`.
+The artifact must include finding IDs and `Status: Open` on every finding so that `/review-fix` can later update the file in place.
 
 - Write the artifact to `$(git rev-parse --show-toplevel)/docs/prps/reviews/pr-<N>-review.md`. When `WORKTREE_ACTIVE=true` this resolves to the worktree top-level (e.g., `<repo-root>/.cursor/worktrees/<repo>-pr-<N>/docs/prps/reviews/pr-<N>-review.md`); when `--no-worktree` is in effect, it resolves to the main repo. The artifact intentionally lives **with the PR branch** so it travels with the review history.
 - **Note**: the artifact will be committed to the PR branch (see commit step below). If you do not want the review record on the PR branch, add `docs/prps/reviews/` to `.gitignore` — the skill detects this and skips the commit.

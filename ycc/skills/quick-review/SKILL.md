@@ -126,7 +126,8 @@ exception to the artifact-free guarantee.
 ## Phase 3 — REPORT (inline)
 
 Assign IDs and initial Status after merge using the shared artifact schema
-loaded below; the same contract applies to inline findings.
+loaded below (Finding ID rules: ordered by severity, CRITICAL first, then by
+file path); the same contract applies to inline findings.
 
 Compute:
 

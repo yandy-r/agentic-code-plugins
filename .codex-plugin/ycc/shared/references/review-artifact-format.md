@@ -100,6 +100,8 @@ standard template, so `$review-fix` parses them without special-casing.
 
 ## Finding ID rules
 
+- Ordering: IDs are assigned ordered by severity (CRITICAL first), then by
+  file path.
 - Sequential: IDs start at `F001` and increment by one.
 - Stable per file: once assigned in a given review artifact, an ID is never
   renumbered, even after a fix is applied.

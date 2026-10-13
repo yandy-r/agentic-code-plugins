@@ -32,8 +32,8 @@ Each reviewer prompt includes the instruction "flag only gaps that affect correc
 1. The list of changed files (mode-specific: `git diff --name-only HEAD` for
    local/quick; PR number + head revision + changed-file list for PR).
 2. Relevant context (CLAUDE.md rules, PRP artifacts, PR description) — PR mode only.
-3. Its assigned focus / categories and what to check (from the appropriate table
-   above).
+3. Its assigned focus / categories and what to check (from the roster tables
+   in `review-checklist.md` — `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/review-checklist.md`).
 4. The severity rubric.
 5. A directive to return findings in the **Standard Findings Format** below.
 6. (Path B only) The spawn/return contract loaded by the caller from
