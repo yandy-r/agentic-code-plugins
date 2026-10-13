@@ -175,12 +175,38 @@ remove_settings() {
 }
 
 # ---------------------------------------------------------------------------
+# Bundle build (generate -> validate -> format)
+# ---------------------------------------------------------------------------
+# build_skipped — true when YCC_INSTALL_SKIP_BUILD=1: install the bundles as
+# they sit in this checkout instead of regenerating, validating and formatting
+# them first. For callers that already ran ./scripts/sync.sh; the install tests
+# set it for every case that only asserts where files land.
+build_skipped() {
+    [[ "${YCC_INSTALL_SKIP_BUILD:-0}" == "1" ]]
+}
+
+# run_build_script <script> — run one bundle generator or validator.
+run_build_script() {
+    if build_skipped; then
+        info "Skipping $(basename "$1") (YCC_INSTALL_SKIP_BUILD=1)"
+        return 0
+    fi
+    info "Running $(basename "$1")"
+    bash "$1"
+}
+
+# ---------------------------------------------------------------------------
 # Repo formatting (modified files via scripts/style.sh)
 # Only stacks present in this repo: Markdown/JSON (prettier) and Python (black).
 # style.sh format has no shell formatter; Rust/TS/Go are omitted to avoid requiring
 # those toolchains or failing on unrelated stacks.
 # ---------------------------------------------------------------------------
 run_repo_style_format_modified() {
+    if build_skipped; then
+        info "Skipping repository formatting (YCC_INSTALL_SKIP_BUILD=1)"
+        return 0
+    fi
+
     local style_sh="${SCRIPT_DIR}/scripts/style.sh"
 
     if [[ ! -f "${style_sh}" ]]; then

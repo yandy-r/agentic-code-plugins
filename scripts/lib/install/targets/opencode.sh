@@ -109,15 +109,13 @@ sync_opencode_target() {
         step=$((step + 1))
         printf '\n%s[%d/%d] Generate opencode-native bundle (%s)%s\n' "${BOLD}" "$step" "$total" "${passes[*]}" "${NC}"
         for pass in "${passes[@]}"; do
-            info "Running generate-opencode-${pass}.sh"
-            bash "${scripts_dir}/generate-opencode-${pass}.sh"
+            run_build_script "${scripts_dir}/generate-opencode-${pass}.sh"
         done
 
         step=$((step + 1))
         printf '\n%s[%d/%d] Validate generated bundle%s\n' "${BOLD}" "$step" "$total" "${NC}"
         for pass in "${passes[@]}"; do
-            info "Running validate-opencode-${pass}.sh"
-            bash "${scripts_dir}/validate-opencode-${pass}.sh"
+            run_build_script "${scripts_dir}/validate-opencode-${pass}.sh"
         done
 
         step=$((step + 1))

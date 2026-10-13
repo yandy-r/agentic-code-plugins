@@ -93,15 +93,13 @@ sync_cursor_target() {
         step=$((step + 1))
         printf '\n%s[%d/%d] Generate Cursor-native bundle (%s)%s\n' "${BOLD}" "$step" "$total" "${units[*]}" "${NC}"
         for unit in "${units[@]}"; do
-            info "Running generate-cursor-${unit}.sh"
-            bash "${scripts_dir}/generate-cursor-${unit}.sh"
+            run_build_script "${scripts_dir}/generate-cursor-${unit}.sh"
         done
 
         step=$((step + 1))
         printf '\n%s[%d/%d] Validate generated bundle%s\n' "${BOLD}" "$step" "$total" "${NC}"
         for unit in "${units[@]}"; do
-            info "Running validate-cursor-${unit}.sh"
-            bash "${scripts_dir}/validate-cursor-${unit}.sh"
+            run_build_script "${scripts_dir}/validate-cursor-${unit}.sh"
         done
 
         step=$((step + 1))

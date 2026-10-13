@@ -106,12 +106,10 @@ sync_agents_target() {
     mkdir -p "${agents_dir}"
 
     printf '\n%s[1/3] Generate agents-native bundle (skills)%s\n' "${BOLD}" "${NC}"
-    info "Running generate-agents-skills.sh"
-    bash "${scripts_dir}/generate-agents-skills.sh"
+    run_build_script "${scripts_dir}/generate-agents-skills.sh"
 
     printf '\n%s[2/3] Validate generated bundle%s\n' "${BOLD}" "${NC}"
-    info "Running validate-agents-skills.sh"
-    bash "${scripts_dir}/validate-agents-skills.sh"
+    run_build_script "${scripts_dir}/validate-agents-skills.sh"
 
     printf '\n%s[3/3] Sync skills to ~/.agents/skills (+ ycc-shared/)%s\n' "${BOLD}" "${NC}"
     # Per-entry slice installs, never rsync --delete: ~/.agents/skills is

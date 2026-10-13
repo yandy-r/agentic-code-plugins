@@ -73,7 +73,9 @@ chmod +x "${STUB_BIN}/claude" "${STUB_BIN}/codex" "${STUB_BIN}/ruff" "${STUB_BIN
 
 # run_install <home> <args...> — run install.sh sandboxed; capture output.
 # Runs from <home>/project (not a git repo) so project-scoped steps write
-# there and never into this checkout.
+# there and never into this checkout. Installs the bundles as committed
+# (YCC_INSTALL_SKIP_BUILD=1) unless the caller's environment says otherwise;
+# build.sh covers the real generate/validate/format steps once per target.
 run_install() {
     local home="$1"
     shift
@@ -83,8 +85,15 @@ run_install() {
         PATH="${STUB_BIN}:${PATH}" \
         CLAUDE_STUB_LOG="${home}/claude-calls.log" \
         YCC_MANAGED_CONFIG_STATE="${home}/.config/ycc/managed-config-state.json" \
+        YCC_INSTALL_SKIP_BUILD="${YCC_INSTALL_SKIP_BUILD:-1}" \
             bash "${INSTALL}" "$@" 2>&1
     )
+}
+
+# run_install_build <home> <args...> — run_install with the real bundle build
+# (generators, validators and the repo style pass run against this checkout).
+run_install_build() {
+    YCC_INSTALL_SKIP_BUILD=0 run_install "$@"
 }
 
 ok() {
