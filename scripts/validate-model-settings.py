@@ -5,9 +5,9 @@ from __future__ import annotations
 
 import json
 import sys
+import tomllib
 from pathlib import Path
 
-import tomllib
 from generate_opencode_plugin import expected_agent_ids, validate_agent_models
 
 REPO_ROOT = Path(__file__).resolve().parent.parent

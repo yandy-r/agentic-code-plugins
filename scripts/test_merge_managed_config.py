@@ -12,10 +12,9 @@ import os
 import subprocess
 import sys
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
-
-import tomllib
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 HELPER = REPO_ROOT / "scripts" / "merge_managed_config.py"

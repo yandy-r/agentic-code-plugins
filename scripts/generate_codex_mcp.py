@@ -22,10 +22,10 @@ from __future__ import annotations
 
 import json
 import re
+import tomllib
 from pathlib import Path
 from typing import Any
 
-import tomllib
 from generate_codex_common import CODEX_PLUGIN_CONTAINER, SOURCE_MCP_PATH
 
 CODEX_CONFIG_PATH = CODEX_PLUGIN_CONTAINER / "config" / "config.toml"

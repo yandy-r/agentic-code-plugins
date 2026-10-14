@@ -38,11 +38,11 @@ import os
 import re
 import sys
 import tempfile
+import tomllib
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-import tomllib
 from managed_config_entries import available_entries, select_source_entries, selected_state
 from managed_config_legacy import plan_legacy_migration
 
