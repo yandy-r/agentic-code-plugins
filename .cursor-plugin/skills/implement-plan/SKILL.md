@@ -8,17 +8,12 @@ allowed-tools:
   - Glob
   - Write
   - Edit
-  - MultiEdit
   - Agent
-  - Task
   - AskUserQuestion
-  - TodoWrite
-  - TeamCreate
-  - TeamDelete
-  - TaskCreate
-  - TaskUpdate
-  - TaskList
-  - TaskGet
+  - record the task
+  - the task details
+  - the task tracker
+  - update the task tracker
   - SendMessage
   - Bash(ls:*)
   - Bash(cat:*)
@@ -33,13 +28,13 @@ allowed-tools:
 
 Execute a parallel implementation plan by deploying implementor agents in dependency-resolved batches. This is Step 3 of the planning workflow, transforming the plan into working code. **Operational context:** require parallel-plan.md from parallel-plan. Worktree isolation is on by default: create or reuse one feature worktree on a feature branch; `--no-worktree` uses only the current-checkout feature branch, and `--worktree` is a legacy no-op. Standalone sub-agents are the default dispatch mode.
 
-Parallelism is the baseline of this skill — every batch's tasks dispatch concurrently. The only choice is how the implementor agents are dispatched: standalone sub-agents (default, plain `Task` calls per batch, works in Claude Code, Cursor, and Codex) or agent team (`--team`, Claude Code only: single `TeamCreate`, up-front `TaskCreate` + `addBlockedBy`, per-batch teammate spawn, `SendMessage` shutdown, `TeamDelete`).
+Parallelism is the baseline of this skill — every batch's tasks dispatch concurrently. The only choice is how the implementor agents are dispatched: standalone sub-agents (default, plain `Agent` calls per batch, works in Claude Code, Cursor, and Codex) or agent team (`--team`, Claude Code only: implicit session team, up-front `record the task` + `addBlockedBy`, per-batch teammate spawn, `SendMessage` shutdown).
 
 ## Hard Gates
 
 - `--worktree` and `--no-worktree` together → abort (exact message in Arguments).
 - `--team` without `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` → abort (exact message in Arguments).
-- `--dry-run` → print the plan only; never call `Task`, `Agent`, or any team tool. STOP HERE.
+- `--dry-run` → print the plan only; never dispatch agents or manage team state. STOP HERE.
 - Always run the branch-prep helper before any dispatch — narrative-only branch instructions are how agents end up committing to `main`.
 - Never pass `isolation: "worktree"` per agent — all agents in all batches share the one feature worktree (or the prepared checkout under `--no-worktree`).
 - Standalone task failure: record it and continue only independent tasks. Team failure: no auto-retry or skipping; ask the user before advancing.
@@ -65,7 +60,7 @@ If parallel-plan.md doesn't exist, run `/parallel-plan [feature-name]` first.
 
 Parse flags first, then treat the remainder as the feature name:
 
-- `--team` — (Claude Code only) Dispatch each batch's implementor agents under a shared `TeamCreate` with up-front `TaskCreate` + `addBlockedBy` dependency wiring and per-batch shutdown via `SendMessage`. Aborts if invoked from a Cursor or Codex bundle (team tools are absent there).
+- `--team` — (Claude Code only) Dispatch each batch's implementor agents as teammates under the implicit session team with up-front `record the task` + `addBlockedBy` dependency wiring and per-batch shutdown via `SendMessage`. Aborts if invoked from a Cursor or Codex bundle (team dispatch is absent there).
 - `--dry-run` — Show the execution plan without deploying agents. With `--team`, also prints the team name and per-batch teammate roster.
 - `--worktree` — (legacy — now default; safe to omit) Accepted as a silent no-op. Worktree isolation is on by default; this flag matches the new default and has no additional effect.
 - `--no-worktree` — Force worktree mode **OFF** regardless of plan annotations. Create/use `feat/<feature-name>` in the current checkout and run tasks there. No feature worktree is created.
@@ -82,7 +77,7 @@ If no feature name remains after stripping flags, abort with this usage line fol
 
 Usage: /implement-plan [--team] [--dry-run] [--worktree] [--no-worktree] <feature-name>
 
-**Compatibility note**: from a Cursor or Codex bundle, `--team` must abort with a clear message — those bundles ship without team tools (`TeamCreate`, `TaskCreate`, `SendMessage`, etc.); the standalone path is the only mode available there. `--worktree` is compatible with all targets through a single pre-created feature worktree plus `Working directory:` prompts. Do not request tool-side per-agent worktree isolation — that creates separate harness worktrees and breaks the single-worktree contract. Codex and opencode use Bash `git worktree add`; Cursor emits manual setup commands only.
+**Compatibility note**: from a Cursor or Codex bundle, `--team` must abort with a clear message — those bundles ship without team tools (`record the task`, `SendMessage`, etc.); the standalone path is the only mode available there. `--worktree` is compatible with all targets through a single pre-created feature worktree plus `Working directory:` prompts. Do not request tool-side per-agent worktree isolation — that creates separate harness worktrees and breaks the single-worktree contract. Codex and opencode use Bash `git worktree add`; Cursor emits manual setup commands only.
 
 ## Dispatch Lifecycle
 
@@ -133,7 +128,7 @@ With `--team`, also use that graph for `addBlockedBy` wiring.
 
 ### Step 5: Generate Comprehensive Todos
 
-Using **TodoWrite**, create a todo per task: `id` "task-<n>-<m>", `content` "[Task ID] [Task Title] - Depends on: [dependencies]", `status` "pending". Example in `references/plan-inputs.md` (Todo format).
+Using the task tools (`record the task`), create a task per item: `id` "task-<n>-<m>", `content` "[Task ID] [Task Title] - Depends on: [dependencies]", `status` "pending". Example in `references/plan-inputs.md` (Todo format).
 
 ### Step 6: Identify First Batch
 
@@ -150,7 +145,7 @@ Use standalone-dispatch.md §8.2 in both dispatch modes for Git inspection, requ
 ### Step 7: Dry Run Gate
 
 If `--dry-run` is present, read `references/output-formats.md` (Dry-run formats), print the default batch roster, and do not dispatch any agents.
-With `--team --dry-run`, also print the team name and per-batch teammate roster; do not call `TeamCreate`, `TaskCreate`, `Agent`, `Task`, `SendMessage`, or `TeamDelete`.
+With `--team --dry-run`, also print the team name and per-batch teammate roster; do not call `record the task`, `Agent`, `SendMessage`, or any task-tracking tools.
 **STOP HERE** after either dry-run output.
 
 ### Step 8: Branch on `TEAM_FLAG`
@@ -163,7 +158,7 @@ Execute the dependency-ready standalone batches described below.
 
 ### Path A — Standalone Sub-Agent Batches (default)
 
-Read `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/standalone-dispatch.md` for the `Task` contract; use its §§9–10 for dependency-ready batches. Coordinate agents, do not implement tasks yourself. Read `${CURSOR_PLUGIN_ROOT}/skills/implement-plan/references/agent-task-prompt.md` once before the loop. Per ready task, one `Task` call per batch message: `subagent_type=implementor`, `description="Implement [Task ID]: [Title]"`, full substituted template.
+Read `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/standalone-dispatch.md` for the `Agent` contract; use its §§9–10 for dependency-ready batches. Coordinate agents, do not implement tasks yourself. Read `${CURSOR_PLUGIN_ROOT}/skills/implement-plan/references/agent-task-prompt.md` once before the loop. Per ready task, one `Agent` call per batch message: `subagent_type=implementor`, `description="Implement [Task ID]: [Title]"`, full substituted template.
 
 **When `WORKTREE_ACTIVE=true`**, every task prompt (parallel and sequential) carries the lines below; when `WORKTREE_ACTIVE=false` (`--no-worktree`) use `Working directory: ${REPO_ROOT}` and `All parallel agents in this batch share the current feature branch; batching guarantees no two agents touch the same file.` Never pass `isolation: "worktree"`. Agents read the plan, shared context and "READ THESE BEFORE TASK" files first, implement only assigned files/instructions, lint and compile/parse modified files, then report files created/modified and issues.
 
@@ -184,7 +179,7 @@ Repeat from the ready-task selection until no tasks remain, then Phase 4.
 
 ### Path B — Agent Team Batches (`--team`)
 
-Read `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/agent-team-dispatch.md` §8.2 (plus standalone-dispatch.md §§8–9). Inputs: context = feature name; prefix `impl-`; sanitize per team §1 (20-char context, fallback `untitled`); team description `implement-plan team for: <feature-name>`; task subject `<task-id>: <task title>`; task description = full spec (files to read/create/modify and instructions); dependencies = Phase 1 graph; same implementor template plus own-`TaskUpdate` completion; same `Working directory:` lines. Print the same `[done] Batch BN: K tasks — complete` marker per batch. Failure: no auto-retry or skipping; use `AskUserQuestion`: _"Batch {BN} had failures. Choose: (1) fix manually and resume, (2) switch to sequential standalone sub-agents for remaining batches, (3) abort."_ Cleanup and worktree survival follow §8.2. After all batches, Phase 4.
+Read `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/agent-team-dispatch.md` §8.2 (plus standalone-dispatch.md §§8–9). Inputs: context = feature name; prefix `impl-`; sanitize per team §1 (20-char context, fallback `untitled`); team description `implement-plan team for: <feature-name>`; task subject `<task-id>: <task title>`; task description = full spec (files to read/create/modify and instructions); dependencies = Phase 1 graph; same implementor template plus own-`update the task tracker` completion; same `Working directory:` lines. Print the same `[done] Batch BN: K tasks — complete` marker per batch. Failure: no auto-retry or skipping; use `AskUserQuestion`: _"Batch {BN} had failures. Choose: (1) fix manually and resume, (2) switch to sequential standalone sub-agents for remaining batches, (3) abort."_ Cleanup and worktree survival follow §8.2. After all batches, Phase 4.
 
 ## Phase 4: Final Verification & Summary
 
@@ -202,9 +197,9 @@ Print the completion summary from `references/output-formats.md` (Completion sum
 
 ## Quality Standards
 
-Each batch must: deploy all ready tasks in parallel (single message — multiple `Task` calls in Path A, multiple `Agent` calls with `team_name=` in Path B); wait for all agents before the next batch; update todo (and in Path B, TaskList) status after completion; handle failures gracefully; in Path B, shut down completed-batch teammates before the next batch.
+Each batch must: deploy all ready tasks in parallel (single message — multiple `Agent` calls in Path A, multiple `Agent` calls with `name=` in Path B); wait for all agents before the next batch; update todo (and in Path B, the task tracker) status after completion; handle failures gracefully; in Path B, shut down completed-batch teammates before the next batch.
 
-Each agent must: read all required context files first; implement only the assigned task; validate changes before returning; return a clear summary of changes; in Path B, call `TaskUpdate` to mark its own task complete.
+Each agent must: read all required context files first; implement only the assigned task; validate changes before returning; return a clear summary of changes; in Path B, call `update the task tracker` to mark its own task complete.
 
 The implementation must: complete all tasks in the plan, respect dependency ordering, maximize parallel execution, and report failures clearly.
 

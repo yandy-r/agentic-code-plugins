@@ -13,7 +13,7 @@ Follow the spawn/return contract in
 how reviewers are dispatched and how their results are collected.
 
 Dispatch 3 standalone `code-reviewer` sub-agents in parallel in a single
-message with multiple `Task` calls. Use the mode-appropriate roster
+message with multiple `Agent` calls. Use the mode-appropriate roster
 (Local / Quick Mode Roster or PR Mode Roster) and the Standard Findings Format
 from `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/review-checklist.md`.
 That reference defines the roster, severity rubric, findings-format directive
@@ -41,11 +41,11 @@ Each reviewer prompt includes the instruction "flag only gaps that affect correc
 6. (Path B only) The spawn/return contract loaded by the caller from
    `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/standalone-dispatch.md`.
    The reviewer is dispatched read-only (Read/Grep/Glob): it returns its
-   findings inline as the `Task` result and never writes files or runs
+   findings inline as the `Agent` result and never writes files or runs
    commands. The prompt must supply the diff and any command output the
    reviewer needs.
 
-After all 3 `Task` calls return, the calling skill (not the reviewer) persists
+After all 3 `Agent` calls return, the calling skill (not the reviewer) persists
 each valid inline return to its scratch copy at
 `docs/prps/reviews/.review-scratch/<run-id>/<reviewer-name>.md`, where
 `<run-id>` is `local-<YYYYMMDD-HHMMSS>` for local mode, `pr-<NUMBER>` for PR
@@ -65,17 +65,17 @@ Claude Code only (`--team` requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`;
 bundles ship without team tools — use `--parallel` there).
 
 You must follow the agent-team lifecycle. Do not mix standalone sub-agents
-with team dispatch. Every `Agent` call must include both `team_name=` and `name=`.
-If `TeamCreate` or `TaskCreate` fails, abort the skill. See
+with team dispatch. Every `Agent` call must include `name=`.
+If up-front `record the task` fails, abort the skill. See
 `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/agent-team-dispatch.md`
 for the full lifecycle contract.
 
-1. TeamCreate once at the start
-2. TaskCreate for all 3 reviewer subtasks up front (flat graph — no dependencies)
-3. Spawn 3 teammates: single message, three `Agent` calls with `team_name=` + `name=`
-4. TaskList to monitor until all reviewers mark complete
+1. Confirm implicit session team is available
+2. record the task for all 3 reviewer subtasks up front (flat graph — no dependencies)
+3. Spawn 3 teammates: single message, three `Agent` calls with `name=`
+4. the task tracker to monitor until all reviewers mark complete
 5. SendMessage({type:"shutdown_request"}) to all 3 teammates
-6. TeamDelete before merging
+6. Send shutdown requests to all 3 teammates before merging
 
 Same 3-reviewer roster and category split as Path B, but dispatched as a
 coordinated team with a shared task list. Use this when reviewers may surface
@@ -99,30 +99,30 @@ description. Subjects:
 - `security-reviewer: <scope> review of <target>`
 - `quality-reviewer: <scope> review of <target>`
 
-If any `TaskCreate` fails → `TeamDelete`, then abort.
+If any `record the task` fails, shut down any active teammates and abort.
 
 ### Spawn the 3 reviewers
 
-Single message, three `Agent` calls. Every call includes `team_name`, `name`
-(the reviewer name — must match the `TaskCreate` subject prefix),
+Single message, three `Agent` calls. Every call includes `name`
+(the reviewer name — must match the `record the task` subject prefix),
 `subagent_type: "code-reviewer"`, a one-line `description`, and the same
 `prompt` as Path B plus a note that the teammate shares a task list with two
 sibling reviewers (name them), may `SendMessage` them on overlapping scope,
-and must call `TaskUpdate` to mark its task complete before returning.
+and must call `update the task tracker` to mark its task complete before returning.
 
 ### Monitor, shutdown, merge
 
-Use `TaskList` to confirm all 3 tasks are `completed` before merging. If a
+Use `the task tracker` to confirm all 3 tasks are `completed` before merging. If a
 teammate messages the orchestrator, respond via `SendMessage`. Failure policy:
 
-- All 3 error → `TeamDelete`, abort with a clear error.
+- All 3 error → shut down active teammates and abort with a clear error.
 - 1 or 2 error → record "partial review — {role} did not complete", proceed
   with the remaining findings, and note the gap in the artifact Summary (PR)
   or the inline output (local / quick).
 
 After all teammates have marked their tasks complete (or been recorded as
 failed), send `SendMessage({type:"shutdown_request"})` to each and
-`TeamDelete`. Always `TeamDelete` — even on abort or partial failure. Then
+confirm all teammates have shut down (even on abort or partial failure). Then
 merge findings exactly as Path B (combine by severity, de-dupe at `file:line`,
 sort by file path, attach reviewer source tags) and pass them to the REPORT
 phase.

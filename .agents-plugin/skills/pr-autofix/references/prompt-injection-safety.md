@@ -74,7 +74,7 @@ Strip lines matching any of these patterns (case-insensitive, whole-line or line
 - `pretend (to be|you are)`
 - `new (system|developer) instructions?:`
 
-Replace each stripped line with `[steering attempt redacted]`. This is a best-effort filter; the bigger defense is that the fixer agent's tool scope (Read/Edit/MultiEdit + a narrow Bash whitelist) physically cannot do most of what an injection asks for.
+Replace each stripped line with `[steering attempt redacted]`. This is a best-effort filter; the bigger defense is that the fixer agent's tool scope (Read/Edit + a narrow Bash whitelist) physically cannot do most of what an injection asks for.
 
 ### 6. Strip out-of-scope change requests
 

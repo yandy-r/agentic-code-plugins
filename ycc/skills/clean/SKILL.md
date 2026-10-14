@@ -8,8 +8,11 @@ allowed-tools:
   - Grep
   - Glob
   - Write
-  - Task
-  - TodoWrite
+  - Agent
+  - TaskCreate
+  - TaskGet
+  - TaskList
+  - TaskUpdate
   - AskUserQuestion
   - Bash(ls:*)
   - Bash(cat:*)
@@ -54,14 +57,14 @@ If the request concerns only Git resources, STOP before Phase 0 and deploy no ag
 2. **Detect project type** using: `${CLAUDE_PLUGIN_ROOT}/skills/clean/scripts/detect-project-type.sh "$TARGET_DIR"`
 3. **Read safety configuration** from `${CLAUDE_PLUGIN_ROOT}/skills/clean/references/safety-config.md`
 4. **Create working directory**: `$TARGET_DIR/.cleanup-analysis/findings/`
-5. **Initialize progress tracking** with TodoWrite for all phases
+5. **Initialize progress tracking** with the task tools for all phases
 6. **If --dry-run**: Display analysis plan and **STOP**
 
 ## Phase 1: Parallel Agent Deployment
 
 Read agent prompts from `${CLAUDE_PLUGIN_ROOT}/skills/clean/references/agent-prompts.md`.
 
-Deploy all 6 agents in a **SINGLE message** with **MULTIPLE Task tool calls** using subagent type `project-file-cleaner`:
+Deploy all 6 agents in a **SINGLE message** with **MULTIPLE Agent tool calls** using subagent type `project-file-cleaner`:
 
 | Agent      | Findings File (orchestrator-written) |
 | ---------- | ------------------------------------ |
@@ -74,7 +77,7 @@ Deploy all 6 agents in a **SINGLE message** with **MULTIPLE Task tool calls** us
 
 Substitute `{{TARGET_DIR}}` and `{{PROJECT_TYPE}}` in each prompt. Each agent receives: target directory, project type, safety configuration, and specific search patterns. Agents are read-only: they return findings inline in the Common Output Format; they never write files or run commands.
 
-**Persistence (orchestrator-owned)**: as each `Task` call returns, write its returned findings verbatim to that agent's findings file under `$TARGET_DIR/.cleanup-analysis/findings/` using the exact file names and Common Output Format above — `generate-report.sh` parses those paths and headings. An empty, missing, or malformed return is a failed agent: STOP before Phase 2, report the failed category, and retry or request user intervention. Never treat missing output as zero findings or reuse files from a previous run. Proceed only after all six valid returns from this run have been persisted; verify each file exists and matches the Common Output Format. A valid zero-findings response still includes the required headings and summary.
+**Persistence (orchestrator-owned)**: as each `Agent` call returns, write its returned findings verbatim to that agent's findings file under `$TARGET_DIR/.cleanup-analysis/findings/` using the exact file names and Common Output Format above — `generate-report.sh` parses those paths and headings. An empty, missing, or malformed return is a failed agent: STOP before Phase 2, report the failed category, and retry or request user intervention. Never treat missing output as zero findings or reuse files from a previous run. Proceed only after all six valid returns from this run have been persisted; verify each file exists and matches the Common Output Format. A valid zero-findings response still includes the required headings and summary.
 
 ## Phase 2: Findings Consolidation
 
@@ -116,7 +119,7 @@ Each cleanup agent must: focus on specific category, execute 10+ diverse searche
 ## Important Notes
 
 - Act as orchestrator - coordinate cleanup agents, don't analyze files directly
-- Deploy all 6 agents in parallel (single message with 6 Task calls)
+- Deploy all 6 agents in parallel (single message with 6 Agent calls)
 - Safety first - always validate before deletion
 - User confirmation required before any destructive operations
 - Preserve all cleanup reports and removal lists

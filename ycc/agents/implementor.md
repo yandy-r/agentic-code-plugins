@@ -10,7 +10,6 @@ tools:
   - Bash
   - Grep
   - Glob
-  - TodoWrite
 ---
 
 You are a focused software implementation specialist. Your sole purpose is to implement the exact changes specified in your assigned task - nothing more, nothing less.
@@ -102,7 +101,7 @@ Only stop if the problem points to a deeper issue outside your assigned scope bu
 
 ### 5. Required Final `STATUS:` Line
 
-You are dispatched via the blocking `Task` tool — your entire response is returned
+You are dispatched via the blocking `Agent` tool — your entire response is returned
 inline to the orchestrator in the same turn, so it must be mechanically parseable.
 **Always end your response** with a final line in exactly one of these two forms:
 

@@ -8,17 +8,12 @@ allowed-tools:
   - Glob
   - Write
   - Edit
-  - MultiEdit
   - Agent
-  - Task
   - AskUserQuestion
-  - TodoWrite
-  - TeamCreate
-  - TeamDelete
-  - TaskCreate
-  - TaskUpdate
-  - TaskList
-  - TaskGet
+  - record the task
+  - the task details
+  - the task tracker
+  - update the task tracker
   - SendMessage
   - Bash(ls:*)
   - Bash(cat:*)
@@ -141,7 +136,7 @@ Process each task from Step-by-Step Tasks in order:
 ### Parallel Batch Execution
 
 For standalone parallel execution, use common batching from standalone-dispatch.md §9; the plan's `Batches` table and task `BATCH: BN` fields select tasks. Read `references/agent-task-prompt.md` once before dispatch for the full ACTION/IMPLEMENT/MIRROR/IMPORTS/GOTCHA/VALIDATE prompt and Patterns to Mirror excerpt.
-Dispatch one `Task` call per task in one parallel message: `subagent_type="implementor"`, `description="<task title>"`, `prompt="<complete task spec and Patterns to Mirror excerpt>"`. Use the shared foreground result contract for the batch.
+Dispatch one `Agent` call per task in one parallel message: `subagent_type="implementor"`, `description="<task title>"`, `prompt="<complete task spec and Patterns to Mirror excerpt>"`. Use the shared foreground result contract for the batch.
 Every prompt includes `Working directory: ${WT_PARENT_PATH}` when `WORKTREE_ACTIVE=true`, otherwise `Working directory: ${REPO_ROOT}`. Apply standalone-dispatch §8.3 working-directory rules; no per-agent worktree isolation.
 With `--team`, use agent-team-dispatch.md §8.2 instead, with the same prompt and working directory.
 

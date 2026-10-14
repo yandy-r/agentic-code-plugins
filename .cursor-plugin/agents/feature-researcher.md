@@ -7,7 +7,6 @@ tools:
   - Grep
   - Read
   - WebFetch
-  - TodoWrite
   - Write
   - WebSearch
   - mcp__context7__resolve-library-id

@@ -80,7 +80,7 @@ After foundation answers, dispatch the **`prp-researcher`** agent via the foregr
 - Recent trends or changes
 - If a codebase exists: relevant existing functionality, patterns that could be leveraged, and technical constraints
 
-Instruct the researcher to return file:line references for codebase findings and URL citations for market findings. This is a standalone single-researcher dispatch — see `~/.config/opencode/shared/references/standalone-dispatch.md` for the `subagent` native dispatch and result contract.
+Instruct the researcher to return file:line references for codebase findings and URL citations for market findings. This is a standalone single-researcher dispatch — see `~/.config/opencode/shared/references/standalone-dispatch.md` for the `subagent` spawn/return contract (omit `name` for standalone dispatch).
 
 **Summarize findings to user:**
 

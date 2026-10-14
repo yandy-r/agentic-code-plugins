@@ -31,7 +31,7 @@ Sub-agents:  5
   - test-strategist   agent=test-strategy-planner      task=Testing strategy, validation commands, acceptance criteria
   - security-reviewer agent=research-specialist        task=Threat model, input validation, authn/authz, secrets, dependency risk
   - ux-reviewer       agent=research-specialist        task=User-facing impact (UI, CLI, API responses, error messages); skip if internal-only
-Batches:     1  (single message, 5 parallel native subagent calls)
+Batches:     1  (single message, 5 parallel Agent calls)
 ```
 
 Do **not** spawn any agents. Exit the skill.
@@ -56,6 +56,7 @@ For security-reviewer and ux-reviewer use enhanced-personas prompts verbatim and
 
 Standalone enhanced (Path C) re-dispatch fires a fresh batch of 5 parallel standalone sub-agent calls; the team-only parameters belong exclusively to the team dispatch primitive and are never set here. Path C created no team, so there is nothing to tear down.
 
+Team (Path B) re-dispatch spawns fresh sub-agents after prior sub-agents have shut down; never message sub-agents from the prior run.
 
 ## Merge outputs (B.7)
 

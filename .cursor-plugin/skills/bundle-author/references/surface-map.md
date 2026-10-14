@@ -50,7 +50,7 @@ The skill body is freeform markdown organized into phases.
 | Path                 | `ycc/agents/<kebab-name>.md`         |
 | Required frontmatter | `name`, `description`                |
 | Optional frontmatter | `tools`, `model`                     |
-| Invocation           | Invoked by skills via the Agent tool |
+| Invocation           | Invoked by skills via Cursor |
 
 The agent body is the system prompt. Agents are invoked by skills, not
 directly by users. Always ensure a skill will consume the agent before

@@ -7,8 +7,11 @@ allowed-tools:
 - Grep
 - Glob
 - Write
-- Task
-- TodoWrite
+- Agent
+- TaskCreate
+- TaskGet
+- TaskList
+- TaskUpdate
 - AskUserQuestion
 - Bash(git:*)
 - Bash(gh:*)
@@ -85,7 +88,7 @@ Parse `$ARGUMENTS`:
      Unknown hosts skip the remote-domain audits with a loud notice.
 5. **Check working-tree state**: Capture `git status --porcelain` and
    `git stash list`. Record whether the current branch has unpushed commits.
-6. **Initialize progress tracking** with TodoWrite (one entry per phase).
+6. **Initialize progress tracking** with the task tools (one entry per phase).
 7. **Create audit directory**: `.git-cleanup/` at the repo root. Report and
    per-domain finding files land here.
 8. **If `--dry-run` was passed alongside `--apply`**: Abort — they conflict.
@@ -275,7 +278,7 @@ error): abort and report.
 ## Subagent Delegation
 
 For large repos where Phase 2's active-code scan is expensive, delegate to
-`git-cleanup` agent via the Task tool. The agent performs the read-only
+`git-cleanup` agent via the Agent tool. The agent performs the read-only
 audit (Phases 1-3) and returns the structured report inline without writing
 files; this skill writes it to `.git-cleanup/report.md` (Phase 3) and
 orchestrates Phases 4-6. Pass the Phase 0 `release-state.sh get` output with the other

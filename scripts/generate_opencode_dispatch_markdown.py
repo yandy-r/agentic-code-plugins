@@ -151,6 +151,12 @@ def _remove_team_operations(text: str, *, add_compatibility_note: bool) -> str:
             flags=re.IGNORECASE,
         )
         line = re.sub(
+            r"\s*no `name`, no `run_in_background`\.",
+            " Each call uses native foreground arguments.",
+            line,
+            flags=re.IGNORECASE,
+        )
+        line = re.sub(
             r"\s*No `team_name`[^.]*\.",
             " Every call uses only native OpenCode arguments.",
             line,
@@ -257,6 +263,7 @@ def _translate_native_vocabulary(text: str) -> str:
     output = output.replace("`run_in_background`", "`background`")
     output = re.sub(r"\brun_in_background\b", "background", output)
     output = re.sub(r"\bTask\(", "subagent(", output)
+    output = re.sub(r"\bAgent\(", "subagent(", output)
     output = output.replace("`Task` tool calls", "native `subagent` calls")
     output = output.replace("`Task` tool call", "native `subagent` call")
     output = output.replace("`Task` calls", "native `subagent` calls")
@@ -266,6 +273,9 @@ def _translate_native_vocabulary(text: str) -> str:
     output = output.replace("blocking `Task` tool", "foreground native `subagent` call (`background=false`)")
     output = output.replace("blocking **`Task`** tool", "foreground native `subagent` call (`background=false`)")
     output = output.replace("blocking **Task** tool", "foreground native `subagent` call (`background=false`)")
+    output = output.replace("blocking `Agent` tool", "foreground native `subagent` call (`background=false`)")
+    output = output.replace("blocking **`Agent`** tool", "foreground native `subagent` call (`background=false`)")
+    output = output.replace("blocking **Agent** tool", "foreground native `subagent` call (`background=false`)")
     output = output.replace("`Task`", "`subagent`")
     output = output.replace("`Agent` tool calls", "native `subagent` calls")
     output = output.replace("`Agent` tool call", "native `subagent` call")

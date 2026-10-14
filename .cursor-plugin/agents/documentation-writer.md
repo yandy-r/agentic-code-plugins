@@ -10,7 +10,6 @@ tools:
   - Write
   - NotebookEdit
   - WebFetch
-  - TodoWrite
   - WebSearch
 model: claude-opus-5[effort=high,context=1m]
 color: green

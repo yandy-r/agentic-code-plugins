@@ -44,7 +44,7 @@ Process batches sequentially; within each batch, dispatch all review-fixer agent
 
 For each batch:
 
-1. **Dispatch review-fixer agents in parallel** — Use a **single message** with **multiple `Task` tool calls**, one per finding or same-file group in the batch:
+1. **Dispatch review-fixer agents in parallel** — Use a **single message** with **multiple `Agent` tool calls**, one per finding or same-file group in the batch:
    - `subagent_type`: `"ycc:review-fixer"`
    - `description`: e.g., `"Fix F042: missing null check in payments.ts"`
    - `prompt`: The Finding spec (Shape A or Shape B) plus `SOURCE REVIEW FILE` and `PROJECT TYPE-CHECK COMMAND`
@@ -86,21 +86,21 @@ If a `ycc:review-fixer` agent returns `STATUS: Failed`:
 > **Agent team lifecycle**
 >
 > In Path C you must follow the agent-team lifecycle. Do not mix standalone sub-agents
-> with team dispatch. Every `Agent` call below must include `team_name=` AND `name=`.
+> with team dispatch. Every `Agent` call below must include `name=`.
 >
-> 1. `TeamCreate` once at the start (single team across all batches)
+> 1. Use the implicit session team across all batches
 > 2. `TaskCreate` for **every eligible finding (or same-file group) across all batches**
 >    up front. Flat graph — no `addBlockedBy` wiring, because batch ordering is
 >    orchestrator-controlled, not task-graph-controlled. Each batch is processed only
 >    after the previous one's teammates are shut down.
 > 3. Per batch: spawn teammates (single message, multiple `Agent` calls with
->    `team_name=` + `name=`)
+>    `name=`)
 > 4. `TaskList` to confirm batch completion; run between-batch validation
 > 5. `SendMessage({type:"shutdown_request"})` to all teammates of completed batch
 >    before spawning next batch
-> 6. `TeamDelete` once after final batch (or on abort)
+> 6. Send shutdown requests to every teammate after the final batch (or on abort)
 >
-> If `TeamCreate` or up-front `TaskCreate` fails, abort the skill. Refer to
+> If up-front `TaskCreate` fails, abort the skill. Refer to
 > `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/agent-team-dispatch.md`
 > for the full lifecycle contract.
 
@@ -140,9 +140,7 @@ Do **not** call any team/task/agent tools. Exit the skill.
 
 #### C.3 Create the team
 
-```
-TeamCreate: team_name="rfix-<sanitized-review-name>", description="Review-fix team for: <source review basename>"
-```
+The team is implicit; use `rfix-<sanitized-review-name>` as the display-only run label.
 
 On failure, abort.
 
@@ -161,7 +159,7 @@ Use stable task IDs derived from the primary finding ID, e.g.:
 
 **No `addBlockedBy` wiring.** Batch ordering is enforced by the orchestrator (per-batch spawn + shutdown), not by the shared task graph. The shared task list's role in Path C is observability and inter-fixer communication, not dependency resolution.
 
-If any `TaskCreate` fails → `TeamDelete`, then abort.
+If any `TaskCreate` fails, shut down any active teammates and abort.
 
 #### C.5 Per-batch loop
 
@@ -170,7 +168,6 @@ For each batch `B1, B2, ... BN` in order (from the Phase 3 plan):
 1. **Identify batch tasks** — Extract all task IDs for findings (or same-file groups) in this batch.
 
 2. **Spawn batch teammates** — Single message, multiple `Agent` tool calls, one per finding or same-file group in the batch. Every call must include:
-   - `team_name`: `"rfix-<sanitized-review-name>"`
    - `name`: the task ID (e.g., `"f042"`, `"f004-f005"`) — must match the `TaskCreate` subject prefix
    - `subagent_type`: `"ycc:review-fixer"`
    - `description`: One-line fix title (e.g., `"Fix F042: missing null check in api.ts"`)
@@ -191,10 +188,10 @@ For each batch `B1, B2, ... BN` in order (from the Phase 3 plan):
 
    - If both pass: log `[done] Batch N: K fixes — validation pass` and proceed.
    - If either fails: **stop** the pipeline. Use `AskUserQuestion`:
-     - "Resume sequentially from next batch" — shut down current batch, `TeamDelete`, continue with Path A logic for remaining batches.
-     - "Switch to parallel sub-agents for remaining batches" — shut down current batch, `TeamDelete`, continue with Path B for remaining batches.
-     - "Abort and leave current state as-is" — shut down current batch, `TeamDelete`, exit.
-     - "Skip remaining findings and jump to Phase 5 (verify + report)" — shut down current batch, `TeamDelete`, jump to Phase 5.
+     - "Resume sequentially from next batch" — shut down the active teammates, continue with Path A logic for remaining batches.
+     - "Switch to parallel sub-agents for remaining batches" — shut down the active teammates, continue with Path B for remaining batches.
+     - "Abort and leave current state as-is" — shut down the active teammates, exit.
+     - "Skip remaining findings and jump to Phase 5 (verify + report)" — shut down the active teammates, jump to Phase 5.
 
 6. **Shut down completed-batch teammates** — Send to every teammate of the just-completed batch:
 
@@ -208,8 +205,8 @@ For each batch `B1, B2, ... BN` in order (from the Phase 3 plan):
 
 #### C.6 After all batches complete
 
-`TeamDelete` once. Then proceed to **Phase 5 — VERIFY** as normal.
+Confirm all teammates have shut down. Then proceed to **Phase 5 — VERIFY** as normal.
 
 #### Path C failure handling
 
-Same principles as Path B: do NOT auto-retry failed fixes, do NOT skip a failed batch. Always shut down teammates and `TeamDelete` before exiting, regardless of success or failure. Review file updates happen incrementally after each batch returns, so an aborted Path C run leaves the source review file reflecting the last completed batch's state.
+Same principles as Path B: do NOT auto-retry failed fixes, do NOT skip a failed batch. Always shut down teammates before exiting, regardless of success or failure. Review file updates happen incrementally after each batch returns, so an aborted Path C run leaves the source review file reflecting the last completed batch's state.

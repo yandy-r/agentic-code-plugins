@@ -103,7 +103,7 @@ Based on `$ARGUMENTS`:
 
 ### Step 5: Create Task Plan
 
-Use **TodoWrite** to create a prioritized task list:
+Use the task tools (`TaskCreate`) to create a prioritized task list:
 
 1. Critical documentation gaps (public APIs, core features)
 2. Architecture and system design
@@ -128,7 +128,7 @@ If `--dry-run` is in `$ARGUMENTS`:
 
 ### Step 7: Deploy Documentation Agents
 
-**CRITICAL**: Deploy all 5 agents in a **SINGLE message** with **MULTIPLE Task tool calls**.
+**CRITICAL**: Deploy all 5 agents in a **SINGLE message** with **MULTIPLE Agent tool calls**.
 
 | Agent                    | Plugin Agent Name      | Output Location      | Focus                                                         |
 | ------------------------ | ---------------------- | -------------------- | ------------------------------------------------------------- |
@@ -348,7 +348,7 @@ Provide completion summary:
 ## Important Notes
 
 - **You are the orchestrator** - delegate writing to agents
-- **Deploy agents in parallel** - single message with multiple Task calls
+- **Deploy agents in parallel** - single message with multiple Agent calls
 - **Respect existing work** - enhance, don't replace (unless --fresh)
 - **Quality over quantity** - focused docs are better than comprehensive but vague
 - **Verify before completing** - run all checks before marking done

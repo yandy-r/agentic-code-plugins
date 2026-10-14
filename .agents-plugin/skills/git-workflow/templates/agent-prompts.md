@@ -417,7 +417,7 @@ Use when:
 - Single logical feature
 - No natural scope divisions
 
-**Command**: Single Task tool call with one docs-git-committer agent
+**Command**: Single Agent tool call with one docs-git-committer agent
 
 ### Parallel Agent Deployment
 
@@ -427,13 +427,13 @@ Use when:
 - Multiple distinct features
 - Independent scopes
 
-**CRITICAL**: Deploy ALL agents in SINGLE message with MULTIPLE Task tool calls
+**CRITICAL**: Deploy ALL agents in SINGLE message with MULTIPLE Agent tool calls
 
 **Example**:
 
 ```
 
-[Single message with 3 Task tool calls]
+[Single message with 3 Agent tool calls]
 
 Task 1: docs-git-committer for auth system
 Task 2: docs-git-committer for payment integration
@@ -498,7 +498,7 @@ Each agent prompt should have:
 
 **Problem**: Deploying agents one at a time
 
-**Solution**: Deploy all agents in single message with multiple Task calls
+**Solution**: Deploy all agents in single message with multiple Agent calls
 
 ---
 
@@ -510,7 +510,7 @@ Each agent prompt should have:
 2. Provide clear scope and file list
 3. Reference appropriate templates
 4. Include documentation decision guidance
-5. Deploy agents in parallel (single message, multiple Task calls)
+5. Deploy agents in parallel (single message, multiple Agent calls)
 6. Ensure non-overlapping scopes
 7. Specify expected output format
 

@@ -9,13 +9,10 @@ allowed-tools:
   - Write
   - Skill
   - Agent
-  - Task
-  - TeamCreate
-  - TeamDelete
-  - TaskCreate
-  - TaskUpdate
-  - TaskList
-  - TaskGet
+  - record the task
+  - update the task tracker
+  - the task tracker
+  - the task details
   - SendMessage
   - Bash(git:*)
   - Bash(gh:*)

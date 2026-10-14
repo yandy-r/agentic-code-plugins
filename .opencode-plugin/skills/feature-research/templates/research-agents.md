@@ -544,6 +544,7 @@ When spawning research sub-agents:
    - `{{FEATURE_NAME}}` - The feature directory name (e.g., `plex-integration`)
    - `{{FEATURE_DIR}}` - Full output directory (e.g., `docs/plans/plex-integration`)
    - `{{FEATURE_DESCRIPTION}}` - Description provided by user (or feature name if none)
+3. **Register tasks** - Use track the task for all 7 research tasks
 4. **Create tasks** - Use track the task to create 7 research tasks
 6. **Monitor progress** - Use the todo tracker to check when all tasks complete
 7. **Validate results** - Run research validator before synthesis

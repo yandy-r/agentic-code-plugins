@@ -22,7 +22,7 @@ Extract flags from `$ARGUMENTS` before treating the remainder as the input:
 | Flag                 | Effect                                                                                                                             |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | `--parallel`         | Standalone `review-fixer` sub-agents in parallel per batch; fail-stop between batches                                          |
-| `--team`             | Codex runtime only; not available in bundle invocations; same fan-out via agent team (create an agent group once, flat task graph, per-batch spawn + shutdown)                       |
+| `--team`             | Codex runtime only; not available in bundle invocations; same fan-out via implicit agent team (flat task graph, per-batch spawn + shutdown)                               |
 | `--severity <level>` | Minimum severity: CRITICAL/HIGH/MEDIUM/LOW; default HIGH                                                                           |
 | `--dry-run`          | Print the fix plan and stop. No dispatch, no file changes. With `--team` also print team name and per-batch roster (no tool calls) |
 | `--worktree`         | Legacy no-op; worktree mode is default (auto-detect from artifact)                                                                 |

@@ -11,10 +11,7 @@ allowed-tools:
 - Edit
 - Skill
 - Agent
-- Task
 - AskUserQuestion
-- TeamCreate
-- TeamDelete
 - TaskCreate
 - TaskUpdate
 - TaskList
@@ -46,15 +43,15 @@ inline findings directly to `/quick-fix`. Only "Save to file" and
 
 Extract flags from `$ARGUMENTS`:
 
-| Flag                 | Effect                                                                                                                                                                                                    |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--parallel`         | Fan out REVIEW across 3 standalone `code-reviewer` sub-agents (correctness, security, quality) and merge findings. Works in Claude Code, Cursor, and Codex bundles.                                   |
-| `--team`             | (Claude Code only) Same 3-reviewer fan-out as a coordinated agent team with `TeamCreate`, shared `TaskList`, per-reviewer `TaskCreate`, and coordinated shutdown. Heavier dispatch, richer communication. |
-| `--yes`              | Skip the confirmation prompt and behave as "Apply fixes" through `/quick-fix`. Mutually exclusive with `--save` and `--write-and-apply`.                                                              |
-| `--save`             | Skip the confirmation prompt and behave as "Save to file" (write artifact, print Next steps, exit). Mutually exclusive with `--yes` and `--write-and-apply`.                                              |
-| `--write-and-apply`  | Skip the confirmation prompt, write the review artifact, then hand off to `/review-fix`. Mutually exclusive with `--yes` and `--save`.                                                                |
-| `--severity <level>` | Forwarded to `/quick-fix` or `/review-fix` during hand-off. Valid: `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`. Default: `HIGH`. Ignored on "Save to file" / "Discard".                                   |
-| `--no-worktree`      | Accepted as a **no-op**. Quick mode never creates a worktree. Emit a note: `--no-worktree has no effect in quick mode.`                                                                                   |
+| Flag                 | Effect                                                                                                                                                                                      |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--parallel`         | Fan out REVIEW across 3 standalone `code-reviewer` sub-agents (correctness, security, quality) and merge findings. Works in Claude Code, Cursor, and Codex bundles.                     |
+| `--team`             | (Claude Code only) Same 3-reviewer fan-out as a coordinated agent team with shared `TaskList`, per-reviewer `TaskCreate`, and coordinated shutdown. Heavier dispatch, richer communication. |
+| `--yes`              | Skip the confirmation prompt and behave as "Apply fixes" through `/quick-fix`. Mutually exclusive with `--save` and `--write-and-apply`.                                                |
+| `--save`             | Skip the confirmation prompt and behave as "Save to file" (write artifact, print Next steps, exit). Mutually exclusive with `--yes` and `--write-and-apply`.                                |
+| `--write-and-apply`  | Skip the confirmation prompt, write the review artifact, then hand off to `/review-fix`. Mutually exclusive with `--yes` and `--save`.                                                  |
+| `--severity <level>` | Forwarded to `/quick-fix` or `/review-fix` during hand-off. Valid: `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`. Default: `HIGH`. Ignored on "Save to file" / "Discard".                     |
+| `--no-worktree`      | Accepted as a **no-op**. Quick mode never creates a worktree. Emit a note: `--no-worktree has no effect in quick mode.`                                                                     |
 
 Strip these from `$ARGUMENTS` and set `PARALLEL_MODE`, `AGENT_TEAM_MODE`,
 `AUTO_YES`, `AUTO_SAVE`, `AUTO_WRITE_AND_APPLY`, and `MIN_SEVERITY` (default
@@ -68,7 +65,7 @@ Error: /quick-review takes no positional argument (only flags).
 
 - `--parallel` and `--team` mutually exclusive -> abort with: `--parallel and --team are mutually exclusive. Pick one.`
 - More than one of `--yes`, `--save`, `--write-and-apply` present -> abort with: `--yes, --save, and --write-and-apply are mutually exclusive. Pick one.`
-- `--team` in a Cursor/Codex bundle (no `TeamCreate` tool) -> abort with: `--team is not supported in bundle invocations; use --parallel instead.`
+- `--team` in a Cursor/Codex bundle (no agent team support) -> abort with: `--team is not supported in bundle invocations; use --parallel instead.`
 - `--team` passed while `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is not set to `1` in the environment -> abort with: `--team requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1. Use --parallel instead, or set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in your Claude Code settings if you intentionally want agent-team dispatch.`
 - `--severity` value not one of `CRITICAL|HIGH|MEDIUM|LOW` -> abort with: `Invalid --severity value. Use CRITICAL, HIGH, MEDIUM, or LOW.`
 
@@ -326,7 +323,7 @@ fix phase has its own execution decision.
 - **Scratch is the one ephemeral exception**: when Path B (`--parallel`) is
   used, the calling skill persists each valid inline return to its scratch copy
   at `docs/prps/reviews/.review-scratch/quick-<TIMESTAMP>/<reviewer-name>.md`
-  during the `Task` dispatch in Phase 2. It is always deleted at the end of
+  during the `Agent` dispatch in Phase 2. It is always deleted at the end of
   Phase 5 before the skill returns control to the user — including on
   "Discard" and "Apply fixes" — so the "no file written" guarantee still
   holds for anything the user can observe afterward.

@@ -8,7 +8,6 @@ allowed-tools:
   - Glob
   - Write
   - Edit
-  - Task
   - Agent
   - WebSearch
   - WebFetch
@@ -126,12 +125,12 @@ Derive a kebab-case `{name}` from the input:
 
 **If skipped**: Report "Generating spec from provided context only — use `--ground` for researcher-backed discovery."
 
-**If running**: Dispatch a single `prp-researcher` agent via the blocking `Task` tool, in dual mode (codebase + market):
+**If running**: Dispatch a single `prp-researcher` agent via the blocking `Agent` tool, in dual mode (codebase + market):
 
 - Codebase side: similar implementations, relevant types, existing patterns, integration points already in place
 - Market side: competitor approaches, library options, API documentation, known gotchas
 
-Instruct the researcher to return the compact discovery table format (codebase) and KEY_INSIGHT format (market) — do NOT ask for recommendations or opinions. This is a standalone single-researcher dispatch — see `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/standalone-dispatch.md` for the `Task` spawn/return contract (never `Agent` without a `team_name`).
+Instruct the researcher to return the compact discovery table format (codebase) and KEY_INSIGHT format (market) — do NOT ask for recommendations or opinions. This is a standalone single-researcher dispatch — see `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/standalone-dispatch.md` for the `Agent` spawn/return contract (omit `name` for standalone dispatch).
 
 **Summarize findings to the user before generating**:
 
@@ -260,7 +259,7 @@ Report to the user:
 
 ## Anti-patterns — Do NOT Do These
 
-1. **Do NOT deploy a multi-agent team**: This is a single-pass skill. For multi-agent research, use `/feature-research`. If tempted to use `TeamCreate`, stop — this skill does not have that tool allowed.
+1. **Do NOT deploy a multi-agent team**: This is a single-pass skill. For multi-agent research, use `/feature-research`. Do not spawn named teammates here.
 
 2. **Do NOT output to `docs/plans/`**: Specs go to `docs/prps/specs/`. The `docs/plans/` tree belongs to the `feature-research` / `plan-workflow` track. Always write to `docs/prps/specs/` regardless of the user's current working directory.
 

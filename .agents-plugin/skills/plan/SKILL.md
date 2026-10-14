@@ -8,15 +8,11 @@ allowed-tools:
 - Grep
 - Glob
 - Agent
-- Task
-- TodoWrite
-- AskUserQuestion
-- TeamCreate
-- TeamDelete
 - TaskCreate
-- TaskUpdate
-- TaskList
 - TaskGet
+- TaskList
+- TaskUpdate
+- AskUserQuestion
 - SendMessage
 - Bash(ls:*)
 - Bash(cat:*)
@@ -94,7 +90,7 @@ Dry-run: print exact selected roster format; no spawning; if visual also print `
 ### Step 2.5 — Validate the plan before relaying
 
 Read `~/.agents/skills/plan/references/plan-validation.md` after planner return/merge; run all four checks. Missing required structure or parallel annotations: re-dispatch with missing-section directive. Missing expected sections/paths/perspectives: append visible validation notes.
-With `--team`, re-dispatch only after `TeamDelete` has completed prior cleanup.
+With `--team`, re-dispatch only after prior teammates have completed shutdown.
 
 ## Step 3 — Relay
 
@@ -109,8 +105,8 @@ Wait; do not touch code until user responds:
 - no: stop, no implementation.
 
 For standalone enhanced re-dispatch, use a fresh batch of five parallel calls per `references/personas-and-merge.md` (Re-dispatch).
-Claude: that fresh batch is five parallel `Task` calls with no `team_name=` or `name=`, which are exclusive to `Agent`+team dispatch.
-With `--team`, re-dispatch creates a new team after `TeamDelete`; do not message prior teammates.
+Claude: that fresh batch is five parallel `Agent` calls with no `name=`, which is reserved for teammate dispatch.
+With `--team`, re-dispatch spawns fresh teammates after prior teammates have shut down; do not message prior teammates.
 Unclear response: ask focused clarification.
 
 ## Step 5 — Visual rendering (VISUAL_MODE=true only)

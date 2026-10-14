@@ -8,7 +8,6 @@ allowed-tools:
 - Grep
 - Glob
 - Write
-- TodoWrite
 - Bash(ls:*)
 - Bash(cat:*)
 - Bash(test:*)

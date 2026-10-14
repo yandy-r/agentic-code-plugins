@@ -92,12 +92,12 @@ Agents to deploy:
 
 ## Execution Model
 
-- Default (`AGENT_TEAM_MODE=false`): each stage deploys its agents as standalone sub-agents in a single message with multiple `Task` calls. No team coordination; each sub-agent writes its assigned artifact and returns. Orchestrator validates and synthesizes between stages.
-- With `--team` (`AGENT_TEAM_MODE=true`): create team `pw-{{FEATURE_NAME}}` once up front, register each stage's tasks, spawn teammates per stage (research → analysis → validation) with `SendMessage` coordination and `TaskList` progress tracking, shut down between stages, then `TeamDelete` at the end.
+- Default (`AGENT_TEAM_MODE=false`): each stage deploys its agents as standalone sub-agents in a single message with multiple `Agent` calls. No team coordination; each sub-agent writes its assigned artifact and returns. Orchestrator validates and synthesizes between stages.
+- With `--team` (`AGENT_TEAM_MODE=true`): use the implicit session team (run label `pw-{{FEATURE_NAME}}`), register each stage's tasks up front, spawn teammates per stage (research → analysis → validation) with `SendMessage` coordination and `TaskList` progress tracking, shut down between stages, then send shutdown requests to every teammate at the end.
 
 If `--team` was passed, the above plan additionally includes team `pw-{{FEATURE_NAME}}` with the corresponding teammate roster.
 
-Do **not** call `TeamCreate`, `TaskCreate`, `Agent`, `Task`, `SendMessage`, or `TeamDelete` in dry-run mode.
+Do **not** call `TaskCreate`, `Agent`, or `SendMessage` in dry-run mode.
 
 ## Next Steps
 

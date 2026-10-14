@@ -598,4 +598,4 @@ Complete reference of all available agents for orchestration.
 
 ---
 
-_This catalog is based on available agents in the Task tool. Refer to Task tool description for latest updates._
+_This catalog is based on available agents in the Agent tool. Refer to Agent tool description for latest updates._

@@ -407,7 +407,7 @@ build_codex_output() {
     exit 2
   fi
 
-  printf '# Advisory only — Codex hooks are under development as of 2026-04-16.\n'
+  printf '# Advisory only — Codex hooks are under development; verify support in the installed CLI.\n'
   printf '# See research/plugin-additions/evidence/verification-log.md for sourcing.\n\n'
   for ev in "${EVENTS[@]}"; do
     render_template "$CODEX_TMPL" "$LANGUAGE" "$ev" "$(collect_ev_block "$ev")" ""

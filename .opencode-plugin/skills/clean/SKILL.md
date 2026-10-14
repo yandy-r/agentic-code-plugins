@@ -39,7 +39,7 @@ If the request concerns only Git resources, STOP before Phase 0 and deploy no ag
 2. **Detect project type** using: `~/.config/opencode/skills/clean/scripts/detect-project-type.sh "$TARGET_DIR"`
 3. **Read safety configuration** from `~/.config/opencode/skills/clean/references/safety-config.md`
 4. **Create working directory**: `$TARGET_DIR/.cleanup-analysis/findings/`
-5. **Initialize progress tracking** with the todo tracker for all phases
+5. **Initialize progress tracking** with the task tools for all phases
 6. **If --dry-run**: Display analysis plan and **STOP**
 
 ## Phase 1: Parallel Agent Deployment
@@ -101,7 +101,7 @@ Each cleanup agent must: focus on specific category, execute 10+ diverse searche
 ## Important Notes
 
 - Act as orchestrator - coordinate cleanup agents, don't analyze files directly
-- Deploy all 6 agents in parallel (single message with 6 native subagent calls)
+- Deploy all 6 agents in parallel (single message with 6 Agent calls)
 - Safety first - always validate before deletion
 - User confirmation required before any destructive operations
 - Preserve all cleanup reports and removal lists

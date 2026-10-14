@@ -546,7 +546,7 @@ When spawning analysis teammates:
    - `{{FEATURE_NAME}}` - The feature directory name
    - `{{FEATURE_DIR}}` - Full output directory (`${feature_dir}`, resolved in Step 1)
 3. **Create tasks** - Use TaskCreate to create 3 analysis tasks
-4. **Spawn in parallel** - Use a single message with 3 Agent tool calls, each with `team_name` and `name`
+4. **Spawn in parallel** - Use a single message with 3 Agent tool calls, each with `name`
 5. **Monitor progress** - Use TaskList to check when all tasks complete
 6. **Verify artifacts** - Check all analysis files exist on disk
 7. **Shut down teammates** - Send shutdown requests via SendMessage

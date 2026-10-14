@@ -112,6 +112,9 @@ Wait; do not touch code until user responds:
 - no: stop, no implementation.
 
 For standalone enhanced re-dispatch, use a fresh batch of five parallel calls per `references/personas-and-merge.md` (Re-dispatch).
+Claude: that fresh batch is five parallel native `subagent` calls with no `description` plus the role-specific `prompt`, which is reserved for sub-agent dispatch.
+
+
 Unclear response: ask focused clarification.
 
 ## Step 5 — Visual rendering (VISUAL_MODE=true only)

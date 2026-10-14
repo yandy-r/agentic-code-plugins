@@ -67,7 +67,7 @@ Keep this graph available for both Path A (ordering) and Path B (`addBlockedBy` 
 
 ## Todo format
 
-Using the todo tracker, one item per task:
+Using the task tools, one item per task:
 
 - `id`: Task ID (e.g., "task-1-1")
 - `content`: "[Task ID] [Task Title] - Depends on: [dependencies]"

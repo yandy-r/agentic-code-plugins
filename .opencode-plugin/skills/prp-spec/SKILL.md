@@ -115,7 +115,7 @@ Derive a kebab-case `{name}` from the input:
 - Codebase side: similar implementations, relevant types, existing patterns, integration points already in place
 - Market side: competitor approaches, library options, API documentation, known gotchas
 
-Instruct the researcher to return the compact discovery table format (codebase) and KEY_INSIGHT format (market) — do NOT ask for recommendations or opinions. This is a standalone single-researcher dispatch — see `~/.config/opencode/shared/references/standalone-dispatch.md` for the `subagent` native dispatch and result contract.
+Instruct the researcher to return the compact discovery table format (codebase) and KEY_INSIGHT format (market) — do NOT ask for recommendations or opinions. This is a standalone single-researcher dispatch — see `~/.config/opencode/shared/references/standalone-dispatch.md` for the `subagent` spawn/return contract (omit `name` for standalone dispatch).
 
 **Summarize findings to the user before generating**:
 

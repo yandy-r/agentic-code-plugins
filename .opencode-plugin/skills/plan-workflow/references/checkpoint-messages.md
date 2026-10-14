@@ -96,7 +96,7 @@ Agents to deploy:
 
 
 
-Do not dispatch any `subagent` calls in dry-run mode.
+Do **not** call `track the task`, `subagent`, or `re-dispatch the affected sub-agent with the needed guidance` in dry-run mode.
 
 ## Next Steps
 

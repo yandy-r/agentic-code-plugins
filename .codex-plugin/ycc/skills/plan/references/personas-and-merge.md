@@ -31,7 +31,7 @@ Sub-agents:  5
   - test-strategist   subagent_type=test-strategy-planner      task=Testing strategy, validation commands, acceptance criteria
   - security-reviewer subagent_type=research-specialist        task=Threat model, input validation, authn/authz, secrets, dependency risk
   - ux-reviewer       subagent_type=research-specialist        task=User-facing impact (UI, CLI, API responses, error messages); skip if internal-only
-Batches:     1  (single message, 5 parallel Task calls)
+Batches:     1  (single message, 5 parallel Agent calls)
 ```
 
 Do **not** spawn any agents. Exit the skill.
@@ -64,7 +64,7 @@ Batches:          1  (batch 1: all 5 teammates)
 Dependencies:     none  (flat graph)
 ```
 
-Do **not** call `create an agent group` or any team/task/agent tools. Exit the skill.
+Do **not** call `Agent`, `send follow-up instructions`, or any task/agent tools. Exit the skill.
 
 ## Persona prompt contract
 
@@ -87,7 +87,7 @@ For security-reviewer and ux-reviewer use enhanced-personas prompts verbatim and
 
 Standalone enhanced (Path C) re-dispatch fires a fresh batch of 5 parallel standalone sub-agent calls; the team-only parameters belong exclusively to the team dispatch primitive and are never set here. Path C created no team, so there is nothing to tear down.
 
-Team (Path B) re-dispatch creates a new team after `close the agent group`; never message teammates from the prior team.
+Team (Path B) re-dispatch spawns fresh teammates after prior teammates have shut down; never message teammates from the prior run.
 
 ## Merge outputs (B.7)
 

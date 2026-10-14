@@ -10,7 +10,6 @@ tools:
   - Write
   - NotebookEdit
   - WebFetch
-  - TodoWrite
   - WebSearch
 model: sonnet
 color: green

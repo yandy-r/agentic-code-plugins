@@ -118,7 +118,7 @@ Dispatch **`prp-researcher`** via the foreground native `subagent` call (`backgr
 Instruct the researcher to return URL citations for market findings and `file:line`
 references for codebase findings. This is a standalone single-researcher dispatch — see
 `~/.config/opencode/shared/references/standalone-dispatch.md` for the `subagent`
-native dispatch and result contract.
+spawn/return contract (omit `name` for standalone dispatch).
 
 **Summarize to the user:**
 

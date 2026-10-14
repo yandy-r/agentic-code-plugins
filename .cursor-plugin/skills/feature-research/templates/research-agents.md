@@ -10,7 +10,7 @@ Apply this contract to every teammate prompt in this file:
 - Do not edit any other files.
 - **Do NOT invoke any skills or slash commands** (e.g., `/deep-research`, `/feature-research`, or any other skill). Perform all research directly using your own tools: WebSearch, WebFetch, Read, Grep, Glob. You are a focused research agent — do your work yourself, do not delegate to other workflows.
 - **Share key findings** with relevant teammates using SendMessage.
-- After writing the file and sharing findings, mark your task as complete using TaskUpdate.
+- After writing the file and sharing findings, mark your task as complete using update the task tracker.
 
 ---
 
@@ -63,12 +63,12 @@ You are part of a research team. Your teammates are:
 
 ## Task Coordination
 
-1. Check TaskList for your assigned task
-2. Claim your task with TaskUpdate (set status to in_progress, owner to your name)
+1. Check the task tracker for your assigned task
+2. Claim your task with update the task tracker (set status to in_progress, owner to your name)
 3. Do your research
 4. Share findings with teammates
 5. Write your output file
-6. Mark your task complete with TaskUpdate
+6. Mark your task complete with update the task tracker
 
 ## Output Format
 
@@ -130,12 +130,12 @@ You are part of a research team. Your teammates are:
 
 ## Task Coordination
 
-1. Check TaskList for your assigned task
-2. Claim your task with TaskUpdate (set status to in_progress, owner to your name)
+1. Check the task tracker for your assigned task
+2. Claim your task with update the task tracker (set status to in_progress, owner to your name)
 3. Do your research
 4. Share findings with teammates
 5. Write your output file
-6. Mark your task complete with TaskUpdate
+6. Mark your task complete with update the task tracker
 
 ## Output Format
 
@@ -198,12 +198,12 @@ You are part of a research team. Your teammates are:
 
 ## Task Coordination
 
-1. Check TaskList for your assigned task
-2. Claim your task with TaskUpdate (set status to in_progress, owner to your name)
+1. Check the task tracker for your assigned task
+2. Claim your task with update the task tracker (set status to in_progress, owner to your name)
 3. Do your research
 4. Share findings with teammates
 5. Write your output file
-6. Mark your task complete with TaskUpdate
+6. Mark your task complete with update the task tracker
 
 ## Output Format
 
@@ -267,12 +267,12 @@ You are part of a research team. Your teammates are:
 
 ## Task Coordination
 
-1. Check TaskList for your assigned task
-2. Claim your task with TaskUpdate (set status to in_progress, owner to your name)
+1. Check the task tracker for your assigned task
+2. Claim your task with update the task tracker (set status to in_progress, owner to your name)
 3. Do your research
 4. Share findings with teammates
 5. Write your output file
-6. Mark your task complete with TaskUpdate
+6. Mark your task complete with update the task tracker
 
 ## Output Format
 
@@ -377,12 +377,12 @@ You are part of a research team. Your teammates are:
 
 ## Task Coordination
 
-1. Check TaskList for your assigned task
-2. Claim your task with TaskUpdate (set status to in_progress, owner to your name)
+1. Check the task tracker for your assigned task
+2. Claim your task with update the task tracker (set status to in_progress, owner to your name)
 3. Do your research
 4. Share findings with teammates (include severity levels)
 5. Write your output file
-6. Mark your task complete with TaskUpdate
+6. Mark your task complete with update the task tracker
 
 ## Output Format
 
@@ -523,12 +523,12 @@ You are part of a research team. Your teammates are:
 
 ## Task Coordination
 
-1. Check TaskList for your assigned task
-2. Claim your task with TaskUpdate (set status to in_progress, owner to your name)
+1. Check the task tracker for your assigned task
+2. Claim your task with update the task tracker (set status to in_progress, owner to your name)
 3. Do your research
 4. Share findings with teammates
 5. Write your output file
-6. Mark your task complete with TaskUpdate
+6. Mark your task complete with update the task tracker
 
 ## Output Format
 
@@ -663,12 +663,12 @@ You are part of a research team. Your teammates are:
 
 ## Task Coordination
 
-1. Check TaskList for your assigned task
-2. Claim your task with TaskUpdate (set status to in_progress, owner to your name)
+1. Check the task tracker for your assigned task
+2. Claim your task with update the task tracker (set status to in_progress, owner to your name)
 3. Do your research (consider waiting briefly for teammate messages before finalizing)
 4. Share findings with teammates
 5. Write your output file
-6. Mark your task complete with TaskUpdate
+6. Mark your task complete with update the task tracker
 
 ## Output Requirements
 
@@ -692,14 +692,14 @@ When spawning research teammates:
    - `{{FEATURE_NAME}}` - The feature directory name (e.g., `plex-integration`)
    - `{{FEATURE_DIR}}` - Full output directory (e.g., `docs/plans/plex-integration`)
    - `{{FEATURE_DESCRIPTION}}` - Description provided by user (or feature name if none)
-3. **Create team** - Use TeamCreate with name `fr-[feature-name]`
-4. **Create tasks** - Use TaskCreate to create 7 research tasks
-5. **Spawn in parallel** - Use a single message with 7 Agent tool calls, each with `team_name` and `name`
-6. **Monitor progress** - Use TaskList to check when all tasks complete
+3. **Register tasks** - Use record the task for all 7 research tasks
+4. **Create tasks** - Use record the task to create 7 research tasks
+5. **Spawn in parallel** - Use a single message with 7 parallel agent invocations, each with `name`
+6. **Monitor progress** - Use the task tracker to check when all tasks complete
 7. **Validate results** - Run research validator before synthesis
 8. **Shut down teammates** - Send shutdown requests via SendMessage
 9. **Read results** - Review each research file before writing feature-spec.md
-10. **Clean up team** - Use TeamDelete
+10. **Clean up team** - Confirm all teammates have shut down
 
 ## Variable Reference
 

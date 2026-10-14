@@ -1,8 +1,8 @@
-# Standalone Dispatch — Task Tool Reference
+# Standalone Dispatch — Agent Tool Reference
 
 ## Contents
 
-1. What `Task` Is
+1. What `Agent` Is
 2. Spawn Rule
 3. Blocking / Inline-Return Semantics
 4. Hard Anti-Patterns
@@ -17,35 +17,35 @@ Used by `prp-plan`, `deep-research`, `prp-implement`, `review-fix`,
 `quick-fix`, `orchestrate`, `feature-research`, `parallel-plan`,
 `shared-context`, `plan-workflow`, `clean`, and `git-workflow` for
 **standalone** sub-agent fan-out (no shared team, no `--team` flag). This file documents
-the `Task`-tool spawn/return contract. See `agent-team-dispatch.md` in this directory
-for the separate `Agent`+`team_name` lifecycle used by `--team`/Path C runs. Sections 8-10
+the `Agent`-tool spawn/return contract. See `agent-team-dispatch.md` in this directory
+for the separate `Agent` with `name` lifecycle used by `--team`/Path C runs. Sections 8-10
 hold the dispatch-mode-independent worktree, dependency-batching and plan-execution
-mechanics that `--team` runs reuse; only the dispatch primitive differs.
+mechanics that `--team` runs reuse; only dispatch arguments and coordination differ.
 
 ---
 
-## 1. What `Task` Is
+## 1. What `Agent` Is
 
-`Task` is Claude Code's primitive for spawning one or more standalone sub-agents that run
+`Agent` is Claude Code's primitive for spawning one or more standalone sub-agents that run
 to completion and hand their result back to the caller in the **same turn**, as the tool's
-return value. There is no roster, no shared task list, and no `team_name` — each `Task`
+return value. Omit `name` and `run_in_background` for standalone foreground dispatch — each `Agent`
 call is an independent, self-contained dispatch. Compatibility generators must translate
 this Claude-facing source contract into each target's native dispatch and result vocabulary;
-generated bundles must not describe `Task` as a universal host API.
+generated bundles must not describe `Agent` as a universal host API.
 
-This is a fundamentally different mechanism from `Agent`+`team_name`:
+The same tool serves both modes; arguments select the mode:
 
-|                 | `Task` (standalone)                        | `Agent` + `team_name` (Path C / `--team`)                               |
-| --------------- | ------------------------------------------ | ----------------------------------------------------------------------- |
-| Availability    | Claude Code                                | Claude Code only                                                        |
-| Execution model | Blocking — caller waits for the result     | Async — spawns a background teammate                                    |
-| Result delivery | Returned inline as the tool's return value | A "finished" notification only; output is **not** returned inline       |
-| Coordination    | None — no shared task list                 | `TaskCreate`/`TaskList`/`SendMessage` against the shared team           |
-| Lifecycle       | Fire, wait, read result, done              | `TeamCreate` → spawn → monitor → `SendMessage(shutdown)` → `TeamDelete` |
+|                 | `Agent` (standalone)                       | `Agent` with `name` (Path C / `--team`)                               |
+| --------------- | ------------------------------------------ | --------------------------------------------------------------------- |
+| Availability    | Claude Code                                | Claude Code only                                                      |
+| Execution model | Blocking — caller waits for the result     | Async — spawns a background teammate                                  |
+| Result delivery | Returned inline as the tool's return value | A "finished" notification only; output is **not** returned inline     |
+| Coordination    | None — no shared task list                 | `record the task`/`the task tracker`/`SendMessage` against the shared team         |
+| Lifecycle       | Fire, wait, read result, done              | Implicit team → spawn with `name` → monitor → `SendMessage(shutdown)` |
 
-The "finished notification, no inline output" behavior of `Agent`+`team_name` is the root
+The "finished notification, no inline output" behavior of `Agent` with `name` is the root
 cause of the bug this document exists to prevent: skills that dispatch standalone work via
-`Agent` (instead of `Task`) and then try to read the sub-agent's findings inline get
+`Agent` with `name` (instead of an unnamed call) and then try to read the sub-agent's findings inline get
 nothing — the orchestrator goes idle waiting on output that was never returned to it.
 
 ---
@@ -53,36 +53,36 @@ nothing — the orchestrator goes idle waiting on output that was never returned
 ## 2. Spawn Rule (non-negotiable)
 
 All standalone sub-agents in a batch are spawned via **ONE message** with **MULTIPLE
-`Task` tool calls**:
+`Agent` tool calls**:
 
 ```
-Task(subagent_type="<type>", description="<short title>", prompt="<full task prompt>")
-Task(subagent_type="<type>", description="<short title>", prompt="<full task prompt>")
-Task(subagent_type="<type>", description="<short title>", prompt="<full task prompt>")
+Agent(subagent_type="<type>", description="<short title>", prompt="<full task prompt>")
+Agent(subagent_type="<type>", description="<short title>", prompt="<full task prompt>")
+Agent(subagent_type="<type>", description="<short title>", prompt="<full task prompt>")
 ```
 
-- The call must **not** pass `name`, `team_name`, or `run_in_background`. Those
-  parameters are exclusive to `Agent`+team dispatch (or async background execution) and
-  have no meaning for a standalone `Task` call. Passing any of them — especially when the
-  experimental `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` flag is enabled, which makes every
-  session an implicit team — can silently convert what should be a blocking, inline
-  `Task` dispatch into an async background teammate. That conversion is exactly the bug
-  this document exists to prevent: it replaces the inline return with a "finished"
-  notification, and orchestrators that expect the former end up sleep-looping (see §3-4).
-- Do **not** call `TaskCreate`, `TaskList`, or `SendMessage` for standalone sub-agents —
-  there is no shared task list backing a `Task` batch; those tools exist only for the
-  `--team`/Agent-team lifecycle in `agent-team-dispatch.md`.
-- Sequential `Task` calls across separate messages forfeit the parallel fan-out the
+- The call must **not** pass `name` or `run_in_background`. The `name` parameter
+  converts the call into a teammate dispatch and `run_in_background` makes it async.
+  Omit `team_name` too: it is ignored by the runtime and has no effect. Passing `name` —
+  especially when `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is enabled, which makes every
+  session an implicit team — converts what should be a blocking, inline foreground
+  dispatch into an async background teammate. That conversion replaces the inline
+  return with a "finished" notification, and orchestrators that expect the former end up
+  idle waiting for output that never arrives (see §3-4).
+- Standalone sub-agents share no team task list. Use the task tools (`record the task`, `the task details`,
+  `the task tracker`, `update the task tracker`) only for the orchestrator's own progress tracking, and never
+  `SendMessage` a standalone sub-agent — it has no teammate inbox.
+- Sequential `Agent` calls across separate messages forfeit the parallel fan-out the
   pattern exists for — batch them into one message whenever the work is independent.
 
 ---
 
 ## 3. Blocking / Inline-Return Semantics
 
-In the normal case, `Task` calls **block** the orchestrator until every sub-agent in the
-batch returns, and each sub-agent's full report is delivered as that `Task` call's return
+In the normal case, `Agent` calls **block** the orchestrator until every sub-agent in the
+batch returns, and each sub-agent's full report is delivered as that `Agent` call's return
 value, in the **same turn** the batch was dispatched. Read that return value directly —
-this is the expected, common-case contract, and the vast majority of `Task` batches
+this is the expected, common-case contract, and the vast majority of `Agent` batches
 resolve this way.
 
 **Defensive fallback**: if the runtime ran the batch asynchronously (for example, a
@@ -96,12 +96,12 @@ skill's workflow once you are notified that the batch has completed.
 The orchestrator must never:
 
 - Poll for completion.
-- `sleep` in a loop waiting for a `Task` call to "finish."
+- `sleep` in a loop waiting for an `Agent` call to "finish."
 - Treat the absence of a notification, on its own, as proof that nothing returned — check
   the actual return value first; only fall back to yielding (above) if it is genuinely
   empty/missing at read time.
 
-If a batch of `Task` calls returns inline, the work is done and every report is already in
+If a batch of `Agent` calls returns inline, the work is done and every report is already in
 hand — proceed directly to merging, no waiting required.
 
 ---
@@ -112,13 +112,13 @@ These mirror the Failure Policy intent of `agent-team-dispatch.md` in this direc
 §4, but for the standalone path. Each of the following is a bug, not a stylistic
 preference:
 
-- **Do NOT** dispatch standalone fan-out via `Agent`, or via `Task` with `name`,
-  `team_name`, or `run_in_background` set (see §2). Any of these can produce a background
+- **Do NOT** dispatch standalone fan-out via `Agent` with `name` or
+  `run_in_background` set (see §2). Either produces a background
   teammate whose output is never returned inline — exactly the failure mode this document
   exists to prevent.
-- **Do NOT** background a `Task` dispatch or otherwise detach from it.
-- **Do NOT** `sleep`-loop or poll waiting for a `Task` call to complete. In the normal
-  case `Task` blocks; the result is already available when the call returns.
+- **Do NOT** background an `Agent` dispatch or otherwise detach from it.
+- **Do NOT** `sleep`-loop or poll waiting for an `Agent` call to complete. In the normal
+  case `Agent` blocks; the result is already available when the call returns.
 - **Do NOT** keep the turn alive with `sleep`, `echo`, or any other busywork "waiting" for
   sub-agents to finish — including in the async-fallback case described in §3. In current
   Claude Code versions, a live turn blocks completion-notification delivery, so busywork
@@ -128,9 +128,8 @@ preference:
   sub-agent output — the inline return value is. Only fall back to waiting on a
   notification (by yielding, per §3) if the inline return is genuinely empty/missing at
   read time.
-- **Do NOT** call `SendMessage` or `TaskList` for standalone sub-agents. No shared task
-  list exists for a `Task` batch; those tools only operate against an active
-  `Agent`-team.
+- **Do NOT** call `SendMessage` for standalone sub-agents. Standalone agents return
+  findings inline; `SendMessage` operates only against active teammates.
 - **Do NOT** silently synthesize or fabricate findings when a sub-agent's inline return is
   empty or missing. Treat it as a failure and follow the Failure Policy in §6 — never
   paper over a missing result with invented content.
@@ -155,7 +154,7 @@ For agents allowed to write a backstop artifact:
 
 For **code-writing** sub-agents (e.g. `implementor`, `review-fixer`), there is no
 separate findings file — the "artifact" is the code changes already committed to disk,
-plus a final `STATUS:` line in the inline return so the blocking `Task` result stays
+plus a final `STATUS:` line in the inline return so the blocking `Agent` result stays
 parseable (e.g. `STATUS: Fixed` / `STATUS: Failed: <reason>`).
 
 ---
@@ -177,10 +176,9 @@ the gap — a quietly missing finding is worse than a reported one.
 
 This file is the Claude-facing source contract. Cursor, Codex, and opencode generators
 must project it onto the target's actual tools and lifecycle rather than copying Claude
-identifiers or return assumptions. `Agent`+`team_name` remains Claude-Code-only. Per the
+identifiers or return assumptions. `Agent` with `name` remains Claude-Code-only. Per the
 `AGENTS:cursor` note in `target-capability-matrix.md` in this directory, those
-generated targets have no Claude agent-team surface (`TeamCreate`/`TaskCreate`/
-`SendMessage`/`TeamDelete`); their standalone path must use the target-native dispatch
+generated targets have no Claude teammate-messaging surface (`SendMessage`); their standalone path must use the target-native dispatch
 primitive, and their generated `--team` path must fail closed when no equivalent exists.
 
 ---
@@ -336,5 +334,5 @@ rules (lowercase, non `[a-z0-9-]` to `-`, collapse, cap 20, fallback `untitled`)
 `prepare-feature-branch.sh`). The helper is idempotent, exits 1 on unrelated dirty tree, exits 2 on
 a different feature branch (`--allow-existing-feature-branch` after confirmation) or on `release/*`
 when `RELEASING.md` exists (`--allow-release-branch` for release-only fixes). Do not skip.
-Then process section 9 batches with one `implementor` `Task` per step in one message; run the
+Then process section 9 batches with one `implementor` `Agent` per step in one message; run the
 project type-check and unit-test commands between batches; on failure stop and ask the user.

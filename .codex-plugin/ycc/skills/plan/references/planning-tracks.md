@@ -61,7 +61,7 @@ Use Option 1 for small features and quick iterations. Use Option 2 when the user
 ### When to use `--team`
 
 `--team` is a **Codex-runtime-only (not available in bundle invocations)** execution mode. Cursor and Codex bundles ship
-without the team tools (`create an agent group`, `send follow-up instructions`, etc.), so invoking `--team`
+without team tools (`send follow-up instructions`, etc.), so invoking `--team`
 there has no effect — use `--parallel` instead.
 
 - **`$plan --team`** — The task is complex enough that you want architect, risk, and testing perspectives but not heavy enough for an artifact file. Outputs a merged multi-perspective plan in the conversation.

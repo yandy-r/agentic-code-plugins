@@ -238,6 +238,7 @@ and far future (5+ years). Sources must be authoritative and dated/current where
 - [ ] Evidence portfolio includes confidence and preserves distinct viewpoints.
 - [ ] Strategic implications cover second/third-order effects and temporal range.
 - [ ] Research gaps and validation result explicitly reported.
+- [ ] Sub-agent shutdown completed via re-dispatch the affected sub-agent with the needed guidance if applicable.
 
 ## Corrective Actions
 

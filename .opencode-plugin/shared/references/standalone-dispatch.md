@@ -213,7 +213,7 @@ All parallel agents in this batch share the current feature branch; batching gua
 ```
 
 Treat that directory as repo root for Read/Write/Edit/Bash. Never pass `isolation: "worktree"` or
-`Agent(isolation: "worktree")`; it creates separate harness worktrees. Codex/opencode: prompt line is
+`subagent(isolation: "worktree", background=false)`; it creates separate harness worktrees. Codex/opencode: prompt line is
 sufficient. Cursor: warn and print the manual `git worktree add` command.
 
 ### 8.4 Planner annotation directive (default WORKTREE_MODE=true; omit for --no-worktree)

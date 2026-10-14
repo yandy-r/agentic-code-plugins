@@ -13,29 +13,27 @@
 
 Used by `ycc:plan`, `ycc:plan-workflow`, `ycc:prp-plan`, `ycc:prp-implement`,
 `ycc:implement-plan`, `ycc:orchestrate` and `ycc:deep-research`
-when the `--team` flag is passed. This file documents the universal TeamCreate → TaskCreate → Agent →
-TaskList → SendMessage → TeamDelete lifecycle. Individual skills own their teammate
-roster and prompt templates; only the mechanism lives here.
+when the `--team` flag is passed. This file documents the universal implicit team →
+TaskCreate → Agent(name=...) → TaskList → SendMessage lifecycle. Individual skills own their
+teammate roster and prompt templates; only the mechanism lives here.
 
 > **`--team` is opt-in.** It requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` to be set
 > in the user's Claude Code environment. Skills that reference this document validate
 > that at flag-parse time and abort with guidance to use `--parallel` instead when the
 > flag isn't set.
 >
-> **Implicit-team model note.** Recent Claude Code versions removed the `TeamCreate`/`TeamDelete`
-> tools in favor of an implicit team model: every session already has one team when the
-> experimental flag is set, teammates are spawned directly via the `Agent` tool's `name`
-> parameter, and `team_name` is accepted but ignored. A full rewrite of this document's
-> lifecycle (Steps 1-6) to match the implicit-team model is a follow-up, not done in this
-> pass — for now, `TeamCreate`/`TaskCreate`/`TeamDelete` calls in this doc's lifecycle
-> remain as documented, and skills should continue to call them where their target CLI
-> still supports them, but this may need revisiting.
+> **Implicit-team model.** With `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, every session
+> already has exactly one team. There are no team-creation or team-deletion tools: spawn
+> teammates directly with the `Agent` tool's `name` parameter. `team_name` is accepted but
+> ignored, so skills never pass it. Team labels such as `pw-<feature>` are display-only run
+> labels for dry-run output and prompts. Task tracking uses `TaskCreate`, `TaskGet`,
+> `TaskList`, and `TaskUpdate`; teammate communication uses `SendMessage`.
 
 ---
 
 ## 1. Team Name Sanitization
 
-Team names follow the pattern: `<skill-prefix>-<sanitized-context>`.
+Run labels follow the pattern: `<skill-prefix>-<sanitized-context>`.
 
 **Sanitization rules for the `<sanitized-context>` portion**:
 
@@ -68,16 +66,14 @@ If the sanitized context would be empty (e.g., only symbols), fall back to
 Every `--team` run MUST perform these steps in order. Deviation corrupts the
 shared task list or leaves orphaned teammates.
 
-### Step 1 — TeamCreate
+### Step 1 — Confirm the implicit team
 
-```
-TeamCreate: team_name="<prefix>-<sanitized-context>", description="<one-line purpose>"
-```
-
-The description should name the skill and the concrete goal (e.g., `"Multi-perspective
-planning team for: add rate limiting"`). If `TeamCreate` fails, **abort the skill** with
-a clear error. Do NOT silently fall back to a non-team mode — any teammates spawned
-with a stale `team_name` will error, and orphaned teams make debugging harder.
+No setup call exists. Verify `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` at flag-parse time
+(see the prerequisite above) and choose the display-only run label
+`<prefix>-<sanitized-context>`. Record a one-line purpose naming the skill and goal (e.g.,
+`"Multi-perspective planning team for: add rate limiting"`) for the teammate prompts. If
+the flag is absent, **abort the skill** with a clear error. Do NOT silently fall back to a
+non-team mode.
 
 ### Step 2 — TaskCreate (all tasks up front)
 
@@ -102,11 +98,10 @@ register all tasks before spawning.
 **MULTIPLE `Agent` tool calls**. Sequential `Agent` calls across messages break the
 parallel semantics.
 
-Every `Agent` call MUST include both `team_name=` and `name=`:
+Every teammate `Agent` call MUST include `name=` and MUST NOT pass `team_name`:
 
 ```
 Agent(
-  team_name   = "<prefix>-<sanitized-context>",
   name        = "<teammate-name>",
   subagent_type = "<subagent-type>",
   description = "<one-line task title>",
@@ -127,7 +122,7 @@ guidance.
 
 ### Step 5 — SendMessage (shutdown between batches)
 
-Between batches — or at the end of a single-batch run before `TeamDelete` — send a
+Between batches — and at the end of every run, including aborts — send a
 shutdown request to every teammate of the completed batch:
 
 ```
@@ -137,31 +132,26 @@ SendMessage(to="<teammate-name>", message={type: "shutdown_request"})
 Wait for all shutdowns to complete before spawning the next batch (multi-batch runs)
 or proceeding to Step 6 (single-batch runs).
 
-### Step 6 — TeamDelete
+### Step 6 — Confirm shutdown
 
-After the final batch completes (or if the skill aborts partway), clean up:
-
-```
-TeamDelete
-```
-
-Always `TeamDelete` — orphaned teams persist across skill invocations and pollute the
-workspace.
+After the final batch completes (or if the skill aborts partway), confirm every spawned
+teammate acknowledged its shutdown request. There is no team-deletion call; the implicit
+team ends with the session. Never leave a teammate running after the skill exits.
 
 ---
 
 ## 3. Spawn Rule (non-negotiable)
 
 - All teammates in a batch → ONE message → MULTIPLE `Agent` calls.
-- Every `Agent` call includes `team_name=` + `name=`.
+- Every `Agent` call includes `name=`.
 - No standalone sub-agent spawns mixed in.
 
-If an implementation spawns an agent without `team_name`, it's a bug. Fix before
-continuing.
+If an implementation spawns a teammate without `name`, it's a bug. If it passes
+`team_name`, it's dead configuration. Fix before continuing.
 
-`Agent`+`team_name` (this file) and `Task` (standalone fan-out) are mutually exclusive
+`Agent` with `name` (this file) and `Agent` (standalone fan-out) are mutually exclusive
 primitives — never mix them within the same dispatch. See
-`standalone-dispatch.md` in this directory for the `Task` contract.
+`standalone-dispatch.md` in this directory for the `Agent` contract.
 
 ---
 
@@ -169,13 +159,13 @@ primitives — never mix them within the same dispatch. See
 
 | Failure                        | Response                                                         |
 | ------------------------------ | ---------------------------------------------------------------- |
-| `TeamCreate` fails             | Abort skill; report error. Do NOT fall back silently.            |
-| `TaskCreate` fails             | `TeamDelete`, then abort.                                        |
+| Experimental flag missing      | Abort skill; report error. Do NOT fall back silently.            |
+| `TaskCreate` fails             | Shut down any spawned teammates, then abort.                     |
 | Teammate returns error         | Record failure in TaskList; decide per skill (continue / abort). |
 | Between-batch validation fails | Shutdown current batch, ask user (fix / sequential / abort).     |
-| User aborts mid-run            | `SendMessage(shutdown)` to active teammates, then `TeamDelete`.  |
+| User aborts mid-run            | `SendMessage(shutdown)` to every active teammate, then stop.     |
 
-Never leave a team live after the skill exits.
+Never leave a teammate live after the skill exits.
 
 ---
 
@@ -194,7 +184,7 @@ Batches:        <count>  (batch <n>: <comma-separated teammate names>)
 Dependencies:   <edge-count>  (or "none" for flat graphs)
 ```
 
-Do **not** call `TeamCreate`, `TaskCreate`, `Agent`, `SendMessage`, or `TeamDelete` in
+Do **not** call `TaskCreate`, `Agent`, or `SendMessage` in
 dry-run mode. The output above is the entire dry-run artifact.
 
 ---
@@ -203,7 +193,7 @@ dry-run mode. The output above is the entire dry-run artifact.
 
 For skills that process multiple batches against a single team:
 
-1. `TeamCreate` once at the start.
+1. Confirm the implicit team once at the start (Step 1).
 2. `TaskCreate` for **every task across all batches** up front, with `addBlockedBy`
    wiring dependencies.
 3. For each batch in order:
@@ -211,11 +201,11 @@ For skills that process multiple batches against a single team:
    - Wait for `TaskList` to show all batch tasks complete.
    - Run any between-batch validation the skill requires.
    - `SendMessage(shutdown)` to all teammates of the completed batch.
-4. `TeamDelete` once at the end.
+4. Confirm every teammate has shut down once at the end.
 
 This is cheaper than recreating a team per batch and preserves dependency state
 across batches. If validation fails between batches, the user may abort or switch
-to a non-team mode — in both cases, `SendMessage(shutdown)` + `TeamDelete` first.
+to a non-team mode — in both cases, `SendMessage(shutdown)` to every active teammate first.
 
 ---
 
@@ -242,7 +232,7 @@ Exact ordering within ONE batch (supersedes the old “create child / merge-chil
 
 1. `TaskCreate` for all tasks in the batch (as in §2.2) — _if_ the team graph registers batch tasks the same way as non-team mode; otherwise follow the skill’s own registration rules.
 2. `Agent` spawn — one message, multiple `Agent` calls (per §2.3). Each call includes
-   `team_name=`, `name=`, and the **same** `Working directory: <feature-worktree-path>` in the prompt (or equivalent) so all parallel teammates operate in the one tree. Do
+   `name=`, and the **same** `Working directory: <feature-worktree-path>` in the prompt (or equivalent) so all parallel teammates operate in the one tree. Do
    **not** add `isolation: "worktree"` for this contract; that creates
    separate harness worktrees per teammate.
 3. `TaskList` monitor → `SendMessage(shutdown)` to every teammate of the batch (per
@@ -288,12 +278,12 @@ Cursor/Codex abort: `--team requires team tools, which Cursor/Codex bundles do n
 ### 8.1 Planning team adapter (`plan`, `prp-plan`)
 
 Flat roster: register one `TaskCreate` per teammate (no `addBlockedBy`), one `Agent` message with
-`team_name=` and `name=`, `TaskList` until complete, merge, `SendMessage` shutdown to every spawned
-teammate, `TeamDelete` always (even on abort/partial failure). Prompt per teammate: role focus,
+`name=`, `TaskList` until complete, merge, `SendMessage` shutdown to every spawned
+teammate, confirm shutdown always (even on abort/partial failure). Prompt per teammate: role focus,
 verbatim request/context, coordination via `SendMessage` with the roster for overlapping scope,
 output directives (`standalone-dispatch.md` sections 8.4 and 9.2). Teams are deleted before the
-plan is relayed; any re-dispatch creates a new team (same name fine) and never messages the old one.
-Critical teammate failure: abort, shut down the rest, `TeamDelete`.
+plan is relayed; any re-dispatch spawns fresh teammates (same names fine) and never messages the old ones.
+Critical teammate failure: abort and shut down the rest.
 
 Plan adapter exact registration subjects (description: `Multi-perspective planning team for: <user request>`):
 
@@ -308,28 +298,28 @@ TaskCreate: subject="ux-reviewer: user-facing impact for <user request>", descri
 
 ### 8.2 Batched executor adapter (`implement-plan`, `prp-implement`, `orchestrate`)
 
-1. `TeamCreate` once, with `description` naming the skill and feature.
+1. Confirm the implicit team once; carry a purpose naming the skill and feature in each prompt.
 2. `TaskCreate` for every task across all batches with subject `<task-id>: <title>` and the full
    spec; then `TaskUpdate ... addBlockedBy=[...]` for each dependency (section 6). Any failure:
-   `TeamDelete`, then abort.
+   shut down any spawned teammates, then abort.
 3. Per batch: identify tasks whose dependencies are done; single-message `Agent` calls with
-   `team_name`, `name` equal to task ID, `subagent_type`, description, task-template prompt that
+   `name` equal to task ID, `subagent_type`, description, task-template prompt that
    requires reading listed files first, self-validation and `TaskUpdate` completion, plus the
    section 7 / standalone section 8.3 working-directory lines.
 4. `TaskList` until batch is complete; answer teammate issues via `SendMessage`.
 5. Skill's between-batch validation (e.g. `prp-implement` Levels 1+2) inside the execution tree.
 6. `SendMessage(to="<task-id>", message={type:"shutdown_request"})` to every teammate of the
    batch; wait before next batch. Print the skill's `[done] Batch BN: ...` marker.
-7. `TeamDelete` once after the last batch or on abort.
+7. Confirm every teammate has shut down after the last batch or on abort.
 
 Failure: no auto-retry, no skipping. Ask the user via `AskUserQuestion`: fix manually and resume,
 switch to sequential/standalone for remaining batches, or abort. Switch/abort: shutdown active
-teammates then `TeamDelete`. Resume: shut down current batch teammates and continue. The feature
+teammates. Resume: shut down current batch teammates and continue. The feature
 worktree survives abort for manual inspection/cleanup.
 
 ### 8.3 Dry-run for executors
 
-Print team name, `Total tasks: <N> (across <M> batches, max parallel width <X>)`,
+Print run label, `Total tasks: <N> (across <M> batches, max parallel width <X>)`,
 `Dependencies: <K edges>`, per-batch task IDs (`(depends on Batch N-1)`), and the per-batch
 teammate roster (`<task-id> subagent_type=ycc:implementor task=<short>`). Call no team, task,
-agent, `SendMessage` or `TeamDelete` tools; stop.
+agent or `SendMessage` tools; stop.

@@ -91,13 +91,21 @@ def apply_skills_text_transforms(s: str) -> str:
 
     s = re.sub(r"\bycc:([a-zA-Z0-9-]+)\b", r"\1", s)
 
-    # Phrase-specific Task tool wording (before generic replacements)
+    # Phrase-specific Task / Agent tool wording (before generic replacements)
     s = s.replace(
         "Refer to Task tool description for latest updates.",
         "Refer to Cursor agent documentation for latest updates.",
     )
     s = s.replace(
+        "Refer to Agent tool description for latest updates.",
+        "Refer to Cursor agent documentation for latest updates.",
+    )
+    s = s.replace(
         "available agents in the Task tool",
+        "available agents in Cursor",
+    )
+    s = s.replace(
+        "available agents in the Agent tool",
         "available agents in Cursor",
     )
     s = s.replace(
@@ -108,24 +116,44 @@ def apply_skills_text_transforms(s: str) -> str:
         "List of all valid agent types from Task tool",
         "List of all valid agent types for Cursor",
     )
+    s = s.replace(
+        "List of all valid agent types from Agent tool",
+        "List of all valid agent types for Cursor",
+    )
     s = s.replace("Use the Task tool with", "Use parallel agents with")
+    s = s.replace("Use the Agent tool with", "Use parallel agents with")
 
     s = re.sub(
-        r"(?i)use the Task tool to launch (?:the )?`?([a-zA-Z0-9-]+)`? agent",
+        r"(?i)use the (?:Task|Agent) tool to launch (?:the )?`?([a-zA-Z0-9-]+)`? agent",
         r"invoke the `\1` agent",
         s,
     )
     s = re.sub(
-        r"(?i)use the Task tool to launch the ([a-zA-Z0-9-]+) agent",
+        r"(?i)use the (?:Task|Agent) tool to launch the ([a-zA-Z0-9-]+) agent",
         r"invoke the `\1` agent",
         s,
     )
     s = s.replace("Task tool to launch", "invoke")
+    s = s.replace("Agent tool to launch", "invoke")
     s = s.replace("the Task tool", "Cursor")
+    s = s.replace("the Agent tool", "Cursor")
     s = s.replace("Task tool calls", "parallel agent invocations")
+    s = s.replace("Agent tool calls", "parallel agent invocations")
     s = s.replace("Task tool call", "agent invocation")
+    s = s.replace("Agent tool call", "agent invocation")
     s = s.replace("Single Task tool call", "Single agent invocation")
+    s = s.replace("Single Agent tool call", "Single agent invocation")
     s = s.replace("MULTIPLE Task tool calls", "Multiple parallel agent invocations")
+    s = s.replace("MULTIPLE Agent tool calls", "Multiple parallel agent invocations")
+
+    # Claude task tracking tools -> Cursor task tracking
+    s = s.replace("TodoWrite", "the task tracker")
+    s = s.replace("TaskCreate", "record the task")
+    s = s.replace("TaskUpdate", "update the task tracker")
+    s = s.replace("TaskList", "the task tracker")
+    s = s.replace("TaskGet", "the task details")
+    s = s.replace("TeamCreate", "create an agent group")
+    s = s.replace("TeamDelete", "close the agent group")
 
     s = s.replace("main Claude session", "main Cursor session")
     s = s.replace("Claude is running ", "When running ")

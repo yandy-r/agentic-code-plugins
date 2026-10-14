@@ -46,7 +46,7 @@ If the plan was requested with `--parallel`, verify:
 - Step IDs use hierarchical format (N.N)
 
 If any are missing, re-dispatch the planner with a directive to add the missing parallel annotations.
-With `--team`, re-dispatch the `architect` only after `close the agent group` has run; do not try to re-spawn inside a torn-down team.
+With `--team`, re-dispatch the `architect` only after prior teammates have shut down.
 
 ### Check 4: Multi-agent merge integrity (Path B and Path C)
 

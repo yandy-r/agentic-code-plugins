@@ -50,7 +50,7 @@ feature-spec.md        feature-spec.md     parallel-plan.md
 
 Parse arguments (flags first, then the feature name):
 
-- **--team**: Optional. (Codex runtime only; not available in bundle invocations) Deploy the 7 researchers as teammates under a shared `create an agent group`/`the task tracker` with coordinated shutdown. Default is standalone parallel sub-agents via the `Task` tool. Cursor and Codex bundles lack team tools — do not pass `--team` there.
+- **--team**: Optional. (Codex runtime only; not available in bundle invocations) Deploy the 7 researchers as teammates under the implicit session team with `the task tracker` and coordinated shutdown. Default is standalone parallel sub-agents via the `Agent` tool. Cursor and Codex bundles lack team tools — do not pass `--team` there.
 - **--description "..."**: Brief description of the feature (guides research agents)
 - **--dry-run**: Show execution plan without running. With `--team`, also prints the team name and 7-teammate roster.
 - **feature-name**: Required. Directory name in `docs/plans/`
@@ -134,8 +134,8 @@ Researchers: 7 (api-researcher, business-analyzer, tech-designer, ux-researcher,
 
 ## Execution Model
 
-- Default (`AGENT_TEAM_MODE=false`): deploy 7 researchers as standalone sub-agents in a single message with multiple `Task` calls. No team coordination; each sub-agent writes its assigned `research-*.md`. Orchestrator validates and synthesizes `feature-spec.md`.
-- With `--team` (`AGENT_TEAM_MODE=true`): create team `fr-[sanitized-feature-name]`, register 7 tasks, spawn 7 teammates with shared task state and inter-teammate `send follow-up instructions`, then shut down and `close the agent group` before synthesis.
+- Default (`AGENT_TEAM_MODE=false`): deploy 7 researchers as standalone sub-agents in a single message with multiple `Agent` calls. No team coordination; each sub-agent writes its assigned `research-*.md`. Orchestrator validates and synthesizes `feature-spec.md`.
+- With `--team` (`AGENT_TEAM_MODE=true`): use the implicit session team (run label `fr-[sanitized-feature-name]`), register 7 tasks, spawn 7 teammates with shared task state and inter-teammate `send follow-up instructions`, then shut down all teammates via `send follow-up instructions` before synthesis.
 ```
 
 If `AGENT_TEAM_MODE=true`, additionally print the team roster block:
@@ -152,7 +152,7 @@ Teammates:      7
   - recommendations-agent  subagent_type=codebase-research-analyst   task=Ideas, improvements, risks
 ```
 
-Do **not** call `create an agent group`, `record the task`, `Agent`, `Task`, `send follow-up instructions`, or `close the agent group` in dry-run mode.
+Do **not** call `record the task`, `Agent`, or `send follow-up instructions` in dry-run mode.
 
 **STOP** without creating files or deploying agents.
 
@@ -178,17 +178,16 @@ If `AGENT_TEAM_MODE=true`, follow the universal lifecycle contract at
 
 Team name: `fr-<sanitized-feature-name>`.
 
-**Create the team** (single `create an agent group` call for the whole skill run):
+**Use the implicit session team**: with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`,
+no setup call is needed. `fr-<sanitized-feature-name>` is a display-only run label.
+Spawn teammates via `Agent` with each member's `name`; omit `team_name` (ignored).
 
-```
-create an agent group: team_name="fr-<sanitized-feature-name>", description="Feature research team for <feature-name>"
-```
-
-On failure, abort the skill with the `create an agent group` error message. Do NOT silently fall back to sub-agent mode.
+If the experimental flag is absent, abort the skill with guidance to use `--parallel`.
+Do NOT silently fall back to sub-agent mode.
 
 ### Step 6: Create Research Tasks (if `--team`)
 
-If `AGENT_TEAM_MODE=false`, skip this step entirely — standalone `Task` dispatch does not use the shared task list.
+If `AGENT_TEAM_MODE=false`, skip this step entirely — standalone `Agent` dispatch does not use the shared task list.
 
 If `AGENT_TEAM_MODE=true`, register all 7 tasks up front (flat — all 7 run in a single batch, no `blockedBy`):
 
@@ -200,7 +199,7 @@ If `AGENT_TEAM_MODE=true`, register all 7 tasks up front (flat — all 7 run in 
 6. **"Evaluate engineering practices for [feature-name]"** — Modularity, code reuse, KISS, testability
 7. **"Generate recommendations for [feature-name]"** — Ideas, improvements, risks
 
-If `record the task` fails for any task, call `close the agent group` and abort.
+If `record the task` fails for any task, shut down any spawned teammates via `send follow-up instructions` and abort.
 
 ### Step 7: Read Research Prompts
 
@@ -232,9 +231,9 @@ Use the prompts from `research-agents.md` with variables substituted:
 
 #### Path A — Standalone sub-agents (`AGENT_TEAM_MODE=false`, default)
 
-**CRITICAL**: Deploy all 7 researchers in a **SINGLE message** with **MULTIPLE `Task` tool calls**. No `team_name` — standalone dispatch. Each `Task` call uses the `subagent_type` and `model` from the table above and the corresponding prompt from `research-agents.md`.
+**CRITICAL**: Deploy all 7 researchers in a **SINGLE message** with **MULTIPLE `Agent` tool calls**. No `name` — standalone dispatch. Each `Agent` call uses the `subagent_type` and `model` from the table above and the corresponding prompt from `research-agents.md`.
 
-In this mode there is no shared task list; rely on each `Task`'s return value plus the artifact check in Step 10 to confirm completion. Inter-teammate `send follow-up instructions` coordination (Step 9) is not available — each sub-agent works independently from the prompt alone.
+In this mode there is no shared task list; rely on each `Agent`'s return value plus the artifact check in Step 10 to confirm completion. Inter-teammate `send follow-up instructions` coordination (Step 9) is not available — each sub-agent works independently from the prompt alone.
 
 #### Path B — Agent team (`AGENT_TEAM_MODE=true`)
 
@@ -242,13 +241,12 @@ In this mode there is no shared task list; rely on each `Task`'s return value pl
 >
 > In Path B you MUST follow the agent-team lifecycle at
 > `~/.codex/plugins/ycc/shared/references/agent-team-dispatch.md`.
-> Do NOT mix standalone `Task` calls with team dispatch.
+> Do NOT mix standalone `Agent` calls with team dispatch.
 
 All 7 `record the task` entries were registered up front in Step 6 — do not re-create them here.
 
 Spawn all 7 teammates in **ONE message** with **SEVEN `Agent` tool calls**. Every call MUST include:
 
-- `team_name = "fr-<sanitized-feature-name>"`
 - `name = "<teammate-name>"` (from the table above — must match the `record the task` subject prefix)
 - `subagent_type` and `model` from the table above
 - The researcher-specific prompt from `research-agents.md`
@@ -259,7 +257,7 @@ After spawning, use `the task tracker` to confirm all 7 tasks are `completed` be
 
 Wait for all 7 researchers to complete their work.
 
-- **Path A (standalone, default)**: rely on `Task` return values; each sub-agent writes its `research-*.md` artifact before returning.
+- **Path A (standalone, default)**: rely on `Agent` return values; each sub-agent writes its `research-*.md` artifact before returning.
 - **Path B (`--team`)**: use `the task tracker` to check progress. Teammates will share findings with each other via `send follow-up instructions`:
   - `api-researcher` tells `tech-designer` about discovered API endpoints and auth patterns
   - `api-researcher` tells `security-researcher` about dependency versions and auth methods
@@ -279,8 +277,8 @@ Wait for all 7 researchers to complete their work.
 **Failure policy for Path B** (mirrors deep-research):
 
 - **Single teammate failure**: record the gap in the corresponding `research-*.md` (stub note) and continue — downstream synthesis will adapt.
-- **Majority failure** (≥4 of 7 failed): `send follow-up instructions(shutdown)` to any still-active teammates, call `close the agent group`, and abort with "retry without `--team` (standalone sub-agent fallback)".
-- **Mid-run user abort**: `send follow-up instructions(shutdown)` to every active teammate, then `close the agent group`. Never exit with the team still live.
+- **Majority failure** (≥4 of 7 failed): `send follow-up instructions(shutdown)` to any still-active teammates, shut down all active teammates via `send follow-up instructions`, and abort with "retry without `--team` (standalone sub-agent fallback)".
+- **Mid-run user abort**: `send follow-up instructions(shutdown)` to every active teammate, then confirm all teammates have shut down. Never exit with teammates still live.
 
 ---
 
@@ -312,7 +310,7 @@ send follow-up instructions(to="practices-researcher",  message={type:"shutdown_
 send follow-up instructions(to="recommendations-agent", message={type:"shutdown_request"})
 ```
 
-Do NOT `close the agent group` yet — that runs in Step 16 after spec validation.
+Do NOT shut down teammates yet — that runs in Step 16 after spec validation.
 
 ### Step 12: Read Research Results
 
@@ -355,11 +353,7 @@ Fix any issues reported (missing sections, empty content, formatting).
 
 If `AGENT_TEAM_MODE=false`, skip this step — there is no team to tear down.
 
-Otherwise, delete the team and its resources:
-
-```
-close the agent group
-```
+Otherwise, confirm all 7 teammates have received shutdown requests and stopped.
 
 ### Step 17: Display Summary
 
@@ -396,9 +390,9 @@ Each research file should: focus on its specific domain, include concrete exampl
 ## Important Notes
 
 - **You are the research orchestrator** — coordinate the 7 researchers and synthesize the spec
-- **Choose dispatch mode from `$ARGUMENTS`** — default is standalone sub-agents via `Task`; `--team` switches to teammates under `create an agent group`/`the task tracker`
-- **Team setup first (Path B only)** — call `create an agent group` and register all 7 tasks before spawning teammates
-- **Spawn in parallel** — a single message with 7 `Task` calls (Path A) or 7 `Agent` calls with `team_name=` + `name=` (Path B)
+- **Choose dispatch mode from `$ARGUMENTS`** — default is standalone sub-agents via `Agent`; `--team` switches to teammates under the implicit session team with `the task tracker`
+- **Team setup first (Path B only)** — register all 7 tasks before spawning teammates
+- **Spawn in parallel** — a single message with 7 `Agent` calls (Path A) or 7 `Agent` calls with `name=` (Path B)
 - **Teammates share findings (Path B only)** — inter-teammate `send follow-up instructions` coordination is unavailable to standalone sub-agents
 - **Single-owner research files** — each researcher writes only its assigned artifact
 - **Gate synthesis with validation** — do not generate `feature-spec.md` before validator pass
@@ -406,4 +400,4 @@ Each research file should: focus on its specific domain, include concrete exampl
 - **Be thorough but focused** — quality over quantity
 - **Enable plan-workflow** — this spec is the foundation for implementation planning
 - **Preserve uncertainty** — mark areas needing clarification rather than guessing
-- **Clean up team (Path B only)** — always `close the agent group` before completing when a team was created
+- **Clean up team (Path B only)** — always shut down teammates before completing when team mode was used
