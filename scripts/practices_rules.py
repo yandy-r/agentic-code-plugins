@@ -67,6 +67,14 @@ def standalone_imports(text: str) -> list[str]:
     return _scan_imports(text)[0]
 
 
+def body_import_errors(text: str) -> list[str]:
+    """A scoped rule body may contain no live imports and no unclosed comment."""
+    found, unclosed = _scan_imports(text)
+    errors = ["unclosed HTML comment"] if unclosed else []
+    errors += [f"rule body must not contain standalone import '@{target}'" for target in found]
+    return errors
+
+
 def import_errors(claude_text: str) -> list[str]:
     """CLAUDE.md must have exactly one standalone import: `@AGENTS.md`."""
     found, unclosed = _scan_imports(claude_text)

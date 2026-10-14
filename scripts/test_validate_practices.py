@@ -357,6 +357,7 @@ class TestRootAndInputs(Fixture):
             ("---\npaths:\n  - 'scripts/*.{py,sh}'\n---\n", "split it into separate"),
             ("---\npaths:\n  - 'CLAUDE.md'\nglobs:\n  - 'CLAUDE.md'\n---\n", "unknown frontmatter key 'globs'"),
             ("---\npaths:\n  - 'CLAUDE.md'\n---\n# body\n@AGENTS.md\n", "standalone import '@AGENTS.md'"),
+            ("---\npaths:\n  - 'CLAUDE.md'\n---\n<!-- open\n@AGENTS.md\n", "unclosed HTML comment"),
         ):
             rule.write_text(bad)
             self.assertTrue(any(needle in h for h in self.rep().hard_errors), (bad, self.rep().hard_errors))

@@ -34,9 +34,9 @@ from practices_rules import (
     AGENTS_LIMIT,
     CLAUDE_LIMIT,
     COMBINED_LIMIT,
+    body_import_errors,
     import_errors,
     rule_path_errors,
-    standalone_imports,
 )
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -401,8 +401,8 @@ def check_claude_rules(root: Path, rep: Report) -> None:
                 rep.hard("R1", rel, f"unknown frontmatter key {key!r}")
         for err in rule_path_errors(fm.get("paths"), files):
             rep.hard("R1", rel, err)
-        for target in standalone_imports("\n".join(body_lines)):
-            rep.hard("R1", rel, f"rule body must not contain standalone import '@{target}'")
+        for err in body_import_errors("\n".join(body_lines)):
+            rep.hard("R1", rel, err)
 
 
 def load_declared_mcp(root: Path, rep: Report) -> frozenset[str]:
