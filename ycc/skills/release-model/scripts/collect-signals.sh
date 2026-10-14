@@ -254,7 +254,7 @@ detect_gh_releases() {
 # scan_workflow <file> — print "B <branch>" for each push: branches: entry,
 # "T" when push: has tags:, and "R" when the workflow runs on a release event.
 scan_workflow() {
-  awk '
+  LC_ALL=C awk '
     function indent_of(s) { match(s, /^ */); return RLENGTH }
     function unquote(s) { gsub(/^[ \t\047"]+|[ \t\047"]+$/, "", s); return s }
     function emit_list(s,   n, i, parts) {
@@ -263,6 +263,7 @@ scan_workflow() {
       for (i = 1; i <= n; i++) if (unquote(parts[i]) != "") print "B " unquote(parts[i])
     }
     {
+      if (NR == 1) sub(/^\357\273\277/, "")
       sub(/\r$/, "")
       line = $0
       sub(/[ \t]+#.*$/, "", line)

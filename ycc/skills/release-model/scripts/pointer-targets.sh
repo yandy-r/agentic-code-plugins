@@ -1,43 +1,29 @@
 #!/usr/bin/env bash
 # Read-only selection of existing release-pointer files. Usage: pointer-targets.sh --repo DIR
 # Prints repo-relative paths; exits 1 for invalid input or a dangling AGENTS.md import.
+#
+# Thin wrapper: the canonical AGENTS.md/CLAUDE.md detection lives in the shared
+# ycc rules-pointer helper (skills/_shared/scripts/rules-pointer.sh -> the
+# pointer rule's single source of truth, rules_pointer.py). This skill only
+# reads — it never auto-migrates a layout and never creates missing files.
 set -euo pipefail
 if [[ "$#" -ne 2 || "$1" != "--repo" || ! -d "$2" ]]; then
   printf 'Usage: pointer-targets.sh --repo DIR\n' >&2
   exit 1
 fi
-python3 - "$2" <<'PY'
-import re
-import sys
-from pathlib import Path
-
-root = Path(sys.argv[1])
-claude = root / "CLAUDE.md"
-imports_agents = False
-if claude.is_file():
-    text = re.sub(r"<!--.*?-->", "", claude.read_text(encoding="utf-8"), flags=re.S)
-    fence = ""
-    for line in text.splitlines():
-        marker = re.match(r"^\s*(`{3,}|~{3,})", line)
-        if marker:
-            if not fence:
-                fence = marker[1]
-            elif marker[1][0] == fence[0] and len(marker[1]) >= len(fence):
-                fence = ""
-            continue
-        if fence:
-            continue
-        if re.fullmatch(r"\s*@(?:\./)?AGENTS\.md\s*", line):
-            imports_agents = True
-            break
-
-if imports_agents and not (root / "AGENTS.md").is_file():
-    print("pointer-targets: CLAUDE.md imports missing AGENTS.md; repair the import first", file=sys.stderr)
-    sys.exit(1)
-
-for rel in ("CLAUDE.md", "AGENTS.md", ".github/copilot-instructions.md"):
-    if rel == "CLAUDE.md" and imports_agents:
-        continue
-    if (root / rel).is_file():
-        print(rel)
-PY
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_SHARED_SEG="/_shared/scripts"; _SHARED_SEG_FLAT="/shared/scripts"; _SHARED_SEG_AGENTS="/ycc-shared/scripts"
+POINTER_HELPER=""
+for _cand in "${SCRIPT_DIR}/../..${_SHARED_SEG}/rules-pointer.sh" \
+             "${SCRIPT_DIR}/../../..${_SHARED_SEG_FLAT}/rules-pointer.sh" \
+             "${SCRIPT_DIR}/../../..${_SHARED_SEG_AGENTS}/rules-pointer.sh"; do
+  if [[ -f "$_cand" ]]; then
+    POINTER_HELPER="$_cand"
+    break
+  fi
+done
+if [[ -z "$POINTER_HELPER" ]]; then
+  echo "pointer-targets: shared rules-pointer.sh not found (broken ycc install)" >&2
+  exit 1
+fi
+exec "$POINTER_HELPER" targets --repo "$2"

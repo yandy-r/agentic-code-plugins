@@ -15,7 +15,7 @@ Every template the skill can render, its target path, and the variables it subst
 
 | Template file                                          | Output path                                    | Gating flag          | Placeholders used                                                                                                       |
 | ------------------------------------------------------ | ---------------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `templates/CLAUDE.md.tmpl`                             | `./CLAUDE.md` (`@AGENTS.md`)                   | Default shim         | `CLAUDE_ONLY_NOTES`, `IF_CLAUDE_ONLY` block                                                                             |
+| `templates/CLAUDE.md.tmpl`                             | `./CLAUDE.md` (`@AGENTS.md`)                   | Default shim         | `CLAUDE_MD_SHIM`, `CLAUDE_ONLY_NOTES`, `IF_CLAUDE_ONLY` block                                                           |
 | `templates/AGENTS.md.tmpl`                             | `./AGENTS.md` (canonical)                      | _(default)_          | `PROJECT_NAME`, `PROJECT_PURPOSE`, `TEST_CMD`, `LINT_CMD`, `BUILD_CMD`, `PROJECT_CONVENTIONS`, `IF_RELEASE_MODEL` block |
 | `templates/cursor-rule.mdc.tmpl`                       | `./.cursor/rules/<scope>.mdc`                  | path-scoped rules    | `RULE_DESCRIPTION`, `RULE_GLOBS`, `PATH_SPECIFIC_RULES`                                                                 |
 | `templates/ai-rule.md.tmpl`                            | `./.ai/rules/project.md` (pointer)             | `--vendor-neutral`   | `PROJECT_NAME`                                                                                                          |
@@ -36,6 +36,8 @@ Every template the skill can render, its target path, and the variables it subst
 | `templates/git/lefthook-usage.md.tmpl`                 | `./docs/lefthook-usage.md`                     | `--git`              | `PROJECT_NAME`, `PRIMARY_LANG`, `LINT_CMD`, `TEST_CMD`, `IF_TS` block                                                   |
 
 ---
+
+The `templates/CLAUDE.md.tmpl` row combines three mechanisms in one Placeholders cell on purpose: `CLAUDE_MD_SHIM` is the canonical shim token rendered by the shared helper (`.opencode-plugin/skills/_shared/scripts/rules_pointer.py` via `rules_pointer.py`), so the pointer line is not user-overridable policy; `CLAUDE_ONLY_NOTES` is user/Phase 2 text substituted into that same template; and `IF_CLAUDE_ONLY` is the conditional block that gates the notes section. All three are aspects of the single default `CLAUDE.md` shim, so they share one row.
 
 ## Placeholder Reference
 

@@ -13,6 +13,19 @@ of the file after one blank line. When `CLAUDE.md` imports `AGENTS.md` (a live
 `AGENTS.md` alone; `$TARGETS` leaves `CLAUDE.md` out. A dangling import exits 1 — repair it
 first. Repos without the import keep the legacy behavior (every existing file).
 
+`pointer-targets.sh` calls `_shared/scripts/rules-pointer.sh targets`, backed by
+`rules_pointer.py`, the canonical parser/shim renderer also used by init. Python
+3.11+ is required. A leading UTF-8 BOM and CRLF are normalized identically in
+both consumers. Release-model uses only the read-only `targets` query; the
+helper's `claude-md-shim` operation renders to stdout, never writes or migrates
+files. Init owns explicit creation/migration, with its existing confirmation,
+backup and rollback gates. Release-model never invokes migration or creates a
+missing `AGENTS.md`/`CLAUDE.md`.
+
+When reading a release template, normalize a leading UTF-8 BOM (`utf-8-sig`);
+state-block/table and workflow signal readers do the same. State rewrites retain
+an existing file's BOM and CRLF.
+
 Trunk-only:
 
 ```markdown

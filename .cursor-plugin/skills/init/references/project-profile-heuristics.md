@@ -12,6 +12,38 @@ How `profile-project.sh` maps repository signals to a language/ecosystem profile
 
 ---
 
+## Runtime and headless probes
+
+Python **3.11+** is required for every init stack (not just Python projects).
+`profile-project.sh`, `render-template.sh`, and `migrate-rules.sh` check it before
+profiling, reading stdin/templates, or writing a backup. Direct Python engines
+also reject older interpreters before importing 3.11-only APIs. Missing/old
+`python3` produces a readable stderr error and no partial stdout.
+
+Use one scoped helper per host command; do not grant broad Bash `pwd`, `head`,
+`find`, or `wc` permissions. Context injection calls `profile-project.sh` without
+truncation or stderr suppression. Its `project_root` replaces outer `pwd`, and
+Read/Glob can inspect specific files if needed. Phase 2 calls
+`count-source-files.sh --repo .`: it counts regular project files, skips `.git`
+and common dependency/build directories, stops at 51, and prints only `count`,
+`capped`, and `cap`. Empty trees return 0. Walk errors encountered before the cap
+fail visibly on stderr with no partial count (this is an estimate, not a full
+audit of unreadable paths beyond the cap).
+
+Compound pipelines and redirects are **host-permission behavior**, not a ycc
+allowlist feature: hosts may reject a whole compound command even if its
+individual segments are allowed. The supported headless path is separate direct
+helper calls; capture full profile output in the caller, then pass it to
+`render-template.sh --profile FILE` as a separate command. Do not depend on
+pipeline allowlist semantics or widen permissions to make old probes work.
+
+All init rules/profile/template readers normalize a leading UTF-8 BOM using
+`utf-8-sig` semantics (including stdin profiles). Migration still preserves each
+existing file's BOM/EOL, timestamped backups and pair rollback. The shared
+`_shared/scripts/rules_pointer.py` owns live-import parsing, legacy-pointer
+detection, canonical target selection, and shim text; release-model delegates to
+the same helper read-only. It never migrates or creates rules files.
+
 ## Detection Signal Table
 
 Commands are listed for the case where their signal exists (see _Command detection notes_);
@@ -65,21 +97,22 @@ configuration use `primary_language` to pick language-specific blocks.
 
 These keys let the skill trigger update/merge semantics per artifact:
 
-| Key                       | Meaning                                                                                                                      |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `has_claude_md`           | `CLAUDE.md` exists at the project root                                                                                       |
-| `has_agents_md`           | `AGENTS.md` exists at the project root                                                                                       |
-| `agents_md_is_pointer`    | True if the existing `AGENTS.md` is ≤40 lines and references `CLAUDE.md` (legacy inverted pointer — offer `--migrate-rules`) |
-| `has_cursor_rules`        | Either `.cursor/rules/` or legacy `.cursorrules` exists                                                                      |
-| `has_legacy_cursorrules`  | `.cursorrules` (legacy single-file) exists — triggers migration under `--update`                                             |
-| `has_modern_cursor_rules` | `.cursor/rules/` directory exists                                                                                            |
-| `has_issue_templates`     | `.github/ISSUE_TEMPLATE/` contains at least one `.yml`/`.yaml`/`.md` file                                                    |
-| `has_pr_template`         | `pull_request_template.md` exists at a standard path                                                                         |
-| `has_gitmessage`          | `.gitmessage` file exists at the project root                                                                                |
-| `has_gitignore`           | `.gitignore` file exists at the project root                                                                                 |
-| `has_commitlint_config`   | Any `commitlint.config.*` or `.commitlintrc*` exists                                                                         |
-| `has_lefthook_config`     | `lefthook.yml`, `lefthook.yaml`, `.lefthook.yml`, `.lefthook.yaml`, or `.lefthook/` exists                                   |
-| `has_releasing_md`        | `RELEASING.md` exists at the project root — the project already has a release model                                          |
+| Key                        | Meaning                                                                                                                      |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `claude_md_imports_agents` | Shared parser sees a live standalone import of `AGENTS.md` (comments/fences/prose excluded)                                  |
+| `has_claude_md`            | `CLAUDE.md` exists at the project root                                                                                       |
+| `has_agents_md`            | `AGENTS.md` exists at the project root                                                                                       |
+| `agents_md_is_pointer`     | True if the existing `AGENTS.md` is ≤40 lines and references `CLAUDE.md` (legacy inverted pointer — offer `--migrate-rules`) |
+| `has_cursor_rules`         | Either `.cursor/rules/` or legacy `.cursorrules` exists                                                                      |
+| `has_legacy_cursorrules`   | `.cursorrules` (legacy single-file) exists — triggers migration under `--update`                                             |
+| `has_modern_cursor_rules`  | `.cursor/rules/` directory exists                                                                                            |
+| `has_issue_templates`      | `.github/ISSUE_TEMPLATE/` contains at least one `.yml`/`.yaml`/`.md` file                                                    |
+| `has_pr_template`          | `pull_request_template.md` exists at a standard path                                                                         |
+| `has_gitmessage`           | `.gitmessage` file exists at the project root                                                                                |
+| `has_gitignore`            | `.gitignore` file exists at the project root                                                                                 |
+| `has_commitlint_config`    | Any `commitlint.config.*` or `.commitlintrc*` exists                                                                         |
+| `has_lefthook_config`      | `lefthook.yml`, `lefthook.yaml`, `.lefthook.yml`, `.lefthook.yaml`, or `.lefthook/` exists                                   |
+| `has_releasing_md`         | `RELEASING.md` exists at the project root — the project already has a release model                                          |
 
 When `--update` is not passed but two or more of these are true, the skill prints a
 suggestion to re-run with `--update`. See `flag-reference.md` for update semantics per
