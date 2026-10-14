@@ -166,4 +166,4 @@ If anything fails after Phase 1:
 
 ---
 
-See also: `references/version-policy.md`, `references/release-notes-template.md`, `CLAUDE.md` (Testing Changes).
+See also: `references/version-policy.md`, `references/release-notes-template.md`, `AGENTS.md` (Testing Changes).

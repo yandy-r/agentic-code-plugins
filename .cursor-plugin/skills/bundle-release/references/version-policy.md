@@ -95,4 +95,4 @@ scripts) to propagate:
 3. Decide the semver bump level using the rules above.
 4. Draft release notes using `release-notes-template.md` before publishing the tag.
 
-See also: release-checklist.md, release-notes-template.md, CLAUDE.md (Testing Changes).
+See also: release-checklist.md, release-notes-template.md, AGENTS.md (Testing Changes).

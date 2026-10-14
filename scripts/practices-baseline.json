@@ -2,10 +2,6 @@
   "version": 1,
   "violations": [
     {
-      "id": "R1:CLAUDE.md:line-count",
-      "size": 338
-    },
-    {
       "id": "R1:ycc/settings/rules/CLAUDE.md:line-count",
       "size": 323
     }

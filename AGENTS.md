@@ -1,46 +1,102 @@
 # claude-plugins — Agent Rules
 
-The canonical agent rules for this repository live in [`CLAUDE.md`](CLAUDE.md).
+This repository ships the `ycc` development-workflow bundle: planning, implementation,
+git, research, docs, and orchestration. The Claude-facing `ycc/` tree is the source;
+other runtime bundles are generated from it. Keep the plugin name `ycc` stable.
 
-This file exists so agent-runtime tools that default to `AGENTS.md` (Cursor, Windsurf,
-OpenAI Codex, etc.) pick up the same rules without duplicating prose.
+## Canonical policy
 
-## Agent-runtime notes
+- This file is the canonical, tool-neutral repository policy. Claude imports it through
+  `CLAUDE.md`; Cursor, Codex, and opencode read `AGENTS.md` directly.
+- Keep this file ≤150 lines and `CLAUDE.md` ≤40 lines. Put only Claude-specific notes in
+  `CLAUDE.md`, and path-specific Claude guidance in `.claude/rules/` with `paths:` frontmatter.
+- Use HTML block comments (`<!-- -->`) for maintainer notes, not injected instructions.
+- Prefer a fitting MCP server; read its tool schema before calling it.
+- Follow [CONTRIBUTING.md](CONTRIBUTING.md) for scope/guardrails and contributor details.
 
-- Cursor: also reads `.cursor/rules/project.mdc` (same content, MDC-formatted).
-- opencode: reads this `AGENTS.md` natively (falls back to `CLAUDE.md` when absent).
-- When an MCP server is available for the task, prefer it; read each tool's schema first.
-- For deep analysis of this repository, start with `CLAUDE.md` and the stack overview.
+## Source and generated targets
 
-This repository's source of truth is the Claude-facing `ycc/` tree.
+- Add workflow logic under `ycc/`, not generated bundles. Do not hand-edit generated
+  `.cursor-plugin/`, `.codex-plugin/`, `.opencode-plugin/`, or `.agents-plugin/` files;
+  change their source or generator first, then regenerate.
+- Do not add top-level workflow plugins. Extend `ycc` or use the sibling-repo decision
+  gate in `CONTRIBUTING.md`. Claude-only mods are the documented exception in `CLAUDE.md`.
+- Skills use `kebab-case` directories under `ycc/skills/`; agents use `kebab-case.md`
+  under `ycc/agents/`. Keep shared helpers in `ycc/skills/_shared/scripts/`.
+- When adding, renaming, or removing an agent, update `ycc/settings/models.json` under
+  `targets.opencode.agents`. Assign an appropriate capability/cost tier using a full
+  `provider/model` reference; sample model IDs are placeholders, not provider guarantees.
+  The opencode generator fails fast on missing agents; validate the model policy too.
+- Shell helpers use `kebab-case.sh`, Bash with strict error handling and input guards;
+  Python public APIs need type hints. Detailed script guidance is in `.claude/rules/scripts.md`.
 
-- Add new workflow logic under `ycc/`, not under `.cursor-plugin/`, `.codex-plugin/`, or `.opencode-plugin/`.
-- Treat `.cursor-plugin/`, `.codex-plugin/`, and `.opencode-plugin/` as generated outputs unless you are changing the generators themselves.
-- After changing `ycc/skills/` or `ycc/agents/`, run `./scripts/sync.sh` and `./scripts/validate.sh` before considering the work done.
-- Keep the plugin name `ycc` stable across all targets.
-- For Codex, the native install surface is:
-  - plugin source under `.codex-plugin/ycc/`
-  - custom agents under `.codex-plugin/agents/`
-  - user install target `~/.codex/plugins/ycc`
-  - user marketplace `~/.agents/plugins/marketplace.json`
-- For opencode, the native install surface is:
-  - skills under `.opencode-plugin/skills/` → `~/.config/opencode/skills/`
-  - agents under `.opencode-plugin/agents/` → `~/.config/opencode/agents/`
-  - commands under `.opencode-plugin/commands/` → `~/.config/opencode/commands/`
-  - config + rules (`opencode.json`, `AGENTS.md`) → `~/.config/opencode/` via `install.sh install --target opencode --settings`
-- For the cross-tool `agents` target (skills only), the install surface is:
-  - skills under `.agents-plugin/skills/` → `~/.agents/skills/`
-  - shared helpers under `.agents-plugin/ycc-shared/` → `~/.agents/ycc-shared/`
-  - never write `~/.agents/plugins/` (owned by the Codex target)
-- Do not introduce new top-level plugins; extend the existing `ycc` bundle.
+The capability contract is `ycc/skills/_shared/references/target-capability-matrix.md`;
+this table records install ownership, not a claim of runtime feature parity:
 
-## Sync policy
+| Target              | Generated / managed surface                        | User install destination                                                    |
+| ------------------- | -------------------------------------------------- | --------------------------------------------------------------------------- |
+| Cursor              | `.cursor-plugin/` skills, agents, rules            | `~/.cursor/` via installer                                                  |
+| Codex               | `.codex-plugin/ycc/`; `.codex-plugin/agents/`      | `~/.codex/plugins/ycc`; custom agents under `~/.codex/agents/`              |
+| Codex marketplace   | User marketplace managed by Codex target           | `~/.agents/plugins/marketplace.json`                                        |
+| opencode            | `.opencode-plugin/skills/`, `agents/`, `commands/` | Matching directories under `~/.config/opencode/`                            |
+| opencode settings   | `.opencode-plugin/opencode.json`, `AGENTS.md`      | `~/.config/opencode/` via `install.sh install --target opencode --settings` |
+| Cross-tool `agents` | `.agents-plugin/skills/`, `ycc-shared/`            | `~/.agents/skills/`, `~/.agents/ycc-shared/`                                |
 
-`CLAUDE.md` is the source of truth. Do not edit this file except to add
-agent-runtime-specific notes. Never duplicate `CLAUDE.md` content here.
+- The `agents` target is skills-only; never write `~/.agents/plugins/` (owned by Codex).
+- Project rules here are not user-global plugin rules. opencode's generated `AGENTS.md`
+  comes from `ycc/settings/rules/CLAUDE.md`, never this repository's root rules.
+
+## Testing Changes
+
+- After changing `ycc/skills/` or `ycc/agents/`, run both before declaring done:
+  `./scripts/sync.sh` (regenerate all bundles) and `./scripts/validate.sh` (CI validators).
+- For other generated sources/generators, regenerate their affected targets and validate
+  them; scoped runs are for iteration, not a substitute for required final checks.
+- For `ycc/` changes, validate `.claude-plugin/marketplace.json` and
+  `ycc/.claude-plugin/plugin.json` with `python3 -m json.tool`, check plugin-root references
+  resolve, and ensure shell helpers remain executable. Test changed skills/agents live in
+  the relevant runtime when permitted; report skipped runtime checks honestly.
+- There is no `npm test` or npm build target. Validation lives in `scripts/validate.sh`;
+  run the relevant `scripts/test_*` / `scripts/test-*` suites for changed behavior.
+
+| Command                                                       | Purpose                                        |
+| ------------------------------------------------------------- | ---------------------------------------------- |
+| `./scripts/sync.sh`                                           | Regenerate compatibility bundles and inventory |
+| `./scripts/validate.sh`                                       | Run every validator used by CI                 |
+| `./scripts/validate.sh --only practices`                      | Rule/skill/agent authoring ratchet             |
+| `python3 scripts/test_validate_practices.py`                  | Authoring-validator regression tests           |
+| `./scripts/install-shellcheck.sh`                             | Install the pinned ShellCheck matching CI      |
+| `npm run lint` / `npm run lint:modified` / `npm run lint:fix` | Python + Shell lint / changed files / fixes    |
+| `npm run format` / `npm run format:modified`                  | Python + docs formatting / changed files       |
+
+## MUST / MUST NOT
+
+- **Secrets**: Never commit `.env`, `.env.encrypted`, tokens, or API keys.
+- **Issues**: Use YAML form templates under `.github/ISSUE_TEMPLATE/` when present.
+  Never create title-only or template-bypass issues. If CLI forms fail, mirror the
+  form fields via tooling/API and apply the correct taxonomy labels.
+- **Pull requests**: Follow `.github/pull_request_template.md`, link the issue
+  (`Closes #…`), and label using `.github/labels.md` (`type:`, `area:`, `priority:`,
+  `status:`). Never invent ad-hoc labels.
+- **Commits**: Use Conventional Commits 1.0.0 (`feat|fix|docs|refactor|perf|test|build|ci|chore(scope): …`).
+  Files under `docs/plans`, `docs/research`, or `docs/internal` must use `docs(internal): …`.
+  Prefer `chore(…): …` for other non-user-facing churn.
+- **Modularity & reuse**: Decompose into small, cohesive units with minimal cross-module
+  coupling. Avoid copy-paste duplication; extract shared logic into `ycc/skills/_shared/`.
+
+## Worktrees
+
+- Default to a git worktree for non-trivial work.
+- Manual worktree path rule: target `~/.claude-worktrees/<repo>-<branch>/`, never
+  a path inside the current repository. If `.claude/worktrees/` exists, keep it gitignored.
 
 ## Branching & releases
 
 [`RELEASING.md`](RELEASING.md) is the source of truth for branches and releases. Branch
 off `main` and PR back into it; every release is tagged from `main`. Never merge one
 long-lived branch into another to sync it.
+
+- Decide the target release before branching. Preserve the machine-readable release
+  state and its generated table; update them with the release-state helper, not by hand.
+- Only maintainers cut releases; agents never tag. Follow the release preparation and
+  publication workflow in `RELEASING.md`.
