@@ -9,7 +9,7 @@ How `profile-project.sh` maps repository signals to a language/ecosystem profile
 | Detected file/pattern             | `primary_language` | `package_manager` | `test_cmd`           | `lint_cmd`                | `build_cmd`       |
 | --------------------------------- | ------------------ | ----------------- | -------------------- | ------------------------- | ----------------- |
 | `Cargo.toml`                      | `rust`             | `cargo`           | `cargo test`         | `cargo clippy`            | `cargo build`     |
-| `go.mod`                          | `go`               | `go`              | `go test ./...`      | `golangci-lint run`       | `go build ./...`  |
+| `go.mod`                          | `go`               | `go`              | `go test ./...`      | `go vet ./...`            | `go build ./...`  |
 | `pyproject.toml` + `uv.lock`      | `python`           | `uv`              | `uv run pytest`      | `uv run ruff check .`     | `uv build`        |
 | `pyproject.toml` + `poetry.lock`  | `python`           | `poetry`          | `poetry run pytest`  | `poetry run ruff check .` | `poetry build`    |
 | `pyproject.toml` + `hatch.toml`   | `python`           | `hatch`           | `hatch run test`     | `hatch run lint`          | `hatch build`     |
@@ -54,21 +54,21 @@ configuration use `primary_language` to pick language-specific blocks.
 
 These keys let the skill trigger update/merge semantics per artifact:
 
-| Key                       | Meaning                                                                                    |
-| ------------------------- | ------------------------------------------------------------------------------------------ |
-| `has_claude_md`           | `CLAUDE.md` exists at the project root                                                     |
-| `has_agents_md`           | `AGENTS.md` exists at the project root                                                     |
-| `agents_md_is_pointer`    | True if the existing `AGENTS.md` is ≤40 lines and references `CLAUDE.md` (pointer pattern) |
-| `has_cursor_rules`        | Either `.cursor/rules/` or legacy `.cursorrules` exists                                    |
-| `has_legacy_cursorrules`  | `.cursorrules` (legacy single-file) exists — triggers migration under `--update`           |
-| `has_modern_cursor_rules` | `.cursor/rules/` directory exists                                                          |
-| `has_issue_templates`     | `.github/ISSUE_TEMPLATE/` contains at least one `.yml`/`.yaml`/`.md` file                  |
-| `has_pr_template`         | `pull_request_template.md` exists at a standard path                                       |
-| `has_gitmessage`          | `.gitmessage` file exists at the project root                                              |
-| `has_gitignore`           | `.gitignore` file exists at the project root                                               |
-| `has_commitlint_config`   | Any `commitlint.config.*` or `.commitlintrc*` exists                                       |
-| `has_lefthook_config`     | `lefthook.yml`, `lefthook.yaml`, `.lefthook.yml`, `.lefthook.yaml`, or `.lefthook/` exists |
-| `has_releasing_md`        | `RELEASING.md` exists at the project root — the project already has a release model        |
+| Key                       | Meaning                                                                                                                      |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `has_claude_md`           | `CLAUDE.md` exists at the project root                                                                                       |
+| `has_agents_md`           | `AGENTS.md` exists at the project root                                                                                       |
+| `agents_md_is_pointer`    | True if the existing `AGENTS.md` is ≤40 lines and references `CLAUDE.md` (legacy inverted pointer — offer `--migrate-rules`) |
+| `has_cursor_rules`        | Either `.cursor/rules/` or legacy `.cursorrules` exists                                                                      |
+| `has_legacy_cursorrules`  | `.cursorrules` (legacy single-file) exists — triggers migration under `--update`                                             |
+| `has_modern_cursor_rules` | `.cursor/rules/` directory exists                                                                                            |
+| `has_issue_templates`     | `.github/ISSUE_TEMPLATE/` contains at least one `.yml`/`.yaml`/`.md` file                                                    |
+| `has_pr_template`         | `pull_request_template.md` exists at a standard path                                                                         |
+| `has_gitmessage`          | `.gitmessage` file exists at the project root                                                                                |
+| `has_gitignore`           | `.gitignore` file exists at the project root                                                                                 |
+| `has_commitlint_config`   | Any `commitlint.config.*` or `.commitlintrc*` exists                                                                         |
+| `has_lefthook_config`     | `lefthook.yml`, `lefthook.yaml`, `.lefthook.yml`, `.lefthook.yaml`, or `.lefthook/` exists                                   |
+| `has_releasing_md`        | `RELEASING.md` exists at the project root — the project already has a release model                                          |
 
 When `--update` is not passed but two or more of these are true, the skill prints a
 suggestion to re-run with `--update`. See `flag-reference.md` for update semantics per
@@ -76,7 +76,7 @@ artifact.
 
 `has_releasing_md` is not part of that count. It drives the release-model phase: when it
 is `false`, the skill offers `ycc:release-model` (unless `--no-release-model`); when it
-is `true`, the offer is skipped and the `CLAUDE.md` "Branching & releases" section is
+is `true`, the offer is skipped and the `AGENTS.md` "Branching & releases" section is
 rendered. The skill checks only that the file exists; `ycc:release-model --audit` validates
 its content.
 

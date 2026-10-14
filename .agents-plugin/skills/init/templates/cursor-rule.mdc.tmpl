@@ -1,28 +1,7 @@
 ---
-description: {{PROJECT_NAME}} project rules
-globs: ["**/*"]
-alwaysApply: true
+description: {{RULE_DESCRIPTION}}
+globs: {{RULE_GLOBS}}
+alwaysApply: false
 ---
 
-# {{PROJECT_NAME}}
-
-{{PROJECT_PURPOSE}}
-
-Full agent rules live in [`AGENTS.md`](../../AGENTS.md). Key points surfaced for Cursor:
-
-## Rules
-
-- Follow Conventional Commits for every commit: `feat|fix|docs|refactor|perf|test|build|ci|chore(scope): …`.
-- Never commit `.env` / secrets / tokens.
-- Use `.github/ISSUE_TEMPLATE/*.yml` when present; link `Closes #…` in every PR.
-- Keep files around ~500 lines (soft cap). Refactor meaningful overruns into smaller modules.
-- Modular code: small cohesive units, DRY, composition over inheritance, single responsibility.
-- Prefer working in a git worktree for non-trivial changes — `git worktree add <repo-root>/.claude/worktrees/<repo>-<branch>/`. Use the main checkout only for one-liners or when worktree creation is blocked.
-- {{#IF_RUST}}Rust: `snake_case`, module directories with `mod.rs`, `Result`-based errors via `anyhow` or project types.{{/IF_RUST}}
-- {{#IF_TS}}TypeScript: strict mode enabled, `PascalCase` components, `camelCase` hooks/functions, prefer `unknown` over `any`.{{/IF_TS}}
-- {{#IF_GO}}Go: table-driven tests, wrap errors with `fmt.Errorf("context: %w", err)`, no package-level mutable state.{{/IF_GO}}
-- {{#IF_PYTHON}}Python: PEP 8, type hints on all public API signatures, `ruff` + `mypy --strict`.{{/IF_PYTHON}}
-
-## Verification
-
-Run `{{TEST_CMD}}` and `{{LINT_CMD}}` before marking work complete.
+{{PATH_SPECIFIC_RULES}}

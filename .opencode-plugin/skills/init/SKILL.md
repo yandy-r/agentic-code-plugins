@@ -6,7 +6,7 @@ description: Initializes project AI-agent docs and workspace conventions. Use wh
 
 # opencode Workspace Initialization
 
-Profiles the project, authors the AI-agent doc trio (AGENTS.md, AGENTS.md, .cursor/rules/project.mdc), and optionally emits GitHub issue templates and git convention files — all flag-driven, non-destructive by default.
+Profiles the project, authors the canonical tool-neutral `AGENTS.md` rules file (with a `@AGENTS.md`-importing `AGENTS.md` only when there is Claude-specific content), and optionally emits GitHub issue templates and git convention files — all flag-driven, non-destructive by default.
 
 ## Current Project Context
 
@@ -19,13 +19,14 @@ Profiles the project, authors the AI-agent doc trio (AGENTS.md, AGENTS.md, .curs
 | Flag                        | Meaning                                                                            | Example                                |
 | --------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------- |
 | `--dry-run`                 | Preview every planned file; make no writes                                         | `/init --dry-run`                  |
-| `--docs-only`               | Skip MCP/agent selection; emit doc trio only                                       | `/init --docs-only`                |
+| `--docs-only`               | Skip MCP/agent selection; emit the rules files only                                | `/init --docs-only`                |
 | `--templates`               | Also emit `.github/` issue forms, PR template, labels                              | `/init --templates`                |
 | `--git`                     | Also emit `.gitignore`, `.gitmessage`, commitlint (JS/TS), and the lefthook bundle | `/init --git`                      |
-| `--vendor-neutral`          | Also emit `.ai/rules/project.md` mirror of Cursor rule                             | `/init --vendor-neutral`           |
+| `--vendor-neutral`          | Also emit `.ai/rules/project.md` pointer to `AGENTS.md`                            | `/init --vendor-neutral`           |
 | `--formatters`              | Also bootstrap lint/format via `formatters` (scripts, configs, aliases, docs)  | `/init --formatters`               |
 | `--release-model[=<model>]` | Run `release-model` without asking when `RELEASING.md` is missing              | `/init --release-model=trunk-only` |
 | `--no-release-model`        | Never offer `release-model`                                                    | `/init --no-release-model`         |
+| `--migrate-rules`           | Move an existing long `AGENTS.md` into `AGENTS.md` (dry-run diff first)            | `/init --migrate-rules`            |
 | `--update`                  | Structured refresh of existing artifacts (merge/migrate, never clobber)            | `/init --update`                   |
 | `--force`                   | Overwrite existing files without prompting                                         | `/init --force`                    |
 | `--profile=<lang>`          | Override detected language (`rust`, `ts-node`, `python`, `go`, `mixed`, `empty`)   | `/init --profile=rust`             |
@@ -49,6 +50,7 @@ Extract mode booleans from `$ARGUMENTS`:
 - `RELEASE_MODEL` — true if `--release-model` or `--release-model=<model>` present
 - `RELEASE_MODEL_VALUE` — `<model>` from `--release-model=<model>`, else empty. Must be `trunk-only` or `release-branches`; any other value is an error before any phase runs.
 - `NO_RELEASE_MODEL` — true if `--no-release-model` present. Combining it with `--release-model` is an error before any phase runs.
+- `MIGRATE_RULES` — true if `--migrate-rules` present. Runs only the rules migration (Phase 5.7); combine with `--dry-run` for the preview without a prompt.
 - `UPDATE` — true if `--update` present
 - `FORCE` — true if `--force` present
 - `PROFILE` — value of `--profile=<lang>` if provided, else empty
@@ -62,6 +64,8 @@ Defaults: all booleans off; no profile override. `--update` and `--force` are mu
 3. If `is_empty=true` OR `primary_language=unknown`: ask the user conversationally for project name, purpose, and primary language. Set `project_name`, `project_purpose`, and `primary_language` from their answers.
 4. If `UPDATE=false` AND at least two of `has_claude_md`, `has_agents_md`, `has_cursor_rules`, `has_issue_templates`, `has_gitmessage`, `has_gitignore` are true: warn the user "Existing doc/workflow files detected — consider re-running with `--update` for structured refresh, or `--force` to overwrite. Continuing with default skip-on-conflict behavior."
 5. Surface the resolved profile summary to the user and wait for confirmation before writing anything — except when `DRY_RUN=true`, which proceeds directly to preview.
+
+If `MIGRATE_RULES=true`, jump directly to Phase 5.7 after profiling; skip all other rendering, release-model, and formatter phases. Migration ignores `--force`.
 
 ### Phase 2 — Optional deep analysis
 
@@ -79,20 +83,20 @@ If count is 51 (i.e., >50 files), dispatch `@codebase-research-analyst` with a p
 - Critical commands (test, lint, build, deploy) to embed
 - Project-specific MUST/MUST NOT rules worth adding
 
-Feed the agent's output into the AGENTS.md rendering in Phase 3.
+Feed the agent's output into the `AGENTS.md` rendering in Phase 3 (conventions and commands only; keep the file well under 100 lines).
 
 ### Phase 3 — Render templates
 
-Load each applicable `.tmpl` file from `~/.config/opencode/skills/init/templates/`. Substitute all `{{PLACEHOLDER}}` variables using profile values from Phase 1 (and Phase 2 if run). For language-conditional blocks (`{{#IF_RUST}}...{{/IF_RUST}}` etc.), include only the block matching `primary_language`. Leave `{{#IF_RELEASE_MODEL}}...{{/IF_RELEASE_MODEL}}` blocks (in `AGENTS.md.tmpl` and `github/labels.md.tmpl`) unresolved — Phase 5 (dry run) or Phase 5.5 resolves them. Render all files in memory — do NOT write yet.
+Load each applicable `.tmpl` file from `~/.config/opencode/skills/init/templates/`. Substitute all `{{PLACEHOLDER}}` variables using profile values from Phase 1 (and Phase 2 if run). For language-conditional blocks (`{{#IF_RUST}}...{{/IF_RUST}}` etc.), include only the block matching `primary_language`. Leave `{{#IF_RELEASE_MODEL}}...{{/IF_RELEASE_MODEL}}` blocks (in `AGENTS.md.tmpl` and `github/labels.md.tmpl`) unresolved — Phase 5 (dry run) or Phase 5.5 resolves them. Render all files in memory — do NOT write yet. `scripts/render-template.sh --template <file>` (profile on stdin) renders a template without writing; it substitutes commands as `# not detected` when `profile-project.sh` reports `unknown`, so never invent a command.
 
 Rendering map:
 
 | Condition                                                      | Source template                              | Target path                                  |
 | -------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------- |
-| Always                                                         | `AGENTS.md.tmpl`                             | `AGENTS.md`                                  |
-| Always                                                         | `AGENTS.md.tmpl`                             | `AGENTS.md`                                  |
-| Always                                                         | `cursor-rule.mdc.tmpl`                       | `.cursor/rules/project.mdc`                  |
-| `VENDOR_NEUTRAL=true`                                          | `ai-rule.md.tmpl`                            | `.ai/rules/project.md`                       |
+| Always                                                         | `AGENTS.md.tmpl`                             | `AGENTS.md` (canonical, ≤80 template lines)  |
+| Claude-only content exists (see below)                         | `AGENTS.md.tmpl`                             | `AGENTS.md` (`@AGENTS.md` + short section)   |
+| Path-scoped rules exist (see below)                            | `cursor-rule.mdc.tmpl`                       | `.cursor/rules/<scope>.mdc`                  |
+| `VENDOR_NEUTRAL=true`                                          | `ai-rule.md.tmpl`                            | `.ai/rules/project.md` (pointer)             |
 | `TEMPLATES=true`                                               | `github/bug_report.yml.tmpl`                 | `.github/ISSUE_TEMPLATE/bug_report.yml`      |
 | `TEMPLATES=true`                                               | `github/feature_request.yml.tmpl`            | `.github/ISSUE_TEMPLATE/feature_request.yml` |
 | `TEMPLATES=true`                                               | `github/docs_request.yml.tmpl`               | `.github/ISSUE_TEMPLATE/docs_request.yml`    |
@@ -109,7 +113,11 @@ Rendering map:
 | `GIT=true`                                                     | `git/lefthook-usage.md.tmpl`                 | `docs/lefthook-usage.md`                     |
 | `GIT=true` AND `primary_language` in `{typescript,javascript}` | `git/commitlint.config.cjs.tmpl`             | `commitlint.config.cjs`                      |
 
+**Rules-file shape**: `AGENTS.md` is the single canonical rules file (detected commands, project conventions, MUST / MUST NOT, a one-line Conventional Commits rule, links) — no commit-types table, no stack table, no generic SHOULDs. Do not create `AGENTS.md` unless Phase 2 or the user supplied Claude-specific content; then render it as `@AGENTS.md` plus a short `## Claude-only notes` section (≤15 lines total) and say in the Phase 7 report when it was skipped. Emit `.cursor/rules/*.mdc` only for path-scoped rules (`alwaysApply: false`, real `globs`); Cursor reads `AGENTS.md`, so never emit an always-apply copy of the project rules. `copilot-instructions.md` is a pointer to `AGENTS.md` plus the commands.
+
 **Language-block selection**: for every template except `gitignore.tmpl`, include only the block matching `primary_language`. For `gitignore.tmpl`, include every block whose language appears in `primary_language` or `secondary_languages` (comma-separated) so mixed-stack repos get every applicable section. For `gitignore.tmpl`, `javascript` is treated as `typescript` for `{{#IF_TS}}` activation; `terraform` activates `{{#IF_TERRAFORM}}`.
+
+Fill `PROJECT_CONVENTIONS` with verified project-specific architecture/naming constraints from existing docs, Phase 2, or the user; if none are known, use "No additional project-specific conventions detected." Never stamp generic language conventions or assumed tools. Use `--keep IF_CLAUDE_ONLY --set CLAUDE_ONLY_NOTES=...` for the optional Claude template.
 
 See `references/template-library.md` for placeholder definitions.
 
@@ -131,6 +139,7 @@ Present all available options as checkboxes organized by category. Pre-check ite
 If `DRY_RUN=true`:
 
 - Print a listing of every planned file with a preview snippet (first ~15 lines each). Resolve `IF_RELEASE_MODEL` blocks as kept when `has_releasing_md=true` or `RELEASE_MODEL=true`, else drop them.
+- Print planned rules-file line counts (see Phase 7) so oversize output is visible before any write.
 - Show the planned `.mcp.json` content.
 - List agent files that would be copied.
 - Print the release-model step Phase 5.5 would take: "skip (RELEASING.md exists)", "skip (--no-release-model)", "would run `release-model` [--model <value> --yes]", or "would offer `release-model`".
@@ -144,11 +153,20 @@ Decide whether to create `RELEASING.md` (the project's branching and release rul
    - `has_releasing_md=true` → skip. The project already has a release model; init reads only its presence (`/release-model --audit` validates it).
    - `NO_RELEASE_MODEL=true` → skip.
    - `RELEASE_MODEL=true` → run without asking.
-   - `DOCS_ONLY=true` (and no `--release-model`) → skip; `--docs-only` stays limited to the doc trio.
+   - `DOCS_ONLY=true` (and no `--release-model`) → skip; `--docs-only` stays limited to the rules files.
    - Otherwise → ask: "This project has no `RELEASING.md`. Run `release-model` to choose a branching and release model (trunk-only or release branches) and write one?" Default: yes. A missing `RELEASING.md` never blocks init — "no" continues normally.
 2. **Run** the `release-model` skill when chosen. With `RELEASE_MODEL_VALUE` set, pass `--model <value> --yes`: the model was decided upstream (for example by `blueprint`), so the proposal is accepted without questions. Otherwise run it without arguments so it can propose a model from the repo's signals and confirm with the user.
 3. **Resolve** every `IF_RELEASE_MODEL` block rendered in Phase 3: keep the block contents when `RELEASING.md` now exists at the project root, else drop the block. This covers "exists already" and "created in this run", and drops the pointer if `release-model` was declined or failed.
 4. If `release-model` errors, record the failure for the Phase 7 summary and continue — do not abort init.
+
+### Phase 5.7 — Rules migration (when `MIGRATE_RULES=true`)
+
+Runs instead of Phases 2–6.5 (profile only), for repos that already have a long `AGENTS.md`. Never silently rewrites it.
+
+1. Run `~/.config/opencode/skills/init/scripts/migrate-rules.sh --repo . --dry-run` and show the full output: the move diff for `AGENTS.md` and `AGENTS.md`, new line counts, and the **content-loss list** (every section dropped rather than moved, and any replaced pointer-style `AGENTS.md`). Nothing is written.
+2. With `DRY_RUN=true`, stop here.
+3. Otherwise ask once: "Apply this migration?" The script refuses to write over uncommitted `AGENTS.md`/`AGENTS.md` changes, so git can always restore the originals. On yes, run the same command with `--yes` instead of `--dry-run`. On no, stop; nothing changed.
+4. Content moves to `AGENTS.md` and `AGENTS.md` becomes `@AGENTS.md` plus its Claude-specific sections. Files are never deleted. Report the new line counts per Phase 7.
 
 ### Phase 6 — Apply
 
@@ -156,30 +174,34 @@ For each rendered file from Phase 3, apply the resolution rule below. Never sile
 
 **Target does not exist** → write the rendered file.
 
-**Target exists AND `FORCE=true`** → overwrite and log the path.
+**Existing rules safeguard (before all resolution rules)** → never rewrite an existing non-importing `AGENTS.md` or a legacy pointer `AGENTS.md`, even with `--force`; offer `--migrate-rules`. Skip rendering new rules files that would conflict with that existing canonical layout.
+
+**Target exists AND `FORCE=true`** → overwrite other artifacts and log the path.
 
 **Target exists AND `UPDATE=true`** → structured refresh per artifact type:
 
-| Artifact                                               | Update behavior                                                                                                                                                                                               |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AGENTS.md`                                            | Parse existing `##`-level section headings. Append any template sections that are missing. Preserve all existing content verbatim. Report the appended section list.                                          |
-| `AGENTS.md` (pointer, `agents_md_is_pointer=true`)     | Refresh pointer boilerplate text. Preserve any user-authored content under `## Agent-runtime notes`.                                                                                                          |
-| `AGENTS.md` (custom, `agents_md_is_pointer=false`)     | Ask the user: (a) migrate to pointer — preserve original content under `## Agent-runtime notes` and write canonical pointer, or (b) merge — append missing sections, keep existing content. Default: migrate. |
-| `.cursor/rules/project.mdc`                            | Overwrite body content; preserve any non-standard frontmatter keys the user added beyond `description`, `globs`, `alwaysApply`.                                                                               |
-| `.cursorrules` (legacy, `has_legacy_cursorrules=true`) | Migrate: read legacy content, write `.cursor/rules/project.mdc` (creating it if absent, merging otherwise), then advise the user to delete `.cursorrules` (do not delete automatically).                      |
-| `.ai/rules/project.md`                                 | Same rule as `.cursor/rules/project.mdc` body.                                                                                                                                                                |
-| `.github/ISSUE_TEMPLATE/*.yml`                         | Per template: if missing → create; if present → show diff and default to skip (issue forms are often customized). `--update --force` overwrites.                                                              |
-| `.github/pull_request_template.md`                     | Show diff; default skip. `--update --force` overwrites.                                                                                                                                                       |
-| `.github/labels.md`                                    | Always overwrite (reference doc, safe to refresh).                                                                                                                                                            |
-| `.github/copilot-instructions.md`                      | Show diff; default skip (users customise agent-facing rules). `--update --force` overwrites.                                                                                                                  |
-| `.github/workflows/pr-title.yml`                       | Show diff; default skip (users may customise the Conventional Commits type list or branch filters). `--update --force` overwrites.                                                                            |
-| `.github/workflows/pr-title-autofix.yml`               | Show diff; default skip (users may tune the placeholder regex, the type-normalization pass, or the draft-toggle behaviour). `--update --force` overwrites.                                                    |
-| `.gitignore`                                           | Show diff; default skip (users curate this file heavily). `--update --force` overwrites. When `has_gitignore=true` at Phase 1, warn the user the file already exists.                                         |
-| `.gitmessage`                                          | Show diff; default skip. `--update --force` overwrites (usually safe — it is a reference template).                                                                                                           |
-| `commitlint.config.cjs`                                | If present → show diff and default skip with a warning ("commitlint rules are often project-customized"). `--update --force` overwrites.                                                                      |
-| `lefthook.yml`                                         | Show diff; default skip (users often extend the config with project-specific commands). `--update --force` overwrites. When `has_lefthook_config=true` at Phase 1, warn the user the file already exists.     |
-| `scripts/install-lefthook.sh`                          | Always overwrite (managed bootstrap tooling; tracks upstream improvements).                                                                                                                                   |
-| `docs/lefthook-usage.md`                               | Always overwrite (managed reference doc).                                                                                                                                                                     |
+| Artifact                                                  | Update behavior                                                                                                                                                                                           |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AGENTS.md` (canonical or custom)                         | Parse existing `##`-level headings. Append only the template sections that are missing; preserve existing content verbatim. Report the appended section list.                                             |
+| `AGENTS.md` (legacy pointer, `agents_md_is_pointer=true`) | Offer `--migrate-rules` (the pointer names `AGENTS.md`, so the real rules are there). Without it, leave the file untouched.                                                                               |
+| `AGENTS.md` (already `@AGENTS.md`)                        | Leave untouched.                                                                                                                                                                                          |
+| `AGENTS.md` (long, no `@AGENTS.md`)                       | Never rewrite. Print the line count and offer `--migrate-rules` (dry-run diff first). Without it, leave the file and `AGENTS.md` as they are.                                                             |
+| `.cursor/rules/<scope>.mdc`                               | Overwrite body content; preserve any non-standard frontmatter keys the user added beyond `description`, `globs`, `alwaysApply`.                                                                           |
+| `.cursor/rules/project.mdc` (legacy always-apply copy)    | Leave as is; advise removing it once `AGENTS.md` is canonical (Cursor reads `AGENTS.md`).                                                                                                                 |
+| `.cursorrules` (legacy, `has_legacy_cursorrules=true`)    | Offer `--migrate-rules`-style review: show its content, fold project-specific lines into `AGENTS.md`, and advise deleting `.cursorrules` (do not delete automatically).                                   |
+| `.ai/rules/project.md`                                    | Overwrite the pointer body.                                                                                                                                                                               |
+| `.github/ISSUE_TEMPLATE/*.yml`                            | Per template: if missing → create; if present → show diff and default to skip (issue forms are often customized). `--update --force` overwrites.                                                          |
+| `.github/pull_request_template.md`                        | Show diff; default skip. `--update --force` overwrites.                                                                                                                                                   |
+| `.github/labels.md`                                       | Always overwrite (reference doc, safe to refresh).                                                                                                                                                        |
+| `.github/copilot-instructions.md`                         | Show diff; default skip (users customise agent-facing rules). `--update --force` overwrites.                                                                                                              |
+| `.github/workflows/pr-title.yml`                          | Show diff; default skip (users may customise the Conventional Commits type list or branch filters). `--update --force` overwrites.                                                                        |
+| `.github/workflows/pr-title-autofix.yml`                  | Show diff; default skip (users may tune the placeholder regex, the type-normalization pass, or the draft-toggle behaviour). `--update --force` overwrites.                                                |
+| `.gitignore`                                              | Show diff; default skip (users curate this file heavily). `--update --force` overwrites. When `has_gitignore=true` at Phase 1, warn the user the file already exists.                                     |
+| `.gitmessage`                                             | Show diff; default skip. `--update --force` overwrites (usually safe — it is a reference template).                                                                                                       |
+| `commitlint.config.cjs`                                   | If present → show diff and default skip with a warning ("commitlint rules are often project-customized"). `--update --force` overwrites.                                                                  |
+| `lefthook.yml`                                            | Show diff; default skip (users often extend the config with project-specific commands). `--update --force` overwrites. When `has_lefthook_config=true` at Phase 1, warn the user the file already exists. |
+| `scripts/install-lefthook.sh`                             | Always overwrite (managed bootstrap tooling; tracks upstream improvements).                                                                                                                               |
+| `docs/lefthook-usage.md`                                  | Always overwrite (managed reference doc).                                                                                                                                                                 |
 
 **Target exists AND `UPDATE=false` AND `FORCE=false`** → show a unified diff, then prompt the user with three choices: overwrite, merge (only meaningful for `AGENTS.md`), or skip. Default choice: skip.
 
@@ -203,7 +225,9 @@ If the formatters skill exits with an error, record the failure in the Phase 7 s
 
 Produce a summary using `~/.config/opencode/skills/init/templates/workspace-report.md` as the base. Extend it with these sections appended after the existing MCP/agents tables:
 
-**Docs emitted** — list each path written, or "skipped: user chose keep".
+**Docs emitted** — list each path written, or "skipped: user chose keep". State explicitly when `AGENTS.md` was not created because there was no Claude-specific content.
+
+**Rules files** — one line per rules file that exists after the run (`AGENTS.md`, `AGENTS.md`, `.github/copilot-instructions.md`, `.cursor/rules/*.mdc`) with its line count, e.g. `AGENTS.md: 31 lines`. Mark any file over 200 lines `⚠ over 200 lines — long rules files lose adherence; trim or run --migrate-rules`. Count with `wc -l`, do not estimate.
 
 **GitHub templates emitted** — list each `.github/` path written (omit section if `TEMPLATES=false`).
 
@@ -219,11 +243,11 @@ Produce a summary using `~/.config/opencode/skills/init/templates/workspace-repo
 - For JS/TS projects: run `{{PACKAGE_MANAGER}} install` (devDependencies `@commitlint/cli` + `@commitlint/config-conventional` must be installed for the `commit-msg` hook to work).
 - Review `.github/labels.md` and run the `gh label create` commands listed there (if `TEMPLATES=true`). Under the release-branches model, create one `backport:X.Y` label per maintenance branch.
 - Review `RELEASING.md` and commit it with the rest of the init output (if Phase 5.5 created it). If the offer was declined, `/release-model` can create it later.
-- Review `.github/copilot-instructions.md` — it restates the PR-workflow rules for GitHub Copilot's coding agent. Adjust to match project-specific conventions (e.g., if the repo customises the Conventional Commits type list, update the allowed-types line) (if `TEMPLATES=true`).
+- Review `.github/copilot-instructions.md` — it is a short pointer to `AGENTS.md` plus the detected commands; keep it that way (if `TEMPLATES=true`).
 - Enable the PR title check as a required status: **Settings → Branches → Branch protection rules**, add `Validate Conventional Commit PR title` (the job name from `.github/workflows/pr-title.yml`) to the required checks. Without this, the workflow runs but isn't enforced (if `TEMPLATES=true`).
 - `.github/workflows/pr-title-autofix.yml` runs alongside the validator and (1) strips placeholder prefixes (`[WIP]`, `Draft:`, `Initial plan`) from PR titles server-side, then (2) normalizes a leading Conventional Commit type that was written without a colon or with capitalization (e.g. `Refactor X` → `refactor: X`, `Feat(auth): X` → `feat(auth): X`). Runs because GitHub Copilot's coding-agent token often lacks `pull_requests:write` and cannot self-correct. Do **not** add this workflow to required checks — it is an auto-correcting side effect, not a gate (if `TEMPLATES=true`).
-- Open `AGENTS.md` to review and refine the generated project rules.
-- If `has_legacy_cursorrules=true` and the migration ran: delete the legacy `.cursorrules` file once the new `.cursor/rules/project.mdc` is confirmed working.
+- Open `AGENTS.md` to review and refine the generated project rules (it is the canonical file; add only what is specific to this project).
+- If `has_legacy_cursorrules=true`: fold any project-specific lines of `.cursorrules` into `AGENTS.md`, then delete it (init never deletes it).
 
 ## Important Notes
 
@@ -234,6 +258,5 @@ Produce a summary using `~/.config/opencode/skills/init/templates/workspace-repo
 - The MCP and agent selection flow is preserved unchanged behind `--docs-only`.
 - A missing `RELEASING.md` never blocks init. Phase 5.5 only offers `release-model`; `--release-model` runs it and `--no-release-model` silences the offer.
 - For the full flag matrix with composability examples, see `references/flag-reference.md`.
-- Read `references/conventional-commits.md` when rendering the Conventional Commits section of
-  generated `AGENTS.md`/`AGENTS.md`; read `references/label-taxonomy.md` when rendering
+- Read `references/conventional-commits.md` only when the user asks for the full commit-type reference; the generated `AGENTS.md` carries a one-line rule, not the types table. Read `references/label-taxonomy.md` when rendering
   `.github/labels.md` (`--templates`).

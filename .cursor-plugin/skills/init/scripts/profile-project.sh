@@ -196,28 +196,44 @@ case "$primary_stack" in
         ;;
     go)
         test_cmd="go test ./..."
-        lint_cmd="go vet ./... && staticcheck ./..."
+        lint_cmd="go vet ./..."
         build_cmd="go build ./..."
         ;;
-    typescript)
-        test_cmd="$(node_pm_cmd "$primary_pm" "test")"
-        lint_cmd="$(node_pm_cmd "$primary_pm" "run lint")"
-        build_cmd="$(node_pm_cmd "$primary_pm" "run build")"
-        ;;
-    javascript)
-        test_cmd="$(node_pm_cmd "$primary_pm" "test")"
-        lint_cmd="$(node_pm_cmd "$primary_pm" "run lint")"
-        build_cmd="$(node_pm_cmd "$primary_pm" "run build")"
+    typescript|javascript)
+        # Only stamp commands backed by actual package.json scripts (read-only check).
+        if jq -e '.scripts.test' "${project_root}/package.json" >/dev/null 2>&1; then
+            test_cmd="$(node_pm_cmd "$primary_pm" "test")"
+        fi
+        if jq -e '.scripts | (has("lint") or has("lint:check") or has("check") or has("format:check"))' "${project_root}/package.json" >/dev/null 2>&1; then
+            for key in lint lint:check check format:check; do
+                if jq -e --arg k "$key" '.scripts[$k]' "${project_root}/package.json" >/dev/null 2>&1; then
+                    lint_cmd="$(node_pm_cmd "$primary_pm" "run $key")"
+                    break
+                fi
+            done
+        fi
+        if jq -e '.scripts.build' "${project_root}/package.json" >/dev/null 2>&1; then
+            build_cmd="$(node_pm_cmd "$primary_pm" "run build")"
+        fi
         ;;
     python)
-        test_cmd="pytest"
-        lint_cmd="ruff check ."
+        # Only stamp Python commands backed by real config signals; never blanket-guess.
+        py_runner=""
         case "$primary_pm" in
-            uv)     build_cmd="uv build" ;;
-            poetry) build_cmd="poetry build" ;;
-            hatch)  build_cmd="hatch build" ;;
-            *)      build_cmd="pip install -e ." ;;
+            uv|poetry) py_runner="$primary_pm run " ;;
         esac
+        if dir_exists tests || grep -Eq 'pytest|\[tool\.pytest' "${project_root}/pyproject.toml" "${project_root}/requirements.txt" 2>/dev/null; then
+            test_cmd="${py_runner}pytest"
+        fi
+        if file_exists ruff.toml || file_exists .ruff.toml || grep -Eq 'ruff|\[tool\.ruff' "${project_root}/pyproject.toml" "${project_root}/requirements.txt" 2>/dev/null; then
+            lint_cmd="${py_runner}ruff check ."
+        fi
+        if file_exists pyproject.toml && grep -q '^\[build-system\]' "${project_root}/pyproject.toml"; then
+            case "$primary_pm" in
+                uv|poetry|hatch) build_cmd="$primary_pm build" ;;
+                *) build_cmd="python -m build" ;;
+            esac
+        fi
         ;;
     terraform)
         test_cmd="terraform validate"

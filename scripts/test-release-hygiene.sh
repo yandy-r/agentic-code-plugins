@@ -17,6 +17,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 PROFILE="${REPO_ROOT}/ycc/skills/init/scripts/profile-project.sh"
 APPLY_CI="${REPO_ROOT}/ycc/skills/formatters/scripts/apply-ci.sh"
 INIT_TEMPLATES="${REPO_ROOT}/ycc/skills/init/templates"
+INIT_SCRIPTS="${REPO_ROOT}/ycc/skills/init/scripts"
 GIT_CLEANUP_SKILL="${REPO_ROOT}/ycc/skills/git-cleanup/SKILL.md"
 GIT_CLEANUP_RULES="${REPO_ROOT}/ycc/skills/git-cleanup/references/active-code-rules.md"
 GIT_CLEANUP_AGENT="${REPO_ROOT}/ycc/agents/git-cleanup.md"
@@ -294,7 +295,7 @@ block_body() {
 
 test_init_templates() {
   local tmpl opens closes
-  for tmpl in "${INIT_TEMPLATES}/CLAUDE.md.tmpl" "${INIT_TEMPLATES}/github/labels.md.tmpl"; do
+  for tmpl in "${INIT_TEMPLATES}/AGENTS.md.tmpl" "${INIT_TEMPLATES}/github/labels.md.tmpl"; do
     opens="$(grep -c '{{#IF_RELEASE_MODEL}}' "$tmpl")"
     closes="$(grep -c '{{/IF_RELEASE_MODEL}}' "$tmpl")"
     if [[ "$opens" -ge 1 && "$opens" == "$closes" ]]; then
@@ -303,12 +304,206 @@ test_init_templates() {
       ko "templates: $(basename "$tmpl") has balanced IF_RELEASE_MODEL blocks" "opens=$opens closes=$closes"
     fi
   done
-  assert_contains "$(block_body "${INIT_TEMPLATES}/CLAUDE.md.tmpl" IF_RELEASE_MODEL)" "## Branching & releases" \
-    "templates: CLAUDE.md Branching & releases section is conditional"
-  assert_contains "$(block_body "${INIT_TEMPLATES}/CLAUDE.md.tmpl" IF_RELEASE_MODEL)" "RELEASING.md" \
-    "templates: CLAUDE.md section points at RELEASING.md"
+  assert_contains "$(block_body "${INIT_TEMPLATES}/AGENTS.md.tmpl" IF_RELEASE_MODEL)" "## Branching & releases" \
+    "templates: AGENTS.md Branching & releases section is conditional"
+  assert_contains "$(block_body "${INIT_TEMPLATES}/AGENTS.md.tmpl" IF_RELEASE_MODEL)" "RELEASING.md" \
+    "templates: AGENTS.md section points at RELEASING.md"
   assert_contains "$(block_body "${INIT_TEMPLATES}/github/labels.md.tmpl" IF_RELEASE_MODEL)" 'gh label create "backport:' \
     "templates: labels.md backport family has a gh label create example"
+}
+
+# ---------------------------------------------------------------------------
+# init — canonical AGENTS.md rules files (Node / Python / Go scratch repos)
+# ---------------------------------------------------------------------------
+
+# scratch_stack <node|python|go> — scratch git repo with that stack's manifest; echo path.
+scratch_stack() {
+  local dir
+  dir="$(mktemp -d "${SANDBOX_ROOT}/stack.XXXXXX")"
+  git -C "$dir" init -q
+  case "$1" in
+    node)
+      echo '{"name":"demo","scripts":{"test":"vitest run","lint":"eslint .","build":"tsc"}}' >"${dir}/package.json"
+      echo '{}' >"${dir}/tsconfig.json"
+      ;;
+    python) printf '[project]\nname = "demo"\n\n[tool.pytest.ini_options]\n\n[tool.ruff]\n' >"${dir}/pyproject.toml" ;;
+    go) printf 'module example.com/demo\n' >"${dir}/go.mod" ;;
+  esac
+  echo "$dir"
+}
+
+# render <repo> <template> [render-template args...] — profile the repo, render to stdout.
+render() {
+  local repo="$1" tmpl="$2"
+  shift 2
+  bash "$PROFILE" "$repo" | bash "${INIT_SCRIPTS}/render-template.sh" --template "${INIT_TEMPLATES}/${tmpl}" "$@"
+}
+
+test_init_rules_shape() {
+  local stack repo agents claude lines expect_test
+  for stack in node python go; do
+    repo="$(scratch_stack "$stack")"
+    agents="$(render "$repo" AGENTS.md.tmpl --set "PROJECT_PURPOSE=Demo project.")"
+    lines="$(printf '%s\n' "$agents" | wc -l | tr -d ' ')"
+    if [[ "$lines" -le 100 ]]; then
+      ok "init[$stack]: AGENTS.md is ${lines} lines (<=100)"
+    else
+      ko "init[$stack]: AGENTS.md is ${lines} lines (<=100)"
+    fi
+    case "$stack" in
+      node) expect_test="npm test" ;;
+      python) expect_test="pytest" ;;
+      go) expect_test="go test ./..." ;;
+    esac
+    assert_contains "$agents" "$expect_test" "init[$stack]: AGENTS.md has the detected test command"
+    assert_contains "$agents" "Conventional Commits 1.0.0" "init[$stack]: AGENTS.md carries the commits rule"
+    if grep -q '^| `feat`' <<<"$agents" || grep -q 'Stack Overview' <<<"$agents" || grep -q '^## SHOULD' <<<"$agents"; then
+      ko "init[$stack]: AGENTS.md has no types table, stack table or generic SHOULDs"
+    else
+      ok "init[$stack]: AGENTS.md has no types table, stack table or generic SHOULDs"
+    fi
+    if grep -q 'Branching & releases' <<<"$agents"; then
+      ko "init[$stack]: Branching & releases is dropped without RELEASING.md"
+    else
+      ok "init[$stack]: Branching & releases is dropped without RELEASING.md"
+    fi
+    claude="$(render "$repo" CLAUDE.md.tmpl)"
+    assert_eq "$claude" "@AGENTS.md" "init[$stack]: CLAUDE.md without Claude-only content is just @AGENTS.md"
+  done
+
+  # A Node repo without scripts, and a bare Python manifest, must not get guessed commands.
+  repo="$(mktemp -d "${SANDBOX_ROOT}/bare.XXXXXX")"
+  git -C "$repo" init -q
+  echo '{"name":"bare","scripts":{"start":"node x"}}' >"${repo}/package.json"
+  agents="$(render "$repo" AGENTS.md.tmpl --set "PROJECT_PURPOSE=Demo.")"
+  if grep -q 'npm' <<<"$agents"; then ko "init[node-bare]: no npm commands without package scripts"; else ok "init[node-bare]: no npm commands without package scripts"; fi
+  repo="$(mktemp -d "${SANDBOX_ROOT}/pybare.XXXXXX")"
+  git -C "$repo" init -q
+  printf '[project]\nname = "bare"\n' >"${repo}/pyproject.toml"
+  agents="$(render "$repo" AGENTS.md.tmpl --set "PROJECT_PURPOSE=Demo.")"
+  if grep -q 'pytest\|ruff' <<<"$agents"; then ko "init[python-bare]: no pytest/ruff without config signals"; else ok "init[python-bare]: no pytest/ruff without config signals"; fi
+
+  # Unknown stacks never get an invented command.
+  repo="$(mktemp -d "${SANDBOX_ROOT}/empty.XXXXXX")"
+  git -C "$repo" init -q
+  agents="$(render "$repo" AGENTS.md.tmpl --set "PROJECT_PURPOSE=Demo.")"
+  assert_contains "$agents" "# not detected" "init[unknown]: undetected commands render as '# not detected'"
+
+  # Claude-only content: short section after the import.
+  claude="$(render "$repo" CLAUDE.md.tmpl --keep IF_CLAUDE_ONLY --set "CLAUDE_ONLY_NOTES=- Use /ycc: skills.")"
+  assert_eq "$(printf '%s\n' "$claude" | head -n 1)" "@AGENTS.md" "init: CLAUDE.md starts with @AGENTS.md"
+  lines="$(printf '%s\n' "$claude" | wc -l | tr -d ' ')"
+  if [[ "$lines" -le 15 ]]; then ok "init: CLAUDE.md with notes is ${lines} lines (<=15)"; else ko "init: CLAUDE.md with notes is ${lines} lines (<=15)"; fi
+
+  # Template line budget and the optional Cursor/Copilot/vendor files.
+  lines="$(wc -l <"${INIT_TEMPLATES}/AGENTS.md.tmpl" | tr -d ' ')"
+  if [[ "$lines" -le 80 ]]; then ok "templates: AGENTS.md.tmpl is ${lines} lines (<=80)"; else ko "templates: AGENTS.md.tmpl is ${lines} lines (<=80)"; fi
+  assert_contains "$(cat "${INIT_TEMPLATES}/cursor-rule.mdc.tmpl")" "alwaysApply: false" \
+    "templates: cursor rule is path-scoped, never always-apply"
+  assert_contains "$(cat "${INIT_TEMPLATES}/github/copilot-instructions.md.tmpl")" "AGENTS.md" \
+    "templates: copilot instructions point at AGENTS.md"
+  assert_contains "$(cat "${INIT_TEMPLATES}/ai-rule.md.tmpl")" "AGENTS.md" "templates: vendor-neutral rule points at AGENTS.md"
+  repo="$(scratch_stack go)"
+  assert_contains "$(render "$repo" github/copilot-instructions.md.tmpl)" "go test ./..." \
+    "init[go]: copilot instructions carry the detected commands"
+  if [[ "$(wc -l <"${INIT_TEMPLATES}/github/copilot-instructions.md.tmpl")" -le 30 ]]; then
+    ok "templates: copilot instructions stay a short pointer"
+  else
+    ko "templates: copilot instructions stay a short pointer"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# init --migrate-rules — dry-run first, nothing lost silently
+# ---------------------------------------------------------------------------
+
+# long_claude_repo — committed repo with a long CLAUDE.md and a legacy pointer AGENTS.md.
+long_claude_repo() {
+  local dir
+  dir="$(mkrepo)"
+  {
+    printf '# demo — Agent Rules\n\nA demo.\n\n## Precedence\n\n1. User.\n\n## MUST / MUST NOT\n\n- Never commit secrets.\n\n'
+    printf '## Claude-only notes\n\n- Use /ycc: skills.\n\n## Commands\n\n```bash\nnpm test\n## not a heading\n```\n'
+  } >"${dir}/CLAUDE.md"
+  printf '# demo\n\nThe canonical agent rules live in CLAUDE.md.\n' >"${dir}/AGENTS.md"
+  git -C "$dir" add -A
+  git -C "$dir" commit -q -m "chore: add rules"
+  echo "$dir"
+}
+
+test_migrate_rules() {
+  local repo out rc before after
+  repo="$(long_claude_repo)"
+  before="$(cd "$repo" && sha256sum CLAUDE.md AGENTS.md && git status --porcelain | wc -l)"
+
+  out="$(bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" --dry-run)"
+  rc=$?
+  assert_exit "$rc" 0 "migrate: dry-run succeeds"
+  after="$(cd "$repo" && sha256sum CLAUDE.md AGENTS.md && git status --porcelain | wc -l)"
+  assert_eq "$after" "$before" "migrate: dry-run changes nothing"
+  assert_contains "$out" "Content-loss list" "migrate: dry-run prints the content-loss list"
+  assert_contains "$out" "## Precedence" "migrate: dropped Precedence section is listed"
+  assert_contains "$out" "AGENTS.md pointer boilerplate" "migrate: replaced legacy pointer is listed"
+  assert_contains "$out" "## MUST / MUST NOT" "migrate: diff shows MUST section moving"
+
+  out="$(bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" 2>&1)"
+  rc=$?
+  assert_exit "$rc" 1 "migrate: refuses to write without --dry-run or --yes"
+  assert_eq "$(cd "$repo" && sha256sum CLAUDE.md AGENTS.md && git status --porcelain | wc -l)" "$before" \
+    "migrate: refusal changes nothing"
+
+  echo "local edit" >>"${repo}/CLAUDE.md"
+  out="$(bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" --yes 2>&1)"
+  rc=$?
+  assert_exit "$rc" 1 "migrate: refuses to apply over uncommitted rules edits"
+  assert_contains "$out" "uncommitted changes" "migrate: names the uncommitted-changes safeguard"
+  git -C "$repo" checkout -q -- CLAUDE.md
+
+  bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" --yes >/dev/null
+  assert_eq "$(head -n 1 "${repo}/CLAUDE.md")" "@AGENTS.md" "migrate: CLAUDE.md now starts with @AGENTS.md"
+  assert_contains "$(cat "${repo}/CLAUDE.md")" "Claude-only notes" "migrate: Claude-only section stays in CLAUDE.md"
+  assert_contains "$(cat "${repo}/AGENTS.md")" "Never commit secrets" "migrate: rules moved into AGENTS.md"
+  assert_contains "$(cat "${repo}/AGENTS.md")" "## not a heading" "migrate: fenced '## ' lines do not split sections"
+  out="$(bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" --yes)"
+  assert_contains "$out" "already a @AGENTS.md pointer" "migrate: second run is a no-op"
+}
+
+# ---------------------------------------------------------------------------
+# release-model after init — "Branching & releases" appears exactly once
+# ---------------------------------------------------------------------------
+
+test_release_model_single_pointer() {
+  local repo target before_count total
+  repo="$(scratch_stack go)"
+  # init output (CLAUDE.md absent, no RELEASING.md yet): the canonical file is AGENTS.md.
+  render "$repo" AGENTS.md.tmpl --set "PROJECT_PURPOSE=Demo." >"${repo}/AGENTS.md"
+  printf '@AGENTS.md\n' >"${repo}/CLAUDE.md"
+  target="$(bash "$POINTER_TARGETS" --repo "$repo")"
+  assert_eq "$target" "AGENTS.md" "release-model after init: canonical target is AGENTS.md only"
+  # Simulate release-model Phase 4: append the section to the single target when absent.
+  before_count="$(grep -c '^## Branching & releases' "${repo}/${target}" || true)"
+  assert_eq "$before_count" "0" "release-model after init: section absent before the run"
+  printf '\n## Branching & releases\n\n[`RELEASING.md`](RELEASING.md) pointer.\n' >>"${repo}/${target}"
+  total="$(cat "${repo}/AGENTS.md" "${repo}/CLAUDE.md" | grep -c '^## Branching & releases' || true)"
+  assert_eq "$total" "1" "release-model after init: Branching & releases appears exactly once"
+
+  # init run after RELEASING.md exists renders the section itself; release-model then finds it.
+  render "$repo" AGENTS.md.tmpl --set "PROJECT_PURPOSE=Demo." --keep IF_RELEASE_MODEL >"${repo}/AGENTS.md"
+  target="$(bash "$POINTER_TARGETS" --repo "$repo")"
+  assert_eq "$(grep -c '^## Branching & releases' "${repo}/${target}")" "1" \
+    "init with RELEASING.md: section rendered once into the canonical file"
+  assert_eq "$(grep -c '^## Branching & releases' "${repo}/CLAUDE.md" || true)" "0" \
+    "init with RELEASING.md: CLAUDE.md never gets the section"
+
+  # Legacy inverted layout: AGENTS.md is a pointer to CLAUDE.md, so CLAUDE.md stays canonical.
+  printf '# demo\n\nThe canonical agent rules for this repository live in [`CLAUDE.md`](CLAUDE.md).\n' >"${repo}/AGENTS.md"
+  printf '# demo\n\n## Commands\n' >"${repo}/CLAUDE.md"
+  assert_contains "$(bash "$POINTER_TARGETS" --repo "$repo" | tr '\n' ' ')" "CLAUDE.md" \
+    "pointer-targets: legacy inverted layout still lists CLAUDE.md"
+
+  # Neither rules file: no output, nothing created.
+  assert_eq "$(bash "$POINTER_TARGETS" --repo "$(mkrepo)" | wc -l | tr -d ' ')" "0" \
+    "pointer-targets: no rules files -> no target"
 }
 
 # ---------------------------------------------------------------------------
@@ -375,6 +570,9 @@ test_apply_ci_default_branch
 test_apply_ci_custom_default_branch
 test_apply_ci_no_git
 test_init_templates
+test_init_rules_shape
+test_migrate_rules
+test_release_model_single_pointer
 test_pointer_targets
 test_git_cleanup_wiring
 test_git_cleanup_sync_merge_pattern
