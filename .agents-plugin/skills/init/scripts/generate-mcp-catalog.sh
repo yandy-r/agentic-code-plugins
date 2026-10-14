@@ -9,8 +9,8 @@
 # Environment variable overrides (both have sensible defaults):
 #   YCC_MCP_MARKETPLACE_DIR  — directory containing marketplace plugin subdirs
 #                              Default: ${HOME}/.claude/plugins/marketplaces
-#   YCC_MCP_LIBRARY_DOC      — path to an MCP library AGENTS.md
-#                              Default: ${HOME}/.claude/mcp-library/AGENTS.md
+#   YCC_MCP_LIBRARY_DOC      — path to an MCP library CLAUDE.md
+#                              Default: ${HOME}/.claude/mcp-library/CLAUDE.md
 #
 # Graceful degradation:
 #   - If neither source exists, a warning is emitted to stderr and an
@@ -24,7 +24,7 @@ set -euo pipefail
 # Path resolution (overridable via env vars)
 # ---------------------------------------------------------------------------
 MARKETPLACE_DIR="${YCC_MCP_MARKETPLACE_DIR:-${HOME}/.claude/plugins/marketplaces}"
-MCP_LIBRARY_DOC="${YCC_MCP_LIBRARY_DOC:-${HOME}/.claude/mcp-library/AGENTS.md}"
+MCP_LIBRARY_DOC="${YCC_MCP_LIBRARY_DOC:-${HOME}/.claude/mcp-library/CLAUDE.md}"
 
 # ---------------------------------------------------------------------------
 # Source availability checks
@@ -148,7 +148,7 @@ if [[ "$marketplace_ok" == "true" ]]; then
     done
 fi
 
-# Parse MCP library AGENTS.md for additional MCPs
+# Parse MCP library CLAUDE.md for additional MCPs
 if [[ "$library_ok" == "true" ]]; then
     while IFS= read -r line; do
         if [[ "$line" =~ ^-\ \`([^\`]+)\`\ -\ (.+)$ ]]; then

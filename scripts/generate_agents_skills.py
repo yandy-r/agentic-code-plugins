@@ -139,9 +139,12 @@ def write_tree(dest_root: Path, dry_run: bool) -> set[Path]:
 
         if should_transform_text(src):
             text = src.read_text(encoding="utf-8")
-            if rel.parts[0] == "release-model":
+            if rel.parts[0] in {"release-model", "init"}:
                 # These names describe the target repo's layout, not runtime rules.
                 text = text.replace("CLAUDE.md", "\x00RELEASE_MODEL_CLAUDE_FILE\x00")
+                if rel.parts[0] == "init":
+                    # Version claims name the real product, not the target runtime.
+                    text = text.replace("Claude Code", "\x00INIT_CLAUDE_CODE\x00")
             if src.name == "SKILL.md":
                 transformed = transform_skill_markdown(text, aliases)
             else:
@@ -153,7 +156,9 @@ def write_tree(dest_root: Path, dry_run: bool) -> set[Path]:
                 for old, new in BUNDLE_RELEASE_RESTORE:
                     transformed = transformed.replace(old, new)
             out.write_text(
-                transformed.replace("\x00RELEASE_MODEL_CLAUDE_FILE\x00", "CLAUDE.md"),
+                transformed.replace("\x00RELEASE_MODEL_CLAUDE_FILE\x00", "CLAUDE.md").replace(
+                    "\x00INIT_CLAUDE_CODE\x00", "Claude Code"
+                ),
                 encoding="utf-8",
             )
         else:

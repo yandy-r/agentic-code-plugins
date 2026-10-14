@@ -3,7 +3,7 @@
   a Conventional Commit. The title becomes the squash-merge commit subject
   and lands in CHANGELOG.md / git log verbatim — write it as it should read.
   Agent workflow reference: .github/copilot-instructions.md
-  Canonical project rules: CLAUDE.md / AGENTS.md
+  Canonical project rules: AGENTS.md
 -->
 
 ## Summary
@@ -34,22 +34,32 @@ Closes #<!-- issue number -->
 {{#IF_RUST}}
 - [ ] `cargo fmt --check` passes
 - [ ] `cargo clippy --all-targets -- -D warnings` passes
+{{#IF_TEST_CMD}}
 - [ ] `{{TEST_CMD}}` passes
+{{/IF_TEST_CMD}}
 {{/IF_RUST}}
 {{#IF_TS}}
+{{#IF_LINT_CMD}}
 - [ ] `{{LINT_CMD}}` passes
+{{/IF_LINT_CMD}}
+{{#IF_TEST_CMD}}
 - [ ] `{{TEST_CMD}}` passes
+{{/IF_TEST_CMD}}
 - [ ] TypeScript strict mode checks pass
 {{/IF_TS}}
 {{#IF_GO}}
 - [ ] `gofmt -l .` is clean
 - [ ] `go vet ./...` passes
+{{#IF_TEST_CMD}}
 - [ ] `{{TEST_CMD}}` passes
+{{/IF_TEST_CMD}}
 {{/IF_GO}}
 {{#IF_PYTHON}}
 - [ ] `ruff check .` passes
 - [ ] `mypy --strict` passes
+{{#IF_TEST_CMD}}
 - [ ] `{{TEST_CMD}}` passes
+{{/IF_TEST_CMD}}
 {{/IF_PYTHON}}
 
 ## Reviewer Notes

@@ -15,7 +15,7 @@ Every template the skill can render, its target path, and the variables it subst
 
 | Template file                                          | Output path                                    | Gating flag          | Placeholders used                                                                                                       |
 | ------------------------------------------------------ | ---------------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `templates/AGENTS.md.tmpl`                             | `./AGENTS.md` (`@AGENTS.md`)                   | Claude-only content  | `CLAUDE_ONLY_NOTES`, `IF_CLAUDE_ONLY` block                                                                             |
+| `templates/CLAUDE.md.tmpl`                             | `./CLAUDE.md` (`@AGENTS.md`)                   | Default shim         | `CLAUDE_ONLY_NOTES`, `IF_CLAUDE_ONLY` block                                                                             |
 | `templates/AGENTS.md.tmpl`                             | `./AGENTS.md` (canonical)                      | _(default)_          | `PROJECT_NAME`, `PROJECT_PURPOSE`, `TEST_CMD`, `LINT_CMD`, `BUILD_CMD`, `PROJECT_CONVENTIONS`, `IF_RELEASE_MODEL` block |
 | `templates/cursor-rule.mdc.tmpl`                       | `./.cursor/rules/<scope>.mdc`                  | path-scoped rules    | `RULE_DESCRIPTION`, `RULE_GLOBS`, `PATH_SPECIFIC_RULES`                                                                 |
 | `templates/ai-rule.md.tmpl`                            | `./.ai/rules/project.md` (pointer)             | `--vendor-neutral`   | `PROJECT_NAME`                                                                                                          |
@@ -67,7 +67,7 @@ otherwise.
 | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
 | `IF_RUST`, `IF_TS`, `IF_GO`, `IF_PYTHON`, `IF_TERRAFORM` | The block's language matches `primary_language` (all of `secondary_languages` too for `gitignore.tmpl`)                                             | Most templates                            |
 | `IF_RELEASE_MODEL`                                       | `RELEASING.md` exists at the project root after Phase 5.5 — already present (`has_releasing_md=true`) or created by `release-model` in this run | `AGENTS.md.tmpl`, `github/labels.md.tmpl` |
-| `IF_CLAUDE_ONLY`                                         | Claude-specific content exists (Phase 2 or user-supplied) — otherwise `AGENTS.md` is not created                                                    | `AGENTS.md.tmpl`                          |
+| `IF_CLAUDE_ONLY`                                         | Claude-specific content exists (Phase 2 or user-supplied) — otherwise only the `@AGENTS.md` shim remains                                            | `CLAUDE.md.tmpl`                          |
 
 `IF_RELEASE_MODEL` is resolved in Phase 5.5, after `release-model` has had its chance
 to run, so the `## Branching & releases` pointer and the `backport:X.Y` label family never
@@ -80,10 +80,10 @@ reference a `RELEASING.md` that does not exist. Under `--dry-run` it is kept whe
 
 - **Default templates** (no flag required) are always rendered unless `--docs-only` skips
   MCP/agent selection. Only `AGENTS.md` is always
-  part of the default run. `AGENTS.md` is emitted only when Claude-specific content exists; `.cursor/rules/*.mdc` only for path-scoped rules (never an always-apply copy of `AGENTS.md`).
+  part of the default run. `CLAUDE.md` is a default one-line compatibility shim; omit only with `--no-claude-md` (Claude Code 2.1.277+). Claude-specific content adds a short section; `.cursor/rules/*.mdc` only for path-scoped rules (never an always-apply copy of `AGENTS.md`).
 - **Existing file handling**: without `--force`, the skill diffs and prompts before
   overwriting any pre-existing target. Missing sections may be appended safely to
-  existing `AGENTS.md`; a long existing `AGENTS.md` is never rewritten — `--migrate-rules`
+  existing `AGENTS.md`; a long existing `CLAUDE.md` is never rewritten — `--migrate-rules`
   moves its content into `AGENTS.md` with a dry-run diff first.
 - **JS/TS gating**: `commitlint.config.cjs` is only rendered when `PRIMARY_LANG` is
   `typescript` or `javascript` (detected from `package.json` presence). The
@@ -111,3 +111,17 @@ plan` in the title get a failing required check, not a silent merge. The
   diff-and-skip update semantics.
 
 ---
+
+## Helper contract
+
+Helpers require Python 3.11+ (shell entrypoints work with Bash 3.2). The renderer
+accepts only the bundled `templates/` tree (including symlink resolution), takes
+profiles from readable files or stdin (`--profile -`, or a pipe), normalises CRLF,
+and validates matching nested block names. Mixed profiles keep every component
+language. `IF_TEST_CMD`, `IF_LINT_CMD`, `IF_BUILD_CMD` guard command-bearing YAML and
+checklists; inverse `IF_NO_*_CMD` blocks explain skipped hooks. No detected test
+command means no pre-push hook, never YAML `run: # not detected`.
+
+`rules-report.sh --repo <root>` fills `RULES_FILES_LINES` from actual file counts and
+prints a warning above 200 lines. The report itself is authored from the workspace
+report template (not parsed as Handlebars by the helper).

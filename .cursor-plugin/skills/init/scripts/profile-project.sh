@@ -6,6 +6,7 @@
 #   path  Optional directory to profile (defaults to $PWD).
 #
 # Output: one key=value per line, machine-readable, no shell quoting.
+# Python detection needs Python 3.11+ (tomllib); shell entrypoint is Bash 3.2-compatible.
 # Errors: written to stderr. Partial detection never fails.
 # Exit codes: 0 = success, 1 = argument error (bad/missing path).
 
@@ -28,6 +29,10 @@ fi
 
 # Resolve to absolute path without relying on realpath (POSIX-friendly)
 project_root="$(cd "$target" && pwd)"
+if [[ "$project_root" == *$'\n'* || "$project_root" == *$'\r'* ]]; then
+    echo "[profile-project] ERROR: newline in repository path cannot be represented in key=value output" >&2
+    exit 1
+fi
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -197,38 +202,86 @@ case "$primary_stack" in
     go)
         test_cmd="go test ./..."
         lint_cmd="go vet ./..."
+        for cfg in .golangci.yml .golangci.yaml .golangci.toml .golangci.json; do
+            file_exists "$cfg" && { lint_cmd="golangci-lint run"; break; }
+        done
         build_cmd="go build ./..."
         ;;
     typescript|javascript)
         # Only stamp commands backed by actual package.json scripts (read-only check).
-        if jq -e '.scripts.test' "${project_root}/package.json" >/dev/null 2>&1; then
+        if ! command -v jq >/dev/null 2>&1; then
+            echo "[profile-project] WARN: jq is unavailable; JS/TS commands cannot be detected" >&2
+        fi
+        if jq -e '.scripts.test | type == "string" and length > 0' "${project_root}/package.json" >/dev/null 2>&1; then
             test_cmd="$(node_pm_cmd "$primary_pm" "test")"
         fi
-        if jq -e '.scripts | (has("lint") or has("lint:check") or has("check") or has("format:check"))' "${project_root}/package.json" >/dev/null 2>&1; then
-            for key in lint lint:check check format:check; do
-                if jq -e --arg k "$key" '.scripts[$k]' "${project_root}/package.json" >/dev/null 2>&1; then
+        if jq -e '.scripts | (has("lint") or has("lint:check"))' "${project_root}/package.json" >/dev/null 2>&1; then
+            for key in lint lint:check; do
+                if jq -e --arg k "$key" '.scripts[$k] | type == "string" and length > 0' "${project_root}/package.json" >/dev/null 2>&1; then
                     lint_cmd="$(node_pm_cmd "$primary_pm" "run $key")"
                     break
                 fi
             done
         fi
-        if jq -e '.scripts.build' "${project_root}/package.json" >/dev/null 2>&1; then
+        if jq -e '.scripts.build | type == "string" and length > 0' "${project_root}/package.json" >/dev/null 2>&1; then
             build_cmd="$(node_pm_cmd "$primary_pm" "run build")"
         fi
         ;;
     python)
-        # Only stamp Python commands backed by real config signals; never blanket-guess.
+        # Parse manifest/requirements without matching comments or unrelated words;
+        # a bare tests/ directory may be unittest, so check for pytest config/conftest.
         py_runner=""
         case "$primary_pm" in
             uv|poetry) py_runner="$primary_pm run " ;;
         esac
-        if dir_exists tests || grep -Eq 'pytest|\[tool\.pytest' "${project_root}/pyproject.toml" "${project_root}/requirements.txt" 2>/dev/null; then
-            test_cmd="${py_runner}pytest"
-        fi
-        if file_exists ruff.toml || file_exists .ruff.toml || grep -Eq 'ruff|\[tool\.ruff' "${project_root}/pyproject.toml" "${project_root}/requirements.txt" 2>/dev/null; then
-            lint_cmd="${py_runner}ruff check ."
-        fi
-        if file_exists pyproject.toml && grep -q '^\[build-system\]' "${project_root}/pyproject.toml"; then
+        read -r has_pytest has_ruff has_build < <(python3 - "$project_root" <<'PYEOF'
+import re
+import sys
+import tomllib
+from pathlib import Path
+
+root = Path(sys.argv[1])
+manifest = root / "pyproject.toml"
+try:
+    data = tomllib.loads(manifest.read_text(encoding="utf-8")) if manifest.exists() else {}
+except (ValueError, OSError) as exc:
+    print(f"[profile-project] WARN: cannot parse pyproject.toml: {exc}", file=sys.stderr)
+    data = {}
+project = data.get("project", {})
+deps = list(project.get("dependencies", []))
+for group in project.get("optional-dependencies", {}).values():
+    deps.extend(group)
+for group in data.get("dependency-groups", {}).values():
+    deps.extend(item for item in group if isinstance(item, str))
+poetry = data.get("tool", {}).get("poetry", {})
+deps.extend(poetry.get("dependencies", {}).keys())
+for group in poetry.get("group", {}).values():
+    deps.extend(group.get("dependencies", {}).keys())
+for name in ("requirements.txt", "requirements-dev.txt", "requirements-test.txt"):
+    path = root / name
+    if path.is_file():
+        deps.extend(line.split("#", 1)[0].strip() for line in path.read_text(encoding="utf-8").splitlines())
+
+def has_dep(pkg: str) -> bool:
+    return any(re.match(r"^" + re.escape(pkg) + r"(?:$|[\[\s><=!~;])", item, re.I)
+               for item in deps if isinstance(item, str))
+
+tools = data.get("tool", {})
+pytest_ok = (
+    has_dep("pytest") or "pytest" in tools
+    or any((root / n).is_file() for n in ("pytest.ini", ".pytest.ini", "conftest.py", "tests/conftest.py"))
+)
+ruff_ok = (
+    has_dep("ruff") or "ruff" in tools
+    or any((root / n).is_file() for n in ("ruff.toml", ".ruff.toml"))
+)
+build_ok = "build-system" in data
+print(int(pytest_ok), int(ruff_ok), int(build_ok))
+PYEOF
+        )
+       [[ "$has_pytest" == "1" ]] && test_cmd="${py_runner}pytest"
+        [[ "$has_ruff" == "1" ]] && lint_cmd="${py_runner}ruff check ."
+        if [[ "$has_build" == "1" ]]; then
             case "$primary_pm" in
                 uv|poetry|hatch) build_cmd="$primary_pm build" ;;
                 *) build_cmd="python -m build" ;;
@@ -317,7 +370,7 @@ if [[ "$has_lefthook_config" == "false" ]] && dir_exists ".lefthook"; then
 fi
 
 # A repo-root RELEASING.md means the project already follows a ycc release
-# model; init then skips the release-model offer.
+# model; init then skips the ycc:release-model offer.
 has_releasing_md=false
 file_exists "RELEASING.md" && has_releasing_md=true
 

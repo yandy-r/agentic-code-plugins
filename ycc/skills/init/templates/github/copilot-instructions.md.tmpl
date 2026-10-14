@@ -1,6 +1,7 @@
 # {{PROJECT_NAME}} — Copilot instructions
 
-Read [AGENTS.md](../AGENTS.md) for canonical repository policy.
+Canonical repository policy lives in `AGENTS.md` at the repo root. Read it if your tool can;
+the essentials are repeated here in case it cannot follow links.
 
 ## Commands
 
@@ -15,3 +16,9 @@ Read [AGENTS.md](../AGENTS.md) for canonical repository policy.
 ```bash
 {{BUILD_CMD}}
 ```
+
+## Essentials
+
+- Never commit secrets (`.env`, tokens, API keys).
+- Use Conventional Commits 1.0.0 for commits and PR titles: `type(scope): description`.
+- Link the issue in the PR (`Closes #…`) and follow `.github/pull_request_template.md` when present.

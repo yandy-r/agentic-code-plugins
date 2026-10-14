@@ -12,20 +12,22 @@ Detailed reference for every flag accepted by `ycc:init`. See also `SKILL.md` fo
 
 ## Flag Matrix
 
-| Flag                        | Default     | Affects phases | Writes to                                                                                                                                                                                         | Example                               |
-| --------------------------- | ----------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| `--dry-run`                 | off         | 5 (halt)       | nothing                                                                                                                                                                                           | `ycc:init --dry-run`                  |
-| `--docs-only`               | off         | 2, 4 (skip)    | `AGENTS.md`, optional `CLAUDE.md`                                                                                                                                                                 | `ycc:init --docs-only`                |
-| `--templates`               | off         | 3 (extend)     | `.github/ISSUE_TEMPLATE/`, `.github/pull_request_template.md`, `.github/labels.md`, `.github/copilot-instructions.md`, `.github/workflows/pr-title.yml`, `.github/workflows/pr-title-autofix.yml` | `ycc:init --templates`                |
-| `--git`                     | off         | 3 (extend)     | `.gitignore`, `.gitmessage`, `commitlint.config.cjs` (JS/TS only), `lefthook.yml`, `scripts/install-lefthook.sh`, `docs/lefthook-usage.md`                                                        | `ycc:init --git`                      |
-| `--vendor-neutral`          | off         | 3 (extend)     | `.ai/rules/project.md` (pointer to `AGENTS.md`)                                                                                                                                                   | `ycc:init --vendor-neutral`           |
-| `--formatters`              | off         | 6.5 (delegate) | (delegates to `ycc:formatters` — see its flag matrix)                                                                                                                                             | `ycc:init --formatters`               |
-| `--release-model[=<model>]` | off (offer) | 5.5 (delegate) | `RELEASING.md` (via `ycc:release-model`)                                                                                                                                                          | `ycc:init --release-model=trunk-only` |
-| `--no-release-model`        | off         | 5.5 (skip)     | nothing                                                                                                                                                                                           | `ycc:init --no-release-model`         |
-| `--migrate-rules`           | off         | 5.7 (migrate)  | `AGENTS.md` (moved content), `CLAUDE.md` (pointer) — preview only with `--dry-run`                                                                                                                | `ycc:init --migrate-rules --dry-run`  |
-| `--update`                  | off         | 6 (merge)      | existing targets only                                                                                                                                                                             | `ycc:init --update`                   |
-| `--force`                   | off         | 6 (overwrite)  | all target files                                                                                                                                                                                  | `ycc:init --force`                    |
-| `--profile=<name>`          | auto-detect | 1 (skip)       | (drives template variables)                                                                                                                                                                       | `ycc:init --profile=rust`             |
+| Flag                        | Default     | Affects phases | Writes to                                                                                                                                                                                         | Example                                    |
+| --------------------------- | ----------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `--dry-run`                 | off         | 5 (halt)       | nothing                                                                                                                                                                                           | `ycc:init --dry-run`                       |
+| `--docs-only`               | off         | 2, 4 (skip)    | `AGENTS.md`, optional `CLAUDE.md`                                                                                                                                                                 | `ycc:init --docs-only`                     |
+| `--templates`               | off         | 3 (extend)     | `.github/ISSUE_TEMPLATE/`, `.github/pull_request_template.md`, `.github/labels.md`, `.github/copilot-instructions.md`, `.github/workflows/pr-title.yml`, `.github/workflows/pr-title-autofix.yml` | `ycc:init --templates`                     |
+| `--git`                     | off         | 3 (extend)     | `.gitignore`, `.gitmessage`, `commitlint.config.cjs` (JS/TS only), `lefthook.yml`, `scripts/install-lefthook.sh`, `docs/lefthook-usage.md`                                                        | `ycc:init --git`                           |
+| `--vendor-neutral`          | off         | 3 (extend)     | `.ai/rules/project.md` (pointer to `AGENTS.md`)                                                                                                                                                   | `ycc:init --vendor-neutral`                |
+| `--formatters`              | off         | 6.5 (delegate) | (delegates to `ycc:formatters` — see its flag matrix)                                                                                                                                             | `ycc:init --formatters`                    |
+| `--release-model[=<model>]` | off (offer) | 5.5 (delegate) | `RELEASING.md` (via `ycc:release-model`)                                                                                                                                                          | `ycc:init --release-model=trunk-only`      |
+| `--no-release-model`        | off         | 5.5 (skip)     | nothing                                                                                                                                                                                           | `ycc:init --no-release-model`              |
+| `--migrate-rules`           | off         | 5.7 (migrate)  | `AGENTS.md` (moved content), `CLAUDE.md` (pointer) — preview only with `--dry-run`                                                                                                                | `ycc:init --migrate-rules --dry-run`       |
+| `--allow-non-git`           | off         | 5.7            | timestamped backups of the rules files before migrating outside git                                                                                                                               | `ycc:init --migrate-rules --allow-non-git` |
+| `--no-claude-md`            | off         | 3              | skips the `@AGENTS.md` CLAUDE.md shim (needs Claude Code 2.1.277+)                                                                                                                                | `ycc:init --no-claude-md`                  |
+| `--update`                  | off         | 6 (merge)      | existing targets only                                                                                                                                                                             | `ycc:init --update`                        |
+| `--force`                   | off         | 6 (overwrite)  | all target files                                                                                                                                                                                  | `ycc:init --force`                         |
+| `--profile=<name>`          | auto-detect | 1 (skip)       | (drives template variables)                                                                                                                                                                       | `ycc:init --profile=rust`                  |
 
 ### `--profile` accepted values
 
@@ -158,9 +160,13 @@ from `{{#IF_RELEASE_MODEL}}` blocks — see `template-library.md`.
 
 Rules-only migration: profile, show the full unified diff and content-loss list, then ask
 for approval. `--dry-run` changes nothing; `--force` never bypasses the migration prompt.
-The helper refuses dirty rules files and symlinks. Moves project content into `AGENTS.md`,
-keeps Claude-specific sections in `CLAUDE.md` after `@AGENTS.md`, and never deletes files.
-Review every removed line in the diff and content-loss list before approving.
+The helper must run at the git root, refuses dirty, git-ignored or symlinked rules files
+(`--allow-non-git` opts in, with timestamped backups), and writes both files atomically.
+Routing is by heading: exact Claude runtime headings stay in `CLAUDE.md` after
+`@AGENTS.md`; everything else moves to `AGENTS.md`. Headings that merely mention Claude are
+routed to `AGENTS.md` and listed as ambiguous. An existing `AGENTS.md` is merged, not
+replaced, unless it is the short legacy pointer (its full text is shown). Review the
+per-section routing, content-loss list and diff before approving.
 
 ```text
 /ycc:init --migrate-rules --dry-run

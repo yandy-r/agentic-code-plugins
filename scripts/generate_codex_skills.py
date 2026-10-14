@@ -190,9 +190,12 @@ def write_tree(dest_root: Path, dry_run: bool) -> set[Path]:
                     "requested; rerun without `--team` using standalone dispatch.\n"
                 )
             else:
-                if rel.parts[0] == "release-model":
+                if rel.parts[0] in {"release-model", "init"}:
                     # These names describe the target repo's layout, not runtime rules.
                     text = text.replace("CLAUDE.md", "\x00RELEASE_MODEL_CLAUDE_FILE\x00")
+                    if rel.parts[0] == "init":
+                        # Version claims name the real product, not the target runtime.
+                        text = text.replace("Claude Code", "\x00INIT_CLAUDE_CODE\x00")
                 if src.name == "SKILL.md":
                     transformed = transform_skill_markdown(text, aliases)
                 else:
@@ -203,6 +206,7 @@ def write_tree(dest_root: Path, dry_run: bool) -> set[Path]:
                 if rel.parts and rel.parts[0] == "bundle-release":
                     transformed = restore_bundle_release_source_paths(transformed)
                 transformed = transformed.replace("\x00RELEASE_MODEL_CLAUDE_FILE\x00", "CLAUDE.md")
+                transformed = transformed.replace("\x00INIT_CLAUDE_CODE\x00", "Claude Code")
             out.write_text(transformed, encoding="utf-8")
         else:
             shutil.copyfile(src, out)

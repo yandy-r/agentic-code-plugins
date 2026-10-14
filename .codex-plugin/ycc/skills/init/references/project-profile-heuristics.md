@@ -1,10 +1,21 @@
 # Project Profile Heuristics
 
+## Contents
+
+- Detection Signal Table
+- Mixed Stack Handling
+- Existing-Artifact Detection Keys
+- Command detection notes
+- Empty Repo Fallback
+
 How `profile-project.sh` maps repository signals to a language/ecosystem profile.
 
 ---
 
 ## Detection Signal Table
+
+Commands are listed for the case where their signal exists (see _Command detection notes_);
+without the signal the key is `unknown` and templates render `# not detected`.
 
 | Detected file/pattern             | `primary_language` | `package_manager` | `test_cmd`           | `lint_cmd`                | `build_cmd`       |
 | --------------------------------- | ------------------ | ----------------- | -------------------- | ------------------------- | ----------------- |
@@ -56,9 +67,9 @@ These keys let the skill trigger update/merge semantics per artifact:
 
 | Key                       | Meaning                                                                                                                      |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `has_claude_md`           | `AGENTS.md` exists at the project root                                                                                       |
+| `has_claude_md`           | `CLAUDE.md` exists at the project root                                                                                       |
 | `has_agents_md`           | `AGENTS.md` exists at the project root                                                                                       |
-| `agents_md_is_pointer`    | True if the existing `AGENTS.md` is ≤40 lines and references `AGENTS.md` (legacy inverted pointer — offer `--migrate-rules`) |
+| `agents_md_is_pointer`    | True if the existing `AGENTS.md` is ≤40 lines and references `CLAUDE.md` (legacy inverted pointer — offer `--migrate-rules`) |
 | `has_cursor_rules`        | Either `.cursor/rules/` or legacy `.cursorrules` exists                                                                      |
 | `has_legacy_cursorrules`  | `.cursorrules` (legacy single-file) exists — triggers migration under `--update`                                             |
 | `has_modern_cursor_rules` | `.cursor/rules/` directory exists                                                                                            |
@@ -96,3 +107,17 @@ When `is_empty=true` (no manifest files found, fewer than 3 source files total):
   bootstrapping from a pre-seeded directory).
 
 ---
+
+---
+
+## Command detection notes
+
+- JS/TS: `test`, `build` need the matching `package.json` script; `lint` needs `lint` or
+  `lint:check`. Detection uses `jq`; if `jq` is missing the script warns on stderr and
+  reports `unknown` rather than guessing.
+- Python: `pytest` needs the dependency, a `[tool.pytest]` table, or a pytest config /
+  `conftest.py`; `ruff` needs the dependency, a `[tool.ruff]` table or `ruff.toml`; a build
+  command needs `[build-system]`. Comments in manifests are ignored.
+- Go: `go vet ./...`, or `golangci-lint run` when a `.golangci.*` config exists.
+- Mixed repos: commands come from the first detected stack; `secondary_languages` lists the
+  rest, and the renderer keeps every component language's block.

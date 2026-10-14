@@ -1,7 +1,7 @@
 ---
 name: init
 description: 'Initializes project AI-agent docs and workspace conventions. Use when generating agent rules docs, adding GitHub templates, or bootstrapping project rules.'
-argument-hint: '[--dry-run] [--docs-only] [--templates] [--git] [--vendor-neutral] [--formatters] [--release-model[=trunk-only|release-branches]] [--no-release-model] [--migrate-rules] [--update] [--force] [--profile=rust|ts-node|python|go|mixed|empty]'
+argument-hint: '[--dry-run] [--docs-only] [--templates] [--git] [--vendor-neutral] [--formatters] [--release-model[=trunk-only|release-branches]] [--no-release-model] [--migrate-rules] [--allow-non-git] [--no-claude-md] [--update] [--force] [--profile=rust|ts-node|python|go|mixed|empty]'
 allowed-tools:
   - Read
   - Grep
@@ -20,7 +20,7 @@ allowed-tools:
 
 # Claude CLI Workspace Initialization
 
-Profiles the project, authors the canonical tool-neutral `AGENTS.md` rules file (with a `@AGENTS.md`-importing `CLAUDE.md` only when there is Claude-specific content), and optionally emits GitHub issue templates and git convention files — all flag-driven, non-destructive by default.
+Profiles the project, authors the canonical tool-neutral `AGENTS.md` rules file (with a compatibility `@AGENTS.md`-importing `CLAUDE.md` shim and optional Claude-only notes), and optionally emits GitHub issue templates and git convention files — all flag-driven, non-destructive by default.
 
 ## Current Project Context
 
@@ -30,20 +30,22 @@ Profiles the project, authors the canonical tool-neutral `AGENTS.md` rules file 
 
 ## Arguments
 
-| Flag                        | Meaning                                                                            | Example                                |
-| --------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------- |
-| `--dry-run`                 | Preview every planned file; make no writes                                         | `/ycc:init --dry-run`                  |
-| `--docs-only`               | Skip MCP/agent selection; emit the rules files only                                | `/ycc:init --docs-only`                |
-| `--templates`               | Also emit `.github/` issue forms, PR template, labels                              | `/ycc:init --templates`                |
-| `--git`                     | Also emit `.gitignore`, `.gitmessage`, commitlint (JS/TS), and the lefthook bundle | `/ycc:init --git`                      |
-| `--vendor-neutral`          | Also emit `.ai/rules/project.md` pointer to `AGENTS.md`                            | `/ycc:init --vendor-neutral`           |
-| `--formatters`              | Also bootstrap lint/format via `ycc:formatters` (scripts, configs, aliases, docs)  | `/ycc:init --formatters`               |
-| `--release-model[=<model>]` | Run `ycc:release-model` without asking when `RELEASING.md` is missing              | `/ycc:init --release-model=trunk-only` |
-| `--no-release-model`        | Never offer `ycc:release-model`                                                    | `/ycc:init --no-release-model`         |
-| `--migrate-rules`           | Move an existing long `CLAUDE.md` into `AGENTS.md` (dry-run diff first)            | `/ycc:init --migrate-rules`            |
-| `--update`                  | Structured refresh of existing artifacts (merge/migrate, never clobber)            | `/ycc:init --update`                   |
-| `--force`                   | Overwrite existing files without prompting                                         | `/ycc:init --force`                    |
-| `--profile=<lang>`          | Override detected language (`rust`, `ts-node`, `python`, `go`, `mixed`, `empty`)   | `/ycc:init --profile=rust`             |
+| Flag                        | Meaning                                                                                       | Example                                     |
+| --------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `--dry-run`                 | Preview every planned file; make no writes                                                    | `/ycc:init --dry-run`                       |
+| `--docs-only`               | Skip MCP/agent selection; emit the rules files only                                           | `/ycc:init --docs-only`                     |
+| `--templates`               | Also emit `.github/` issue forms, PR template, labels                                         | `/ycc:init --templates`                     |
+| `--git`                     | Also emit `.gitignore`, `.gitmessage`, commitlint (JS/TS), and the lefthook bundle            | `/ycc:init --git`                           |
+| `--vendor-neutral`          | Also emit `.ai/rules/project.md` pointer to `AGENTS.md`                                       | `/ycc:init --vendor-neutral`                |
+| `--formatters`              | Also bootstrap lint/format via `ycc:formatters` (scripts, configs, aliases, docs)             | `/ycc:init --formatters`                    |
+| `--release-model[=<model>]` | Run `ycc:release-model` without asking when `RELEASING.md` is missing                         | `/ycc:init --release-model=trunk-only`      |
+| `--no-release-model`        | Never offer `ycc:release-model`                                                               | `/ycc:init --no-release-model`              |
+| `--migrate-rules`           | Move an existing long `CLAUDE.md` into `AGENTS.md` (dry-run diff first)                       | `/ycc:init --migrate-rules`                 |
+| `--allow-non-git`           | With `--migrate-rules`: permit non-git or git-ignored rules files (timestamped backups first) | `/ycc:init --migrate-rules --allow-non-git` |
+| `--no-claude-md`            | Skip the `@AGENTS.md` `CLAUDE.md` shim (needs Claude Code 2.1.277+)                           | `/ycc:init --no-claude-md`                  |
+| `--update`                  | Structured refresh of existing artifacts (merge/migrate, never clobber)                       | `/ycc:init --update`                        |
+| `--force`                   | Overwrite existing files without prompting                                                    | `/ycc:init --force`                         |
+| `--profile=<lang>`          | Override detected language (`rust`, `ts-node`, `python`, `go`, `mixed`, `empty`)              | `/ycc:init --profile=rust`                  |
 
 Flags are composable. See `references/flag-reference.md` for the full matrix.
 
@@ -64,6 +66,8 @@ Extract mode booleans from `$ARGUMENTS`:
 - `RELEASE_MODEL` — true if `--release-model` or `--release-model=<model>` present
 - `RELEASE_MODEL_VALUE` — `<model>` from `--release-model=<model>`, else empty. Must be `trunk-only` or `release-branches`; any other value is an error before any phase runs.
 - `NO_RELEASE_MODEL` — true if `--no-release-model` present. Combining it with `--release-model` is an error before any phase runs.
+- `ALLOW_NON_GIT` — true if `--allow-non-git` present (only meaningful with `--migrate-rules`).
+- `NO_CLAUDE_MD` — true if `--no-claude-md` present.
 - `MIGRATE_RULES` — true if `--migrate-rules` present. Runs only the rules migration (Phase 5.7); combine with `--dry-run` for the preview without a prompt.
 - `UPDATE` — true if `--update` present
 - `FORCE` — true if `--force` present
@@ -101,14 +105,14 @@ Feed the agent's output into the `AGENTS.md` rendering in Phase 3 (conventions a
 
 ### Phase 3 — Render templates
 
-Load each applicable `.tmpl` file from `${CLAUDE_PLUGIN_ROOT}/skills/init/templates/`. Substitute all `{{PLACEHOLDER}}` variables using profile values from Phase 1 (and Phase 2 if run). For language-conditional blocks (`{{#IF_RUST}}...{{/IF_RUST}}` etc.), include only the block matching `primary_language`. Leave `{{#IF_RELEASE_MODEL}}...{{/IF_RELEASE_MODEL}}` blocks (in `AGENTS.md.tmpl` and `github/labels.md.tmpl`) unresolved — Phase 5 (dry run) or Phase 5.5 resolves them. Render all files in memory — do NOT write yet. `scripts/render-template.sh --template <file>` (profile on stdin) renders a template without writing; it substitutes commands as `# not detected` when `profile-project.sh` reports `unknown`, so never invent a command.
+Load each applicable `.tmpl` file from `${CLAUDE_PLUGIN_ROOT}/skills/init/templates/`. Substitute all `{{PLACEHOLDER}}` variables using profile values from Phase 1 (and Phase 2 if run). For language-conditional blocks (`{{#IF_RUST}}...{{/IF_RUST}}` etc.), include only the block matching `primary_language`. Leave `{{#IF_RELEASE_MODEL}}...{{/IF_RELEASE_MODEL}}` blocks (in `AGENTS.md.tmpl` and `github/labels.md.tmpl`) unresolved — Phase 5 (dry run) or Phase 5.5 resolves them. Render all files in memory — do NOT write yet. `scripts/render-template.sh --template <bundled-template> [--profile -]` (profile on stdin; needs Bash 3.2+ and Python 3) renders a template without writing (a thin wrapper over `scripts/render-template.py`). It only reads templates under the skill's own `templates/` directory. A command that `profile-project.sh` reports as `unknown` renders as `# not detected` inside fenced shell blocks, and any template that would put it into YAML (`run:`) or a checklist guards it with `IF_*_CMD` / `IF_NO_*_CMD` blocks instead (lefthook `pre-push` is omitted, with a comment, when no test command is detected). If `profile-project.sh` warns that `jq` is missing, say so in the Phase 1 summary: JS/TS commands could not be detected and will render as `# not detected`. Mixed-language profiles keep the language blocks of every component language in `secondary_languages`.
 
 Rendering map:
 
 | Condition                                                      | Source template                              | Target path                                  |
 | -------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------- |
 | Always                                                         | `AGENTS.md.tmpl`                             | `AGENTS.md` (canonical, ≤80 template lines)  |
-| Claude-only content exists (see below)                         | `CLAUDE.md.tmpl`                             | `CLAUDE.md` (`@AGENTS.md` + short section)   |
+| Unless `NO_CLAUDE_MD=true` (see below)                         | `CLAUDE.md.tmpl`                             | `CLAUDE.md` (`@AGENTS.md` + short section)   |
 | Path-scoped rules exist (see below)                            | `cursor-rule.mdc.tmpl`                       | `.cursor/rules/<scope>.mdc`                  |
 | `VENDOR_NEUTRAL=true`                                          | `ai-rule.md.tmpl`                            | `.ai/rules/project.md` (pointer)             |
 | `TEMPLATES=true`                                               | `github/bug_report.yml.tmpl`                 | `.github/ISSUE_TEMPLATE/bug_report.yml`      |
@@ -127,11 +131,11 @@ Rendering map:
 | `GIT=true`                                                     | `git/lefthook-usage.md.tmpl`                 | `docs/lefthook-usage.md`                     |
 | `GIT=true` AND `primary_language` in `{typescript,javascript}` | `git/commitlint.config.cjs.tmpl`             | `commitlint.config.cjs`                      |
 
-**Rules-file shape**: `AGENTS.md` is the single canonical rules file (detected commands, project conventions, MUST / MUST NOT, a one-line Conventional Commits rule, links) — no commit-types table, no stack table, no generic SHOULDs. Do not create `CLAUDE.md` unless Phase 2 or the user supplied Claude-specific content; then render it as `@AGENTS.md` plus a short `## Claude-only notes` section (≤15 lines total) and say in the Phase 7 report when it was skipped. Emit `.cursor/rules/*.mdc` only for path-scoped rules (`alwaysApply: false`, real `globs`); Cursor reads `AGENTS.md`, so never emit an always-apply copy of the project rules. `copilot-instructions.md` is a pointer to `AGENTS.md` plus the commands.
+**Rules-file shape**: `AGENTS.md` is the single canonical rules file (detected commands, project conventions, MUST / MUST NOT, a one-line Conventional Commits rule, links) — no commit-types table, no stack table, no generic SHOULDs. `CLAUDE.md` is always rendered as the `@AGENTS.md` shim (plus a short `## Claude-only notes` section, ≤15 lines total, when Phase 2 or the user supplied Claude-specific content), because Claude Code reads `CLAUDE.md`, not `AGENTS.md`, in versions before 2.1.277; newer versions fall back to `AGENTS.md` when no `CLAUDE.md` exists, so omitting the shim is version-dependent. Skip the shim only with `--no-claude-md` or an explicit user choice, and then state the 2.1.277+ requirement in the Phase 7 report. Emit `.cursor/rules/*.mdc` only for path-scoped rules (`alwaysApply: false`, real `globs`); recent Cursor versions read a root `AGENTS.md` when available (verify for your version), so never emit an always-apply copy of the project rules; offer `--vendor-neutral` or a path-scoped rule if the user's Cursor does not. `copilot-instructions.md` points at `AGENTS.md` but does not rely on Copilot following the link: it also carries the detected commands and three repo-neutral essentials (no secrets, Conventional Commits, issue link).
 
 **Language-block selection**: for every template except `gitignore.tmpl`, include only the block matching `primary_language`. For `gitignore.tmpl`, include every block whose language appears in `primary_language` or `secondary_languages` (comma-separated) so mixed-stack repos get every applicable section. For `gitignore.tmpl`, `javascript` is treated as `typescript` for `{{#IF_TS}}` activation; `terraform` activates `{{#IF_TERRAFORM}}`.
 
-Fill `PROJECT_CONVENTIONS` with verified project-specific architecture/naming constraints from existing docs, Phase 2, or the user; if none are known, use "No additional project-specific conventions detected." Never stamp generic language conventions or assumed tools. Use `--keep IF_CLAUDE_ONLY --set CLAUDE_ONLY_NOTES=...` for the optional Claude template.
+Fill `PROJECT_CONVENTIONS` with verified project-specific architecture/naming constraints from existing docs, Phase 2, or the user; if none are known, use "No additional project-specific conventions detected." Never stamp generic language conventions or assumed tools. Use `--keep IF_CLAUDE_ONLY --set CLAUDE_ONLY_NOTES=...` for the optional Claude-only notes.
 
 See `references/template-library.md` for placeholder definitions.
 
@@ -177,10 +181,10 @@ Decide whether to create `RELEASING.md` (the project's branching and release rul
 
 Runs instead of Phases 2–6.5 (profile only), for repos that already have a long `CLAUDE.md`. Never silently rewrites it.
 
-1. Run `${CLAUDE_PLUGIN_ROOT}/skills/init/scripts/migrate-rules.sh --repo . --dry-run` and show the full output: the move diff for `AGENTS.md` and `CLAUDE.md`, new line counts, and the **content-loss list** (every section dropped rather than moved, and any replaced pointer-style `AGENTS.md`). Nothing is written.
+1. Run `${CLAUDE_PLUGIN_ROOT}/skills/init/scripts/migrate-rules.sh --repo . --dry-run` (a Bash 3.2 entrypoint for `scripts/migrate-rules.py`, which shares the `@AGENTS.md` import parser in `scripts/rules_file_lib.py` with release-model's `pointer-targets.sh`) and show the full output: the move diff for `AGENTS.md` and `CLAUDE.md`, new line counts, and the **content-loss list** (the full text of any replaced legacy pointer `AGENTS.md`, sections skipped as duplicates, and merge conflicts). Nothing is written.
 2. With `DRY_RUN=true`, stop here.
-3. Otherwise ask once: "Apply this migration?" The script refuses to write over uncommitted `CLAUDE.md`/`AGENTS.md` changes, so git can always restore the originals. On yes, run the same command with `--yes` instead of `--dry-run`. On no, stop; nothing changed.
-4. Content moves to `AGENTS.md` and `CLAUDE.md` becomes `@AGENTS.md` plus its Claude-specific sections. Files are never deleted. Report the new line counts per Phase 7.
+3. Otherwise ask once: "Apply this migration?" The script refuses outside the git root, over uncommitted changes, or for git-ignored/symlinked rules files; `--allow-non-git` is the explicit opt-in for those cases. Every apply first copies both files to a timestamped backup directory (printed in the output) and writes via temp file + atomic rename, restoring from the backup if the pair cannot be completed. Routing is heading-based and shown per section: only exact Claude runtime headings stay in `CLAUDE.md`; everything else moves to `AGENTS.md`, and headings that merely mention Claude are routed to `AGENTS.md` and listed as ambiguous for review. On yes, run the same command with `--yes` instead of `--dry-run`. On no, stop; nothing changed.
+4. Content moves to `AGENTS.md`; only exact Claude runtime headings remain after `@AGENTS.md`. Nothing is deleted (a replaced legacy pointer's full text is printed), ambiguous headings are reported, and no duplicate H1/headings are created. Report the new line counts per Phase 7.
 
 ### Phase 6 — Apply
 
@@ -201,7 +205,7 @@ For each rendered file from Phase 3, apply the resolution rule below. Never sile
 | `CLAUDE.md` (already `@AGENTS.md`)                        | Leave untouched.                                                                                                                                                                                          |
 | `CLAUDE.md` (long, no `@AGENTS.md`)                       | Never rewrite. Print the line count and offer `--migrate-rules` (dry-run diff first). Without it, leave the file and `AGENTS.md` as they are.                                                             |
 | `.cursor/rules/<scope>.mdc`                               | Overwrite body content; preserve any non-standard frontmatter keys the user added beyond `description`, `globs`, `alwaysApply`.                                                                           |
-| `.cursor/rules/project.mdc` (legacy always-apply copy)    | Leave as is; advise removing it once `AGENTS.md` is canonical (Cursor reads `AGENTS.md`).                                                                                                                 |
+| `.cursor/rules/project.mdc` (legacy always-apply copy)    | Leave as is; advise removing it once `AGENTS.md` is canonical (Cursor reads `AGENTS.md` when available; verify your version).                                                                             |
 | `.cursorrules` (legacy, `has_legacy_cursorrules=true`)    | Offer `--migrate-rules`-style review: show its content, fold project-specific lines into `AGENTS.md`, and advise deleting `.cursorrules` (do not delete automatically).                                   |
 | `.ai/rules/project.md`                                    | Overwrite the pointer body.                                                                                                                                                                               |
 | `.github/ISSUE_TEMPLATE/*.yml`                            | Per template: if missing → create; if present → show diff and default to skip (issue forms are often customized). `--update --force` overwrites.                                                          |
@@ -239,9 +243,9 @@ If the formatters skill exits with an error, record the failure in the Phase 7 s
 
 Produce a summary using `${CLAUDE_PLUGIN_ROOT}/skills/init/templates/workspace-report.md` as the base. Extend it with these sections appended after the existing MCP/agents tables:
 
-**Docs emitted** — list each path written, or "skipped: user chose keep". State explicitly when `CLAUDE.md` was not created because there was no Claude-specific content.
+**Docs emitted** — list each path written, or "skipped: user chose keep". State explicitly when the user opted out of the CLAUDE.md shim (requires Claude Code 2.1.277+ for native AGENTS.md fallback).
 
-**Rules files** — one line per rules file that exists after the run (`AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`, `.cursor/rules/*.mdc`) with its line count, e.g. `AGENTS.md: 31 lines`. Mark any file over 200 lines `⚠ over 200 lines — long rules files lose adherence; trim or run --migrate-rules`. Count with `wc -l`, do not estimate.
+**Rules files** — one line per rules file that exists after the run (`AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`, `.cursor/rules/*.mdc`) with its line count, e.g. `AGENTS.md: 31 lines`. Mark any file over 200 lines `⚠ over 200 lines — long rules files lose adherence; trim or run --migrate-rules`. Run `${CLAUDE_PLUGIN_ROOT}/skills/init/scripts/rules-report.sh` to produce these lines; do not estimate.
 
 **GitHub templates emitted** — list each `.github/` path written (omit section if `TEMPLATES=false`).
 
