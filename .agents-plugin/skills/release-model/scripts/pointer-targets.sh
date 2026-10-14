@@ -27,8 +27,7 @@ if claude.is_file():
             continue
         if fence:
             continue
-        line = re.sub(r"(`+).*?\1", "", line)
-        if re.search(r"(?:^|\s)@(?:\./)?AGENTS\.md(?=$|\s|[,;])", line):
+        if re.fullmatch(r"\s*@(?:\./)?AGENTS\.md\s*", line):
             imports_agents = True
             break
 

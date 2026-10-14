@@ -151,6 +151,20 @@ test_pointer_targets() {
     "CLAUDE.md AGENTS.md .github/copilot-instructions.md " \
     "pointer-targets: commented/inline/fenced @AGENTS.md is not an import"
 
+  # Prose that merely mentions the token is not an import directive.
+  printf '# Notes\nAdd @AGENTS.md later.\nSee `@AGENTS.md` and @AGENTS.md, too.\n' >"${dir}/CLAUDE.md"
+  assert_eq "$(bash "$POINTER_TARGETS" --repo "$dir" | tr '\n' ' ')" \
+    "CLAUDE.md AGENTS.md .github/copilot-instructions.md " \
+    "pointer-targets: prose mention of @AGENTS.md is not an import"
+
+  # Generated runtime bundles keep CLAUDE.md as the importer (target-repo file name).
+  local bundle
+  for bundle in .codex-plugin/ycc/skills .opencode-plugin/skills .agents-plugin/skills; do
+    assert_contains "$(cat "$REPO_ROOT/$bundle/release-model/references/pointer-and-labels.md")" \
+      "When \`CLAUDE.md\` imports \`AGENTS.md\`" \
+      "pointer-targets: $bundle keeps CLAUDE.md as importer"
+  done
+
   # A dangling import must fail loudly instead of silently skipping CLAUDE.md.
   printf '@AGENTS.md\n' >"${dir}/CLAUDE.md"
   rm "${dir}/AGENTS.md"

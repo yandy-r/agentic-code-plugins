@@ -189,15 +189,20 @@ def write_tree(dest_root: Path, dry_run: bool) -> set[Path]:
                     "Agent teams (`--team`) are unsupported in the Codex bundle. Abort if "
                     "requested; rerun without `--team` using standalone dispatch.\n"
                 )
-            elif src.name == "SKILL.md":
-                transformed = transform_skill_markdown(text, aliases)
             else:
-                transformed = apply_codex_text_transforms(
-                    rewrite_plugin_paths(text),
-                    aliases,
-                )
-            if rel.parts and rel.parts[0] == "bundle-release":
-                transformed = restore_bundle_release_source_paths(transformed)
+                if rel.parts[0] == "release-model":
+                    # These names describe the target repo's layout, not runtime rules.
+                    text = text.replace("CLAUDE.md", "\x00RELEASE_MODEL_CLAUDE_FILE\x00")
+                if src.name == "SKILL.md":
+                    transformed = transform_skill_markdown(text, aliases)
+                else:
+                    transformed = apply_codex_text_transforms(
+                        rewrite_plugin_paths(text),
+                        aliases,
+                    )
+                if rel.parts and rel.parts[0] == "bundle-release":
+                    transformed = restore_bundle_release_source_paths(transformed)
+                transformed = transformed.replace("\x00RELEASE_MODEL_CLAUDE_FILE\x00", "CLAUDE.md")
             out.write_text(transformed, encoding="utf-8")
         else:
             shutil.copyfile(src, out)

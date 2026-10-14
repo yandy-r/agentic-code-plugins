@@ -11,7 +11,7 @@ Create, upgrade, or audit a project's `RELEASING.md` — the single source of tr
 trunk, maintenance branches, and release steps. Every other ycc skill that picks a base
 branch, opens a PR, cuts a release, or cleans up branches reads it through `release-state.sh`.
 
-**Operational context:** Render project-specific RELEASING.md with machine-readable state and AGENTS.md/AGENTS.md pointers. Trunk-only tags every release from trunk; release-branches tags minors from trunk and patches from release/X.Y with backports. --upgrade moves to release-branches; --audit reports drift read-only.
+**Operational context:** Render project-specific RELEASING.md with machine-readable state and CLAUDE.md/AGENTS.md pointers. Trunk-only tags every release from trunk; release-branches tags minors from trunk and patches from release/X.Y with backports. --upgrade moves to release-branches; --audit reports drift read-only.
 
 The rules themselves (both models, where a change goes, backporting, the state-block
 format) live in `~/.config/opencode/shared/references/branching-model.md`. Cite
@@ -62,7 +62,7 @@ Script paths used below:
 | exit 0, `present=1`      | `--audit`   | audit                                                                               |
 | exit 2 (malformed state) | any         | show the stderr parse error verbatim, then audit (the error is the first finding)   |
 
-A dirty working tree does not block: this skill only touches `RELEASING.md`, `AGENTS.md`,
+A dirty working tree does not block: this skill only touches `RELEASING.md`, `CLAUDE.md`,
 `AGENTS.md`, `.github/copilot-instructions.md`, and `.github/labels.md`. If any of those
 has uncommitted changes, warn before writing to it.
 
@@ -130,7 +130,7 @@ Build the file in a scratch directory (`SCRATCH=$(mktemp -d)`), never in `ROOT` 
    `vX.Y.Z`, `{{VERSION_FILES}}` as backticked comma list, `{{CHANGELOG_FILE}}`,
    `{{PUBLISH_STEP}}`, `{{TRACKER_SECTION}}`). When the project already has its own
    release tooling — a release script or npm/make target, a documented release command in
-   `AGENTS.md`/`CONTRIBUTING.md`, a release-notes directory — name it in `{{PUBLISH_STEP}}`
+   `CLAUDE.md`/`CONTRIBUTING.md`, a release-notes directory — name it in `{{PUBLISH_STEP}}`
    and adapt the numbered Releasing steps so they match what maintainers actually do.
    Keep the section structure.
 5. Write the result to `$SCRATCH/RELEASING.md`, then run
@@ -146,11 +146,11 @@ Build the file in a scratch directory (`SCRATCH=$(mktemp -d)`), never in `ROOT` 
 ## Phase 4 — Pointer sections
 
 For each `POINTER_TARGET` below (every line `$TARGETS --repo "$ROOT"` prints: existing
-`AGENTS.md`, `AGENTS.md`, and `.github/copilot-instructions.md` — never create one), read
+`CLAUDE.md`, `AGENTS.md`, and `.github/copilot-instructions.md` — never create one), read
 the pointer section in `references/pointer-and-labels.md#pointer-section` and add it unless
 a line matching `^## Branching & releases` is already present — then leave the file untouched
 and report "already present". Append it at the end of the file, separated by one blank line.
-When neither `AGENTS.md` nor `AGENTS.md` exists, report that and suggest `/init`.
+When neither `CLAUDE.md` nor `AGENTS.md` exists, report that and suggest `/init`.
 
 ## Phase 5 — Labels doc (release-branches only)
 

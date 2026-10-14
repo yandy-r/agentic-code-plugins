@@ -199,6 +199,9 @@ def write_tree(dest_root: Path, dry_run: bool) -> set[Path]:
 
         if should_transform_text(src):
             text = src.read_text(encoding="utf-8")
+            if rel.parts[0] == "release-model":
+                # These names describe the target repo's layout, not runtime rules.
+                text = text.replace("CLAUDE.md", "\x00RELEASE_MODEL_CLAUDE_FILE\x00")
             if src.name == "SKILL.md":
                 transformed = transform_skill_markdown(text, aliases, rel)
             else:
@@ -209,7 +212,10 @@ def write_tree(dest_root: Path, dry_run: bool) -> set[Path]:
                 transformed = project_opencode_dispatch(transformed, rel)
             if rel.parts and rel.parts[0] == "bundle-release":
                 transformed = restore_bundle_release_source_paths(transformed)
-            out.write_text(transformed, encoding="utf-8")
+            out.write_text(
+                transformed.replace("\x00RELEASE_MODEL_CLAUDE_FILE\x00", "CLAUDE.md"),
+                encoding="utf-8",
+            )
         else:
             shutil.copyfile(src, out)
         copy_mode(src, out)
