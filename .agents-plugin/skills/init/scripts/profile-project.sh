@@ -7,10 +7,32 @@
 #
 # Output: one key=value per line, machine-readable, no shell quoting.
 # Python detection needs Python 3.11+ (tomllib); shell entrypoint is Bash 3.2-compatible.
-# Errors: written to stderr. Partial detection never fails.
+# Requires python3 3.11+ for every stack. Errors stay visible on stderr.
 # Exit codes: 0 = success, 1 = argument error (bad/missing path).
 
 set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Python 3.11+ guard: runs before any profiling so an unsupported interpreter
+# aborts with a readable message and no partial key=value output.
+# ---------------------------------------------------------------------------
+_pp_script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_SHARED_SEG="/_shared/scripts"; _SHARED_SEG_FLAT="/shared/scripts"; _SHARED_SEG_AGENTS="/ycc-shared/scripts"
+_pp_shared=""
+for _pp_cand in "${_pp_script_dir}/../..${_SHARED_SEG}" \
+                "${_pp_script_dir}/../../..${_SHARED_SEG_FLAT}" \
+                "${_pp_script_dir}/../../..${_SHARED_SEG_AGENTS}"; do
+  if [[ -f "${_pp_cand}/require-python.sh" ]]; then
+    _pp_shared="$_pp_cand"
+    break
+  fi
+done
+if [[ -z "$_pp_shared" ]]; then
+  echo "[profile-project] ERROR: shared require-python.sh not found (broken ycc install)" >&2
+  exit 1
+fi
+# shellcheck source=/dev/null
+. "${_pp_shared}/require-python.sh"
 
 # ---------------------------------------------------------------------------
 # Argument handling
@@ -243,7 +265,7 @@ from pathlib import Path
 root = Path(sys.argv[1])
 manifest = root / "pyproject.toml"
 try:
-    data = tomllib.loads(manifest.read_text(encoding="utf-8")) if manifest.exists() else {}
+    data = tomllib.loads(manifest.read_bytes().decode("utf-8-sig")) if manifest.exists() else {}
 except (ValueError, OSError) as exc:
     print(f"[profile-project] WARN: cannot parse pyproject.toml: {exc}", file=sys.stderr)
     data = {}
@@ -260,7 +282,7 @@ for group in poetry.get("group", {}).values():
 for name in ("requirements.txt", "requirements-dev.txt", "requirements-test.txt"):
     path = root / name
     if path.is_file():
-        deps.extend(line.split("#", 1)[0].strip() for line in path.read_text(encoding="utf-8").splitlines())
+        deps.extend(line.split("#", 1)[0].strip() for line in path.read_bytes().decode("utf-8-sig").splitlines())
 
 def has_dep(pkg: str) -> bool:
     return any(re.match(r"^" + re.escape(pkg) + r"(?:$|[\[\s><=!~;])", item, re.I)
@@ -323,15 +345,17 @@ file_exists "CLAUDE.md" && has_claude_md=true
 has_agents_md=false
 file_exists "AGENTS.md" && has_agents_md=true
 
-# Heuristic: a pointer-style AGENTS.md is short and mentions CLAUDE.md.
-# Anything longer than 40 lines or missing the phrase is treated as custom content.
+# Query the shared canonical parser before emitting any profile output.
+# Capture its status directly (not through a pipeline) so read errors abort.
+rules_profile="$("${_pp_shared}/rules-pointer.sh" profile --repo "$project_root")"
 agents_md_is_pointer=false
-if [[ "$has_agents_md" == "true" ]]; then
-    agents_lines=$(wc -l < "${project_root}/AGENTS.md" 2>/dev/null | tr -d ' ')
-    if [[ "$agents_lines" -le 40 ]] && grep -qi "CLAUDE.md" "${project_root}/AGENTS.md" 2>/dev/null; then
-        agents_md_is_pointer=true
-    fi
-fi
+claude_md_imports_agents=false
+while IFS='=' read -r key value; do
+    case "$key" in
+        agents_md_is_pointer) agents_md_is_pointer="$value" ;;
+        claude_md_imports_agents) claude_md_imports_agents="$value" ;;
+    esac
+done <<<"$rules_profile"
 
 has_issue_templates=false
 if dir_exists ".github/ISSUE_TEMPLATE"; then
@@ -417,6 +441,7 @@ echo "has_modern_cursor_rules=${has_modern_cursor_rules}"
 echo "has_claude_md=${has_claude_md}"
 echo "has_agents_md=${has_agents_md}"
 echo "agents_md_is_pointer=${agents_md_is_pointer}"
+echo "claude_md_imports_agents=${claude_md_imports_agents}"
 echo "has_issue_templates=${has_issue_templates}"
 echo "has_pr_template=${has_pr_template}"
 echo "has_gitmessage=${has_gitmessage}"

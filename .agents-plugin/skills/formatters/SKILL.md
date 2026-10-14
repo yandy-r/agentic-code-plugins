@@ -28,8 +28,9 @@ Installs a best-practices lint/format environment into a target project. Does no
 
 ## Current Target Context
 
-- **Working Directory**: !`pwd`
-- **Profile detection**: !`~/.agents/skills/formatters/scripts/profile-style.sh 2>/dev/null | head -30`
+- **Profile detection** (complete `key=value` output, `project_root` last): !`~/.agents/skills/formatters/scripts/profile-style.sh`
+
+Context injection is one scoped helper call: no `pwd`, `head`, `2>/dev/null`, or pipeline. Compound pipelines are host-permission behavior (a headless caller allowlist may reject them even when each segment is allowed), and `head -30` previously dropped profile keys. Do not widen `allowed-tools` with `head`, `find`, `wc`, or `pwd`; run each helper as a single command.
 
 ## Arguments
 
@@ -73,7 +74,7 @@ Validation:
 
 ### Phase 1 — Profile
 
-Run `~/.agents/skills/formatters/scripts/profile-style.sh "$TARGET"` and write the output to a temp file (e.g., `mktemp`). Parse it into variables using awk/grep.
+Run `~/.agents/skills/formatters/scripts/profile-style.sh "$TARGET"` as one command. Keep every key (including `project_root`, `docs_target`, and hook/CI keys); parse the returned text in the caller. If an applier needs `--profile-file`, save that complete text with Write rather than an outer redirect or pipeline.
 
 Stack-flag resolution:
 

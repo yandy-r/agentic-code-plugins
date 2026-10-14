@@ -259,5 +259,6 @@ for candidate in README.md readme.md CONTRIBUTING.md AGENTS.md AGENTS.md; do
     fi
 done
 emit docs_target "$docs_target"
+emit project_root "$project_root"
 
 exit 0

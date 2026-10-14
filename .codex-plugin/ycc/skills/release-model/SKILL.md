@@ -44,6 +44,7 @@ Script paths used below:
 - `STATE=~/.codex/plugins/ycc/shared/scripts/release-state.sh`
 - `TARGETS=~/.codex/plugins/ycc/skills/release-model/scripts/pointer-targets.sh`
 - `UPDATE=~/.codex/plugins/ycc/shared/scripts/release-state-update.sh`
+- `POINTER=~/.codex/plugins/ycc/shared/scripts/rules-pointer.sh` — the single canonical `AGENTS.md`/`CLAUDE.md` pointer helper shared with `init`; `$TARGETS` delegates to it. Release-model only reads it: it never migrates a layout and never creates a missing rules file.
 - `TEMPLATE=~/.codex/plugins/ycc/skills/release-model/templates/RELEASING.md.tmpl`
 
 ## Phase 0 — Preflight and mode
@@ -108,7 +109,7 @@ assembling the Phase 2 proposal — it holds the details and the reason-to-model
 
 Build the file in a scratch directory (`SCRATCH=$(mktemp -d)`), never in `ROOT` yet.
 
-1. Read `$TEMPLATE` and `~/.codex/plugins/ycc/skills/release-model/references/template-placeholders.md`.
+1. Read `$TEMPLATE` as UTF-8 with optional leading BOM stripped (`utf-8-sig` semantics), and `~/.codex/plugins/ycc/skills/release-model/references/template-placeholders.md`.
 2. **Conditional blocks:** for `release-branches` keep `{{#IF_RELEASE_BRANCHES}}` blocks
    and drop `{{#IF_TRUNK_ONLY}}` blocks; for `trunk-only` the reverse. Delete the marker
    lines of kept blocks and the whole of dropped blocks (markers included), then collapse

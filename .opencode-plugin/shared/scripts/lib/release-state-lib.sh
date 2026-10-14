@@ -69,7 +69,8 @@ rs_normalize_list() {
 # rs_extract_block <file> — print the raw lines inside the state block.
 # Returns 3 when the file has no block.
 rs_extract_block() {
-  awk '
+  LC_ALL=C awk '
+    NR == 1 { sub(/^\357\273\277/, "") }
     { sub(/\r$/, "") }
     /^<!-- ycc-release-state[[:space:]]*$/ { inblock = 1; found = 1; next }
     inblock && /^-->[[:space:]]*$/ { inblock = 0; closed = 1; exit }
@@ -243,7 +244,8 @@ rs_render_table() {
 # rs_extract_table <file> — print the existing table section (markers
 # included, CR stripped). Returns 3 when the markers are missing.
 rs_extract_table() {
-  awk -v begin="$RS_TABLE_BEGIN" -v end="$RS_TABLE_END" '
+  LC_ALL=C awk -v begin="$RS_TABLE_BEGIN" -v end="$RS_TABLE_END" '
+    NR == 1 { sub(/^\357\273\277/, "") }
     { sub(/\r$/, "") }
     $0 == begin { intable = 1; found = 1 }
     intable { print }
@@ -262,17 +264,18 @@ rs_write_file() {
   table_tmp="$(mktemp)"
   rs_format_block >"$block_tmp"
   rs_render_table >"$table_tmp"
-  awk -v blockf="$block_tmp" -v tablef="$table_tmp" \
+  LC_ALL=C awk -v blockf="$block_tmp" -v tablef="$table_tmp" \
     -v begin="$RS_TABLE_BEGIN" -v end="$RS_TABLE_END" '
     function emit(f,   l) {
       while ((getline l < f) > 0) printf "%s%s\n", l, eol
       close(f)
     }
-    NR == 1 { eol = ($0 ~ /\r$/) ? "\r" : "" }
+    NR == 1 { eol = ($0 ~ /\r$/) ? "\r" : ""; bom = ($0 ~ /^\357\273\277/) ? "\357\273\277" : "" }
     {
       raw = $0
       line = raw
       sub(/\r$/, "", line)
+      if (NR == 1) sub(/^\357\273\277/, "", line)
     }
     skip_block {
       if (line ~ /^-->[[:space:]]*$/) {
@@ -282,7 +285,7 @@ rs_write_file() {
       next
     }
     skip_table { if (line == end) skip_table = 0; next }
-    line ~ /^<!-- ycc-release-state[[:space:]]*$/ { emit(blockf); skip_block = 1; next }
+    line ~ /^<!-- ycc-release-state[[:space:]]*$/ { if (NR == 1 && bom != "") printf "%s", bom; emit(blockf); skip_block = 1; next }
     line == begin { emit(tablef); skip_table = 1; next }
     { print raw }
   ' has_table="$(rs_extract_table "$file" >/dev/null 2>&1 && echo 1 || echo 0)" "$file" >"$out"

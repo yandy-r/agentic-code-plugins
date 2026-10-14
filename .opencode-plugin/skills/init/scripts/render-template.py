@@ -42,6 +42,10 @@ import stat
 import sys
 from pathlib import Path
 
+if sys.version_info < (3, 11):  # noqa: UP036 - runtime guard for older python3
+    print(f"render-template: python3 3.11+ required, found {sys.version.split()[0]}", file=sys.stderr)
+    raise SystemExit(1)
+
 NOT_DETECTED = "# not detected"
 LANG_BLOCKS = {
     "rust": "IF_RUST",
@@ -92,7 +96,7 @@ def read_profile(arg: str | None) -> dict[str, str]:
             return {}
         arg = "-"
     if arg == "-":
-        raw = sys.stdin.read()
+        raw = sys.stdin.buffer.read().decode("utf-8-sig", errors="replace")
     else:
         p = Path(arg)
         try:
@@ -101,7 +105,7 @@ def read_profile(arg: str | None) -> dict[str, str]:
             fail(f"profile not found: {arg}")
         if stat.S_ISDIR(mode) or not os.access(p, os.R_OK):
             fail(f"profile is not a readable file: {arg}")
-        raw = p.read_text(encoding="utf-8", errors="replace")
+        raw = p.read_bytes().decode("utf-8-sig", errors="replace")
     prof: dict[str, str] = {}
     for line in raw.replace("\r", "").split("\n"):
         if not line or line.startswith("#") or "=" not in line:
@@ -163,6 +167,11 @@ def main() -> int:
         "BUILD_CMD": build_cmd,
     }
     values.update(overrides)
+    if template.name == "CLAUDE.md.tmpl":
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from rules_file_lib import CLAUDE_SHIM_LINE
+
+        values["CLAUDE_MD_SHIM"] = CLAUDE_SHIM_LINE
     # Command overrides are normalised too, never raw 'unknown' in YAML.
     values.update(TEST_CMD=test_cmd, LINT_CMD=lint_cmd, BUILD_CMD=build_cmd)
 
@@ -176,7 +185,7 @@ def main() -> int:
     def active() -> bool:
         return all(kept for _, kept in stack)
 
-    for line in template.read_text(encoding="utf-8").split("\n"):
+    for line in template.read_bytes().decode("utf-8-sig").split("\n"):
         m_open = OPEN_RE.match(line)
         if m_open:
             stack.append((m_open.group(1), m_open.group(1) in keep))

@@ -636,7 +636,7 @@ test_init_generated_mirrors() {
   for mirror in .cursor-plugin/skills .codex-plugin/ycc/skills .opencode-plugin/skills .agents-plugin/skills; do
     local scripts="${REPO_ROOT}/${mirror}/init/scripts"
     local f
-    for f in migrate-rules.sh migrate-rules.py rules_file_lib.py render-template.sh render-template.py profile-project.sh rules-report.sh; do
+    for f in migrate-rules.sh migrate-rules.py rules_file_lib.py render-template.sh render-template.py profile-project.sh rules-report.sh count-source-files.sh; do
       if cmp -s "${INIT_SCRIPTS}/${f}" "${scripts}/${f}"; then
         ok "mirror: ${mirror} init/${f} is byte-identical to source"
       else
@@ -904,6 +904,300 @@ test_git_cleanup_sync_merge_pattern() {
   assert_eq "$(printf '%s\n' "$out" | grep -c .)" "2" "git-cleanup: pattern ignores ordinary commits"
 }
 
+# ---------------------------------------------------------------------------
+# YAN-1115 / GH #273 — headless context injection + Phase 2 counting
+# ---------------------------------------------------------------------------
+
+test_headless_context_injection() {
+  local init_skill="${REPO_ROOT}/ycc/skills/init/SKILL.md"
+  local fmt_skill="${REPO_ROOT}/ycc/skills/formatters/SKILL.md"
+  local init_probes fmt_probes
+  init_probes="$(grep -n '!`' "$init_skill")"
+  fmt_probes="$(grep -n '!`' "$fmt_skill")"
+  assert_eq "$(printf '%s\n' "$init_probes" | wc -l | tr -d ' ')" "1"     "headless: init SKILL.md has exactly one context-injection command"
+  assert_contains "$init_probes"     '!`${CLAUDE_PLUGIN_ROOT}/skills/init/scripts/profile-project.sh`'     "headless: init context injects the single scoped profiler"
+  if grep -qE '(\||2>/dev/null|head|pwd|ls )' <<<"$init_probes"; then
+    ko "headless: init context probe has no pipeline, head, pwd, ls, or redirect"
+  else
+    ok "headless: init context probe has no pipeline, head, pwd, ls, or redirect"
+  fi
+  assert_eq "$(printf '%s\n' "$fmt_probes" | wc -l | tr -d ' ')" "1"     "headless: formatters SKILL.md has exactly one context-injection command"
+  assert_contains "$fmt_probes"     '!`${CLAUDE_PLUGIN_ROOT}/skills/formatters/scripts/profile-style.sh`'     "headless: formatters context injects the single scoped profiler"
+  if grep -qE '(\||2>/dev/null|head|pwd)' <<<"$fmt_probes"; then
+    ko "headless: formatters context probe has no pipeline, head, pwd, or redirect"
+  else
+    ok "headless: formatters context probe has no pipeline, head, pwd, or redirect"
+  fi
+  # allowed-tools must not grant broad find/head/wc/pwd.
+  local s
+  for s in "$init_skill" "$fmt_skill"; do
+    if sed -n '2,/^---$/p' "$s" | grep -qE 'Bash\((find|head|wc|pwd):'; then
+      ko "headless: $(basename "$(dirname "$s")") allowed-tools grants no find/head/wc/pwd"
+    else
+      ok "headless: $(basename "$(dirname "$s")") allowed-tools grants no find/head/wc/pwd"
+    fi
+  done
+  # Full profile output survives (keys past line 20/30 are preserved).
+  local out
+  out="$(bash "$PROFILE" "$REPO_ROOT")"
+  assert_contains "$out" "has_releasing_md=true" "headless: init profile preserves late key has_releasing_md"
+  assert_contains "$out" "claude_md_imports_agents=true" "headless: init profile preserves claude_md_imports_agents"
+  assert_contains "$out" "project_name=" "headless: init profile preserves final key project_name"
+  out="$(bash "${REPO_ROOT}/ycc/skills/formatters/scripts/profile-style.sh" "$REPO_ROOT")"
+  assert_contains "$out" "docs_target=" "headless: formatters profile preserves late key docs_target"
+  assert_contains "$out" "project_root=" "headless: formatters profile includes project_root"
+}
+
+test_count_source_files() {
+  local counter="${INIT_SCRIPTS}/count-source-files.sh" repo out rc i
+  repo="$(mktemp -d "${SANDBOX_ROOT}/cnt.XXXXXX")"
+  out="$(bash "$counter" --repo "$repo")"
+  assert_contains "$out" "count=0" "counter: empty directory reports 0"
+  assert_contains "$out" "capped=false" "counter: empty directory is not capped"
+  printf 'x\n' >"${repo}/a.txt"; printf 'x\n' >"${repo}/b.txt"
+  mkdir -p "${repo}/node_modules/pkg" "${repo}/.venv/lib" "${repo}/dist"
+  for i in $(seq 1 60); do
+    printf 'x\n' >"${repo}/node_modules/pkg/f${i}.js"
+    printf 'x\n' >"${repo}/.venv/lib/f${i}.py"
+    printf 'x\n' >"${repo}/dist/f${i}.js"
+  done
+  out="$(bash "$counter" --repo "$repo")"
+  assert_contains "$out" "count=2" "counter: excludes node_modules/.venv/dist"
+  assert_contains "$out" "capped=false" "counter: excluded trees do not trip the cap"
+  git -C "$repo" init -q && mkdir -p "${repo}/.git/objects/xx"
+  for i in $(seq 1 60); do printf 'x\n' >"${repo}/.git/objects/xx/o${i}"; done
+  out="$(bash "$counter" --repo "$repo")"
+  assert_contains "$out" "count=2" "counter: excludes .git objects"
+  for i in $(seq 1 60); do printf 'x\n' >"${repo}/src${i}.rs"; done
+  out="$(bash "$counter" --repo "$repo")"
+  assert_contains "$out" "count=51" "counter: stops at 51 (cap+1 means >50)"
+  assert_contains "$out" "capped=true" "counter: sets capped=true above 50"
+  assert_contains "$out" "cap=50" "counter: reports cap=50"
+  assert_eq "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" "3" "counter: bounded 3-line output"
+  # Unreadable directory before the cap surfaces on stderr and exits 1 (not suppressed).
+  if [[ "$(id -u)" -ne 0 ]]; then
+    local bad
+    bad="$(mktemp -d "${SANDBOX_ROOT}/cntbad.XXXXXX")"
+    mkdir "${bad}/locked" && printf 'x\n' >"${bad}/locked/secret.txt"
+    chmod 000 "${bad}/locked"
+    out="$(bash "$counter" --repo "$bad" 2>&1)" && rc=0 || rc=1
+    chmod 700 "${bad}/locked"
+    assert_eq "$rc" "1" "counter: unreadable directory fails loudly"
+    assert_contains "$out" "cannot scan" "counter: unreadable directory error is visible"
+    if grep -q '^count=' <<<"$out"; then
+      ko "counter: unreadable directory emits no partial count"
+    else
+      ok "counter: unreadable directory emits no partial count"
+    fi
+  fi
+  if grep -q "count-source-files.sh" "${REPO_ROOT}/ycc/skills/init/SKILL.md" \
+     && ! grep -q 'find . -type f | head' "${REPO_ROOT}/ycc/skills/init/SKILL.md"; then
+    ok "counter: Phase 2 uses count-source-files.sh instead of find|head|wc"
+  else
+    ko "counter: Phase 2 uses count-source-files.sh instead of find|head|wc"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# YAN-1116 / GH #274 — python3 3.11 guard, BOM parity, shared pointer helper
+# ---------------------------------------------------------------------------
+
+make_python_stub() {
+  local dir="$1" version="$2" code="$3"
+  mkdir -p "$dir"
+  cat >"${dir}/python3" <<STUB
+#!/bin/sh
+case "\$1" in
+  -V|--version) echo "Python ${version}"; exit 0 ;;
+  *) exit ${code} ;;
+esac
+STUB
+  chmod +x "${dir}/python3"
+}
+
+test_python311_guard() {
+  local stubdir out err rc runner
+  stubdir="$(mktemp -d "${SANDBOX_ROOT}/py310stub.XXXXXX")"
+  make_python_stub "$stubdir" "3.10.12" 1
+  for runner in "${INIT_SCRIPTS}/profile-project.sh" "${INIT_SCRIPTS}/render-template.sh" \
+                "${INIT_SCRIPTS}/migrate-rules.sh" "${INIT_SCRIPTS}/count-source-files.sh" \
+                "${REPO_ROOT}/ycc/skills/_shared/scripts/rules-pointer.sh" \
+                "${REPO_ROOT}/ycc/skills/release-model/scripts/pointer-targets.sh"; do
+    out="$(PATH="${stubdir}:${PATH}" bash "$runner" --repo "$REPO_ROOT" 2>"${SANDBOX_ROOT}/g.err")" && rc=0 || rc=1
+    err="$(cat "${SANDBOX_ROOT}/g.err")"
+    assert_eq "$rc" "1" "guard: $(basename "$runner") exits 1 on python3 3.10 stub"
+    assert_eq "$out" "" "guard: $(basename "$runner") emits no partial stdout"
+    assert_contains "$err" "3.11+" "guard: $(basename "$runner") names Python 3.11+"
+    assert_contains "$err" "3.10.12" "guard: $(basename "$runner") names found version"
+  done
+  # Missing python3 on PATH also fails cleanly.
+  local emptybin
+  emptybin="$(mktemp -d "${SANDBOX_ROOT}/nopy.XXXXXX")"
+  for cmd in bash dirname; do
+    if command -v "$cmd" >/dev/null 2>&1; then ln -sf "$(command -v "$cmd")" "${emptybin}/${cmd}" 2>/dev/null || true; fi
+  done
+  out="$(PATH="$emptybin" /bin/bash "${INIT_SCRIPTS}/profile-project.sh" "$REPO_ROOT" 2>"${SANDBOX_ROOT}/nopy.err")" && rc=0 || rc=1
+  assert_eq "$rc" "1" "guard: missing python3 exits 1"
+  assert_eq "$out" "" "guard: missing python3 emits no partial stdout"
+  assert_contains "$(cat "${SANDBOX_ROOT}/nopy.err")" "3.11+" "guard: missing python3 names 3.11+"
+  # Real 3.10 (negative) and 3.11 (positive) via uv when available.
+  local uv_bin real310 real311 realdir
+  uv_bin="$(command -v uv || true)"
+  if [[ -n "$uv_bin" ]]; then
+    real310="$("$uv_bin" python find --no-python-downloads 3.10 2>/dev/null || true)"
+    real311="$("$uv_bin" python find --no-python-downloads 3.11 2>/dev/null || true)"
+    if [[ -n "$real310" ]]; then
+      realdir="$(mktemp -d "${SANDBOX_ROOT}/py310real.XXXXXX")"
+      ln -s "$real310" "${realdir}/python3"
+      out="$(PATH="${realdir}:${PATH}" bash "$PROFILE" "$REPO_ROOT" 2>"${SANDBOX_ROOT}/r310.err")" && rc=0 || rc=1
+      assert_eq "$rc" "1" "guard: real Python 3.10 aborts profile-project.sh"
+      assert_eq "$out" "" "guard: real Python 3.10 emits no partial stdout"
+      assert_contains "$(cat "${SANDBOX_ROOT}/r310.err")" "3.11+" "guard: real Python 3.10 stderr names 3.11+"
+      out="$("$real310" "${INIT_SCRIPTS}/migrate-rules.py" --repo "$REPO_ROOT" --dry-run 2>&1)" && rc=0 || rc=1
+      assert_eq "$rc" "1" "guard: real Python 3.10 direct migrate-rules.py aborts cleanly (no ImportError)"
+      assert_contains "$out" "3.11+" "guard: real Python 3.10 direct migrate-rules.py names 3.11+"
+      out="$("$real310" "${INIT_SCRIPTS}/render-template.py" --template CLAUDE.md.tmpl </dev/null 2>&1)" && rc=0 || rc=1
+      assert_eq "$rc" "1" "guard: real Python 3.10 direct render-template.py aborts cleanly"
+    fi
+    if [[ -n "$real311" ]]; then
+      realdir="$(mktemp -d "${SANDBOX_ROOT}/py311real.XXXXXX")"
+      ln -s "$real311" "${realdir}/python3"
+      out="$(PATH="${realdir}:${PATH}" bash "$PROFILE" "$REPO_ROOT")" && rc=0 || rc=1
+      assert_eq "$rc" "0" "guard: real Python 3.11 runs profile-project.sh"
+      assert_contains "$out" "project_name=" "guard: real Python 3.11 emits complete profile"
+      out="$(printf 'project_name=demo\n' | PATH="${realdir}:${PATH}" bash "${INIT_SCRIPTS}/render-template.sh" --template CLAUDE.md.tmpl)" && rc=0 || rc=1
+      assert_eq "$rc" "0" "guard: real Python 3.11 renders CLAUDE.md.tmpl"
+      assert_eq "$out" "@AGENTS.md" "guard: real Python 3.11 shim output is @AGENTS.md"
+    fi
+  fi
+}
+
+test_bom_parser_parity() {
+  local dir out rc
+  dir="$(mktemp -d "${SANDBOX_ROOT}/bom.XXXXXX")"
+  mkdir -p "${dir}/.github"
+  printf '\xef\xbb\xbf@AGENTS.md\r\n\r\n# Notes\r\n' >"${dir}/CLAUDE.md"
+  printf '\xef\xbb\xbf# Rules\n\n- Be kind\n' >"${dir}/AGENTS.md"
+  printf '\xef\xbb\xbf# Copilot\n' >"${dir}/.github/copilot-instructions.md"
+  out="$(bash "${REPO_ROOT}/ycc/skills/_shared/scripts/rules-pointer.sh" imports-agents --repo "$dir")"
+  assert_eq "$out" "imports_agents=true" "bom: shared parser detects BOM+CRLF @AGENTS.md import"
+  assert_eq "$(bash "$POINTER_TARGETS" --repo "$dir" | tr '\n' ' ')" \
+    "AGENTS.md .github/copilot-instructions.md " "bom: pointer-targets drops BOM+CRLF importing CLAUDE.md"
+  out="$(bash "$PROFILE" "$dir")"
+  assert_contains "$out" "claude_md_imports_agents=true" "bom: profile-project reports claude_md_imports_agents=true"
+  assert_contains "$out" "agents_md_is_pointer=false" "bom: custom BOM AGENTS.md is not a legacy pointer"
+  printf '\xef\xbb\xbf# Agents\nThe canonical agent rules live in CLAUDE.md.\n' >"${dir}/AGENTS.md"
+  out="$(bash "$PROFILE" "$dir")"
+  assert_contains "$out" "agents_md_is_pointer=true" "bom: legacy pointer AGENTS.md with BOM is detected"
+  # BOM-prefixedpyproject.toml + requirements.txt in Python profile detection.
+  local pyrepo
+  pyrepo="$(mktemp -d "${SANDBOX_ROOT}/bompy.XXXXXX")"
+  printf '\xef\xbb\xbf[project]\nname = "x"\n[build-system]\nrequires = ["hatchling"]\n' >"${pyrepo}/pyproject.toml"
+  printf '\xef\xbb\xbfpytest>=8.0\nruff>=0.4\n' >"${pyrepo}/requirements.txt"
+  out="$(bash "$PROFILE" "$pyrepo")"
+  assert_contains "$out" "test_cmd=pytest" "bom: BOM pyproject.toml + requirements.txt detects pytest"
+  assert_contains "$out" "lint_cmd=ruff check ." "bom: BOM requirements.txt detects ruff"
+  assert_contains "$out" "build_cmd=python -m build" "bom: BOM pyproject.toml detects build-system"
+  # BOM-prefixed profile (stdin and file) + BOM-prefixed template in render-template.py.
+  local pfile="${SANDBOX_ROOT}/bom.prof"
+  printf '\xef\xbb\xbfproject_name=bomdemo\nproject_purpose=test\nprimary_language=go\ntest_cmd=go test ./...\nlint_cmd=go vet ./...\nbuild_cmd=go build ./...\n' >"$pfile"
+  out="$(bash "${INIT_SCRIPTS}/render-template.sh" --template AGENTS.md.tmpl --profile "$pfile")"
+  assert_contains "$out" "# bomdemo — Agent Rules" "bom: file profile first key project_name survives BOM"
+  out="$(bash "${INIT_SCRIPTS}/render-template.sh" --template AGENTS.md.tmpl --profile - <"$pfile")"
+  assert_contains "$out" "# bomdemo — Agent Rules" "bom: stdin profile first key project_name survives BOM"
+  local fixture="${SANDBOX_ROOT}/fixture-bom"
+  mkdir -p "$fixture/scripts" "$fixture/templates"
+  cp "${INIT_SCRIPTS}/render-template.py" "$fixture/scripts/render-template.py"
+  printf '\xef\xbb\xbf{{#IF_GO}}\nhello {{PROJECT_NAME}}\n{{/IF_GO}}\n' >"$fixture/templates/t.tmpl"
+  out="$(python3 "$fixture/scripts/render-template.py" --template t.tmpl --profile "$pfile")"
+  assert_eq "$out" "hello bomdemo" "bom: template leading BOM does not break first-line {{#IF_*}} block"
+  # release-state + collect-signals BOM parity.
+  local rel
+  rel="$(mktemp -d "${SANDBOX_ROOT}/bomrel.XXXXXX")"
+  git -C "$rel" init -q
+  { printf '\xef\xbb\xbf'; bash "${REPO_ROOT}/ycc/skills/_shared/scripts/release-state-update.sh" \
+      --print-block --model trunk-only --trunk main; } >"${rel}/RELEASING.md"
+  out="$(bash "${REPO_ROOT}/ycc/skills/_shared/scripts/release-state.sh" --repo "$rel" get)" && rc=0 || rc=1
+  assert_eq "$rc" "0" "bom: release-state get parses BOM RELEASING.md"
+  assert_contains "$out" "model=trunk-only" "bom: release-state get reads model from BOM file"
+  bash "${REPO_ROOT}/ycc/skills/_shared/scripts/release-state.sh" --repo "$rel" check >/dev/null 2>&1 && rc=0 || rc=1
+  assert_eq "$rc" "0" "bom: release-state check passes on BOM RELEASING.md"
+  bash "${REPO_ROOT}/ycc/skills/_shared/scripts/release-state-update.sh" --repo "$rel" --set-trunk master >/dev/null
+  assert_eq "$(head -c 3 "${rel}/RELEASING.md")" "$(printf '\xef\xbb\xbf')" "bom: release-state-update preserves BOM"
+  # Reviewer regression: BOM rewrite must stay byte-exact under a UTF-8 locale (gawk substr is char-based).
+  local loc
+  for loc in C.UTF-8 en_US.UTF-8; do
+    bash "${REPO_ROOT}/ycc/skills/_shared/scripts/release-state-update.sh" --repo "$rel" --set-trunk main >/dev/null
+    LC_ALL="$loc" bash "${REPO_ROOT}/ycc/skills/_shared/scripts/release-state-update.sh" --repo "$rel" --set-trunk trunk2 >/dev/null
+    out="$(LC_ALL="$loc" bash "${REPO_ROOT}/ycc/skills/_shared/scripts/release-state.sh" --repo "$rel" get)" && rc=0 || rc=1
+    assert_eq "$rc" "0" "bom: ${loc} locale rewrite leaves a parseable state block"
+    assert_contains "$out" "trunk=trunk2" "bom: ${loc} locale rewrite applied the change"
+    assert_eq "$(head -c 3 "${rel}/RELEASING.md" | od -An -tx1 | tr -d ' \n')" "efbbbf" "bom: ${loc} locale rewrite keeps exactly one BOM"
+    assert_eq "$(grep -c 'ycc-release-state$' "${rel}/RELEASING.md")" "1" "bom: ${loc} locale rewrite has no duplicated marker"
+  done
+  # CRLF + BOM combination keeps both.
+  printf '\xef\xbb\xbf' >"${rel}/crlf.md"
+  sed 's/$/\r/' <(bash "${REPO_ROOT}/ycc/skills/_shared/scripts/release-state-update.sh" --print-block --model trunk-only --trunk main) >>"${rel}/crlf.md"
+  cp "${rel}/RELEASING.md" "${rel}/RELEASING.bak" && cp "${rel}/crlf.md" "${rel}/RELEASING.md"
+  LC_ALL=C.UTF-8 bash "${REPO_ROOT}/ycc/skills/_shared/scripts/release-state-update.sh" --repo "$rel" --set-trunk crlf2 >/dev/null
+  assert_contains "$(LC_ALL=C.UTF-8 bash "${REPO_ROOT}/ycc/skills/_shared/scripts/release-state.sh" --repo "$rel" get)" "trunk=crlf2" "bom: CRLF+BOM file rewrites cleanly under UTF-8 locale"
+  cp "${rel}/RELEASING.bak" "${rel}/RELEASING.md"
+  mkdir -p "${rel}/.github/workflows"
+  printf '\xef\xbb\xbfon:\n  push:\n    branches: [main]\n' >"${rel}/.github/workflows/ci.yml"
+  git -C "$rel" add -A && git -C "$rel" commit -qm init
+  out="$(bash "${REPO_ROOT}/ycc/skills/release-model/scripts/collect-signals.sh" --repo "$rel")"
+  assert_contains "$out" "ci_trigger_branches=main" "bom: collect-signals reads BOM workflow YAML"
+}
+
+test_shared_pointer_helper() {
+  local helper="${REPO_ROOT}/ycc/skills/_shared/scripts/rules-pointer.sh" dir out rc
+  assert_eq "$(bash "$helper" claude-md-shim)" "@AGENTS.md" "helper: claude-md-shim emits @AGENTS.md"
+  out="$(bash "$helper" claude-md-shim --notes "- only claude")"
+  assert_eq "$out" "$(printf '@AGENTS.md\n\n## Claude-only notes\n\n- only claude')" \
+    "helper: claude-md-shim with notes matches CLAUDE.md.tmpl shape"
+  out="$(printf 'project_name=x\n' | bash "${INIT_SCRIPTS}/render-template.sh" --template CLAUDE.md.tmpl --keep IF_CLAUDE_ONLY --set 'CLAUDE_ONLY_NOTES=- only claude')"
+  assert_eq "$out" "$(bash "$helper" claude-md-shim --notes '- only claude')" \
+    "helper: render-template CLAUDE.md.tmpl and claude-md-shim agree byte-for-byte"
+  # Grep proof: both init and release-model call rules-pointer.sh; pointer rule is in one file.
+  assert_contains "$(cat "${REPO_ROOT}/ycc/skills/release-model/scripts/pointer-targets.sh")" \
+    "rules-pointer.sh" "helper: release-model pointer-targets.sh calls rules-pointer.sh"
+  assert_contains "$(cat "${REPO_ROOT}/ycc/skills/init/scripts/profile-project.sh")" \
+    "rules-pointer.sh" "helper: init profile-project.sh calls rules-pointer.sh"
+  assert_contains "$(cat "${REPO_ROOT}/ycc/skills/init/templates/CLAUDE.md.tmpl")" \
+    "{{CLAUDE_MD_SHIM}}" "helper: CLAUDE.md.tmpl sources shim token from shared constant"
+  # Release-model targets query never creates or modifies files in a repo with no rules files.
+  dir="$(mktemp -d "${SANDBOX_ROOT}/nomut.XXXXXX")"
+  out="$(bash "$POINTER_TARGETS" --repo "$dir")" && rc=0 || rc=1
+  assert_eq "$rc" "0" "helper: pointer-targets succeeds on repo with no rules files"
+  assert_eq "$out" "" "helper: pointer-targets prints nothing when no rules files exist"
+  if [[ -e "${dir}/AGENTS.md" || -e "${dir}/CLAUDE.md" ]]; then
+    ko "helper: pointer-targets never creates missing rules files"
+  else
+    ok "helper: pointer-targets never creates missing rules files"
+  fi
+  # Cross-target closure: every generated bundle has the shared helper and working wrappers.
+  local mirror shared_dir
+  for mirror in .cursor-plugin/skills .codex-plugin/ycc/skills .opencode-plugin/skills .agents-plugin/skills; do
+    case "$mirror" in
+      .cursor-plugin/*) shared_dir="${REPO_ROOT}/.cursor-plugin/skills/_shared/scripts" ;;
+      .codex-plugin/*)  shared_dir="${REPO_ROOT}/.codex-plugin/ycc/shared/scripts" ;;
+      .opencode-plugin/*) shared_dir="${REPO_ROOT}/.opencode-plugin/shared/scripts" ;;
+      .agents-plugin/*) shared_dir="${REPO_ROOT}/.agents-plugin/ycc-shared/scripts" ;;
+    esac
+    for f in rules_pointer.py rules-pointer.sh require-python.sh; do
+      if cmp -s "${REPO_ROOT}/ycc/skills/_shared/scripts/${f}" "${shared_dir}/${f}"; then
+        ok "closure: ${mirror} has byte-identical shared ${f}"
+      else
+        ko "closure: ${mirror} has byte-identical shared ${f}"
+      fi
+    done
+    out="$(bash "${REPO_ROOT}/${mirror}/release-model/scripts/pointer-targets.sh" --repo "$REPO_ROOT")"
+    assert_eq "$out" "AGENTS.md" "closure: ${mirror} pointer-targets.sh resolves shared helper and returns AGENTS.md"
+    out="$(bash "${REPO_ROOT}/${mirror}/init/scripts/count-source-files.sh" --repo "$REPO_ROOT")"
+    assert_contains "$out" "capped=true" "closure: ${mirror} count-source-files.sh runs via shared guard"
+  done
+}
+
 test_profile_releasing_md
 test_apply_ci_default_branch
 test_apply_ci_custom_default_branch
@@ -925,6 +1219,11 @@ test_release_model_single_pointer
 test_pointer_targets
 test_git_cleanup_wiring
 test_git_cleanup_sync_merge_pattern
+test_headless_context_injection
+test_count_source_files
+test_python311_guard
+test_bom_parser_parity
+test_shared_pointer_helper
 
 echo
 echo "release-hygiene tests: ${PASS} passed, ${FAIL} failed"

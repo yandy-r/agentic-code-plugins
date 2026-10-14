@@ -24,9 +24,15 @@ Profiles the project, authors the canonical tool-neutral `AGENTS.md` rules file 
 
 ## Current Project Context
 
-- **Working Directory**: !`pwd`
-- **Project Files**: !`ls -la 2>/dev/null | head -25`
-- **Profile detection**: !`${CLAUDE_PLUGIN_ROOT}/skills/init/scripts/profile-project.sh 2>/dev/null | head -20`
+- **Profile detection** (complete `key=value` output, `project_root` first): !`${CLAUDE_PLUGIN_ROOT}/skills/init/scripts/profile-project.sh`
+
+Context injection is deliberately one scoped helper call: no `pwd`, `ls | head`, `2>/dev/null`, or other shell pipeline/redirect. Some hosts reject compound pipelines as a whole even when each segment is allowed, and `head` truncated the profile (dropping keys such as `has_releasing_md`). Do not widen `allowed-tools` with `find`, `head`, `wc`, or `pwd`.
+
+### Headless / permissions
+
+- `allowed-tools` grants only the scoped `scripts/*.sh` helpers plus a few simple read/copy commands. Compound shell pipelines (`a | b`, `a && b`, redirection tricks) are **host-permission behavior**: this skill does not control them, and a caller allowlist that permits each segment may still reject the whole pipeline. Never rely on them.
+- Every step below has a pipeline-free supported path: `profile-project.sh` (full profile), `count-source-files.sh` (capped count), `render-template.sh`, `migrate-rules.sh`, `rules-report.sh`. Run each as one command.
+- All helpers require Python 3.11+ and fail up front with a readable message (no partial output) on an older `python3`.
 
 ## Arguments
 
@@ -77,7 +83,7 @@ Defaults: all booleans off; no profile override. `--update` and `--force` are mu
 
 ### Phase 1 — Profile
 
-1. Run `${CLAUDE_PLUGIN_ROOT}/skills/init/scripts/profile-project.sh` and parse the `key=value` output into variables. See `references/project-profile-heuristics.md` for the key list.
+1. Run `${CLAUDE_PLUGIN_ROOT}/skills/init/scripts/profile-project.sh` once, with no pipeline, `head`, or `2>/dev/null`, and parse the complete `key=value` output into variables (the Current Project Context above already holds the same output; re-run only after it changes). See `references/project-profile-heuristics.md` for the key list.
 2. If `PROFILE` flag is set, override `primary_language` with that value.
 3. If `is_empty=true` OR `primary_language=unknown`: ask the user conversationally for project name, purpose, and primary language. Set `project_name`, `project_purpose`, and `primary_language` from their answers.
 4. If `UPDATE=false` AND at least two of `has_claude_md`, `has_agents_md`, `has_cursor_rules`, `has_issue_templates`, `has_gitmessage`, `has_gitignore` are true: warn the user "Existing doc/workflow files detected — consider re-running with `--update` for structured refresh, or `--force` to overwrite. Continuing with default skip-on-conflict behavior."
@@ -89,13 +95,13 @@ If `MIGRATE_RULES=true`, jump directly to Phase 5.7 after profiling; skip all ot
 
 Skip this phase when `DOCS_ONLY=true`.
 
-Otherwise, estimate source file count:
+Otherwise, estimate source file count with the single scoped helper (no pipeline; walk errors stay visible, output is capped at 51 files):
 
 ```bash
-find . -type f | head -n 51 | wc -l
+${CLAUDE_PLUGIN_ROOT}/skills/init/scripts/count-source-files.sh --repo .
 ```
 
-If count is 51 (i.e., >50 files), dispatch `subagent_type: "ycc:codebase-research-analyst"` with a prompt requesting:
+It prints `count=<n>`, `capped=true|false`, `cap=50`. If `capped=true` (i.e., >50 files), dispatch `subagent_type: "ycc:codebase-research-analyst"` with a prompt requesting:
 
 - Key architectural patterns and conventions to encode in `AGENTS.md`
 - Critical commands (test, lint, build, deploy) to embed
@@ -181,7 +187,7 @@ Decide whether to create `RELEASING.md` (the project's branching and release rul
 
 Runs instead of Phases 2–6.5 (profile only), for repos that already have a long `CLAUDE.md`. Never silently rewrites it.
 
-1. Run `${CLAUDE_PLUGIN_ROOT}/skills/init/scripts/migrate-rules.sh --repo . --dry-run` (a Bash 3.2 entrypoint for `scripts/migrate-rules.py`, which shares the `@AGENTS.md` import parser in `scripts/rules_file_lib.py` with release-model's `pointer-targets.sh`) and show the full output: the move diff for `AGENTS.md` and `CLAUDE.md`, new line counts, and the **content-loss list** (the full text of any replaced legacy pointer `AGENTS.md`, sections skipped as duplicates, and merge conflicts). Nothing is written.
+1. Run `${CLAUDE_PLUGIN_ROOT}/skills/init/scripts/migrate-rules.sh --repo . --dry-run` (a Bash 3.2 entrypoint for `scripts/migrate-rules.py`, which shares the `@AGENTS.md` import parser in `_shared/scripts/rules_pointer.py` (via `scripts/rules_file_lib.py`) with release-model's `pointer-targets.sh`) and show the full output: the move diff for `AGENTS.md` and `CLAUDE.md`, new line counts, and the **content-loss list** (the full text of any replaced legacy pointer `AGENTS.md`, sections skipped as duplicates, and merge conflicts). Nothing is written.
 2. With `DRY_RUN=true`, stop here.
 3. Otherwise ask once: "Apply this migration?" The script refuses outside the git root, over uncommitted changes, or for git-ignored/symlinked rules files; `--allow-non-git` is the explicit opt-in for those cases. Every apply first copies both files to a timestamped backup directory (printed in the output) and writes via temp file + atomic rename, restoring from the backup if the pair cannot be completed. Routing is heading-based and shown per section: only exact Claude runtime headings stay in `CLAUDE.md`; everything else moves to `AGENTS.md`, and headings that merely mention Claude are routed to `AGENTS.md` and listed as ambiguous for review. On yes, run the same command with `--yes` instead of `--dry-run`. On no, stop; nothing changed.
 4. Content moves to `AGENTS.md`; only exact Claude runtime headings remain after `@AGENTS.md`. Nothing is deleted (a replaced legacy pointer's full text is printed), ambiguous headings are reported, and no duplicate H1/headings are created. Report the new line counts per Phase 7.
