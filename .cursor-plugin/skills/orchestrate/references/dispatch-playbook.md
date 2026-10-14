@@ -278,7 +278,7 @@ Execution:
 - [ ] Parse flags and set `TEAM_FLAG`, `DRY_RUN`, `PLAN_ONLY`, `SEQUENTIAL`, `WORKTREE_MODE` before any side effects (default `WORKTREE_MODE=true` unless `--no-worktree`)
 - [ ] Deploy independent tasks in parallel (single message, multiple dispatch calls)
 - [ ] Respect dependency ordering between batches
-- [ ] Track progress via `record the task`/`update the task tracker` (Path A) or `the task tracker` (Path B)
+- [ ] Track progress via `task registration`/`task status update` (Path A) or `task list` (Path B)
 - [ ] Handle failures gracefully
 - [ ] Synthesize results on completion
 - [ ] Verify integration between agent outputs
@@ -303,7 +303,7 @@ Principles:
 2. Maximize parallelism: run independent tasks simultaneously.
 3. Clear boundaries: no overlap between agents.
 4. Single goal: keep all agents aligned to the main objective.
-5. Track progress: `record the task`/`update the task tracker` in Path A, `the task tracker` in Path B.
+5. Track progress: `task registration`/`task status update` in Path A, `task list` in Path B.
 6. Synthesize results into a coherent whole.
 7. Path B additions: follow shared agent-team-dispatch §8.2 (single team, graph, batch spawn and cleanup).
 
@@ -334,12 +334,13 @@ Common patterns:
 
 ## 10. Subtask Registration Formats
 
-Path A (`TEAM_FLAG=false`): register each subtask as a task item with `record the task`; no team is
-created. Track batch completion in-context after each batch returns.
+Path A (`TEAM_FLAG=false`): register each subtask as a task item with `task registration`; no teammate dispatch is used. Capture the returned task IDs and track batch completion
+after all results have arrived.
 
 ```
-- id: "subtask-1", content: "[Subtask 1 title] — agent: [agent-type] — depends: [none/list]", status: "pending"
-- id: "subtask-2", content: "[Subtask 2 title] — agent: [agent-type] — depends: [subtask-1]", status: "pending"
+task registration: subject="subtask-1: <title>", description="Agent: <type>. Scope: <full spec>"
+task registration: subject="subtask-2: <title>", description="Agent: <type>. Scope: <full spec>"
+task status update: taskId="<subtask-2 returned ID>", addBlockedBy=["<subtask-1 returned ID>"]
 ```
 
 Path B (`--team`): implicit session team, run label `orch-<FEATURE_SLUG>`, purpose `Orchestration team for: <task description>`. Register `subject="[subtask-N]: [Description]"`, `description="Agent: [agent-type]. Scope: [details]. Expected output: [deliverables]."`; dependencies from decomposed graph. `DRY_RUN` or `PLAN_ONLY`: skip registration/setup, compute sanitized name in memory. Mechanism follows shared team §8.2.
@@ -359,10 +360,10 @@ Path A (standalone), per batch in order:
    the Path A coordination block and, when active, the shared parent working directory.
 3. Wait for all batch calls to return; the shared standalone-dispatch.md result and
    fallback rules govern how results are read.
-4. Review each returned summary; update matching tasks via `update the task tracker` to `completed`.
+4. Review each returned summary; update matching tasks via `task status update` to `completed`.
 5. If a subtask fails, record the failure, decide whether dependent subtasks can proceed,
    and continue independent subtasks. Never start a task before its dependencies complete.
-6. Scan `the task tracker` for pending subtasks whose dependencies are all `completed`. If
+6. Scan `task list` for pending subtasks whose dependencies are all `completed`. If
    subtasks remain but none is unblocked, report deadlock and stop.
 
 No `SendMessage` shutdown is needed in Path A: there are no teammates.

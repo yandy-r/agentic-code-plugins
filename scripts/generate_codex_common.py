@@ -66,6 +66,10 @@ PRODUCT_WORDING_REPLACEMENTS: tuple[tuple[str, str], ...] = (
 )
 
 TOOL_WORDING_REPLACEMENTS: tuple[tuple[str, str], ...] = (
+    # Article-aware pairs must run before their bare-token pairs below so
+    # "the TaskList" does not become "the the task tracker".
+    ("the TodoWrite", "the task tracker"),
+    ("the TaskList", "the task tracker"),
     ("Task tool calls", "parallel agent runs"),
     ("Task tool call", "agent run"),
     ("Task tool", "parallel agent workflow"),

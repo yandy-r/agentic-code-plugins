@@ -89,18 +89,18 @@ If a `review-fixer` agent returns `STATUS: Failed`:
 > with team dispatch. Every `Agent` call below must include `name=`.
 >
 > 1. Use the implicit session team across all batches
-> 2. `record the task` for **every eligible finding (or same-file group) across all batches**
+> 2. `task registration` for **every eligible finding (or same-file group) across all batches**
 >    up front. Flat graph — no `addBlockedBy` wiring, because batch ordering is
 >    orchestrator-controlled, not task-graph-controlled. Each batch is processed only
 >    after the previous one's teammates are shut down.
 > 3. Per batch: spawn teammates (single message, multiple `Agent` calls with
 >    `name=`)
-> 4. `the task tracker` to confirm batch completion; run between-batch validation
+> 4. `task list` to confirm batch completion; run between-batch validation
 > 5. `SendMessage({type:"shutdown_request"})` to all teammates of completed batch
 >    before spawning next batch
 > 6. Send shutdown requests to every teammate after the final batch (or on abort)
 >
-> If up-front `record the task` fails, abort the skill. Refer to
+> If up-front `task registration` fails, abort the skill. Refer to
 > `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/agent-team-dispatch.md`
 > for the full lifecycle contract.
 
@@ -149,7 +149,7 @@ On failure, abort.
 For **every eligible finding or same-file group across all batches** (from the Phase 3 plan):
 
 ```
-record the task: subject="<task-id>: fix <F###> in <file>", description="<full Finding spec — Shape A for single finding, Shape B for same-file group — plus SOURCE REVIEW FILE and PROJECT TYPE-CHECK COMMAND>"
+task registration: subject="<task-id>: fix <F###> in <file>", description="<full Finding spec — Shape A for single finding, Shape B for same-file group — plus SOURCE REVIEW FILE and PROJECT TYPE-CHECK COMMAND>"
 ```
 
 Use stable task IDs derived from the primary finding ID, e.g.:
@@ -159,7 +159,7 @@ Use stable task IDs derived from the primary finding ID, e.g.:
 
 **No `addBlockedBy` wiring.** Batch ordering is enforced by the orchestrator (per-batch spawn + shutdown), not by the shared task graph. The shared task list's role in Path C is observability and inter-fixer communication, not dependency resolution.
 
-If any `record the task` fails, shut down any active teammates and abort.
+If any `task registration` fails, shut down any active teammates and abort.
 
 #### C.5 Per-batch loop
 
@@ -168,12 +168,12 @@ For each batch `B1, B2, ... BN` in order (from the Phase 3 plan):
 1. **Identify batch tasks** — Extract all task IDs for findings (or same-file groups) in this batch.
 
 2. **Spawn batch teammates** — Single message, multiple `Agent` tool calls, one per finding or same-file group in the batch. Every call must include:
-   - `name`: the task ID (e.g., `"f042"`, `"f004-f005"`) — must match the `record the task` subject prefix
+   - `name`: the task ID (e.g., `"f042"`, `"f004-f005"`) — must match the `task registration` subject prefix
    - `subagent_type`: `"review-fixer"`
    - `description`: One-line fix title (e.g., `"Fix F042: missing null check in api.ts"`)
-   - `prompt`: The Finding spec (Shape A or Shape B) plus `SOURCE REVIEW FILE`, `PROJECT TYPE-CHECK COMMAND`, and a directive that the teammate shares a task list with sibling fixers (list their task IDs) and may `SendMessage` them if a related finding becomes relevant, and must call `update the task tracker` to mark its task complete before returning.
+   - `prompt`: The Finding spec (Shape A or Shape B) plus `SOURCE REVIEW FILE`, `PROJECT TYPE-CHECK COMMAND`, and a directive that the teammate shares a task list with sibling fixers (list their task IDs) and may `SendMessage` them if a related finding becomes relevant, and must call `task status update` to mark its task complete before returning.
 
-3. **Wait for batch completion via `the task tracker`** — poll until all tasks in this batch are `completed`. If a teammate messages with an issue, respond via `SendMessage` with guidance.
+3. **Wait for batch completion via `task list`** — poll until all tasks in this batch are `completed`. If a teammate messages with an issue, respond via `SendMessage` with guidance.
 
 4. **Collect results and update the review file** — For each completed task, the teammate returns `STATUS: Fixed` or `STATUS: Failed`:
    - For each `STATUS: Fixed` → `Edit` the review file to update that finding's `**Status**: Open` → `**Status**: Fixed`

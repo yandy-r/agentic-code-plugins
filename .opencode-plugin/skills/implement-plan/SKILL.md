@@ -101,11 +101,14 @@ Build the independent-vs-dependent graph using standalone-dispatch.md §9; examp
 
 
 
-## Phase 2: Create Todo List
+## Phase 2: Create Task List
 
-### Step 5: Generate Comprehensive Todos
+### Step 5: Register Tasks
 
-Using the task tools (`track the task`), create a task per item: `id` "task-<n>-<m>", `content` "[Task ID] [Task Title] - Depends on: [dependencies]", `status` "pending". Example in `references/plan-inputs.md` (Todo format).
+Use `track the task` for each plan item with `subject="[Task ID] [Task Title]"` and
+`description="<full specification and dependencies>"`. Capture the returned task IDs;
+wire dependencies via `update the todo tracker` with `addBlockedBy` using those IDs. See
+`references/plan-inputs.md` (Task list format).
 
 ### Step 6: Identify First Batch
 
@@ -213,6 +216,6 @@ Pair with the `/goal` session directive to loop the batch executor to completion
 
 ## References
 
-- `references/plan-inputs.md` — read when parsing tasks, building the dependency graph, generating todos, showing usage, or resolving the monorepo plans directory.
+- `references/plan-inputs.md` — read when parsing tasks, building the dependency graph, registering tasks, showing usage, or resolving the monorepo plans directory.
 - `references/agent-task-prompt.md` — read once before dispatching implementor agents.
 - `references/output-formats.md` — read when printing `--dry-run` output or the Phase 4 completion summary, or writing a `/goal` condition.

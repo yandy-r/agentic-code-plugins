@@ -12,10 +12,10 @@ allowed-tools:
   - WebSearch
   - WebFetch
   - AskUserQuestion
-  - record the task
-  - the task details
-  - the task tracker
-  - update the task tracker
+  - TaskCreate
+  - TaskGet
+  - TaskList
+  - TaskUpdate
   - SendMessage
   - Bash(ls:*)
   - Bash(cat:*)
@@ -49,7 +49,7 @@ Extract flags from `$ARGUMENTS`:
 | Flag            | Effect                                                                                                                                                                                                                                                                                                                       |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--parallel`    | Fan out research into 3 **standalone sub-agent** researchers; emit tasks with batch/dependency annotations. Works in Claude Code, Cursor, and Codex.                                                                                                                                                                         |
-| `--team`        | (Claude Code only) Fan out the same 3 researchers as **teammates** as teammates under the implicit session team with `the task tracker` and coordinated shutdown via `SendMessage`. Same plan output as `--parallel`, but with shared task-graph observability. Heavier dispatch.                                                    |
+| `--team`        | (Claude Code only) Fan out the same 3 researchers as **teammates** as teammates under the implicit session team with `task list` and coordinated shutdown via `SendMessage`. Same plan output as `--parallel`, but with shared task-graph observability. Heavier dispatch.                                                    |
 | `--worktree`    | (legacy — now default; safe to omit) Worktree annotations are emitted by default. Accepted as a silent no-op so existing pipelines continue to work.                                                                                                                                                                         |
 | `--no-worktree` | Opt out of worktree annotations. The plan will not contain a `## Worktree Setup` section or per-task `**Worktree**:` annotations.                                                                                                                                                                                            |
 | `--dry-run`     | Only valid with `--team`. Prints the team name and teammate roster, then exits without spawning any teammates.                                                                                                                                                                                                               |
@@ -143,7 +143,7 @@ Read `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/standalone-dispatch.md` wh
 
 ### Path A — Sequential (default)
 
-Dispatch a single `prp-researcher` agent via the blocking `Agent` tool, in codebase mode, to cover all 8 categories and 5 traces. Use the discovery table for the plan's Patterns to Mirror section.
+Dispatch a single `prp-researcher` agent via the `Agent` tool, in codebase mode, to cover all 8 categories and 5 traces. Use the discovery table for the plan's Patterns to Mirror section.
 
 **IMPORTANT — Researcher prompt constraints**: Tell the researcher to keep code snippets to **5 lines max** per finding and limit the total response to the discovery table format only — no prose summaries.
 
@@ -162,7 +162,7 @@ sub-agents** using the **`Agent`** tool (omit `name`):
 | `quality-research`  | Error Handling, Logging, Tests         | State Changes, Patterns |
 | `infra-research`    | Configuration, Dependencies            | Data Flow               |
 
-In the normal case `Agent` **blocks**: each call's return value IS the researcher's report, delivered inline in the same turn. If a batch doesn't return inline (async fallback), don't `sleep`-loop or poll waiting on it — yield/end the turn so the completion notification can flush, then resume. In addition to the inline return, instruct each researcher to write its discovery table to a backstop file at `docs/prps/plans/.prp-research/<feature-slug>/<role>.md` (`patterns-research.md`, `quality-research.md`, `infra-research.md`) using the `Write` tool, mirroring the phrasing `feature-research`'s researcher prompts use ("Write your findings to: ..."). The backstop guarantees the findings survive even if the inline return is interrupted or truncated. See `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/standalone-dispatch.md` for the full contract.
+Dispatch without `name` or `run_in_background`. Results may arrive asynchronously; wait for all results before synthesis and end the turn while results are pending. In addition to returning findings, instruct each researcher to write its discovery table to a backstop file at `docs/prps/plans/.prp-research/<feature-slug>/<role>.md` (`patterns-research.md`, `quality-research.md`, `infra-research.md`) using the `Write` tool, mirroring the phrasing `feature-research`'s researcher prompts use ("Write your findings to: ..."). The backstop guarantees the findings survive even if the inline return is interrupted or truncated. See `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/standalone-dispatch.md` for the full contract.
 
 **IMPORTANT — Researcher prompt constraints**: Tell each researcher to keep code snippets to **5 lines max** per finding and limit the total response to the discovery table format only — no prose summaries.
 
@@ -175,8 +175,8 @@ After all 3 return: merge tables, de-duplicate, verify all 8 categories covered.
 #### Path B (enhanced) — when `ENHANCED_MODE=true`
 
 - Replace the 3-row researcher table above with the 7-row roster from `${CURSOR_PLUGIN_ROOT}/skills/prp-plan/references/enhanced-researchers.md`.
-- Dispatch in a **SINGLE message** with **SEVEN `Agent` tool calls** (standalone — no `name`). Each `Agent` call blocks and returns the researcher's report inline as its return value.
-- Each call uses `subagent_type: "prp-researcher"` with the `name` field set to the role name (`api-researcher`, `business-analyzer`, `tech-designer`, `ux-researcher`, `security-researcher`, `practices-researcher`, `recommendations-agent`) and the role-specific prompt copied verbatim from `enhanced-researchers.md`. Per `enhanced-researchers.md`, each role-specific prompt also instructs the researcher to write a backstop file at `docs/prps/plans/.prp-research/<feature-slug>/<role-name>.md` (`api-researcher.md`, `business-analyzer.md`, `tech-designer.md`, `ux-researcher.md`, `security-researcher.md`, `practices-researcher.md`, `recommendations-agent.md`) in addition to returning the same content inline.
+- Dispatch in a **SINGLE message** with **SEVEN `Agent` tool calls** (standalone — no `name`). Wait for all researcher results, whether returned directly or delivered asynchronously, before synthesis.
+- Each call uses `subagent_type: "prp-researcher"` with `description` set to the role name (`api-researcher`, `business-analyzer`, `tech-designer`, `ux-researcher`, `security-researcher`, `practices-researcher`, `recommendations-agent`) and the role-specific prompt copied verbatim from `enhanced-researchers.md`. Per `enhanced-researchers.md`, each role-specific prompt also instructs the researcher to write a backstop file at `docs/prps/plans/.prp-research/<feature-slug>/<role-name>.md` (`api-researcher.md`, `business-analyzer.md`, `tech-designer.md`, `ux-researcher.md`, `security-researcher.md`, `practices-researcher.md`, `recommendations-agent.md`) in addition to returning the same content inline.
 - The 5-line snippet cap and discovery-table-only constraints used in the 3-researcher path apply unchanged.
 
 ### Path C — Agent team (`AGENT_TEAM_MODE=true`, Claude Code only)
@@ -229,7 +229,7 @@ Use shared lifecycle §§2 and 8.1: flat researcher roster from Path B, full cat
 
 #### C.6 Monitor and merge
 
-Use `the task tracker` to confirm all 3 tasks are `completed` before merging. Merge tables,
+Use `task list` to confirm all 3 tasks are `completed` before merging. Merge tables,
 de-duplicate, verify all 8 categories covered — same merge logic as Path B.
 
 If a teammate errors:
@@ -246,7 +246,7 @@ Complete shared lifecycle cleanup before continuing to Phase 3, even on partial 
 #### Path C (enhanced) — when `ENHANCED_MODE=true`
 
 - Team name stays `prpp-<sanitized-feature>`.
-- Register 7 tasks instead of 3 via `record the task`, using the role names from `${CURSOR_PLUGIN_ROOT}/skills/prp-plan/references/enhanced-researchers.md` (`api-researcher`, `business-analyzer`, `tech-designer`, `ux-researcher`, `security-researcher`, `practices-researcher`, `recommendations-agent`).
+- Register 7 tasks instead of 3 via `task registration`, using the role names from `${CURSOR_PLUGIN_ROOT}/skills/prp-plan/references/enhanced-researchers.md` (`api-researcher`, `business-analyzer`, `tech-designer`, `ux-researcher`, `security-researcher`, `practices-researcher`, `recommendations-agent`).
 - Spawn 7 teammates in a **single message** with `name=`, all using `subagent_type: "prp-researcher"` with the role-specific prompt from `enhanced-researchers.md`.
 - Apply shared lifecycle to all seven teammates.
 - Failure policy: a single teammate failure → continue with a stub note in synthesis ("{role} did not complete — {section} may be incomplete"); ≥4 teammate failures → abort, shut down survivors via `SendMessage`, fall back to suggesting the user re-run with `--enhanced --parallel`.

@@ -66,14 +66,14 @@ bundles ship without team tools — use `--parallel` there).
 
 You must follow the agent-team lifecycle. Do not mix standalone sub-agents
 with team dispatch. Every `Agent` call must include `name=`.
-If up-front `record the task` fails, abort the skill. See
+If up-front `task registration` fails, abort the skill. See
 `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/agent-team-dispatch.md`
 for the full lifecycle contract.
 
 1. Confirm implicit session team is available
-2. record the task for all 3 reviewer subtasks up front (flat graph — no dependencies)
+2. task registration for all 3 reviewer subtasks up front (flat graph — no dependencies)
 3. Spawn 3 teammates: single message, three `Agent` calls with `name=`
-4. the task tracker to monitor until all reviewers mark complete
+4. task list to monitor until all reviewers mark complete
 5. SendMessage({type:"shutdown_request"}) to all 3 teammates
 6. Send shutdown requests to all 3 teammates before merging
 
@@ -99,20 +99,20 @@ description. Subjects:
 - `security-reviewer: <scope> review of <target>`
 - `quality-reviewer: <scope> review of <target>`
 
-If any `record the task` fails, shut down any active teammates and abort.
+If any `task registration` fails, shut down any active teammates and abort.
 
 ### Spawn the 3 reviewers
 
 Single message, three `Agent` calls. Every call includes `name`
-(the reviewer name — must match the `record the task` subject prefix),
+(the reviewer name — must match the `task registration` subject prefix),
 `subagent_type: "code-reviewer"`, a one-line `description`, and the same
 `prompt` as Path B plus a note that the teammate shares a task list with two
 sibling reviewers (name them), may `SendMessage` them on overlapping scope,
-and must call `update the task tracker` to mark its task complete before returning.
+and must call `task status update` to mark its task complete before returning.
 
 ### Monitor, shutdown, merge
 
-Use `the task tracker` to confirm all 3 tasks are `completed` before merging. If a
+Use `task list` to confirm all 3 tasks are `completed` before merging. If a
 teammate messages the orchestrator, respond via `SendMessage`. Failure policy:
 
 - All 3 error → shut down active teammates and abort with a clear error.

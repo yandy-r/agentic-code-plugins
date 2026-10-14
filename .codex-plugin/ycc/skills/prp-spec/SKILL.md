@@ -111,7 +111,7 @@ Derive a kebab-case `{name}` from the input:
 
 **If skipped**: Report "Generating spec from provided context only — use `--ground` for researcher-backed discovery."
 
-**If running**: Dispatch a single `prp-researcher` agent via the blocking `Agent` tool, in dual mode (codebase + market):
+**If running**: Dispatch a single `prp-researcher` agent via the `Agent` tool, in dual mode (codebase + market):
 
 - Codebase side: similar implementations, relevant types, existing patterns, integration points already in place
 - Market side: competitor approaches, library options, API documentation, known gotchas

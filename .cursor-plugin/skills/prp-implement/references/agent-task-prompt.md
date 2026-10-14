@@ -34,4 +34,4 @@ verbatim (what changed and why).
 both parallel and sequential tasks. Treat that directory as repo root for all
 Read / Write / Edit / Bash calls; no per-agent worktree isolation.
 `TEAM_COMPLETION_DIRECTIVE`: empty for standalone; when `--team`, require agent
-to call `update the task tracker` to mark its own registered task complete.
+to call `task status update` to mark its own registered task complete.

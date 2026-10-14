@@ -334,12 +334,13 @@ Common patterns:
 
 ## 10. Subtask Registration Formats
 
-Path A (`TEAM_FLAG=false`): register each subtask as a task item with `TaskCreate`; no team is
-created. Track batch completion in-context after each batch returns.
+Path A (`TEAM_FLAG=false`): register each subtask as a task item with `TaskCreate`; no teammate dispatch is used. Capture the returned task IDs and track batch completion
+after all results have arrived.
 
 ```
-- id: "subtask-1", content: "[Subtask 1 title] — agent: [agent-type] — depends: [none/list]", status: "pending"
-- id: "subtask-2", content: "[Subtask 2 title] — agent: [agent-type] — depends: [subtask-1]", status: "pending"
+TaskCreate: subject="subtask-1: <title>", description="Agent: <type>. Scope: <full spec>"
+TaskCreate: subject="subtask-2: <title>", description="Agent: <type>. Scope: <full spec>"
+TaskUpdate: taskId="<subtask-2 returned ID>", addBlockedBy=["<subtask-1 returned ID>"]
 ```
 
 Path B (`--team`): implicit session team, run label `orch-<FEATURE_SLUG>`, purpose `Orchestration team for: <task description>`. Register `subject="[subtask-N]: [Description]"`, `description="Agent: [agent-type]. Scope: [details]. Expected output: [deliverables]."`; dependencies from decomposed graph. `DRY_RUN` or `PLAN_ONLY`: skip registration/setup, compute sanitized name in memory. Mechanism follows shared team §8.2.

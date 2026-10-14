@@ -65,7 +65,7 @@ Per-batch teammate roster:
   ...
 ```
 
-Do **not** call `record the task`, `Agent`, or `SendMessage` in dry-run mode. **STOP HERE**.
+Do **not** call `task registration`, `Agent`, or `SendMessage` in dry-run mode. **STOP HERE**.
 
 ## Completion summary
 

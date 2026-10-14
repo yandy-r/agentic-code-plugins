@@ -8,10 +8,10 @@ allowed-tools:
   - Glob
   - Write
   - Agent
-  - record the task
-  - update the task tracker
-  - the task tracker
-  - the task details
+  - TaskCreate
+  - TaskUpdate
+  - TaskList
+  - TaskGet
   - SendMessage
   - Bash(ls:*)
   - Bash(cat:*)

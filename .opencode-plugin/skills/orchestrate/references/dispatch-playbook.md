@@ -110,7 +110,7 @@ section 2: list only the parent path. Do not add child paths or a `**Children**:
 
 ## 4. Path A Dispatch Call (standalone)
 
-One message, multiple calls, Each call uses native foreground arguments. Each prompt
+One message, multiple calls. Each call uses native foreground arguments. Each prompt
 uses the Path A Coordination Block from `agent-prompts.md`. With `WORKTREE_MODE=true`
 each prompt starts with the `Working directory:` line and the coordination note. Do not
 pass `isolation: "worktree"`: it creates a separate harness worktree per agent and
@@ -294,12 +294,13 @@ Common patterns:
 
 ## 10. Subtask Registration Formats
 
-Path A (`STANDALONE_MODE=true`): register each subtask as a task item with `track the task`; no team is
-created. Track batch completion in-context after each batch returns.
+Path A (`STANDALONE_MODE=true`): register each subtask as a task item with `track the task`; no sub-agent dispatch is used. Capture the returned task IDs and track batch completion
+after all results have arrived.
 
 ```
-- id: "subtask-1", content: "[Subtask 1 title] — agent: [agent-type] — depends: [none/list]", status: "pending"
-- id: "subtask-2", content: "[Subtask 2 title] — agent: [agent-type] — depends: [subtask-1]", status: "pending"
+track the task: subject="subtask-1: <title>", description="Agent: <type>. Scope: <full spec>"
+track the task: subject="subtask-2: <title>", description="Agent: <type>. Scope: <full spec>"
+update the todo tracker: taskId="<subtask-2 returned ID>", addBlockedBy=["<subtask-1 returned ID>"]
 ```
 
 

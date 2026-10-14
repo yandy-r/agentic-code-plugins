@@ -11,10 +11,10 @@ allowed-tools:
   - Skill
   - Agent
   - AskUserQuestion
-  - record the task
-  - update the task tracker
-  - the task tracker
-  - the task details
+  - TaskCreate
+  - TaskUpdate
+  - TaskList
+  - TaskGet
   - SendMessage
   - Bash(git:*)
   - Bash(ls:*)
@@ -45,7 +45,7 @@ Extract flags from `$ARGUMENTS`:
 | Flag                 | Effect                                                                                                                                                                                      |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--parallel`         | Fan out REVIEW across 3 standalone `code-reviewer` sub-agents (correctness, security, quality) and merge findings. Works in Claude Code, Cursor, and Codex bundles.                     |
-| `--team`             | (Claude Code only) Same 3-reviewer fan-out as a coordinated agent team with shared `the task tracker`, per-reviewer `record the task`, and coordinated shutdown. Heavier dispatch, richer communication. |
+| `--team`             | (Claude Code only) Same 3-reviewer fan-out as a coordinated agent team with shared `task list`, per-reviewer `task registration`, and coordinated shutdown. Heavier dispatch, richer communication. |
 | `--yes`              | Skip the confirmation prompt and behave as "Apply fixes" through `/quick-fix`. Mutually exclusive with `--save` and `--write-and-apply`.                                                |
 | `--save`             | Skip the confirmation prompt and behave as "Save to file" (write artifact, print Next steps, exit). Mutually exclusive with `--yes` and `--write-and-apply`.                                |
 | `--write-and-apply`  | Skip the confirmation prompt, write the review artifact, then hand off to `/review-fix`. Mutually exclusive with `--yes` and `--save`.                                                  |

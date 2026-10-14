@@ -8,10 +8,10 @@ allowed-tools:
   - Glob
   - Write
   - Agent
-  - record the task
-  - update the task tracker
-  - the task tracker
-  - the task details
+  - TaskCreate
+  - TaskUpdate
+  - TaskList
+  - TaskGet
   - SendMessage
   - WebSearch
   - WebFetch
@@ -68,7 +68,7 @@ feature-spec.md        feature-spec.md     parallel-plan.md
 
 Parse arguments (flags first, then the feature name):
 
-- **--team**: Optional. (Claude Code only) Deploy the 7 researchers as teammates under the implicit session team with `the task tracker` and coordinated shutdown. Default is standalone parallel sub-agents via the `Agent` tool. Cursor and Codex bundles lack team tools — do not pass `--team` there.
+- **--team**: Optional. (Claude Code only) Deploy the 7 researchers as teammates under the implicit session team with `task list` and coordinated shutdown. Default is standalone parallel sub-agents via the `Agent` tool. Cursor and Codex bundles lack team tools — do not pass `--team` there.
 - **--description "..."**: Brief description of the feature (guides research agents)
 - **--dry-run**: Show execution plan without running. With `--team`, also prints the team name and 7-teammate roster.
 - **feature-name**: Required. Directory name in `docs/plans/`
@@ -170,7 +170,7 @@ Teammates:      7
   - recommendations-agent  subagent_type=codebase-research-analyst   task=Ideas, improvements, risks
 ```
 
-Do **not** call `record the task`, `Agent`, or `SendMessage` in dry-run mode.
+Do **not** call `task registration`, `Agent`, or `SendMessage` in dry-run mode.
 
 **STOP** without creating files or deploying agents.
 
@@ -217,7 +217,7 @@ If `AGENT_TEAM_MODE=true`, register all 7 tasks up front (flat — all 7 run in 
 6. **"Evaluate engineering practices for [feature-name]"** — Modularity, code reuse, KISS, testability
 7. **"Generate recommendations for [feature-name]"** — Ideas, improvements, risks
 
-If `record the task` fails for any task, shut down any spawned teammates via `SendMessage` and abort.
+If `task registration` fails for any task, shut down any spawned teammates via `SendMessage` and abort.
 
 ### Step 7: Read Research Prompts
 
@@ -261,22 +261,22 @@ In this mode there is no shared task list; rely on each `Agent`'s return value p
 > `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/agent-team-dispatch.md`.
 > Do NOT mix standalone `Agent` calls with team dispatch.
 
-All 7 `record the task` entries were registered up front in Step 6 — do not re-create them here.
+All 7 `task registration` entries were registered up front in Step 6 — do not re-create them here.
 
 Spawn all 7 teammates in **ONE message** with **SEVEN `Agent` tool calls**. Every call MUST include:
 
-- `name = "<teammate-name>"` (from the table above — must match the `record the task` subject prefix)
+- `name = "<teammate-name>"` (from the table above — must match the `task registration` subject prefix)
 - `subagent_type` and `model` from the table above
 - The researcher-specific prompt from `research-agents.md`
 
-After spawning, use `the task tracker` to confirm all 7 tasks are `completed` before proceeding to Step 10. Do not rely on agent return values alone — check the shared task state.
+After spawning, use `task list` to confirm all 7 tasks are `completed` before proceeding to Step 10. Do not rely on agent return values alone — check the shared task state.
 
 ### Step 9: Monitor Research Progress
 
 Wait for all 7 researchers to complete their work.
 
 - **Path A (standalone, default)**: rely on `Agent` return values; each sub-agent writes its `research-*.md` artifact before returning.
-- **Path B (`--team`)**: use `the task tracker` to check progress. Teammates will share findings with each other via `SendMessage`:
+- **Path B (`--team`)**: use `task list` to check progress. Teammates will share findings with each other via `SendMessage`:
   - `api-researcher` tells `tech-designer` about discovered API endpoints and auth patterns
   - `api-researcher` tells `security-researcher` about dependency versions and auth methods
   - `api-researcher` tells `practices-researcher` about discovered libraries for build-vs-depend analysis
@@ -408,7 +408,7 @@ Each research file should: focus on its specific domain, include concrete exampl
 ## Important Notes
 
 - **You are the research orchestrator** — coordinate the 7 researchers and synthesize the spec
-- **Choose dispatch mode from `$ARGUMENTS`** — default is standalone sub-agents via `Agent`; `--team` switches to teammates under the implicit session team with `the task tracker`
+- **Choose dispatch mode from `$ARGUMENTS`** — default is standalone sub-agents via `Agent`; `--team` switches to teammates under the implicit session team with `task list`
 - **Team setup first (Path B only)** — register all 7 tasks before spawning teammates
 - **Spawn in parallel** — a single message with 7 `Agent` calls (Path A) or 7 `Agent` calls with `name=` (Path B)
 - **Teammates share findings (Path B only)** — inter-teammate `SendMessage` coordination is unavailable to standalone sub-agents

@@ -151,10 +151,16 @@ def _remove_team_operations(text: str, *, add_compatibility_note: bool) -> str:
             flags=re.IGNORECASE,
         )
         line = re.sub(
-            r"\s*no `name`, no `run_in_background`\.",
-            " Each call uses native foreground arguments.",
+            r",\s*no `name`, no `run_in_background`\.",
+            ". Each call uses native foreground arguments.",
             line,
             flags=re.IGNORECASE,
+        )
+        line = re.sub(
+            r"(^|\. )no `name`, no `run_in_background`\.",
+            r"\1Each call uses native foreground arguments.",
+            line,
+            flags=re.IGNORECASE | re.MULTILINE,
         )
         line = re.sub(
             r"\s*No `team_name`[^.]*\.",

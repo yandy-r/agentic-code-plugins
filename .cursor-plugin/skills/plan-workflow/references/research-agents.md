@@ -21,7 +21,7 @@ Apply this contract to every teammate prompt in this file:
 - Do not edit any other files.
 - After writing the file, verify it exists using the Read tool or equivalent.
 - **Share key findings** with relevant teammates using SendMessage.
-- After writing the file and sharing findings, mark your task as complete using update the task tracker.
+- After writing the file and sharing findings, mark your task as complete using task status update.
 
 ---
 
@@ -63,7 +63,7 @@ Analyze the codebase to understand:
 
 ## Team Communication
 
-> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `update the task tracker`, or `the task tracker`, ignore this section entirely and just write your output file.
+> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `task status update`, or `task list`, ignore this section entirely and just write your output file.
 
 You are part of a research team. Your teammates are:
 
@@ -79,14 +79,14 @@ You are part of a research team. Your teammates are:
 
 ## Task Coordination
 
-> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `the task tracker` / `update the task tracker`, ignore this section entirely; the orchestrator gates on the artifact file existing on disk.
+> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `task list` / `task status update`, ignore this section entirely; the orchestrator gates on the artifact file existing on disk.
 
-1. Check the task tracker for your assigned task
-2. Claim your task with update the task tracker (set status to in_progress, owner to your name)
+1. Check task list for your assigned task
+2. Claim your task with task status update (set status to in_progress, owner to your name)
 3. Do your research
 4. Share findings with teammates
 5. Write your output file
-6. Mark your task complete with update the task tracker
+6. Mark your task complete with task status update
 
 ## Output Requirements
 
@@ -172,7 +172,7 @@ Identify and document:
 
 ## Team Communication
 
-> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `update the task tracker`, or `the task tracker`, ignore this section entirely and just write your output file.
+> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `task status update`, or `task list`, ignore this section entirely and just write your output file.
 
 You are part of a research team. Your teammates are:
 
@@ -189,14 +189,14 @@ You are part of a research team. Your teammates are:
 
 ## Task Coordination
 
-> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `the task tracker` / `update the task tracker`, ignore this section entirely; the orchestrator gates on the artifact file existing on disk.
+> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `task list` / `task status update`, ignore this section entirely; the orchestrator gates on the artifact file existing on disk.
 
-1. Check the task tracker for your assigned task
-2. Claim your task with update the task tracker (set status to in_progress, owner to your name)
+1. Check task list for your assigned task
+2. Claim your task with task status update (set status to in_progress, owner to your name)
 3. Do your research
 4. Share findings with teammates
 5. Write your output file
-6. Mark your task complete with update the task tracker
+6. Mark your task complete with task status update
 
 ## Output Requirements
 
@@ -286,7 +286,7 @@ Investigate:
 
 ## Team Communication
 
-> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `update the task tracker`, or `the task tracker`, ignore this section entirely and just write your output file.
+> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `task status update`, or `task list`, ignore this section entirely and just write your output file.
 
 You are part of a research team. Your teammates are:
 
@@ -304,14 +304,14 @@ You are part of a research team. Your teammates are:
 
 ## Task Coordination
 
-> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `the task tracker` / `update the task tracker`, ignore this section entirely; the orchestrator gates on the artifact file existing on disk.
+> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `task list` / `task status update`, ignore this section entirely; the orchestrator gates on the artifact file existing on disk.
 
-1. Check the task tracker for your assigned task
-2. Claim your task with update the task tracker (set status to in_progress, owner to your name)
+1. Check task list for your assigned task
+2. Claim your task with task status update (set status to in_progress, owner to your name)
 3. Do your research
 4. Share findings with teammates
 5. Write your output file
-6. Mark your task complete with update the task tracker
+6. Mark your task complete with task status update
 
 ## Output Requirements
 
@@ -411,7 +411,7 @@ Search for documentation in:
 
 ## Team Communication
 
-> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `update the task tracker`, or `the task tracker`, ignore this section entirely and just write your output file.
+> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `task status update`, or `task list`, ignore this section entirely and just write your output file.
 
 You are part of a research team. Your teammates are:
 
@@ -429,14 +429,14 @@ You are part of a research team. Your teammates are:
 
 ## Task Coordination
 
-> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `the task tracker` / `update the task tracker`, ignore this section entirely; the orchestrator gates on the artifact file existing on disk.
+> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `task list` / `task status update`, ignore this section entirely; the orchestrator gates on the artifact file existing on disk.
 
-1. Check the task tracker for your assigned task
-2. Claim your task with update the task tracker (set status to in_progress, owner to your name)
+1. Check task list for your assigned task
+2. Claim your task with task status update (set status to in_progress, owner to your name)
 3. Do your research
 4. Share findings with teammates
 5. Write your output file
-6. Mark your task complete with update the task tracker
+6. Mark your task complete with task status update
 
 ## Output Requirements
 
@@ -495,9 +495,9 @@ When spawning research teammates:
 2. **Substitute variables**:
    - `{{FEATURE_NAME}}` - The feature directory name (e.g., `user-authentication`)
    - `{{FEATURE_DIR}}` - Full output directory (e.g., `docs/plans/user-authentication`)
-3. **Create tasks** - Use record the task to create research tasks
+3. **Create tasks** - Use task registration to create research tasks
 4. **Spawn in parallel** - Use a single message with multiple parallel agent invocations, each with `name`
-5. **Monitor progress** - Use the task tracker to check when all tasks complete
+5. **Monitor progress** - Use task list to check when all tasks complete
 6. **Verify artifacts** - Check all research files exist on disk
 7. **Shut down teammates** - Send shutdown requests via SendMessage
 8. **Read results** - Review each research file before writing shared.md

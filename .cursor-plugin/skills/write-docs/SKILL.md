@@ -102,7 +102,7 @@ Based on `$ARGUMENTS`:
 
 ### Step 5: Create Task Plan
 
-Use the task tools (`record the task`) to create a prioritized task list:
+Use the task tools (`task registration`) to create a prioritized task list:
 
 1. Critical documentation gaps (public APIs, core features)
 2. Architecture and system design

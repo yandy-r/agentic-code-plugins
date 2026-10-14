@@ -72,7 +72,7 @@ Ask these questions (present all at once, user can answer together):
 
 ## Phase 3: GROUNDING — Market & Context Research
 
-After foundation answers, dispatch the **`prp-researcher`** agent via the foreground native `subagent` call (`background=false`), in **market+codebase (dual) mode**, to investigate:
+After foundation answers, dispatch the **`prp-researcher`** agent via the **`subagent`** tool, in **market+codebase (dual) mode**, to investigate:
 
 - Similar products/features in the market
 - How competitors solve this problem
@@ -114,7 +114,7 @@ Based on foundation + research, ask:
 
 ## Phase 5: GROUNDING — Technical Feasibility
 
-Dispatch the **`prp-researcher`** agent again via the foreground native `subagent` call (`background=false`), this time scoped to **technical feasibility**:
+Dispatch the **`prp-researcher`** agent again via the **`subagent`** tool, this time scoped to **technical feasibility**:
 
 - If a codebase exists, run two investigations:
   1. **Explore feasibility** — existing infrastructure that can be leveraged, similar patterns already implemented, integration points, dependencies, relevant config and type definitions

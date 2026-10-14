@@ -122,7 +122,7 @@ Ask (present all at once):
 
 ## Phase 3: GROUNDING — Market & Context
 
-Dispatch **`ycc:prp-researcher`** via the blocking **`Agent`** tool, in **dual (market + codebase) mode**, to investigate:
+Dispatch **`ycc:prp-researcher`** via the **`Agent`** tool, in **dual (market + codebase) mode**, to investigate:
 
 - Comparable products/systems and how they're typically built (their stacks are useful
   priors for the Tech Stack phase)

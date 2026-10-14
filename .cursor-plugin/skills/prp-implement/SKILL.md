@@ -10,10 +10,10 @@ allowed-tools:
   - Edit
   - Agent
   - AskUserQuestion
-  - record the task
-  - the task details
-  - the task tracker
-  - update the task tracker
+  - TaskCreate
+  - TaskGet
+  - TaskList
+  - TaskUpdate
   - SendMessage
   - Bash(ls:*)
   - Bash(cat:*)

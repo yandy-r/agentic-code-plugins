@@ -8,10 +8,10 @@ allowed-tools:
   - Glob
   - Write
   - Agent
-  - record the task
-  - update the task tracker
-  - the task tracker
-  - the task details
+  - TaskCreate
+  - TaskUpdate
+  - TaskList
+  - TaskGet
   - SendMessage
   - AskUserQuestion
   - Bash(ls:*)
@@ -25,7 +25,7 @@ allowed-tools:
 
 # Unified Planning Workflow
 
-One command to research, analyze, and plan feature implementation. Default dispatch is standalone parallel sub-agents via `Agent`; `--team` (Claude Code only) runs stages as teammates under the implicit session team with `the task tracker`, `SendMessage` coordination, and coordinated shutdown. Combines `shared-context` + `parallel-plan` with checkpoints.
+One command to research, analyze, and plan feature implementation. Default dispatch is standalone parallel sub-agents via `Agent`; `--team` (Claude Code only) runs stages as teammates under the implicit session team with `task list`, `SendMessage` coordination, and coordinated shutdown. Combines `shared-context` + `parallel-plan` with checkpoints.
 
 Flow: Research → Checkpoint → Analysis → Plan Generation → Validation → optional `--visual`.
 
@@ -46,7 +46,7 @@ Read `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/agent-team-dispatch.md` on
 2. **Feature name required**: kebab-case (lowercase, hyphens), no other special characters. If missing or invalid, abort with the matching error block from `references/checkpoint-messages.md` ("Error Messages": Missing Feature Name / Invalid Feature Name).
 3. **Team opt-in env gate**: `--team` without `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` aborts with: `--team requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1. Omit --team for standalone dispatch, or set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in your Claude Code settings if you intentionally want agent-team dispatch.` Cursor and Codex bundles ship without team tools — never pass `--team` there.
 4. **Dry-run writes nothing**: handled before the prereq gate, overwrite prompt, any `mkdir`, write, dispatch, or rendering. Never prompts for input. It prints the preview and then **STOP**s.
-   With `--team`, that dry-run additionally makes no `record the task`/`Agent`/`SendMessage` calls.
+   With `--team`, that dry-run additionally makes no `task registration`/`Agent`/`SendMessage` calls.
 5. **`--plan-only` prerequisite gate (before any `mkdir` or write)**: `scripts/check-prerequisites.sh` must exit 0. On failure, print its output plus `run /shared-context <feature> or /plan-workflow <feature> --research-only first`, then **STOP**. Never fall back to running research inline under `--plan-only`.
 6. **`--optimized --plan-only` restriction**: the five unified analysis files must already exist (prior `--optimized` full run); there is no Phase 5 to regenerate them. If any is missing, **STOP** with: `--optimized --plan-only needs a prior --optimized full run. Run /plan-workflow <feature> --optimized first.` Enforced at Step 4B, re-checked by the Phase 7 PRE-CHECK.
 7. **Pre-generation gate (Step 22, cannot be skipped)**: `scripts/persist-or-fail.sh` must exit 0 before plan generation. On `MISSING_FILES`/`ACTION_REQUIRED`, re-dispatch the failing agent to write the missing file(s) and re-run until exit 0. The orchestrator must never write agent output files itself from captured summaries — that bypasses the contract (root cause of the May 2026 reproducer with 3 of 5 unified files missing).
@@ -59,7 +59,7 @@ Read `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/agent-team-dispatch.md` on
 
 Parse flags first, then the feature name (first non-flag argument, required; directory name in `${PLANS_DIR}/`).
 
-- **--team**: (Claude Code only) teammates under the implicit session team with `the task tracker`. Default: standalone parallel sub-agents via `Agent`.
+- **--team**: (Claude Code only) teammates under the implicit session team with `task list`. Default: standalone parallel sub-agents via `Agent`.
 - **--research-only**: stop after research (creates shared.md only).
 - **--plan-only**: skip research, use existing shared.md. Skips Phases 1–4, NOT Phase 5 (Analysis).
 - **--no-checkpoint**: no pause between research and planning.
@@ -169,7 +169,7 @@ Substitute `{{FEATURE_NAME}}` (feature directory name) and `{{FEATURE_DIR}}` (`$
 
 ### Step 9: Create Research Tasks (if `--team`)
 
-Create 4 tasks in the shared task list: "Research architecture for [feature-name]", "Research patterns for [feature-name]", "Research integrations for [feature-name]", "Research documentation for [feature-name]". If `record the task` fails for any task, shut down any spawned teammates and abort.
+Create 4 tasks in the shared task list: "Research architecture for [feature-name]", "Research patterns for [feature-name]", "Research integrations for [feature-name]", "Research documentation for [feature-name]". If `task registration` fails for any task, shut down any spawned teammates and abort.
 
 ### Step 10: Spawn Research Agents (standard mode)
 
@@ -183,14 +183,14 @@ Read `references/research-agents.md`. **CRITICAL**: Deploy all 4 research agents
 | `docs-researcher`         | `codebase-research-analyst` | `research-docs.md`         | sonnet | Relevant documentation files             |
 
 Pass `model: "sonnet"` for all research agents; each writes `${feature_dir}/[output-file]`. In `--optimized`, spawn the 5 unified agents from `references/research-agents-optimized.md` instead (see "Optimized Mode" below). Standalone dispatch follows the shared contract.
-With `--team`, spawn the teammates registered in Step 9 in one message and confirm all are `completed` via `the task tracker` before Step 11; do not re-create tasks.
+With `--team`, spawn the teammates registered in Step 9 in one message and confirm all are `completed` via `task list` before Step 11; do not re-create tasks.
 
 ## Phase 2: Validate Research Artifacts
 
 ### Step 11: Validate Research Artifacts
 
 - **Path A (standalone, default)**: rely on `Agent` return values; each sub-agent writes its `research-*.md` (or, in `--optimized`, `analysis-*.md`) artifact before returning.
-- **Path B (team)**: check via `the task tracker` that all 4 research tasks are `completed`.
+- **Path B (team)**: check via `task list` that all 4 research tasks are `completed`.
 
 ```bash
 # Standard mode (4-file research-*.md set):
@@ -279,14 +279,14 @@ Team mode instead spawns 3 (standard) or 5 (optimized) teammates in one message 
 | `task-structurer`     | `codebase-research-analyst` | `analysis-tasks.md`   | sonnet | Suggest task breakdown |
 
 Pass `model: "sonnet"`; each writes `${feature_dir}/[output-file]`. Standalone dispatch follows the shared contract.
-With `--team`, spawn the tasks registered in Step 19 in one message and confirm `completed` via `the task tracker`.
+With `--team`, spawn the tasks registered in Step 19 in one message and confirm `completed` via `task list`.
 
 ## Phase 6: Validate and Persist Analysis Artifacts
 
 ### Step 21: First Validation Check
 
 - **Path A (standalone, default)**: rely on `Agent` return values; each sub-agent writes its `analysis-*.md` artifact before returning.
-- **Path B (team)**: `the task tracker` shows all 3 (standard) or 5 (optimized) analysis tasks `completed`. Then:
+- **Path B (team)**: `task list` shows all 3 (standard) or 5 (optimized) analysis tasks `completed`. Then:
 
 ```bash
 # Standard mode (3-file set: analysis-context, analysis-code, analysis-tasks):
@@ -376,7 +376,7 @@ Team mode instead spawns the validators as teammates in one message with `name=`
 ### Step 31: Review and Fix Issues
 
 - **Path A (standalone, default)**: review each `Agent` return value for validator findings.
-- **Path B (team)**: `the task tracker` + teammate messages.
+- **Path B (team)**: `task list` + teammate messages.
 
 Fix issues: correct invalid file paths, resolve circular dependencies, add missing details to incomplete tasks.
 

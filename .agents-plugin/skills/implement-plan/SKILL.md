@@ -125,11 +125,14 @@ Use standalone-dispatch.md §8.1 for precedence and variables in both modes. Ski
 Build the independent-vs-dependent graph using standalone-dispatch.md §9; example in `references/plan-inputs.md` (Dependency graph). Keep the graph for standalone batch ordering.
 With `--team`, also use that graph for `addBlockedBy` wiring.
 
-## Phase 2: Create Todo List
+## Phase 2: Create Task List
 
-### Step 5: Generate Comprehensive Todos
+### Step 5: Register Tasks
 
-Using the task tools (`TaskCreate`), create a task per item: `id` "task-<n>-<m>", `content` "[Task ID] [Task Title] - Depends on: [dependencies]", `status` "pending". Example in `references/plan-inputs.md` (Todo format).
+Use `TaskCreate` for each plan item with `subject="[Task ID] [Task Title]"` and
+`description="<full specification and dependencies>"`. Capture the returned task IDs;
+wire dependencies via `TaskUpdate` with `addBlockedBy` using those IDs. See
+`references/plan-inputs.md` (Task list format).
 
 ### Step 6: Identify First Batch
 
@@ -172,7 +175,7 @@ Implementor prompt template: `references/agent-task-prompt.md` — read once bef
 
 #### Process Batch Results (Path A)
 
-After each batch: validate in the execution tree, review reports, update todos, identify newly dependency-ready tasks, and print `[done] Batch BN: K tasks — complete` to the transcript. A failed task is recorded; continue independent tasks, never tasks depending on failed work.
+After each batch: validate in the execution tree, review reports, update task status, identify newly dependency-ready tasks, and print `[done] Batch BN: K tasks — complete` to the transcript. A failed task is recorded; continue independent tasks, never tasks depending on failed work.
 
 #### Repeat Until Complete (Path A)
 
@@ -198,7 +201,7 @@ Print the completion summary from `references/output-formats.md` (Completion sum
 
 ## Quality Standards
 
-Each batch must: deploy all ready tasks in parallel (single message — multiple `Agent` calls in Path A, multiple `Agent` calls with `name=` in Path B); wait for all agents before the next batch; update todo (and in Path B, TaskList) status after completion; handle failures gracefully; in Path B, shut down completed-batch teammates before the next batch.
+Each batch must: deploy all ready tasks in parallel (single message — multiple `Agent` calls in Path A, multiple `Agent` calls with `name=` in Path B); wait for all agents before the next batch; update task status with `TaskUpdate` after completion; handle failures gracefully; in Path B, shut down completed-batch teammates before the next batch.
 
 Each agent must: read all required context files first; implement only the assigned task; validate changes before returning; return a clear summary of changes; in Path B, call `TaskUpdate` to mark its own task complete.
 
@@ -220,6 +223,6 @@ Pair with the `/goal` session directive to loop the batch executor to completion
 
 ## References
 
-- `references/plan-inputs.md` — read when parsing tasks, building the dependency graph, generating todos, showing usage, or resolving the monorepo plans directory.
+- `references/plan-inputs.md` — read when parsing tasks, building the dependency graph, registering tasks, showing usage, or resolving the monorepo plans directory.
 - `references/agent-task-prompt.md` — read once before dispatching implementor agents.
 - `references/output-formats.md` — read when printing `--dry-run` output or the Phase 4 completion summary, or writing a `/goal` condition.

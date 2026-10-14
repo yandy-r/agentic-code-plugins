@@ -7,10 +7,10 @@ allowed-tools:
   - Grep
   - Glob
   - Agent
-  - record the task
-  - the task details
-  - the task tracker
-  - update the task tracker
+  - TaskCreate
+  - TaskGet
+  - TaskList
+  - TaskUpdate
   - AskUserQuestion
   - SendMessage
   - Bash(ls:*)
@@ -104,7 +104,7 @@ Wait; do not touch code until user responds:
 - no: stop, no implementation.
 
 For standalone enhanced re-dispatch, use a fresh batch of five parallel calls per `references/personas-and-merge.md` (Re-dispatch).
-Claude: that fresh batch is five parallel `Agent` calls with no `name=`, which is reserved for teammate dispatch.
+That fresh batch is five parallel `Agent` calls with no `name=`, which is reserved for teammate dispatch.
 With `--team`, re-dispatch spawns fresh teammates after prior teammates have shut down; do not message prior teammates.
 Unclear response: ask focused clarification.
 

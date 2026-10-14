@@ -4,7 +4,7 @@
 
 1. What `Agent` Is
 2. Spawn Rule
-3. Blocking / Inline-Return Semantics
+3. Result Delivery and Batch Completion
 4. Hard Anti-Patterns
 5. Disk-Artifact Backstop
 6. Failure Policy
@@ -26,146 +26,88 @@ mechanics that `--team` runs reuse; only dispatch arguments and coordination dif
 
 ## 1. What `Agent` Is
 
-`Agent` is Claude Code's primitive for spawning one or more standalone sub-agents that run
-to completion and hand their result back to the caller in the **same turn**, as the tool's
-return value. Omit `name` and `run_in_background` for standalone foreground dispatch — each `Agent`
-call is an independent, self-contained dispatch. Compatibility generators must translate
-this Claude-facing source contract into each target's native dispatch and result vocabulary;
-generated bundles must not describe `Agent` as a universal host API.
+`Agent` dispatches standalone sub-agents or named teammates. For standalone work,
+omit `name` and `run_in_background`; identify the role through `description` and
+`prompt`. This requests standalone dispatch, not a blocking-return guarantee.
+The runtime may still deliver results asynchronously, including in headless sessions.
 
-The same tool serves both modes; arguments select the mode:
-
-|                 | `Agent` (standalone)                       | `Agent` with `name` (Path C / `--team`)                               |
-| --------------- | ------------------------------------------ | --------------------------------------------------------------------- |
-| Availability    | Claude Code                                | Claude Code only                                                      |
-| Execution model | Blocking — caller waits for the result     | Async — spawns a background teammate                                  |
-| Result delivery | Returned inline as the tool's return value | A "finished" notification only; output is **not** returned inline     |
-| Coordination    | None — no shared task list                 | `TaskCreate`/`TaskList`/`SendMessage` against the shared team         |
-| Lifecycle       | Fire, wait, read result, done              | Implicit team → spawn with `name` → monitor → `SendMessage(shutdown)` |
-
-The "finished notification, no inline output" behavior of `Agent` with `name` is the root
-cause of the bug this document exists to prevent: skills that dispatch standalone work via
-`Agent` with `name` (instead of an unnamed call) and then try to read the sub-agent's findings inline get
-nothing — the orchestrator goes idle waiting on output that was never returned to it.
+Named teammates (`Agent` with `name`) require the implicit-team lifecycle in
+`agent-team-dispatch.md`. Do not mix teammate and standalone dispatch in one batch.
+Compatibility generators must project these instructions onto their target's tools.
 
 ---
 
 ## 2. Spawn Rule (non-negotiable)
 
-All standalone sub-agents in a batch are spawned via **ONE message** with **MULTIPLE
+Spawn independent standalone sub-agents in **ONE message** with **MULTIPLE
 `Agent` tool calls**:
 
 ```
-Agent(subagent_type="<type>", description="<short title>", prompt="<full task prompt>")
-Agent(subagent_type="<type>", description="<short title>", prompt="<full task prompt>")
-Agent(subagent_type="<type>", description="<short title>", prompt="<full task prompt>")
+Agent(subagent_type="<type>", description="<role and short title>", prompt="<full task prompt>")
+Agent(subagent_type="<type>", description="<role and short title>", prompt="<full task prompt>")
 ```
 
-- The call must **not** pass `name` or `run_in_background`. The `name` parameter
-  converts the call into a teammate dispatch and `run_in_background` makes it async.
-  Omit `team_name` too: it is ignored by the runtime and has no effect. Passing `name` —
-  especially when `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is enabled, which makes every
-  session an implicit team — converts what should be a blocking, inline foreground
-  dispatch into an async background teammate. That conversion replaces the inline
-  return with a "finished" notification, and orchestrators that expect the former end up
-  idle waiting for output that never arrives (see §3-4).
-- Standalone sub-agents share no team task list. Use the task tools (`TaskCreate`, `TaskGet`,
-  `TaskList`, `TaskUpdate`) only for the orchestrator's own progress tracking, and never
-  `SendMessage` a standalone sub-agent — it has no teammate inbox.
-- Sequential `Agent` calls across separate messages forfeit the parallel fan-out the
-  pattern exists for — batch them into one message whenever the work is independent.
+- Omit `name` (reserved for teammates) and `run_in_background`. Also omit
+  `team_name`, which is accepted but ignored.
+- Track the orchestrator's own progress with `TaskCreate`, `TaskGet`, `TaskList`,
+  and `TaskUpdate` when needed. These tools neither dispatch agents nor retrieve results.
+- Keep every dispatched agent associated with its role and expected deliverable.
 
 ---
 
-## 3. Blocking / Inline-Return Semantics
+## 3. Result Delivery and Batch Completion
 
-In the normal case, `Agent` calls **block** the orchestrator until every sub-agent in the
-batch returns, and each sub-agent's full report is delivered as that `Agent` call's return
-value, in the **same turn** the batch was dispatched. Read that return value directly —
-this is the expected, common-case contract, and the vast majority of `Agent` batches
-resolve this way.
+Results may arrive as tool return values or asynchronously through task notifications.
+Wait for **all** dispatched agents' results before merging or starting the next batch.
+If results are pending, end the turn to allow completion notifications to arrive; do
+not busy-wait with `sleep`, `echo`, or polling. Resume collection when notified.
 
-**Defensive fallback**: if the runtime ran the batch asynchronously (for example, a
-runtime bug or a flag like `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` reshaping the dispatch —
-see §2) and the results are not yet in hand at the point where you would normally read
-them, do **not** sleep-loop or poll waiting for them. Instead, **yield — end your turn**
-(stop generating; do not call `sleep`, `echo`, or any other busywork tool "to wait") so
-that any queued completion notification can flush. Resume merging results into the
-skill's workflow once you are notified that the batch has completed.
-
-The orchestrator must never:
-
-- Poll for completion.
-- `sleep` in a loop waiting for an `Agent` call to "finish."
-- Treat the absence of a notification, on its own, as proof that nothing returned — check
-  the actual return value first; only fall back to yielding (above) if it is genuinely
-  empty/missing at read time.
-
-If a batch of `Agent` calls returns inline, the work is done and every report is already in
-hand — proceed directly to merging, no waiting required.
+Validate each completed agent's report and required artifacts before marking its task
+complete. A launch acknowledgement or task status alone is not a findings report.
+Only treat a result as missing after the agent has completed or failed, not merely
+because its dispatch returned without findings.
 
 ---
 
 ## 4. Hard Anti-Patterns
 
-These mirror the Failure Policy intent of `agent-team-dispatch.md` in this directory
-§4, but for the standalone path. Each of the following is a bug, not a stylistic
-preference:
-
-- **Do NOT** dispatch standalone fan-out via `Agent` with `name` or
-  `run_in_background` set (see §2). Either produces a background
-  teammate whose output is never returned inline — exactly the failure mode this document
-  exists to prevent.
-- **Do NOT** background an `Agent` dispatch or otherwise detach from it.
-- **Do NOT** `sleep`-loop or poll waiting for an `Agent` call to complete. In the normal
-  case `Agent` blocks; the result is already available when the call returns.
-- **Do NOT** keep the turn alive with `sleep`, `echo`, or any other busywork "waiting" for
-  sub-agents to finish — including in the async-fallback case described in §3. In current
-  Claude Code versions, a live turn blocks completion-notification delivery, so busywork
-  "waiting" deadlocks the session until the user manually presses ESC. If there is nothing
-  productive to do while waiting, end the turn.
-- **Do NOT** rely on "finished" notifications as the primary way to retrieve standalone
-  sub-agent output — the inline return value is. Only fall back to waiting on a
-  notification (by yielding, per §3) if the inline return is genuinely empty/missing at
-  read time.
-- **Do NOT** call `SendMessage` for standalone sub-agents. Standalone agents return
-  findings inline; `SendMessage` operates only against active teammates.
-- **Do NOT** silently synthesize or fabricate findings when a sub-agent's inline return is
-  empty or missing. Treat it as a failure and follow the Failure Policy in §6 — never
-  paper over a missing result with invented content.
+- Do not pass `name` or `run_in_background` for standalone dispatch.
+- Do not proceed with a partial batch while other results are pending.
+- Do not use `SendMessage` for standalone result retrieval; it is teammate messaging.
+- Do not fabricate findings for a completed agent with an empty or malformed report.
+  Apply the backstop and failure policies below after completion.
 
 ---
 
 ## 5. Disk-Artifact Backstop
 
 Content-producing sub-agents with `Write` (for example, report-writing researchers)
-should also write findings to a declared artifact path and return the same content
-inline. Read-only reviewers, advisors, and planners never write artifacts: the
-orchestrator persists each valid inline return, and an empty/missing return is a
+should also write findings to a declared artifact path and return the same content. Read-only reviewers, advisors, and planners never write artifacts: the
+orchestrator persists each valid delivered report, and an empty/missing return is a
 failed review, not evidence to reconstruct.
 
 For agents allowed to write a backstop artifact:
 
-1. The orchestrator validates the inline return first.
-2. If the inline return is empty or missing, re-read the backstop artifact from disk
+1. After the agent completes, the orchestrator validates its delivered report first.
+2. If the delivered report is empty or missing, re-read the backstop artifact from disk
    before treating the sub-agent as failed.
-3. Only if **both** the inline return and the backstop artifact are empty/missing is the
+3. Only if **both** the delivered report and the backstop artifact are empty/missing is the
    sub-agent considered to have failed (see §6).
 
 For **code-writing** sub-agents (e.g. `ycc:implementor`, `ycc:review-fixer`), there is no
 separate findings file — the "artifact" is the code changes already committed to disk,
-plus a final `STATUS:` line in the inline return so the blocking `Agent` result stays
+plus a final `STATUS:` line in the delivered report so the `Agent` result stays
 parseable (e.g. `STATUS: Fixed` / `STATUS: Failed: <reason>`).
 
 ---
 
 ## 6. Failure Policy
 
-| Failure                                                                               | Response                                                                                                                                   |
-| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Single sub-agent: empty/missing inline return **and** empty/missing backstop artifact | Record a gap. If non-critical to the overall task, continue without it. Otherwise, re-dispatch once with the same prompt before giving up. |
-| Majority of a batch fails (empty/missing inline return **and** backstop artifact)     | Abort the skill run and report to the user, with guidance to retry. Do not attempt to synthesize a result from a majority-failed batch.    |
-| Re-dispatch also fails                                                                | Treat as a true failure per the non-critical/abort branches above — do not re-dispatch more than once with an identical prompt.            |
+| Failure                                                                                  | Response                                                                                                                                   |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Single sub-agent: empty/missing delivered report **and** empty/missing backstop artifact | Record a gap. If non-critical to the overall task, continue without it. Otherwise, re-dispatch once with the same prompt before giving up. |
+| Majority of a batch fails (empty/missing delivered report **and** backstop artifact)     | Abort the skill run and report to the user, with guidance to retry. Do not attempt to synthesize a result from a majority-failed batch.    |
+| Re-dispatch also fails                                                                   | Treat as a true failure per the non-critical/abort branches above — do not re-dispatch more than once with an identical prompt.            |
 
 Never silently drop a failed sub-agent's slot from downstream synthesis without recording
 the gap — a quietly missing finding is worse than a reported one.

@@ -101,8 +101,8 @@ Only stop if the problem points to a deeper issue outside your assigned scope bu
 
 ### 5. Required Final `STATUS:` Line
 
-You are dispatched via the blocking `Agent` tool — your entire response is returned
-inline to the orchestrator in the same turn, so it must be mechanically parseable.
+You are dispatched via the `Agent` tool. Your report may be delivered directly or
+asynchronously; always return a nonempty, mechanically parseable report.
 **Always end your response** with a final line in exactly one of these two forms:
 
 ```

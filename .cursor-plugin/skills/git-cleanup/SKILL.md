@@ -9,10 +9,10 @@ allowed-tools:
   - Glob
   - Write
   - Agent
-  - record the task
-  - the task details
-  - the task tracker
-  - update the task tracker
+  - TaskCreate
+  - TaskGet
+  - TaskList
+  - TaskUpdate
   - AskUserQuestion
   - Bash(git:*)
   - Bash(gh:*)

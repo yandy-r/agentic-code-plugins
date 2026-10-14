@@ -45,7 +45,7 @@ Display the subject, output path, four phases (8 personas, 2 crucible agents,
 
 With `--team`, also show `drpr-<sanitized-subject>`, 14 teammates, and dependencies:
 Batch 2 blocked by all Batch 1 tasks; Batch 3 blocked by both Batch 2 tasks.
-Do not call `record the task`, `Agent`, or `SendMessage` in dry-run mode.
+Do not call `task registration`, `Agent`, or `SendMessage` in dry-run mode.
 
 ### Infrastructure and objective (not dry run)
 
@@ -104,13 +104,13 @@ Read `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/agent-team-dispatch.md` wh
 1. Sanitize subject for team name: lowercase; replace `[^a-z0-9-]` with `-`;
    collapse hyphens, trim edges, truncate to 20 characters; fallback `untitled`.
 2. Confirm the implicit session team (flag `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`); abort if absent.
-3. record the task all 14 roster tasks up front, using teammate name as subject prefix.
-   Capture real task IDs. update the task tracker both Batch 2 tasks with all eight Batch 1 IDs
+3. task registration all 14 roster tasks up front, using teammate name as subject prefix.
+   Capture real task IDs. task status update both Batch 2 tasks with all eight Batch 1 IDs
    in `addBlockedBy`; each Batch 3 task gets both Batch 2 IDs. On registration
    failure, shut down any spawned teammates and abort.
 4. Spawn each batch in one message with multiple Agent calls. Every call carries
    unique `name` from the roster, `subagent_type`, and its mandate.
-5. Confirm that batch's tasks are `completed` via the task tracker before consuming outputs.
+5. Confirm that batch's tasks are `completed` via task list before consuming outputs.
    Send `shutdown_request` via SendMessage to every teammate in that batch before
    advancing. Keep the team through Phases 1–3.
 6. After final batch shutdown, confirm all teammates have shut down **before** Phase 4 synthesis.

@@ -75,7 +75,7 @@ No setup call exists. Verify `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` at flag-pa
 the flag is absent, **abort the skill** with a clear error. Do NOT silently fall back to a
 non-team mode.
 
-### Step 2 — TaskCreate (all tasks up front)
+### Step 2 — Register all tasks up front
 
 Register every subtask before spawning any teammates. Wire dependencies via
 `addBlockedBy` so the shared task list reflects the full graph:
@@ -111,7 +111,7 @@ Agent(
 
 The `name` must match the `TaskCreate` `subject` prefix so the TaskList maps cleanly.
 
-### Step 4 — TaskList monitoring
+### Step 4 — Monitor task completion
 
 Use `TaskList` to confirm batch completion before advancing. Teammates mark their
 tasks complete via `TaskUpdate`; the orchestrator reads status via `TaskList`. Do

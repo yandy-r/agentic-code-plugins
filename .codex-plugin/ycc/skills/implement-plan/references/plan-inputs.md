@@ -5,7 +5,7 @@
 - Usage block
 - Task parser output
 - Dependency graph
-- Todo format
+- Task list format
 - Monorepo Support
 
 ## Usage block
@@ -68,18 +68,20 @@ Dependent Tasks:
 
 Keep this graph available for both Path A (ordering) and Path B (`addBlockedBy` wiring).
 
-## Todo format
+## Task list format
 
-Using the task tools, one item per task:
+Register one item per task with `record the task`:
 
-- `id`: Task ID (e.g., "task-1-1")
-- `content`: "[Task ID] [Task Title] - Depends on: [dependencies]"
-- `status`: "pending"
+- `subject`: "[Task ID] [Task Title]"
+- `description`: full task specification, including dependency labels
+- Capture each returned task ID (do not assign your own tool ID).
+- Wire dependencies with `update the task tracker(taskId="<returned-id>", addBlockedBy=["<dependency-id>"])`.
+- Set status via `update the task tracker`; inspect progress with `the task tracker` or `the task details`.
 
 ```
-- task-1-1: "1.1 Create user model - Depends on: none"
-- task-1-2: "1.2 Add validation - Depends on: 1.1"
-- task-1-3: "1.3 Setup routes - Depends on: none"
+record the task: subject="1.1 Create user model", description="<full spec>; depends on none"
+record the task: subject="1.2 Add validation", description="<full spec>; depends on 1.1"
+update the task tracker: taskId="<1.2 returned ID>", addBlockedBy=["<1.1 returned ID>"]
 ```
 
 ## Monorepo Support

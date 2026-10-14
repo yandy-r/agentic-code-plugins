@@ -9,7 +9,7 @@
 >
 > - **Path C** (`--enhanced` alone) — 5 standalone parallel sub-agents, no sub-agent dispatch.
 >
-> Both enhanced personas use `@research-specialist` distinguished by `description` plus the role-specific `prompt`. They contribute slices that the synthesizer folds into the merged plan per `SKILL.md` (Merge outputs; Re-dispatch). They do NOT write any files — they return findings inline.
+> Both enhanced personas use `@research-specialist` distinguished by `description` and the role-specific prompt in standalone mode; only team mode sets `name`. They contribute slices that the synthesizer folds into the merged plan per `SKILL.md` (Merge outputs; Re-dispatch). They do NOT write any files — they return findings inline.
 
 ## Roster
 

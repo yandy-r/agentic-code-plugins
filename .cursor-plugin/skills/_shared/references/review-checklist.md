@@ -84,8 +84,8 @@ the stated requirements.
 
 ## Parallel Reviewer Roster (Path B / Path C)
 
-Three standalone `code-reviewer` sub-agents, dispatched via the blocking `Agent`
-tool — never the async `Agent` tool (Path B), or agent-team teammates spawned via
+Three standalone `code-reviewer` sub-agents, dispatched via `Agent` without
+`name` or `run_in_background` (Path B), or agent-team teammates spawned via
 `Agent` with `name` (Path C). See
 `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/standalone-dispatch.md`
 for the full `Agent` spawn/return contract that Path B must follow. The **focus
@@ -145,7 +145,7 @@ split already implies a category).
 
 After all 3 reviewers return (Path B only — see
 `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/standalone-dispatch.md`
-for the blocking `Agent` semantics this relies on):
+for the result-delivery and batch-completion contract):
 
 1. For any reviewer whose `Agent` return was empty, missing, or malformed,
    treat that reviewer as a failure for that role (do not fabricate findings

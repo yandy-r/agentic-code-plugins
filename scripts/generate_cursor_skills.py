@@ -146,14 +146,23 @@ def apply_skills_text_transforms(s: str) -> str:
     s = s.replace("MULTIPLE Task tool calls", "Multiple parallel agent invocations")
     s = s.replace("MULTIPLE Agent tool calls", "Multiple parallel agent invocations")
 
-    # Claude task tracking tools -> Cursor task tracking
-    s = s.replace("TodoWrite", "the task tracker")
-    s = s.replace("TaskCreate", "record the task")
-    s = s.replace("TaskUpdate", "update the task tracker")
-    s = s.replace("TaskList", "the task tracker")
-    s = s.replace("TaskGet", "the task details")
-    s = s.replace("TeamCreate", "create an agent group")
-    s = s.replace("TeamDelete", "close the agent group")
+    # Preserve tool identifiers in YAML; translate prose only. Path/namespace
+    # rewrites above still apply to scoped Bash permissions in frontmatter.
+    preamble = ""
+    if s.startswith("---\n"):
+        end = s.find("\n---\n", 4)
+        if end >= 0:
+            preamble, s = s[: end + 5], s[end + 5 :]
+    for tool, wording in (
+        ("TodoWrite", "task tracker"),
+        ("TaskCreate", "task registration"),
+        ("TaskUpdate", "task status update"),
+        ("TaskList", "task list"),
+        ("TaskGet", "task details"),
+        ("TeamCreate", "agent group setup"),
+        ("TeamDelete", "agent group cleanup"),
+    ):
+        s = re.sub(rf"\b{tool}\b", wording, s)
 
     s = s.replace("main Claude session", "main Cursor session")
     s = s.replace("Claude is running ", "When running ")
@@ -173,7 +182,7 @@ def apply_skills_text_transforms(s: str) -> str:
     s = s.replace("parallel Task execution", "parallel agent runs")
     s = s.replace("Parallel Task execution", "Parallel agent runs")
 
-    return s
+    return preamble + s
 
 
 def restore_bundle_release_source_paths(content: str) -> str:
@@ -186,6 +195,12 @@ def restore_bundle_release_source_paths(content: str) -> str:
 
 
 def transform_text_content(content: str, rel: Path) -> str:
+    if rel.as_posix() == "_shared/references/agent-team-dispatch.md":
+        return (
+            "# Agent Team Dispatch\n\n"
+            "Agent teams (`--team`) are unsupported in the Cursor bundle. Abort if requested; "
+            "rerun without `--team` using standalone dispatch.\n"
+        )
     out = apply_skills_text_transforms(content)
     if rel.parts and rel.parts[0] == "bundle-release":
         out = restore_bundle_release_source_paths(out)
