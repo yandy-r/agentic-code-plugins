@@ -20,6 +20,7 @@ INIT_TEMPLATES="${REPO_ROOT}/ycc/skills/init/templates"
 GIT_CLEANUP_SKILL="${REPO_ROOT}/ycc/skills/git-cleanup/SKILL.md"
 GIT_CLEANUP_RULES="${REPO_ROOT}/ycc/skills/git-cleanup/references/active-code-rules.md"
 GIT_CLEANUP_AGENT="${REPO_ROOT}/ycc/agents/git-cleanup.md"
+POINTER_TARGETS="${REPO_ROOT}/ycc/skills/release-model/scripts/pointer-targets.sh"
 PASS=0
 FAIL=0
 
@@ -111,6 +112,67 @@ mkrepo() {
 # get_key <output> <key> — value of key=value in output.
 get_key() {
   printf '%s\n' "$1" | sed -n "s/^$2=//p"
+}
+
+# ---------------------------------------------------------------------------
+# release-model — pointer-targets.sh (canonical @AGENTS.md vs legacy layout)
+# ---------------------------------------------------------------------------
+
+test_pointer_targets() {
+  local target
+  for target in .codex-plugin/ycc/skills .opencode-plugin/skills .agents-plugin/skills .cursor-plugin/skills; do
+    if cmp -s "$POINTER_TARGETS" "$REPO_ROOT/$target/release-model/scripts/pointer-targets.sh"; then
+      ok "pointer-targets: $target preserves cross-runtime filenames verbatim"
+    else
+      ko "pointer-targets: $target preserves cross-runtime filenames verbatim"
+    fi
+  done
+  local dir out
+  dir="$(mktemp -d "${SANDBOX_ROOT}/ptr.XXXXXX")"
+  mkdir -p "${dir}/.github"
+
+  # Legacy layout: standalone CLAUDE.md and AGENTS.md both get pointers.
+  printf '# Legacy\n' >"${dir}/CLAUDE.md"
+  printf '# Legacy agents\n' >"${dir}/AGENTS.md"
+  printf '# Copilot\n' >"${dir}/.github/copilot-instructions.md"
+  assert_eq "$(bash "$POINTER_TARGETS" --repo "$dir" | tr '\n' ' ')" \
+    "CLAUDE.md AGENTS.md .github/copilot-instructions.md " \
+    "pointer-targets: legacy layout lists all three files"
+
+  # Canonical layout: CLAUDE.md imports AGENTS.md, so only AGENTS.md is listed.
+  printf '@AGENTS.md\n\n# Claude notes\n' >"${dir}/CLAUDE.md"
+  assert_eq "$(bash "$POINTER_TARGETS" --repo "$dir" | tr '\n' ' ')" \
+    "AGENTS.md .github/copilot-instructions.md " \
+    "pointer-targets: @AGENTS.md import drops CLAUDE.md"
+
+  # The import must be live: comments, inline code, and fences do not count.
+  printf '# Legacy\n<!-- @AGENTS.md -->\n`@AGENTS.md`\n\n```\n@AGENTS.md\n```\n' >"${dir}/CLAUDE.md"
+  assert_eq "$(bash "$POINTER_TARGETS" --repo "$dir" | tr '\n' ' ')" \
+    "CLAUDE.md AGENTS.md .github/copilot-instructions.md " \
+    "pointer-targets: commented/inline/fenced @AGENTS.md is not an import"
+
+  # Prose that merely mentions the token is not an import directive.
+  printf '# Notes\nAdd @AGENTS.md later.\nSee `@AGENTS.md` and @AGENTS.md, too.\n' >"${dir}/CLAUDE.md"
+  assert_eq "$(bash "$POINTER_TARGETS" --repo "$dir" | tr '\n' ' ')" \
+    "CLAUDE.md AGENTS.md .github/copilot-instructions.md " \
+    "pointer-targets: prose mention of @AGENTS.md is not an import"
+
+  # Generated runtime bundles keep CLAUDE.md as the importer (target-repo file name).
+  local bundle
+  for bundle in .codex-plugin/ycc/skills .opencode-plugin/skills .agents-plugin/skills; do
+    assert_contains "$(cat "$REPO_ROOT/$bundle/release-model/references/pointer-and-labels.md")" \
+      "When \`CLAUDE.md\` imports \`AGENTS.md\`" \
+      "pointer-targets: $bundle keeps CLAUDE.md as importer"
+  done
+
+  # A dangling import must fail loudly instead of silently skipping CLAUDE.md.
+  printf '@AGENTS.md\n' >"${dir}/CLAUDE.md"
+  rm "${dir}/AGENTS.md"
+  if out="$(bash "$POINTER_TARGETS" --repo "$dir" 2>&1)"; then
+    ko "pointer-targets: dangling import exits 1" "exit 0, output: ${out}"
+  else
+    ok "pointer-targets: dangling import exits 1"
+  fi
 }
 
 # ---------------------------------------------------------------------------
@@ -313,6 +375,7 @@ test_apply_ci_default_branch
 test_apply_ci_custom_default_branch
 test_apply_ci_no_git
 test_init_templates
+test_pointer_targets
 test_git_cleanup_wiring
 test_git_cleanup_sync_merge_pattern
 

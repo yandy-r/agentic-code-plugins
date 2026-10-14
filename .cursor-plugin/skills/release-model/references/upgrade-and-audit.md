@@ -70,9 +70,10 @@ prints nothing.
 
 ### 4. Pointer sections and labels
 
-- Pointer sections: replace a `## Branching & releases` section with the release-branches
-  text from `pointer-and-labels.md` only when it equals the trunk-only text byte-for-byte;
-  otherwise record "update by hand".
+- Pointer sections: for each file `$TARGETS --repo "$ROOT"` lists (`CLAUDE.md` is omitted
+  when it imports `@AGENTS.md`), replace a `## Branching & releases` section with the
+  release-branches text from `pointer-and-labels.md` only when it equals the trunk-only
+  text byte-for-byte; otherwise record "update by hand".
 - Labels doc: SKILL.md Phase 5.
 
 ### 5. Preview and write
@@ -101,7 +102,7 @@ Read-only. Gather: `$STATE --repo "$ROOT" get` (exit code included),
 | 9   | No sync merges on the trunk               | `sync_merges_recent > 0`        | warn     | List them with `git log --first-parent --merges -n 200 --format='%h %s' origin/<trunk>`; stop the habit (rule 3) |
 | 10  | Backport labels exist                     | release-branches, gh usable     | warn     | `gh label create "<label>" --description "Cherry-pick to release/X.Y"`                                           |
 | 11  | Trunk is the forge default branch         | parsed                          | warn     | Align the forge default branch or `$UPDATE --set-trunk <default_branch>`                                         |
-| 12  | Pointer sections present                  | `CLAUDE.md` / `AGENTS.md` exist | info     | Add the section from `pointer-and-labels.md#pointer-section`                                                     |
+| 12  | Pointer sections present                  | `CLAUDE.md` / `AGENTS.md` exist | info     | Add the section from `pointer-and-labels.md#pointer-section` to each file `$TARGETS` lists                       |
 | 13  | Patch steps gate the tag on backports     | release-branches                | warn     | Insert step 0 of the template's patch section (`$TEMPLATE`, "Confirm every backport landed")                     |
 
 Details:
@@ -113,6 +114,11 @@ Details:
   branch, matching `Merge branch '<long-lived>' into …` or `sync … into …`.
 - **Check 10:** the expected label for `release/X.Y` is `backport_label` with `{X.Y}`
   replaced. When `gh` is unusable, report "skipped: gh unavailable" instead of a finding.
+- **Check 12:** run `$TARGETS --repo "$ROOT"` and check only those files for the
+  pointer heading. A live `@AGENTS.md` import makes `AGENTS.md` the canonical target;
+  absence of a heading in the importing `CLAUDE.md` is not drift. Report a dangling
+  import as an error, not a satisfied pointer. Without the import, check every
+  existing legacy target as before.
 - **Check 13:** find the `### Patch release` heading in `## Releasing`. Report when it is
   missing or its steps (up to the next heading) mention neither `Backport of #` nor
   `backport --audit`: the file predates the pre-tag backport check

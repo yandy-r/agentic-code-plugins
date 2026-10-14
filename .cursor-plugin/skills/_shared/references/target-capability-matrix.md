@@ -257,5 +257,5 @@ one if absent), and re-run the compatibility audit:
 ycc:compatibility-audit
 ```
 
-If the change affects generated bundles, follow the regeneration steps in `CLAUDE.md` under
+If the change affects generated bundles, follow the regeneration steps in `AGENTS.md` under
 "Testing Changes".

@@ -5,10 +5,10 @@ top-level `README.md` covers user-facing plugin surfaces (skills, commands,
 agents) and links to focused guides here for install details, implementation
 plans, release notes, review artifacts, and ad-hoc recommendations.
 
-The repository's authoritative agent-runtime rules live in
-[`../CLAUDE.md`](../CLAUDE.md) (and its mirrored
-[`../AGENTS.md`](../AGENTS.md), [`../.cursor/rules/`](../.cursor/rules/)
-twins). Per-skill documentation lives inline at
+The repository's canonical agent-runtime rules live in
+[`../AGENTS.md`](../AGENTS.md); [`../CLAUDE.md`](../CLAUDE.md) imports it and adds
+Claude-only notes, and path-specific Claude rules live under
+[`../.claude/rules/`](../.claude/rules/). Per-skill documentation lives inline at
 `../ycc/skills/<name>/SKILL.md`.
 
 ## Layout
