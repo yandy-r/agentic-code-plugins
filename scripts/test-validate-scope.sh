@@ -64,6 +64,9 @@ expect_targets "mods select mods and the install tests" "config mods" ycc/mods/R
 expect_targets "release tests select release" "release" scripts/test-release-model.sh
 expect_targets "plan-workflow validator test selects inventory" "inventory" scripts/test-plan-workflow-validators.sh
 expect_targets "practices baseline selects practices" "practices" scripts/practices-baseline.json
+expect_targets "claude rules select practices" "practices" .claude/rules/scripts.md
+expect_targets "non-md claude rules file selects practices" "practices" .claude/rules/sub/notes.txt
+expect_targets "practices rules module selects practices" "practices" scripts/practices_rules.py
 expect_targets "settings select everything" "${ALL}" ycc/settings/models.json
 expect_targets "generators select everything" "${ALL}" scripts/generate_codex_skills.py
 expect_targets "validate.sh selects everything" "${ALL}" scripts/validate.sh

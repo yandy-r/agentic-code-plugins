@@ -33,8 +33,8 @@ def write_skill(root: Path, text: str, name: str = "demo") -> Path:
 def base_fixture(root: Path) -> None:
     (root / "mcp-configs").mkdir(parents=True)
     (root / "mcp-configs" / "mcp.json").write_text(json.dumps(MCP_JSON))
-    for rel in ("CLAUDE.md", "AGENTS.md"):
-        (root / rel).write_text("# doc\n")
+    (root / "CLAUDE.md").write_text("@AGENTS.md\n\n# doc\n")
+    (root / "AGENTS.md").write_text("# doc\n")
     (root / "ycc" / "settings" / "rules").mkdir(parents=True)
     (root / "ycc" / "settings" / "rules" / "CLAUDE.md").write_text("# rules\n")
     (root / "ycc" / "agents").mkdir(parents=True)
@@ -283,10 +283,91 @@ class TestAgentRules(Fixture):
 
 class TestRootAndInputs(Fixture):
     def test_r1_counts(self) -> None:
-        (self.root / "CLAUDE.md").write_text("\n".join(["# c"] * 200))
+        (self.root / "CLAUDE.md").write_text("@AGENTS.md\n" + "\n".join(["# c"] * 39))
         self.assertEqual(ids(self.rep(), "R1"), set())
-        (self.root / "CLAUDE.md").write_text("\n".join(["# c"] * 201))
-        self.assertEqual(len(ids(self.rep(), "R1")), 1)
+        (self.root / "CLAUDE.md").write_text("@AGENTS.md\n" + "\n".join(["# c"] * 40))
+        self.assertEqual(ids(self.rep(), "R1"), {"R1:CLAUDE.md:line-count"})
+        (self.root / "CLAUDE.md").write_text("@AGENTS.md\n")
+        (self.root / "AGENTS.md").write_text("\n".join(["# a"] * 150))
+        self.assertEqual(ids(self.rep(), "R1"), set())
+        (self.root / "AGENTS.md").write_text("\n".join(["# a"] * 151))
+        self.assertEqual(ids(self.rep(), "R1"), {"R1:AGENTS.md:line-count"})
+        (self.root / "ycc" / "settings" / "rules" / "CLAUDE.md").write_text("\n".join(["# r"] * 201))
+        self.assertIn("R1:ycc/settings/rules/CLAUDE.md:line-count", ids(self.rep(), "R1"))
+
+    def test_r1_combined_budget_counts_agents_once(self) -> None:
+        (self.root / "AGENTS.md").write_text("\n".join(["# a"] * 150))
+        (self.root / "CLAUDE.md").write_text("@AGENTS.md\n" + "\n".join(["# c"] * 39))
+        self.assertEqual(ids(self.rep(), "R1"), set())  # 150 + 40 == 190
+        (self.root / "CLAUDE.md").write_text("@AGENTS.md\n" + "\n".join(["# c"] * 40))
+        r = self.rep()
+        self.assertEqual(
+            ids(r, "R1"),
+            {"R1:CLAUDE.md:line-count", "R1:CLAUDE.md+AGENTS.md:combined-line-count"},
+        )
+        v = [x for x in r.violations if x.item == "combined-line-count"][0]
+        self.assertEqual(v.size, 191)  # AGENTS.md counted once, not twice
+
+    def test_r1_claude_md_standalone_import_rules(self) -> None:
+        (self.root / "CLAUDE.md").write_text(
+            "@AGENTS.md\n\nSee @AGENTS.md and `@AGENTS.md`.\n- @AGENTS.md\n> @AGENTS.md\n"
+            "    @AGENTS.md\n<!-- @AGENTS.md -->\n<!--\n@AGENTS.md\n-->\n```\n@AGENTS.md\n@OTHER.md\n```\n"
+        )
+        self.assertEqual(self.rep().hard_errors, [])
+        (self.root / "CLAUDE.md").write_text("# no import\nSee @AGENTS.md in prose only.\n")
+        self.assertTrue(any("missing standalone @AGENTS.md import" in h for h in self.rep().hard_errors))
+        (self.root / "CLAUDE.md").write_text("@AGENTS.md\n\n  @AGENTS.md  \n")
+        self.assertTrue(any("duplicate @AGENTS.md imports (2)" in h for h in self.rep().hard_errors))
+        (self.root / "CLAUDE.md").write_text("@AGENTS.md\n@CONTRIBUTING.md\n")
+        self.assertTrue(any("unexpected import '@CONTRIBUTING.md'" in h for h in self.rep().hard_errors))
+        (self.root / "CLAUDE.md").write_text("@./AGENTS.md\n")
+        self.assertTrue(any("unexpected import '@./AGENTS.md'" in h for h in self.rep().hard_errors))
+        (self.root / "CLAUDE.md").write_text("<!-- note --> @AGENTS.md\n<!-- comment --> @OTHER.md\n")
+        self.assertTrue(any("unexpected import '@OTHER.md'" in h for h in self.rep().hard_errors))
+        (self.root / "CLAUDE.md").write_text("@AGENTS.md\n<!-- unclosed comment\n@OTHER.md\n")
+        self.assertTrue(any("unclosed HTML comment" in h for h in self.rep().hard_errors))
+
+    def test_r1_claude_rules_frontmatter_and_globs(self) -> None:
+        rules = self.root / ".claude" / "rules" / "sub"
+        rules.mkdir(parents=True)
+        (self.root / "scripts" / "deep").mkdir(parents=True)
+        (self.root / "scripts" / "top.py").write_text("x")
+        (self.root / "scripts" / "deep" / "nested.py").write_text("x")
+        rule = rules / "demo.md"
+        rule.write_text("---\npaths:\n  - 'scripts/*.py'\n  - 'scripts/**/nested.py'\n---\n# ok\n")
+        self.assertEqual(self.rep().hard_errors, [])
+        # * must not cross /, while ** must
+        (self.root / "scripts" / "top.py").unlink()
+        self.assertTrue(any("scripts/*.py' matches no existing" in h for h in self.rep().hard_errors))
+        rule.write_text("---\npaths:\n  - 'scripts/**/*.py'\n---\n# ok\n")
+        self.assertEqual(self.rep().hard_errors, [])
+        # trailing ** requires a file inside the directory, and root suffix match is rejected
+        rule.write_text("---\npaths:\n  - 'nested.py'\n---\n# dead\n")
+        self.assertTrue(any("nested.py' matches no existing" in h for h in self.rep().hard_errors))
+        # missing frontmatter, bad key, empty paths, invalid glob components
+        for bad, needle in (
+            ("# no frontmatter\n", "missing YAML frontmatter"),
+            ("---\npaths: []\n---\n", "nonempty list"),
+            ("---\npaths: 'scripts/**'\n---\n", "nonempty list"),
+            ("---\npaths:\n  - 1\n---\n", "must be a glob string"),
+            ("---\npaths:\n  - ''\n---\n", "nonempty glob"),
+            ("---\npaths:\n  - '../CLAUDE.md'\n---\n", "repository-relative POSIX glob"),
+            ("---\npaths:\n  - '/CLAUDE.md'\n---\n", "repository-relative POSIX glob"),
+            ("---\npaths:\n  - 'scripts/**.py'\n---\n", "entire path component"),
+            ("---\npaths:\n  - 'scripts/*.{py,sh}'\n---\n", "split it into separate"),
+            ("---\npaths:\n  - 'CLAUDE.md'\nglobs:\n  - 'CLAUDE.md'\n---\n", "unknown frontmatter key 'globs'"),
+            ("---\npaths:\n  - 'CLAUDE.md'\n---\n# body\n@AGENTS.md\n", "standalone import '@AGENTS.md'"),
+        ):
+            rule.write_text(bad)
+            self.assertTrue(any(needle in h for h in self.rep().hard_errors), (bad, self.rep().hard_errors))
+        rule.write_text("---\npaths:\n  - 'CLAUDE.md'\n---\n# ok\n")
+        (rules / "notes.txt").write_text("bad\n")
+        self.assertTrue(any("non-Markdown file under .claude/rules" in h for h in self.rep().hard_errors))
+        (rules / "notes.txt").unlink()
+        (self.root / "node_modules" / "pkg").mkdir(parents=True)
+        (self.root / "node_modules" / "pkg" / "index.js").write_text("x")
+        rule.write_text("---\npaths:\n  - 'node_modules/**'\n---\n# bad\n")
+        self.assertTrue(any("node_modules/**' matches no existing" in h for h in self.rep().hard_errors))
 
     def test_missing_mcp_json_hard(self) -> None:
         (self.root / "mcp-configs" / "mcp.json").unlink()
@@ -503,6 +584,7 @@ class TestWrapper(Fixture):
         (self.root / "scripts" / "practices-baseline.json").write_text('{"version": 1, "violations": []}')
         (self.root / "scripts" / "validate_practices.py").write_text("# placeholder\n")
         (self.root / "scripts" / "practices_parse.py").write_text("# placeholder\n")
+        (self.root / "scripts" / "practices_rules.py").write_text("# placeholder\n")
         write_skill(self.root, sk())
 
     def run_wrapper(self, claude_exit: int | None) -> subprocess.CompletedProcess[str]:

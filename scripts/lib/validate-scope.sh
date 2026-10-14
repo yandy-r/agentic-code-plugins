@@ -48,7 +48,8 @@ validate_scope_targets_for_path() {
         scripts/test-plan-workflow-validators.sh) echo "inventory" ;;
         scripts/validate-mods.sh) echo "mods" ;;
         scripts/validate-practices.sh | scripts/validate_practices.py) echo "practices" ;;
-        scripts/practices_parse.py | scripts/practices-baseline.json) echo "practices" ;;
+        .claude/rules/*) echo "practices" ;;
+        scripts/practices_parse.py | scripts/practices_rules.py | scripts/practices-baseline.json) echo "practices" ;;
         scripts/test_validate_practices.py) echo "practices" ;;
         scripts/test-validate-scope.sh) echo "scope" ;;
 

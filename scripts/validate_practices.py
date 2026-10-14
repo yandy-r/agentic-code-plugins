@@ -30,6 +30,14 @@ from practices_parse import (
     parse_tools,
     validate_baseline_shape,
 )
+from practices_rules import (
+    AGENTS_LIMIT,
+    CLAUDE_LIMIT,
+    COMBINED_LIMIT,
+    import_errors,
+    rule_path_errors,
+    standalone_imports,
+)
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
@@ -68,11 +76,12 @@ MD_LINK_RE = re.compile(r"\[[^\]\n]*\]\(\s*(?:<([^>]+)>|([^)\s]+))")
 MD_REFLINK_DEF_RE = re.compile(r"^\s*\[[^\]\n]+\]:\s*(?:<([^>\n]+)>|(\S+))", re.MULTILINE)
 HTML_HREF_RE = re.compile(r"\bhref\s*=\s*(['\"])(.*?)\1", re.IGNORECASE)
 
-ROOT_DOC_RULES: tuple[tuple[str, str], ...] = (
-    ("R1", "CLAUDE.md"),
-    ("R1", "AGENTS.md"),
-    ("R1", "ycc/settings/rules/CLAUDE.md"),
+ROOT_DOC_BUDGETS: tuple[tuple[str, int], ...] = (
+    ("CLAUDE.md", CLAUDE_LIMIT),
+    ("AGENTS.md", AGENTS_LIMIT),
+    ("ycc/settings/rules/CLAUDE.md", 200),
 )
+RULE_ALLOWED_KEYS = frozenset({"paths"})
 
 
 @dataclass(frozen=True)
@@ -181,15 +190,18 @@ def check_tools(entries: list[str], rule: str, rel: str, rep: Report, declared_m
             rep.add(rule, rel, f"unknown tool {entry!r}")
 
 
-def source_files(root: Path, prefix: str) -> frozenset[str]:
+def source_files(root: Path, prefix: str = "") -> frozenset[str]:
     """Repo-relative tracked or untracked-unignored files under prefix that exist on disk.
 
     Uses git in a checkout; fixture roots without .git walk the filesystem, skipping caches.
     """
     if (root / ".git").exists():
         try:
+            cmd = ["git", "-C", str(root), "ls-files", "-z", "--cached", "--others", "--exclude-standard"]
+            if prefix:
+                cmd.extend(["--", prefix])
             out = subprocess.run(
-                ["git", "-C", str(root), "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", prefix],
+                cmd,
                 check=True,
                 capture_output=True,
                 text=True,
@@ -198,14 +210,14 @@ def source_files(root: Path, prefix: str) -> frozenset[str]:
             return frozenset(p for p in out.split("\0") if p and (root / p).is_file())
         except (subprocess.CalledProcessError, OSError):
             pass
-    base = root / prefix
+    base = root / prefix if prefix else root
     if not base.is_dir():
         return frozenset()
-    skip = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".DS_Store"}
+    skip = {".git", "node_modules", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".DS_Store"}
     return frozenset(
         str(p.relative_to(root))
         for p in base.rglob("*")
-        if p.is_file() and not (skip & set(p.parts)) and p.suffix not in {".pyc", ".pyo"}
+        if p.is_file() and not (skip & set(p.relative_to(root).parts)) and p.suffix not in {".pyc", ".pyo"}
     )
 
 
@@ -346,14 +358,51 @@ def check_agents(root: Path, rep: Report, declared_mcp: frozenset[str]) -> None:
 
 
 def check_root_docs(root: Path, rep: Report) -> None:
-    for rule, rel in ROOT_DOC_RULES:
+    sizes: dict[str, int] = {}
+    texts: dict[str, str] = {}
+    for rel, limit in ROOT_DOC_BUDGETS:
         path = root / rel
         if not path.is_file():
-            rep.hard(rule, rel, "required doc missing")
+            rep.hard("R1", rel, "required doc missing")
             continue
-        size = len(path.read_text(encoding="utf-8").splitlines())
-        if size > 200:
-            rep.add(rule, rel, "line-count", size)
+        text = path.read_text(encoding="utf-8")
+        texts[rel] = text
+        size = len(text.splitlines())
+        sizes[rel] = size
+        if size > limit:
+            rep.add("R1", rel, "line-count", size)
+    if "AGENTS.md" in sizes and "CLAUDE.md" in sizes:
+        combined = sizes["AGENTS.md"] + sizes["CLAUDE.md"]
+        if combined > COMBINED_LIMIT:
+            rep.add("R1", "CLAUDE.md+AGENTS.md", "combined-line-count", combined)
+    if "CLAUDE.md" in texts:
+        for err in import_errors(texts["CLAUDE.md"]):
+            rep.hard("R1", "CLAUDE.md", err)
+
+
+def check_claude_rules(root: Path, rep: Report) -> None:
+    rules_dir = root / ".claude" / "rules"
+    if not rules_dir.is_dir():
+        return
+    files = source_files(root)
+    for rule_file in sorted(rules_dir.rglob("*")):
+        if not rule_file.is_file():
+            continue
+        rel = str(rule_file.relative_to(root))
+        if rule_file.suffix != ".md":
+            rep.hard("R1", rel, "non-Markdown file under .claude/rules; only .md rule files are allowed")
+            continue
+        rule_md = rule_file
+        fm, body_lines = load_frontmatter(rule_md, "R1", rep, root)
+        if fm is None:
+            continue
+        for key in sorted(fm):
+            if key not in RULE_ALLOWED_KEYS:
+                rep.hard("R1", rel, f"unknown frontmatter key {key!r}")
+        for err in rule_path_errors(fm.get("paths"), files):
+            rep.hard("R1", rel, err)
+        for target in standalone_imports("\n".join(body_lines)):
+            rep.hard("R1", rel, f"rule body must not contain standalone import '@{target}'")
 
 
 def load_declared_mcp(root: Path, rep: Report) -> frozenset[str]:
@@ -394,6 +443,7 @@ def collect(root: Path) -> Report:
     rep = Report()
     declared = load_declared_mcp(root, rep)
     check_root_docs(root, rep)
+    check_claude_rules(root, rep)
     check_skills(root, rep, declared)
     check_references(root, rep)
     check_agents(root, rep, declared)
