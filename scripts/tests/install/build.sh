@@ -18,9 +18,9 @@ declare -A BUILD_PASSES=(
 echo "== install.sh install: base builds each bundle before syncing =="
 
 home="$(new_home)"
-out="$(run_install_build "${home}" install --target cursor,codex,opencode,agents --only base --skills-home native 2>&1)"
-rc=$?
-if [[ ${rc} -eq 0 ]]; then ok "base install with the real build succeeds"; else ko "base install with the real build succeeds" "exit ${rc}"; fi
+install_must_succeed_build "${home}" install --target cursor,codex,opencode,agents --only base --skills-home native
+out="${INSTALL_OUT}"
+ok "base install with the real build succeeds"
 for target in cursor codex opencode agents; do
     for pass in ${BUILD_PASSES[${target}]}; do
         assert_contains "${out}" "Running generate-${target}-${pass}.sh" "${target} build runs generate-${target}-${pass}.sh"
@@ -40,7 +40,8 @@ echo
 echo "== install.sh install: YCC_INSTALL_SKIP_BUILD=1 installs the committed bundle =="
 
 home="$(new_home)"
-out="$(YCC_INSTALL_SKIP_BUILD=1 run_install "${home}" install --target cursor,codex,opencode,agents --only base --skills-home native 2>&1)"
+YCC_INSTALL_SKIP_BUILD=1 install_must_succeed "${home}" install --target cursor,codex,opencode,agents --only base --skills-home native
+out="${INSTALL_OUT}"
 for target in cursor codex opencode agents; do
     for pass in ${BUILD_PASSES[${target}]}; do
         assert_contains "${out}" "Skipping generate-${target}-${pass}.sh" "skip-build skips generate-${target}-${pass}.sh"

@@ -15,7 +15,7 @@ cat > "${home}/.config/opencode/opencode.json" <<'JSON'
   "plugins": ["@user/local-plugin"]
 }
 JSON
-run_install "${home}" sync --target opencode --intent settings,plugins >/dev/null
+install_must_succeed "${home}" sync --target opencode --intent settings,plugins
 merged="$(cat "${home}/.config/opencode/opencode.json")"
 assert_contains "${merged}" "sk-local-secret" "local provider credentials preserved"
 assert_contains "${merged}" "@user/local-plugin" "local plugin preserved"
@@ -31,8 +31,8 @@ cat > "${home}/.config/opencode/opencode.json" <<'JSON'
   "plugins": ["@user/local-plugin"]
 }
 JSON
-run_install "${home}" sync --target opencode --intent settings,plugins,rules >/dev/null
-run_install "${home}" remove --target opencode --intent settings,plugins,rules >/dev/null
+install_must_succeed "${home}" sync --target opencode --intent settings,plugins,rules
+install_must_succeed "${home}" remove --target opencode --intent settings,plugins,rules
 merged="$(cat "${home}/.config/opencode/opencode.json")"
 assert_contains "${merged}" "sk-local-secret" "opencode remove keeps provider credentials"
 assert_contains "${merged}" "@user/local-plugin" "opencode remove keeps user plugin"
@@ -48,7 +48,7 @@ for unit in skills agents commands shared; do
     mkdir -p "${home}/.config/opencode/${unit}"
     cp -R "${REPO_ROOT}/.opencode-plugin/${unit}/." "${home}/.config/opencode/${unit}/"
 done
-run_install "${home}" remove --target opencode --intent base >/dev/null
+install_must_succeed "${home}" remove --target opencode --intent base
 leftover="$(find "${home}/.config/opencode" -mindepth 1 | head -3)"
 if [[ -z "${leftover}" ]]; then ok "opencode base remove drops the bundle"; else ko "opencode base remove drops the bundle" "${leftover}"; fi
 
@@ -66,10 +66,10 @@ for unit in skills agents commands shared; do
     mkdir -p "${home}/.config/opencode/${unit}"
     cp -R "${REPO_ROOT}/.opencode-plugin/${unit}/." "${home}/.config/opencode/${unit}/"
 done
-run_install "${home}" remove --target opencode --intent agents,commands >/dev/null
+install_must_succeed "${home}" remove --target opencode --intent agents,commands
 leftover="$(find "${home}/.config/opencode" -mindepth 1 -maxdepth 1 -printf '%f\n' | sort | tr '\n' ' ')"
 if [[ "${leftover}" == "shared skills " ]]; then ok "opencode agents,commands remove keeps skills + shared"; else ko "opencode agents,commands remove keeps skills + shared" "${leftover}"; fi
-run_install "${home}" remove --target opencode --intent skills >/dev/null
+install_must_succeed "${home}" remove --target opencode --intent skills
 leftover="$(find "${home}/.config/opencode" -mindepth 1 | head -3)"
 if [[ -z "${leftover}" ]]; then ok "opencode skills remove takes shared/ too"; else ko "opencode skills remove takes shared/ too" "${leftover}"; fi
 
