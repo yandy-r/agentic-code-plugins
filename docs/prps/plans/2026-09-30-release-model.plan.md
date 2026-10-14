@@ -112,7 +112,7 @@ Python generators (`scripts/sync.sh`) and validators (`scripts/validate.sh`).
       `<!-- ycc-release-state` and the next `-->`, strips `\r`, trims whitespace):
 
 ```bash
-extract_block() { # $1=file → key: value lines on stdout; exit 3 if no block
+rs_extract_block() { # $1=file → key: value lines on stdout; exit 3 if no block
   awk '
     { sub(/\r$/, "") }
     /^<!-- ycc-release-state[[:space:]]*$/ { inblock=1; found=1; next }
@@ -134,7 +134,7 @@ at least one `B`-only commit) print `B`. Otherwise print `$trunk`. A branch cut 
 the expected table (Task 1.3's renderer, sourced from a shared function file
 `lib/release-state-lib.sh`) and diffs it against the file's table section, then verifies
 `git ls-remote --heads origin <branch>` for trunk and maintenance.
-Put `extract_block`, `parse_state`, and `render_table` in
+Put `rs_extract_block`, `rs_parse_file`, and `rs_render_table` in
 `ycc/skills/_shared/scripts/lib/release-state-lib.sh` so both scripts share them.
 
 - [ ] **Step 4:** Run the tests → PASS. Run `shellcheck` on both files → clean.
@@ -148,7 +148,7 @@ Put `extract_block`, `parse_state`, and `render_table` in
 **Files:**
 
 - Create: `ycc/skills/_shared/scripts/release-state-update.sh`
-- Modify: `ycc/skills/_shared/scripts/lib/release-state-lib.sh` (`render_table`, `write_state`)
+- Modify: `ycc/skills/_shared/scripts/lib/release-state-lib.sh` (`rs_render_table`, `rs_write_file`)
 - Test: `scripts/test-release-model.sh`
 
 **Interfaces:**
@@ -158,12 +158,13 @@ Put `extract_block`, `parse_state`, and `render_table` in
   `<!-- ycc-release-state:table:end -->`):
 
 ```markdown
-| Role        | Branch           | Notes                          |
-| ----------- | ---------------- | ------------------------------ |
-| Trunk       | `master`         | Next minor/major release       |
-| Maintenance | `release/0.5`    | Patches via `backport:0.5`     |
-| Frozen      | `release/0.4`    | Security fixes only, if at all |
-| Model       | release-branches | Support window: latest-minor   |
+Model: **release-branches**. Support window: latest-minor.
+
+| Role        | Branch        | Notes                          |
+| ----------- | ------------- | ------------------------------ |
+| Trunk       | `master`      | Next minor/major release       |
+| Maintenance | `release/0.5` | Patches via `backport:0.5`     |
+| Frozen      | `release/0.4` | Security fixes only, if at all |
 ```
 
 (Maintenance and Frozen rows repeat per branch; omitted when empty. Column widths are
