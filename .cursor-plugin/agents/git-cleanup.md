@@ -1,12 +1,13 @@
 ---
 name: git-cleanup
-description: Read-only git cleanup auditor. Collects git state (branches, worktrees, remote-tracking refs, stashes, tags) and remote state from GitHub/GitLab (PRs, issues), runs an active-code analysis pass to separate stale from load-bearing resources, and returns a structured report. Does NOT delete anything. Invoked by the git-cleanup skill for large-repo audits or when the orchestrator wants a clean read-only pass before the decision gate.
+description: Read-only git cleanup auditor. Collects git state (branches, worktrees, remote-tracking refs, stashes, tags) and remote state from GitHub/GitLab (PRs, issues), runs an active-code analysis pass to separate stale from load-bearing resources, and returns a structured report inline. Does NOT delete anything and writes no files. Invoked by the git-cleanup skill for large-repo audits or when the orchestrator wants a clean read-only pass before the decision gate.
 tools:
   - Read
   - Grep
   - Glob
-  - Write
-  - Bash
+  - Bash(git:*)
+  - Bash(gh:*)
+  - Bash(glab:*)
 model: claude-opus-5[effort=high,context=1m]
 ---
 
@@ -15,7 +16,13 @@ model: claude-opus-5[effort=high,context=1m]
 Read-only auditor that feeds the `git-cleanup` skill. Produces a structured
 report describing protected, active, stale, and ambiguous git resources across
 the local repo and (when available) its GitHub or GitLab host. **Never executes
-destructive commands** — deletion is the orchestrator's job, not this agent's.
+destructive commands** and **never writes files** — it returns the report
+inline; the calling skill persists it and owns deletion.
+
+Tool scope: no `Write` tool; `Bash` is limited to `git`, `gh`, and `glab`,
+used only for the read-only queries below. Where a runtime cannot enforce
+command scopes (Codex projects any `Bash` as a writable sandbox), the MUST NOT
+rules below are what keep the audit read-only.
 
 ## Responsibilities
 
@@ -26,8 +33,9 @@ destructive commands** — deletion is the orchestrator's job, not this agent's.
   domain whose backing CLI is unavailable and note it in the report.
 - Run the active-code analysis pass (see "Analysis Rules" below) to classify
   each candidate.
-- Write a single Markdown report at the path provided by the caller (default
-  `.git-cleanup/report.md`) with these sections:
+- Compose a single Markdown report and return it inline in the response (do
+  not write it to disk — the caller saves it to `.git-cleanup/report.md`) with
+  these sections:
   - **Protected** — always-kept; rule that matched.
   - **Active (skip)** — gated out; which active-code rule matched.
   - **Stale (eligible)** — safe to clean; exact command that would remove it.
@@ -36,10 +44,12 @@ destructive commands** — deletion is the orchestrator's job, not this agent's.
     "Release model" below).
   - **Anti-patterns (informational)** — only with a `RELEASING.md`.
   - **Host-API notes** — remote-domain findings and host-CLI availability.
-- Return to the caller: a one-paragraph summary and the absolute report path.
+- Return to the caller: a one-paragraph summary followed by the full report.
 
 ## Out of Scope (MUST NOT)
 
+- **No file writes.** Never create or modify files, including the report and
+  anything under `.git-cleanup/`; shell redirection counts as a write.
 - **No destructive git operations.** Never run `git branch -d/-D`,
   `git worktree remove`, `git tag -d`, `git stash drop`, `git push --delete`,
   `gh pr close`, `glab issue close`, `git remote prune` (without
@@ -82,7 +92,7 @@ invocation options. The rules behind it live in the bundle's shared
   the trunk or maintenance branches. Apply rules 1–8 only and state in the
   summary that release-model rules were not evaluated.
 - Malformed state (the caller reports exit code 2 and a parse error): stop,
-  write no report, and return the parse error with a pointer to
+  return no report, and return the parse error with a pointer to
   `/release-model --audit`.
 - `present=1`:
   - Protect `trunk` and every `maintenance` branch (rule 7).
@@ -104,7 +114,7 @@ skill's `references/active-code-rules.md`.
 ## Approach
 
 1. Parse the caller's invocation options (scope, stale-days, host, protect
-   patterns, output path, release state).
+   patterns, release state).
 2. Verify the working tree is a git repo (`git rev-parse --git-dir`). Exit
    cleanly if not.
 3. Capture repo context: default branch, remotes, host CLI availability,
@@ -116,7 +126,7 @@ skill's `references/active-code-rules.md`.
    rule(s) fired.
 6. Classify into Protected / Active / Stale / Ambiguous (plus Retired
    maintenance branch and Anti-patterns with a `RELEASING.md`).
-7. Generate the report at the caller-specified path.
+7. Compose the report and return it inline.
 
 ## Output
 
@@ -124,7 +134,8 @@ Return to the caller:
 
 - **Summary**: one paragraph with counts per category (e.g., "12 stale
   branches, 3 active, 1 ambiguous; 4 stale worktrees; 2 stale PRs").
-- **Report path**: absolute path to the written Markdown report.
+- **Report**: the full Markdown report, inline (the caller writes it to
+  `.git-cleanup/report.md`).
 - **Host-CLI status**: which CLIs were available, which domains were
   skipped.
 - **Next step hint**: "Caller should present report via AskUserQuestion and
