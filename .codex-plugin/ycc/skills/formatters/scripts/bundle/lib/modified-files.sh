@@ -141,6 +141,10 @@ filter_repo_paths() {
   while IFS= read -r path_value; do
     [[ -n "$prefix" && "$path_value" != "$prefix"* ]] && continue
 
+    # A symlink duplicates its linted target; several tools reject explicitly
+    # named symlinks, so never put them on a lint file list.
+    [[ -L "$root_dir/$path_value" ]] && continue
+
     # Drop paths under any well-known excluded directory. Shared with detection
     # (path_is_excluded, from excludes.sh) so linting and detection agree.
     path_is_excluded "$path_value" && continue
