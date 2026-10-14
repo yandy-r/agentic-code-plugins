@@ -132,30 +132,67 @@ list_repo_files() {
     awk -v root_prefix="${root_dir%/}/" 'index($0, root_prefix) == 1 { print substr($0, length(root_prefix) + 1) }'
 }
 
+path_matches_filter() {
+  local path_value="$1"
+  local prefix="$2"
+  shift 2
+
+  [[ -n "$prefix" && "$path_value" != "$prefix"* ]] && return 1
+  path_is_excluded "$path_value" && return 1
+
+  if (( $# == 0 )); then
+    return 0
+  fi
+
+  local suffix
+  for suffix in "$@"; do
+    if [[ "$path_value" == *"$suffix" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+symlink_target_is_linted() {
+  local root_dir="${1%/}"
+  local link_rel="$2"
+  local prefix="$3"
+  shift 3
+
+  local resolved_root resolved_target target_rel
+  resolved_root="$(canonicalize_dir "$root_dir" 2>/dev/null)" || return 1
+  [[ -e "$root_dir/$link_rel" ]] || return 1
+  resolved_target="$(resolve_script_path "$root_dir/$link_rel" 2>/dev/null)" || return 1
+  target_rel="$(path_relative_to_root "$resolved_root" "$resolved_target")" || return 1
+  [[ -n "$target_rel" && ! -L "$root_dir/$target_rel" ]] || return 1
+
+  is_git_repo "$root_dir" || return 1
+  git -C "$root_dir" ls-files --error-unmatch -- ":(literal)$target_rel" >/dev/null 2>&1 || return 1
+
+  path_matches_filter "$target_rel" "$prefix" "$@"
+}
+
 filter_repo_paths() {
   local root_dir="$1"
   local prefix="$2"
   shift 2
 
-  local path_value suffix
+  local path_value
   while IFS= read -r path_value; do
-    [[ -n "$prefix" && "$path_value" != "$prefix"* ]] && continue
+    path_matches_filter "$path_value" "$prefix" "$@" || continue
 
-    # Drop paths under any well-known excluded directory. Shared with detection
-    # (path_is_excluded, from excludes.sh) so linting and detection agree.
-    path_is_excluded "$path_value" && continue
-
-    if (( $# == 0 )); then
-      printf '%s/%s\n' "$root_dir" "$path_value"
+    # Several tools (notably Prettier) reject explicitly named symlinks. Skip
+    # silently only when the resolved target is a tracked repo path that this
+    # same filter includes; otherwise warn on stderr so unlinted targets stay
+    # visible while still keeping the symlink off the tool's argument list.
+    if [[ -L "$root_dir/$path_value" ]]; then
+      if ! symlink_target_is_linted "$root_dir" "$path_value" "$prefix" "$@"; then
+        printf '[WARN] skipping symlink %s (target is not covered by this lint pass)\n' "$path_value" >&2
+      fi
       continue
     fi
 
-    for suffix in "$@"; do
-      if [[ "$path_value" == *"$suffix" ]]; then
-        printf '%s/%s\n' "$root_dir" "$path_value"
-        break
-      fi
-    done
+    printf '%s/%s\n' "$root_dir" "$path_value"
   done
 }
 

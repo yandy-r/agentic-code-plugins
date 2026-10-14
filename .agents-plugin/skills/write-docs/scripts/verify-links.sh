@@ -6,7 +6,6 @@ set -euo pipefail
 
 DOCS_DIR="${1:-docs}"
 ERRORS=0
-WARNINGS=0
 
 echo "# Link Verification Report"
 echo ""

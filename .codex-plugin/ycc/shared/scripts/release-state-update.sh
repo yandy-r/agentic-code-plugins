@@ -124,6 +124,7 @@ op_print_block() {
   [[ -n "$NEW_SUPPORT" ]] && RS_SUPPORT="$NEW_SUPPORT"
   [[ -n "$NEW_TRACKER" ]] && RS_TRACKER="$NEW_TRACKER"
   RS_TRACKER_REF="$NEW_TRACKER_REF"
+  export RS_TRACKER RS_TRACKER_REF
   if ! rs_validate; then
     _error "$RS_ERROR"
     exit 1
@@ -155,6 +156,7 @@ case "$OP" in
     ;;
   set-trunk)
     RS_TRUNK="$OP_ARG"
+    export RS_TRUNK
     ;;
   add-maintenance)
     if [[ "$RS_MODEL" != "release-branches" ]]; then

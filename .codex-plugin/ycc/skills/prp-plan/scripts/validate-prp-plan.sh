@@ -176,7 +176,6 @@ if [[ $TASK_COUNT -gt 0 ]]; then
   ACTION_COUNT=$(grep -c '\*\*ACTION\*\*:' <<< "$CONTENT" || true)
   VALIDATE_COUNT=$(grep -c '\*\*VALIDATE\*\*:' <<< "$CONTENT" || true)
   MIRROR_COUNT=$(grep -c '\*\*MIRROR\*\*:' <<< "$CONTENT" || true)
-  IMPLEMENT_COUNT=$(grep -c '\*\*IMPLEMENT\*\*:' <<< "$CONTENT" || true)
 
   if [[ $ACTION_COUNT -ge $TASK_COUNT ]]; then
     success "All tasks have ACTION fields ($ACTION_COUNT)"

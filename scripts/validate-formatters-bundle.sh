@@ -244,4 +244,46 @@ user_ex_paths="$(
 assert_eq "$(printf '%s\n' "${user_ex_paths}" | grep -c 'config/data/trash' || true)" "0" "user-excludes linting drops .style-excludes paths"
 assert_eq "$(printf '%s\n' "${user_ex_paths}" | grep -c 'src/main.ts' || true)" "1" "user-excludes linting keeps project source"
 
+# --- symlinks: tools (notably Prettier) reject explicitly named symlinks, so
+#     they never reach a lint file list. The skip is silent only when the
+#     resolved target is a tracked path this same filter includes; otherwise it
+#     must warn on stderr so unlinted targets stay visible. ---
+git_link_dir="${tmp_root}/git-symlink"
+mkdir -p "${git_link_dir}"
+git -C "${git_link_dir}" init -q
+printf '# real\n' > "${git_link_dir}/real.md"
+ln -s real.md "${git_link_dir}/link.md"
+printf '# untracked\n' > "${git_link_dir}/untracked.md"
+ln -s untracked.md "${git_link_dir}/link-untracked.md"
+printf '# outside\n' > "${tmp_root}/outside-target.md"
+ln -s ../outside-target.md "${git_link_dir}/link-outside.md"
+git -C "${git_link_dir}" add real.md link.md link-untracked.md link-outside.md
+
+git_link_stdout="${tmp_root}/git-symlink.stdout"
+git_link_stderr="${tmp_root}/git-symlink.stderr"
+PROJECT_ROOT="${git_link_dir}" \
+  bash -c '. "'"${BUNDLE_ROOT}"'/lib/modified-files.sh"; list_repo_paths "" ".md"' \
+  > "${git_link_stdout}" 2> "${git_link_stderr}"
+
+if ! grep -Fq "${git_link_dir}/real.md" "${git_link_stdout}"; then
+  echo "validate-formatters-bundle: symlinked repo should still list the real target" >&2
+  exit 1
+fi
+if grep -Fq "${git_link_dir}/link.md" "${git_link_stdout}"; then
+  echo "validate-formatters-bundle: tracked symlink must not appear on a lint file list" >&2
+  exit 1
+fi
+if ! grep -Fq 'skipping symlink link-untracked.md' "${git_link_stderr}"; then
+  echo "validate-formatters-bundle: symlink to untracked target should warn on stderr" >&2
+  exit 1
+fi
+if ! grep -Fq 'skipping symlink link-outside.md' "${git_link_stderr}"; then
+  echo "validate-formatters-bundle: symlink to out-of-repo target should warn on stderr" >&2
+  exit 1
+fi
+if grep -Fq 'skipping symlink link.md' "${git_link_stderr}"; then
+  echo "validate-formatters-bundle: tracked-and-linted symlink target should skip silently" >&2
+  exit 1
+fi
+
 echo "OK: formatter bundle smoke checks passed."

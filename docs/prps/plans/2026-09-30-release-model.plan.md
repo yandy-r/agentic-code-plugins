@@ -112,7 +112,7 @@ Python generators (`scripts/sync.sh`) and validators (`scripts/validate.sh`).
       `<!-- ycc-release-state` and the next `-->`, strips `\r`, trims whitespace):
 
 ```bash
-extract_block() { # $1=file → key: value lines on stdout; exit 3 if no block
+rs_extract_block() { # $1=file → key: value lines on stdout; exit 3 if no block
   awk '
     { sub(/\r$/, "") }
     /^<!-- ycc-release-state[[:space:]]*$/ { inblock=1; found=1; next }
@@ -123,19 +123,19 @@ extract_block() { # $1=file → key: value lines on stdout; exit 3 if no block
 }
 ```
 
-      Validate keys against `model trunk maintenance frozen support backport_label tracker tracker_ref`;
-      normalise lists by removing spaces around commas. `base` logic: read state; if
-      `present=0`, print `origin/HEAD`'s branch, falling back to `main` (no network calls);
-      otherwise for each maintenance branch `B`: `n=$(git rev-list --count origin/B ^origin/$trunk)`,
-      `m=$(git rev-list --count origin/B ^origin/$trunk ^HEAD)`; if `n>0 && m<n` (HEAD contains
-      at least one `B`-only commit) print `B`. Otherwise print `$trunk`. A branch cut from a
-      `release/X.Y` that has no commits of its own yet resolves to the trunk; callers offer
-      `--base` for that case. `check` renders
-      the expected table (Task 1.3's renderer, sourced from a shared function file
-      `lib/release-state-lib.sh`) and diffs it against the file's table section, then verifies
-      `git ls-remote --heads origin <branch>` for trunk and maintenance.
-      Put `extract_block`, `parse_state`, and `render_table` in
-      `ycc/skills/_shared/scripts/lib/release-state-lib.sh` so both scripts share them.
+Validate keys against `model trunk maintenance frozen support backport_label tracker tracker_ref`;
+normalise lists by removing spaces around commas. `base` logic: read state; if
+`present=0`, print `origin/HEAD`'s branch, falling back to `main` (no network calls);
+otherwise for each maintenance branch `B`: `n=$(git rev-list --count origin/B ^origin/$trunk)`,
+`m=$(git rev-list --count origin/B ^origin/$trunk ^HEAD)`; if `n>0 && m<n` (HEAD contains
+at least one `B`-only commit) print `B`. Otherwise print `$trunk`. A branch cut from a
+`release/X.Y` that has no commits of its own yet resolves to the trunk; callers offer
+`--base` for that case. `check` renders
+the expected table (Task 1.3's renderer, sourced from a shared function file
+`lib/release-state-lib.sh`) and diffs it against the file's table section, then verifies
+`git ls-remote --heads origin <branch>` for trunk and maintenance.
+Put `rs_extract_block`, `rs_parse_file`, and `rs_render_table` in
+`ycc/skills/_shared/scripts/lib/release-state-lib.sh` so both scripts share them.
 
 - [ ] **Step 4:** Run the tests → PASS. Run `shellcheck` on both files → clean.
 - [ ] **Step 5:** Add `release` to `VALID_TARGETS` in `scripts/validate.sh` with a
@@ -148,7 +148,7 @@ extract_block() { # $1=file → key: value lines on stdout; exit 3 if no block
 **Files:**
 
 - Create: `ycc/skills/_shared/scripts/release-state-update.sh`
-- Modify: `ycc/skills/_shared/scripts/lib/release-state-lib.sh` (`render_table`, `write_state`)
+- Modify: `ycc/skills/_shared/scripts/lib/release-state-lib.sh` (`rs_render_table`, `rs_write_file`)
 - Test: `scripts/test-release-model.sh`
 
 **Interfaces:**
@@ -158,16 +158,17 @@ extract_block() { # $1=file → key: value lines on stdout; exit 3 if no block
   `<!-- ycc-release-state:table:end -->`):
 
 ```markdown
-| Role        | Branch           | Notes                          |
-| ----------- | ---------------- | ------------------------------ |
-| Trunk       | `master`         | Next minor/major release       |
-| Maintenance | `release/0.5`    | Patches via `backport:0.5`     |
-| Frozen      | `release/0.4`    | Security fixes only, if at all |
-| Model       | release-branches | Support window: latest-minor   |
+Model: **release-branches**. Support window: latest-minor.
+
+| Role        | Branch        | Notes                          |
+| ----------- | ------------- | ------------------------------ |
+| Trunk       | `master`      | Next minor/major release       |
+| Maintenance | `release/0.5` | Patches via `backport:0.5`     |
+| Frozen      | `release/0.4` | Security fixes only, if at all |
 ```
 
-      (Maintenance and Frozen rows repeat per branch; omitted when empty. Column widths are
-      padded so prettier leaves the table unchanged.)
+(Maintenance and Frozen rows repeat per branch; omitted when empty. Column widths are
+padded so prettier leaves the table unchanged.)
 
 - [ ] Tests first: add-maintenance on `latest-minor` moves the previous maintenance branch to
       `frozen`; on `latest-two-minors` keeps two; `--freeze`; `--set-trunk`; `--set-model trunk-only`
