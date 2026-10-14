@@ -52,3 +52,4 @@ graphify-out/
 
 # claude plugin eval results (paid local runs)
 ycc/evals/results/
+ycc/evals-quarantine/results/

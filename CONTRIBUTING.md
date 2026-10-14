@@ -245,17 +245,19 @@ right skill load for a prompt?) and a **behavior** suite (hard gates such as
 are **not** part of CI or `./scripts/validate.sh`. Run them locally:
 
 ```bash
-./scripts/eval.sh                              # both suites, one run per case, $4 ceiling
+./scripts/eval.sh                              # both suites, one run per case, $8 ceiling
 ./scripts/eval.sh --suite trigger              # trigger cases only
-./scripts/eval.sh --case 'plan-*' --max-cost-usd 1
+./scripts/eval.sh --case 'plan-*' --max-cost-usd 8
 ```
 
 `scripts/eval.sh` skips with a notice when `claude` is not on `PATH`, enforces
-`--max-cost-usd` (default `4`) and exits non-zero on any failing case. Requires
+`--max-cost-usd` (default `8`) and exits non-zero on any failing case. Requires
 Claude Code ≥ 2.1.269. Layout, grader rules, and the follow-up list live in
 [`ycc/evals/README.md`](ycc/evals/README.md).
 
-**New skills ship with 3 eval cases** (2 should-trigger prompts + 1 near-miss);
+**New skills ship with 3 eval cases** (2 should-trigger prompts + 1 near-miss).
+Manual-only skills use two no-autoinvoke policy cases instead of should-trigger
+prompts; behavior cases are additional, not replacements.
 skills with hard gates add a behavior case. The `bundle-author` skill scaffolds
 this requirement.
 

@@ -4,21 +4,25 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 usage() {
   printf '%s\n' \
-    'Usage: scripts/eval.sh [--suite trigger|behavior] [--case GLOB]' \
-    '                       [--max-cost-usd USD] [--model MODEL] [--keep-temp]' \
-    "Runs one arm once, with a suite-wide \$4 cost ceiling by default." \
-    'Paid, local-only; not part of default CI. See ycc/evals/README.md.'
+    'Usage: scripts/eval.sh [--suite trigger|policy|behavior] [--case GLOB]' \
+    '                       [--quarantine] [--max-cost-usd USD] [--model MODEL]' \
+    '                       [--keep-temp]' \
+    "Runs one arm once, with a suite-wide \$8 cost ceiling by default" \
+    "(a full default run measured \$4.59). --quarantine runs only the known-failing" \
+    'YAN-1114 cases in ycc/evals-quarantine/. Paid, local-only; not part of CI.' \
+    'See ycc/evals/README.md.'
 }
 fail() { echo "eval.sh: $*" >&2; exit 1; }
 
-budget=4
+budget=8
+quarantine=0
 options=()
 while (($#)); do
   case "$1" in
     --help|-h) usage; exit 0 ;;
     --suite)
       (($# >= 2)) || fail '--suite needs a value'
-      case "$2" in trigger|behavior) ;; *) fail 'suite must be trigger or behavior' ;; esac
+      case "$2" in trigger|policy|behavior) ;; *) fail 'suite must be trigger, policy or behavior' ;; esac
       options+=(--tag "$2"); shift 2 ;;
     --case|--model)
       if (($# < 2)) || [[ -z "$2" ]]; then fail "$1 needs a value"; fi
@@ -27,11 +31,12 @@ while (($#)); do
       (($# >= 2)) || fail '--max-cost-usd needs a value'
       budget="$2"; shift 2 ;;
     --keep-temp) options+=(--keep-temp); shift ;;
+    --quarantine) options+=(--eval-dir evals-quarantine); quarantine=1; shift ;;
     *) fail "unknown option: $1" ;;
   esac
 done
 [[ "$budget" =~ ^[0-9]+([.][0-9]+)?$ && "$budget" =~ [1-9] ]] || fail 'cost ceiling must be a positive number'
-[[ -f "$ROOT/ycc/.claude-plugin/plugin.json" && -d "$ROOT/ycc/evals/trigger" && -d "$ROOT/ycc/evals/behavior" ]] || fail 'plugin manifest or eval suite missing'
+[[ -f "$ROOT/ycc/.claude-plugin/plugin.json" && -d "$ROOT/ycc/evals/trigger" && -d "$ROOT/ycc/evals/policy" && -d "$ROOT/ycc/evals/behavior" ]] || fail 'plugin manifest or eval suite missing'
 if ! command -v claude >/dev/null 2>&1; then
   echo 'SKIP: claude is not on PATH; install Claude Code >= 2.1.269 to run paid evals.'
   exit 0
@@ -40,6 +45,7 @@ command -v python3 >/dev/null 2>&1 || fail 'python3 is needed to print the per-c
 command -v git >/dev/null 2>&1 || fail 'git is needed to scaffold scratch repositories'
 
 results="$ROOT/ycc/evals/results"
+((quarantine)) && results="$ROOT/ycc/evals-quarantine/results"
 mkdir -p "$results"
 output="$(mktemp -d "$results/run-XXXXXXXX")"
 echo "Claude: $(claude --version)"

@@ -1,6 +1,6 @@
 ---
-description: Trigger test for the clean skill
-tags: [trigger]
+description: Policy test - the clean skill must not auto-invoke on natural language
+tags: [policy]
 max_turns: 6
 allowed_tools: [Read, Glob, Grep, Skill]
 ---

@@ -9,4 +9,6 @@ mkdir -p src
 printf 'export const greet = (name: string) => "Hello " + name;\n' > src/greet.ts
 git add .
 git commit -qm 'chore: seed'
-printf 'export const greet = (name: string) => `Hello ${name}`;\n' > src/greet.ts
+cat > src/greet.ts <<'TS'
+export const greet = (name: string) => `Hello ${name}`;
+TS

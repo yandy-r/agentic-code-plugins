@@ -1,68 +1,83 @@
 # ycc plugin evals
 
-Eval suites for `claude plugin eval` (Claude Code ≥ 2.1.269; authored and baselined
-on 2.1.299). Run them with `./scripts/eval.sh` — see
-[CONTRIBUTING.md](../../CONTRIBUTING.md#plugin-evals). They make real model calls,
-so they are not part of CI.
+Trigger and behavior evals for the `ycc` plugin (`claude plugin eval`, Claude Code
+2.1.299; requires >= 2.1.269). Runs are real model calls, so they are **not** part of
+CI. Run them locally:
 
-## Layout
-
-```text
-ycc/evals/
-├── trigger/<case>/        # tags: [trigger]
-│   ├── prompt.md          # frontmatter: limits + allowed_tools; body: the prompt
-│   └── graders/*.md       # one grader per file
-├── behavior/<case>/       # tags: [behavior]
-│   ├── prompt.md
-│   ├── case.yaml          # context.scaffold_script (seeds a scratch git repo)
-│   ├── scaffold.sh        # runs only with --scaffold, in an empty workspace
-│   └── graders/*.md
-└── results/               # gitignored run output
+```bash
+./scripts/eval.sh                                  # default run (36 cases), $8 ceiling
+./scripts/eval.sh --suite trigger                  # trigger family only (policy, behavior also valid)
+./scripts/eval.sh --case 'plan-near-miss-*'        # one family
+./scripts/eval.sh --quarantine                     # known-failing YAN-1114 cases
 ```
 
-The plugin manifest needs no `experimental.evals` key: `evals/` is the default
-directory and `claude plugin validate ycc` accepts it.
+Results land in `ycc/evals/results/` (gitignored). To reset,
+`rm -rf ycc/evals/results/*` (and `ycc/evals-quarantine/results/*`).
 
-## Trigger suite (36 cases)
+## Composition
 
-Twelve skills × 3 cases: `plan`, `plan-workflow`, `prp-plan`, `code-review`,
-`quick-review`, `review-fix`, `git-workflow`, `prp-commit`, `prp-pr`, `clean`,
-`git-cleanup`, `go-patterns`.
+| Case family            | Count | Directory               | What it proves                                                                            |
+| ---------------------- | ----- | ----------------------- | ----------------------------------------------------------------------------------------- |
+| Should-trigger prompts | 17    | `trigger/`              | natural language loads the expected skill (`tool_used: Skill`, min 1)                     |
+| Near-miss prompts      | 12    | `trigger/`              | a sibling prompt does not load the target skill (min 0, max 0)                            |
+| Policy no-autoinvoke   | 4     | `policy/`               | `clean` and `git-cleanup` never auto-load on natural language (manual-only safety policy) |
+| Behavior gates         | 3     | `behavior/`             | hard gates hold inside a scratch repo                                                     |
+| **Default run**        | 36    |                         | `./scripts/eval.sh` discovers only `ycc/evals/`                                           |
+| Quarantined            | 3     | `ycc/evals-quarantine/` | known-failing YAN-1114 should-trigger cases (3 of the 20 authored should-trigger prompts) |
 
-- Two should-trigger cases per skill: grader `tool_used: Skill` with
-  `input_match` on the skill name (namespaced `ycc:` form accepted).
-- One near-miss per skill, named `<skill>-near-miss-<sibling>`: the prompt belongs
-  to a sibling skill, so the grader asserts the target skill is **not** loaded
-  (`min: 0`, `max: 0`). Loading the sibling or nothing both pass.
+Authored total: 39 cases (20 should-trigger + 12 near-miss + 4 policy + 3 behavior).
+Baseline (Claude Code 2.1.299, `--runs 1`): 32/39 before this restructure; the 4
+policy cases and 3 quarantined cases were the 7 failures. The restructured default
+run has 36 cases; its pass rate has not been re-measured with a paid run.
 
-`clean` and `git-cleanup` carry `disable-model-invocation: true`, so the model
-cannot select them on its own. Their should-trigger cases are expected to fail
-until that policy changes; they record that a user must invoke them explicitly.
+Tag filters: `trigger`, `policy`, `behavior`.
 
-## Behavior suite (3 cases)
+## Behavior tests
 
-All graders are deterministic and cost nothing (no `llm`/`baseline`).
+Each behavior case ships a `scaffold.sh` that builds a disposable git repo
+so the skill never touches the repo under test. They assert on file/branch
+state and ref content, tool usage, no file creation, and no branch/worktree
+deletion. `git-cleanup-deletes-nothing` uses an explicit `/ycc:git-cleanup
+--branches --worktrees` invocation without `--apply` or `--dry-run` and grades only on observable state (report present,
+branch refs and worktree metadata intact, no files deleted). Report creation is allowed; deletion of seeded resources is not. The negative
+`Skill` grader verifies it did not auto-load; slash expansion injects skill content
+directly, so a positive `Skill` grader would be incorrect.
 
-| Case                          | Gate                                  | Observable evidence                                                          |
-| ----------------------------- | ------------------------------------- | ---------------------------------------------------------------------------- |
-| `plan-waits-for-confirmation` | no edits before the user confirms     | no `Write`/`Edit`, no files created, `src/cli.ts` unchanged, asks to proceed |
-| `git-cleanup-deletes-nothing` | dry-run by default                    | branch refs and worktree metadata still present, no `Write`/`Edit`           |
-| `quick-review-writes-nothing` | inline review, no artifact by default | no `Write`/`Edit`, no files created, `src/greet.ts` unchanged                |
+## Quarantined (YAN-1114)
 
-`Bash` is deliberately not granted: it needs a bubblewrap + `socat` sandbox, and
-file/ref state is enough to prove the gates. Behavior cases therefore prove "no
-file edits and refs intact", not "the command was never attempted".
+`compare-rate-limit-options`, `validate-research-before-planning`, and
+`structure-go-packages` failed the 32/39 baseline because the model inspects
+files directly instead of loading the skill. They live in
+`ycc/evals-quarantine/` and are governed by YAN-1114 (skill description
+tuning). Run them explicitly while working on YAN-1114:
 
-## Writing a case
+```bash
+./scripts/eval.sh --quarantine --max-cost-usd 1
+```
 
-1. Phrase the prompt as a user would type it; do not name the skill.
-2. Prefer `tool_used`, `file_exists`, and `regex` graders. Use `llm` only when no
-   deterministic signal exists.
-3. Near-miss cases need `min: 0` / `max: 0`; add `arm: both` if you run with
-   baseline ablation.
-4. Run it alone first: `./scripts/eval.sh --case <name>`.
+## Frequency-of-use notes
 
-## Follow-ups (out of scope for the first suite)
+`clean` and `git-cleanup` carry `disable-model-invocation: true`, so the
+model cannot select them on its own. Their coverage is the 4
+policy/no-autoinvoke cases in `policy/` (assert the skill is not auto-loaded); users
+invoke them explicitly. Slash invocation does not call the `Skill` tool, so
+behavior of an explicit invocation is graded on observable state only.
 
-- Cross-model matrix (Haiku / Sonnet / Opus) once the suite is stable.
-- A manually dispatched workflow once a CI credential and budget are agreed.
+## Known flake
+
+`git-cleanup-policy-no-autoinvoke-stale-resources` failed once (`Skill called 1x`)
+in a 2-case rerun and passed in the next 4-case policy run (single runs, cause
+unconfirmed). Treat a lone red policy case as a rerun candidate before changing
+skill metadata; two consecutive failures belong with the YAN-1114 follow-ups.
+
+## Follow-ups
+
+- Description-sharpness cases under YAN-1114 (the 3 quarantined cases plus
+  any new shaky cases that go red twice in a row).
+- Cross-model runs once the suites are stable.
+
+## Cost
+
+The earlier 39-case baseline (`--runs 1`, one arm) cost $4.59; the 36-case default run should be cheaper, but it has not been re-measured. the
+script's ceiling defaults to $8 to leave headroom. One in-flight run can
+still overrun the ceiling; see `claude plugin eval --help`.
