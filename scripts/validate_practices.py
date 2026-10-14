@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from description_budget import DESCRIPTION_LIMIT, DESCRIPTION_TOTAL_CAP
 from practices_parse import (
     BASELINE_VERSION,
     RULES,
@@ -33,7 +34,6 @@ from practices_parse import (
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
 BASELINE_PATH = SCRIPT_DIR / "practices-baseline.json"
-DESC_TOTAL_CAP = 12000  # aggregate skill-description chars; always-loaded context budget
 
 # Current built-in tools per https://code.claude.com/docs/en/tools-reference
 BUILTIN_TOOLS = frozenset("""
@@ -257,7 +257,7 @@ def check_skills(root: Path, rep: Report, declared_mcp: frozenset[str]) -> None:
             desc_total += len(desc)
             if len(desc) > 1024:
                 rep.hard("S2", rel, f"description length {len(desc)} exceeds hard cap 1024")
-            elif len(desc) > 300:
+            elif len(desc) > DESCRIPTION_LIMIT:
                 rep.add("S2", rel, "description-length", len(desc))
             if not USE_WHEN_RE.search(desc):
                 rep.add("S3", rel, "description lacks 'Use when/for/after' or 'when the user'")
@@ -292,8 +292,10 @@ def check_skills(root: Path, rep: Report, declared_mcp: frozenset[str]) -> None:
         entries = parse_tool_entries(fm.get("allowed-tools"), "S9", rel, rep)
         if entries:
             check_tools(entries, "S9", rel, rep, declared_mcp)
-    if desc_total > DESC_TOTAL_CAP:
-        rep.hard("S2", "ycc/skills", f"aggregate description length {desc_total} exceeds hard cap {DESC_TOTAL_CAP}")
+    if desc_total > DESCRIPTION_TOTAL_CAP:
+        rep.hard(
+            "S2", "ycc/skills", f"aggregate description length {desc_total} exceeds hard cap {DESCRIPTION_TOTAL_CAP}"
+        )
 
 
 def check_references(root: Path, rep: Report) -> None:

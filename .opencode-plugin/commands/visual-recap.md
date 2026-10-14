@@ -1,7 +1,6 @@
 ---
-description: 'Builds local-only visual recaps from Git diffs. Use when recapping a
+description: Builds local-only visual recaps from Git diffs. Use when recapping a
   finished branch, visualizing a commit range, or reviewing working-tree changes visually.
-  Usage: [base..head | branch]'
 ---
 
 Use the skill tool to load the `visual-recap` skill, then follow its instructions with these arguments:

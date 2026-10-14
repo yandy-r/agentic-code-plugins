@@ -1,7 +1,7 @@
 ---
-description: 'Executes PRP plan files with validation loops, reports, and archiving.
+description: Executes PRP plan files with validation loops, reports, and archiving.
   Use when implementing a .plan.md file, executing a PRP plan, or running parallel
-  PRP tasks. Usage: [--parallel] [--worktree] [--no-worktree] [--dry-run] <path/to/plan.md>'
+  PRP tasks.
 ---
 
 Use the skill tool to load the `prp-implement` skill, then follow its instructions with these arguments:

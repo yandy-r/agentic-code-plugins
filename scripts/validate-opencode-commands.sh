@@ -10,17 +10,24 @@ echo "== Sync check (generator --check) =="
 python3 "${REPO_ROOT}/scripts/generate_opencode_commands.py" --check
 
 echo "== Frontmatter lint =="
-python3 - <<'PY' "${COMMANDS_DIR}"
+python3 - <<'PY' "${COMMANDS_DIR}" "${REPO_ROOT}"
 import re
 import sys
 from pathlib import Path
 
 import yaml
 
+sys.path.insert(0, str(Path(sys.argv[2]) / "scripts"))
+from generate_opencode_commands import description_budget_errors
+
 root = Path(sys.argv[1])
 # opencode command frontmatter keys (per opencode.ai/docs/commands).
 ALLOWED = {"description", "agent", "model", "subtask"}
 errors = 0
+# Always-loaded command listing shares the skill listing budget (YAN-1083 / YAN-1102).
+for message in description_budget_errors(root):
+    print(message, file=sys.stderr)
+    errors += 1
 for path in sorted(root.glob("*.md")):
     text = path.read_text(encoding="utf-8")
     match = re.match(r"^---\n(.*?)\n---\n", text, re.DOTALL)
