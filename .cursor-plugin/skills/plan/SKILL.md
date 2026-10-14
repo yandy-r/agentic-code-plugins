@@ -1,6 +1,6 @@
 ---
 name: plan
-description: 'Creates lightweight conversational implementation plans and waits for approval. Use when outlining an approach, breaking down a change before coding, or comparing implementation options.'
+description: 'Use when comparing two implementation options or walking through tradeoffs before committing to one, breaking a change into steps, or planning conversationally for approval.'
 argument-hint: '[--parallel] [--team] [--enhanced] [--dry-run] [--no-worktree] [--visual] <what you want to plan>'
 allowed-tools:
   - Read

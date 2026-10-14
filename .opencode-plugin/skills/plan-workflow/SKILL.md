@@ -1,8 +1,8 @@
 ---
 name: plan-workflow
-description: Researches, analyzes, and validates feature plans with checkpoints. Use
-  when running research-to-plan workflow, producing shared.md and parallel-plan.md,
-  or reviewing research before planning.
+description: Use when validating existing research docs before planning, running a
+  research-to-plan workflow, or producing shared.md and parallel-plan.md. Researches
+  and validates plans with checkpoints.
 ---
 
 # Unified Planning Workflow
