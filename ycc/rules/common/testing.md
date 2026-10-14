@@ -1,3 +1,9 @@
+---
+description: When adding tests or diagnosing failures, use test-first checks, coverage
+  of critical flows and isolated Arrange-Act-Assert tests.
+alwaysApply: false
+---
+
 # Testing Requirements
 
 ## Minimum Test Coverage: 80%

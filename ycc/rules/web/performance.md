@@ -1,4 +1,23 @@
-> This file extends [common/performance.md](../common/performance.md) with web-specific performance content.
+---
+description: When working on web frontend files, apply loading strategies, asset budgets
+  and Core Web Vitals.
+paths:
+  - '**/*.html'
+  - '**/*.css'
+  - '**/*.scss'
+  - '**/*.sass'
+  - '**/*.less'
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+  - '**/*.ts'
+  - '**/*.mts'
+  - '**/*.cts'
+  - '**/*.jsx'
+  - '**/*.tsx'
+  - '**/*.vue'
+  - '**/*.svelte'
+---
 
 # Web Performance Rules
 

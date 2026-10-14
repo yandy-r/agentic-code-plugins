@@ -1,5 +1,6 @@
 ---
-description: TypeScript/JavaScript Security
+description: When working on TypeScript/JavaScript files, apply secret management,
+  input boundaries and security checks.
 alwaysApply: false
 globs:
 - '**/*.ts'
@@ -9,8 +10,6 @@ globs:
 ---
 
 # TypeScript/JavaScript Security
-
-> This file extends [common/security.mdc](../common/security.mdc) with TypeScript/JavaScript specific content.
 
 ## Secret Management
 
@@ -28,4 +27,4 @@ if (!apiKey) {
 
 ## Agent Support
 
-- Use the `code-review` skill for security-focused reviews; see [common/security.mdc](../common/security.mdc) for the mandatory security checklist
+- Use the `code-review` skill for security-focused reviews; validate external inputs, parameterize queries and avoid sensitive error responses

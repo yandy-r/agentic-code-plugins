@@ -1,4 +1,22 @@
-> This file extends [common/security.md](../common/security.md) with web-specific security content.
+---
+description: When editing web frontend code or headers, apply CSP, XSS prevention, third-party script, HTTPS header and form-protection checks.
+paths:
+  - '**/*.html'
+  - '**/*.css'
+  - '**/*.scss'
+  - '**/*.sass'
+  - '**/*.less'
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+  - '**/*.ts'
+  - '**/*.mts'
+  - '**/*.cts'
+  - '**/*.jsx'
+  - '**/*.tsx'
+  - '**/*.vue'
+  - '**/*.svelte'
+---
 
 # Web Security Rules
 

@@ -1,5 +1,6 @@
 ---
-description: Web Security Rules
+description: When editing web frontend code or headers, apply CSP, XSS prevention,
+  third-party script, HTTPS header and form-protection checks.
 alwaysApply: false
 globs:
 - '**/*.html'
@@ -18,7 +19,6 @@ globs:
 - '**/*.vue'
 - '**/*.svelte'
 ---
-> This file extends [common/security.mdc](../common/security.mdc) with web-specific security content.
 
 # Web Security Rules
 

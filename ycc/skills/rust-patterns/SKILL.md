@@ -25,6 +25,7 @@ This skill enforces idiomatic Rust conventions across six key areas: ownership a
 - `thiserror` for libraries, `anyhow` for applications; avoid `Box<dyn Error>` in library APIs.
 - Match exhaustively on business-critical enums — no wildcard `_` arms.
 - Use newtypes to wrap primitives and prevent argument mix-ups.
+- Seal closed extension points with a private supertrait so downstream crates cannot implement the trait.
 - Keep `pub` surface minimal; `pub(crate)` for internal APIs.
 - Every `unsafe` block needs a `// SAFETY:` comment stating the invariant.
 
@@ -33,7 +34,7 @@ This skill enforces idiomatic Rust conventions across six key areas: ownership a
 Paths are relative to this SKILL.md's directory. Read only the file that matches the task. If a file cannot be read, say so.
 
 - [references/ownership-errors-types.md](references/ownership-errors-types.md)
-  Read when: ownership and borrowing, lifetimes, `Cow`; error handling with `Result`, `?`, `thiserror`/`anyhow`; enums and exhaustive pattern matching; traits, generics, trait objects.
+  Read when: ownership and borrowing, lifetimes, `Cow`; error handling with `Result`, `?`, `thiserror`/`anyhow`; enums and exhaustive pattern matching; traits, generics, trait objects; sealed traits; serde-tagged response envelopes.
 
 - [references/concurrency-unsafe-modules.md](references/concurrency-unsafe-modules.md)
   Read when: structs and data modeling, newtypes; iterators and closures; concurrency (`Arc`, `Mutex`, channels, async); unsafe code with SAFETY invariants; module system and crate structure; tooling (clippy, rustfmt, cargo commands).
@@ -47,6 +48,7 @@ Paths are relative to this SKILL.md's directory. Read only the file that matches
 | `?` over `unwrap()`                 | Propagate errors, never panic in library/production code   |
 | Parse, don't validate               | Convert unstructured data to typed structs at the boundary |
 | Newtype for type safety             | Wrap primitives in newtypes to prevent argument swaps      |
+| Sealed trait for closed extension   | Private supertrait blocks downstream implementations       |
 | Prefer iterators over loops         | Declarative chains are clearer and often faster            |
 | `#[must_use]` on Results            | Ensure callers handle return values                        |
 | `Cow` for flexible ownership        | Avoid allocations when borrowing suffices                  |

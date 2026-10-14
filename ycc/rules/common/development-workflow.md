@@ -1,6 +1,10 @@
-# Development Workflow
+---
+description: When starting a feature or bug fix, check reuse and library behavior,
+  then plan, test and review before committing.
+alwaysApply: false
+---
 
-> This file extends [common/git-workflow.md](./git-workflow.md) with the full feature development process that happens before git operations.
+# Development Workflow
 
 The Feature Implementation Workflow describes the development pipeline: research, planning, TDD, code review, and then committing to git.
 
@@ -31,10 +35,8 @@ The Feature Implementation Workflow describes the development pipeline: research
    - Address CRITICAL and HIGH issues
    - Fix MEDIUM issues when possible
 
-4. **Commit & Push**
-   - Detailed commit messages
-   - Follow conventional commits format
-   - See [git-workflow.md](./git-workflow.md) for commit message format and PR process
+4. **Prepare for publication**
+   - Follow project commit and PR conventions; report verification honestly.
 
 5. **Pre-Review Checks**
    - Verify all automated checks (CI/CD) are passing

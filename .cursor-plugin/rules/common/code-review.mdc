@@ -1,7 +1,9 @@
 ---
-description: Code Review Standards
-alwaysApply: true
+description: When reviewing code or preparing a merge, apply review triggers, security
+  checks and severity-based approval criteria.
+alwaysApply: false
 ---
+
 # Code Review Standards
 
 ## Purpose
@@ -115,12 +117,3 @@ For TypeScript/JavaScript, Python, and Go, request language-specific checks from
 - **Approve**: No CRITICAL or HIGH issues
 - **Warning**: Only HIGH issues (merge with caution)
 - **Block**: CRITICAL issues found
-
-## Integration with Other Rules
-
-This rule works with:
-
-- [testing.mdc](testing.mdc) - Test coverage requirements
-- [security.mdc](security.mdc) - Security checklist
-- [git-workflow.mdc](git-workflow.mdc) - Commit standards
-- [agents.mdc](agents.mdc) - Agent delegation

@@ -27,25 +27,6 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SRC_DIR = REPO_ROOT / "ycc" / "rules"
 DST_DIR = REPO_ROOT / ".cursor-plugin" / "rules"
 
-# Standard web globs (matches prior flattened web__*.mdc rules)
-WEB_STANDARD_GLOBS: list[str] = [
-    "**/*.html",
-    "**/*.css",
-    "**/*.scss",
-    "**/*.sass",
-    "**/*.less",
-    "**/*.js",
-    "**/*.mjs",
-    "**/*.cjs",
-    "**/*.ts",
-    "**/*.mts",
-    "**/*.cts",
-    "**/*.jsx",
-    "**/*.tsx",
-    "**/*.vue",
-    "**/*.svelte",
-]
-
 
 def fix_markdown_links_md_to_mdc(body: str) -> str:
     """Rewrite relative .md links in markdown to .mdc (preserve anchors)."""
@@ -89,17 +70,6 @@ def extract_first_heading(body: str) -> str | None:
     return m.group(1).strip() if m else None
 
 
-def title_case_stem(stem: str) -> str:
-    return " ".join(w.capitalize() for w in stem.replace("-", " ").replace("_", " ").split())
-
-
-def default_description(rel: Path, body: str) -> str:
-    h = extract_first_heading(body)
-    if h:
-        return h
-    return title_case_stem(rel.stem)
-
-
 def parse_frontmatter(raw: str) -> tuple[bool, dict, str]:
     """Returns (has_yaml_block, data, body_without_frontmatter_if_present)."""
     if not raw.startswith("---\n"):
@@ -119,6 +89,25 @@ def parse_frontmatter(raw: str) -> tuple[bool, dict, str]:
     return True, data, body
 
 
+MAX_DESCRIPTION_CHARS = 200
+# Claude-only automation guidance; hooks-workflow reads these sources directly.
+SKIPPED_RULE_NAMES = frozenset({"hooks.md"})
+ALWAYS_APPLY_MAX_RULES = 2
+ALWAYS_APPLY_MAX_BODY_LINES = 60
+
+
+def validate_description(rel: Path, description: object, body: str) -> str:
+    """Return a source description, rejecting titles and over-long text."""
+    if not isinstance(description, str) or not description.strip():
+        raise SystemExit(f"{rel}: source frontmatter needs a non-empty description")
+    text = description.strip()
+    if len(text) > MAX_DESCRIPTION_CHARS:
+        raise SystemExit(f"{rel}: description exceeds {MAX_DESCRIPTION_CHARS} characters")
+    if text == extract_first_heading(body):
+        raise SystemExit(f"{rel}: description must explain when/what, not repeat the H1")
+    return text
+
+
 def normalize_rule_frontmatter(
     rel: Path,
     data: dict,
@@ -126,36 +115,14 @@ def normalize_rule_frontmatter(
 ) -> dict:
     """Normalize Claude-style rule YAML to Cursor .mdc frontmatter."""
     out = dict(data)
-
     if "paths" in out and "globs" not in out:
         out["globs"] = out.pop("paths")
-
-    parts = rel.parts
-    # rel like common/coding-style.md or web/patterns.md
-    top = parts[0] if parts else ""
-
-    if "description" not in out or not out["description"]:
-        out["description"] = default_description(rel, body)
-
-    if top == "common":
-        out["alwaysApply"] = True
-        if "globs" in out:
-            del out["globs"]
-    elif top == "web":
-        stem = rel.stem
-        if stem == "design-quality":
-            out["alwaysApply"] = True
-            out.pop("globs", None)
-        else:
-            out["alwaysApply"] = False
-            if "globs" not in out:
-                out["globs"] = list(WEB_STANDARD_GLOBS)
-    else:
-        # language-specific: scoped by globs from source
-        out["alwaysApply"] = False
-        if "globs" not in out:
-            out["globs"] = ["**/*"]
-
+    out["description"] = validate_description(rel, out.get("description"), body)
+    out["alwaysApply"] = out.get("alwaysApply") is True
+    if out["alwaysApply"]:
+        out.pop("globs", None)
+    elif "globs" not in out and rel.parts[0] != "common":
+        raise SystemExit(f"{rel}: non-common rules need paths/globs")
     return out
 
 
@@ -189,9 +156,7 @@ def build_mdc(rel: Path, raw: str) -> str:
     merged = normalize_rule_frontmatter(rel, fm_dict, body)
 
     body_out = convert_rule_body(body)
-    # Ensure description still present
-    if "description" not in merged or not merged["description"]:
-        merged["description"] = default_description(rel, body_out)
+    validate_description(rel, merged["description"], body_out)
 
     return dump_frontmatter(merged) + body_out
 
@@ -229,7 +194,7 @@ def write_tree(dest: Path, dry_run: bool) -> set[Path]:
             copy_mode(src, dst_file)
             continue
 
-        if rel.suffix.lower() != ".md":
+        if rel.suffix.lower() != ".md" or rel.name in SKIPPED_RULE_NAMES:
             continue
 
         out_rel = rel.with_suffix(".mdc")
@@ -303,9 +268,28 @@ def compare_trees(generated: Path, repo_dst: Path) -> list[str]:
     return diffs
 
 
-def lint_generated_rules() -> int:
-    """Verify each .mdc has required frontmatter keys."""
+def lint_rule_policy(path: Path, data: dict, body: str) -> int:
+    """Return policy errors for one generated rule."""
     errors = 0
+    label = path.relative_to(REPO_ROOT)
+    try:
+        validate_description(path.relative_to(DST_DIR), data.get("description"), body)
+    except SystemExit as exc:
+        print(f"BAD description: {label}: {exc}", file=sys.stderr)
+        errors += 1
+    if path.name == "hooks.mdc":
+        print(f"CLAUDE-ONLY hooks rule emitted: {label}", file=sys.stderr)
+        errors += 1
+    if re.search(r"~/.claude/|\.claude/settings\.json|Task execution", body):
+        print(f"CLAUDE-ONLY content: {label}", file=sys.stderr)
+        errors += 1
+    return errors
+
+
+def lint_generated_rules() -> int:
+    """Verify each .mdc has required frontmatter keys and follows policy."""
+    errors = 0
+    always: list[tuple[Path, int]] = []
     for path in sorted(DST_DIR.rglob("*.mdc")):
         raw = path.read_text(encoding="utf-8")
         if not raw.startswith("---\n"):
@@ -325,12 +309,24 @@ def lint_generated_rules() -> int:
         if "alwaysApply" not in data:
             print(f"MISSING alwaysApply: {path.relative_to(REPO_ROOT)}", file=sys.stderr)
             errors += 1
-        if not data.get("alwaysApply") and "globs" not in data:
+        if not data.get("alwaysApply") and "globs" not in data and path.parts[-2] != "common":
             print(
                 f"MISSING globs (scoped rule): {path.relative_to(REPO_ROOT)}",
                 file=sys.stderr,
             )
             errors += 1
+        errors += lint_rule_policy(path, data, raw[end + 5 :])
+        if data.get("alwaysApply"):
+            always.append((path, len(raw[end + 5 :].splitlines())))
+    if len(always) > ALWAYS_APPLY_MAX_RULES:
+        print(f"TOO MANY alwaysApply rules: {len(always)} > {ALWAYS_APPLY_MAX_RULES}", file=sys.stderr)
+        errors += 1
+    if sum(n for _, n in always) > ALWAYS_APPLY_MAX_BODY_LINES:
+        print(
+            f"alwaysApply body too large: {sum(n for _, n in always)} > {ALWAYS_APPLY_MAX_BODY_LINES}",
+            file=sys.stderr,
+        )
+        errors += 1
     return errors
 
 

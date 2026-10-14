@@ -2,11 +2,11 @@
 paths:
   - '**/*.py'
   - '**/*.pyi'
+description: When working on Python files, apply secret management, input boundaries
+  and security checks.
 ---
 
 # Python Security
-
-> This file extends [common/security.md](../common/security.md) with Python specific content.
 
 ## Secret Management
 
@@ -29,4 +29,4 @@ api_key = os.environ["OPENAI_API_KEY"]  # Raises KeyError if missing
 
 ## Reference
 
-For Django projects, keep `CsrfViewMiddleware` enabled, query through the ORM or parameterized `cursor.execute(sql, params)` (never interpolate input into SQL), and enable `SECURE_SSL_REDIRECT`, `SECURE_HSTS_SECONDS`, `SESSION_COOKIE_SECURE`, and `CSRF_COOKIE_SECURE` in production. See [common/security.md](../common/security.md) for the mandatory security checklist.
+For Django projects, keep `CsrfViewMiddleware` enabled, query through the ORM or parameterized `cursor.execute(sql, params)` (never interpolate input into SQL), and enable `SECURE_SSL_REDIRECT`, `SECURE_HSTS_SECONDS`, `SESSION_COOKIE_SECURE`, and `CSRF_COOKIE_SECURE` in production. Validate external inputs, parameterize queries and keep error responses free of sensitive details.

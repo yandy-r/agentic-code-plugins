@@ -1,5 +1,6 @@
 ---
-description: TypeScript/JavaScript Coding Style
+description: When working on TypeScript/JavaScript files, apply formatting, types
+  and idiomatic error handling.
 alwaysApply: false
 globs:
 - '**/*.ts'
@@ -9,8 +10,6 @@ globs:
 ---
 
 # TypeScript/JavaScript Coding Style
-
-> This file extends [common/coding-style.mdc](../common/coding-style.mdc) with TypeScript/JavaScript specific content.
 
 ## Types and Interfaces
 
@@ -199,4 +198,3 @@ const validated: UserInput = userSchema.parse(input);
 
 - No `console.log` statements in production code
 - Use proper logging libraries instead
-- See hooks for automatic detection

@@ -1,4 +1,22 @@
-> This file extends [common/testing.md](../common/testing.md) with web-specific testing content.
+---
+description: When testing web frontends, prioritize visual regression, accessibility, performance, cross-browser and responsive checks, then E2E and unit tests.
+paths:
+  - '**/*.html'
+  - '**/*.css'
+  - '**/*.scss'
+  - '**/*.sass'
+  - '**/*.less'
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+  - '**/*.ts'
+  - '**/*.mts'
+  - '**/*.cts'
+  - '**/*.jsx'
+  - '**/*.tsx'
+  - '**/*.vue'
+  - '**/*.svelte'
+---
 
 # Web Testing Rules
 

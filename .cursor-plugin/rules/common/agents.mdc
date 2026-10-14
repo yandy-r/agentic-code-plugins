@@ -1,55 +1,12 @@
 ---
-description: Agent Orchestration
-alwaysApply: true
+description: When delegating complex work or requesting code review, use registered
+  agents and parallelize only independent operations.
+alwaysApply: false
 ---
+
 # Agent Orchestration
 
-## Available Agents
-
-Bundled agents are defined in the ycc bundle. Use the agent names your runtime registers (for example, plain names in Cursor or opencode; namespaced by plugin in Claude Code).
-
-| Agent                | Purpose                                                  | When to Use                   |
-| -------------------- | -------------------------------------------------------- | ----------------------------- |
-| planner              | Implementation planning                                  | Complex features, refactoring |
-| architect            | System design                                            | Architectural decisions       |
-| code-reviewer        | Code quality and security review                         | After writing code            |
-| code-simplifier      | Behavior-preserving simplification and dead-code cleanup | Code maintenance              |
-| documentation-writer | Create and update documentation                          | Updating docs                 |
-| rust-reviewer        | Rust code review                                         | Rust projects                 |
-
-## Immediate Agent Usage
-
-No user prompt needed:
-
-1. Complex feature requests - Use **planner** agent
-2. Code just written/modified - Use **code-reviewer** agent
-3. Bug fix or new feature - Follow the test-first workflow in [testing.mdc](testing.mdc)
-4. Architectural decision - Use **architect** agent
-
-## Parallel Task Execution
-
-ALWAYS use parallel agent runs for independent operations:
-
-```markdown
-# GOOD: Parallel execution
-
-Launch 3 agents in parallel:
-
-1. Agent 1: Security analysis of auth module
-2. Agent 2: Performance review of cache system
-3. Agent 3: Type checking of utilities
-
-# BAD: Sequential when unnecessary
-
-First agent 1, then agent 2, then agent 3
-```
-
-## Multi-Perspective Analysis
-
-For complex problems, use split role sub-agents:
-
-- Factual reviewer
-- Senior engineer
-- Security expert
-- Consistency reviewer
-- Redundancy checker
+- Use runtime-registered agent descriptions as the authority for available agents.
+- Use planner for complex implementation and architect for architectural decisions.
+- Request code-reviewer after modifying code; use rust-reviewer for Rust-specific review.
+- Parallelize independent operations only; serialize work with dependencies or overlapping writes.

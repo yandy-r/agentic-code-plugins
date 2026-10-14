@@ -1,4 +1,22 @@
-> This file extends [common/patterns.md](../common/patterns.md) with web-specific patterns.
+---
+description: When building web UI, apply compound components, render-props/slots, container-presentational split, separated state types, URL state and data-fetching patterns.
+paths:
+  - '**/*.html'
+  - '**/*.css'
+  - '**/*.scss'
+  - '**/*.sass'
+  - '**/*.less'
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+  - '**/*.ts'
+  - '**/*.mts'
+  - '**/*.cts'
+  - '**/*.jsx'
+  - '**/*.tsx'
+  - '**/*.vue'
+  - '**/*.svelte'
+---
 
 # Web Patterns
 

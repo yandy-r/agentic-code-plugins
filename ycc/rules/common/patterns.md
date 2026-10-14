@@ -1,3 +1,9 @@
+---
+description: When designing data access or API contracts, isolate storage behind an
+  interface and use consistent response envelopes.
+alwaysApply: false
+---
+
 # Common Patterns
 
 ## Skeleton Projects

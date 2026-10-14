@@ -3,11 +3,11 @@ paths:
   - '**/*.go'
   - '**/go.mod'
   - '**/go.sum'
+description: When working on Go files, apply hook configuration and formatter/linter
+  recommendations.
 ---
 
 # Go Hooks
-
-> This file extends [common/hooks.md](../common/hooks.md) with Go specific content.
 
 ## PostToolUse Hooks
 

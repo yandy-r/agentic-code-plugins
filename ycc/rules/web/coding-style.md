@@ -1,4 +1,22 @@
-> This file extends [common/coding-style.md](../common/coding-style.md) with web-specific frontend content.
+---
+description: When editing web frontend files, apply feature-based file layout, CSS design tokens, compositor-only animation, semantic HTML and naming conventions.
+paths:
+  - '**/*.html'
+  - '**/*.css'
+  - '**/*.scss'
+  - '**/*.sass'
+  - '**/*.less'
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+  - '**/*.ts'
+  - '**/*.mts'
+  - '**/*.cts'
+  - '**/*.jsx'
+  - '**/*.tsx'
+  - '**/*.vue'
+  - '**/*.svelte'
+---
 
 # Web Coding Style
 

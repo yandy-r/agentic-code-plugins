@@ -1,5 +1,7 @@
 ---
-description: Web Patterns
+description: When building web UI, apply compound components, render-props/slots,
+  container-presentational split, separated state types, URL state and data-fetching
+  patterns.
 alwaysApply: false
 globs:
 - '**/*.html'
@@ -18,7 +20,6 @@ globs:
 - '**/*.vue'
 - '**/*.svelte'
 ---
-> This file extends [common/patterns.mdc](../common/patterns.mdc) with web-specific patterns.
 
 # Web Patterns
 

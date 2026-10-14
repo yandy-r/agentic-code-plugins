@@ -1,3 +1,9 @@
+---
+description: When configuring hook automation with hooks-workflow, consider validation,
+  formatting and final verification events supported by the target.
+alwaysApply: false
+---
+
 # Hooks System
 
 ## Hook Types

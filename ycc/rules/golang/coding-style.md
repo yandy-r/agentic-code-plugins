@@ -3,11 +3,11 @@ paths:
   - '**/*.go'
   - '**/go.mod'
   - '**/go.sum'
+description: When working on Go files, apply formatting, types and idiomatic error
+  handling.
 ---
 
 # Go Coding Style
-
-> This file extends [common/coding-style.md](../common/coding-style.md) with Go specific content.
 
 ## Formatting
 

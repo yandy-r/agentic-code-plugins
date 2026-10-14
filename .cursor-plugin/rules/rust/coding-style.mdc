@@ -1,13 +1,12 @@
 ---
-description: Rust Coding Style
+description: When working on Rust files, apply formatting, types and idiomatic error
+  handling.
 alwaysApply: false
 globs:
 - '**/*.rs'
 ---
 
 # Rust Coding Style
-
-> This file extends [common/coding-style.mdc](../common/coding-style.mdc) with Rust-specific content.
 
 ## Formatting
 

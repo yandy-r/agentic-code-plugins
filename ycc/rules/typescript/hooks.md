@@ -4,11 +4,11 @@ paths:
   - '**/*.tsx'
   - '**/*.js'
   - '**/*.jsx'
+description: When working on TypeScript/JavaScript files, apply hook configuration
+  and formatter/linter recommendations.
 ---
 
 # TypeScript/JavaScript Hooks
-
-> This file extends [common/hooks.md](../common/hooks.md) with TypeScript/JavaScript specific content.
 
 ## PostToolUse Hooks
 

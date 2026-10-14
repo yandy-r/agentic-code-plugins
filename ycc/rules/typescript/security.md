@@ -4,11 +4,11 @@ paths:
   - '**/*.tsx'
   - '**/*.js'
   - '**/*.jsx'
+description: When working on TypeScript/JavaScript files, apply secret management,
+  input boundaries and security checks.
 ---
 
 # TypeScript/JavaScript Security
-
-> This file extends [common/security.md](../common/security.md) with TypeScript/JavaScript specific content.
 
 ## Secret Management
 
@@ -26,4 +26,4 @@ if (!apiKey) {
 
 ## Agent Support
 
-- Use the `code-review` skill for security-focused reviews; see [common/security.md](../common/security.md) for the mandatory security checklist
+- Use the `code-review` skill for security-focused reviews; validate external inputs, parameterize queries and avoid sensitive error responses

@@ -4,12 +4,11 @@ paths:
   - '**/*.tsx'
   - '**/*.js'
   - '**/*.jsx'
+description: When working on TypeScript/JavaScript files, apply test organization,
+  framework usage and failure verification.
 ---
 
 # TypeScript/JavaScript Testing
 
-> This file extends [common/testing.md](../common/testing.md) with TypeScript/JavaScript specific content.
-
-## E2E Testing
-
-Use **Playwright** for E2E tests of critical user flows; inspect failures before considering changes complete.
+Use the `ts-testing` skill for detailed guidance.
+Use Playwright for critical end-to-end flows and inspect failures before completion.
