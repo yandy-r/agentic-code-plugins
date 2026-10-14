@@ -71,15 +71,15 @@ exit 0
 SH
 chmod +x "${STUB_BIN}/claude" "${STUB_BIN}/codex" "${STUB_BIN}/ruff" "${STUB_BIN}/black"
 
-# run_install <home> <args...> — run install.sh sandboxed; capture output.
+# run_install <home> <args...> — run install.sh sandboxed; print output and return the installer status.
 # Runs from <home>/project (not a git repo) so project-scoped steps write
 # there and never into this checkout. Installs the bundles as committed
 # (YCC_INSTALL_SKIP_BUILD=1) unless the caller's environment says otherwise;
 # build.sh covers the real generate/validate/format steps once per target.
 run_install() {
-    local home="$1"
+    local home="$1" out rc=0
     shift
-    (
+    out="$(
         cd "${home}/project" || exit 1
         HOME="${home}" \
         PATH="${STUB_BIN}:${PATH}" \
@@ -87,13 +87,53 @@ run_install() {
         YCC_MANAGED_CONFIG_STATE="${home}/.config/ycc/managed-config-state.json" \
         YCC_INSTALL_SKIP_BUILD="${YCC_INSTALL_SKIP_BUILD:-1}" \
             bash "${INSTALL}" "$@" 2>&1
-    )
+    )" || rc=$?
+    [[ -n "${out}" ]] && printf '%s\n' "${out}"
+    return "${rc}"
+}
+
+# install_must_succeed <home> <args...> — checked success-path invocation.
+# Run in the current shell and leave captured output in INSTALL_OUT. On failure,
+# report the original diagnostic and stop before placement assertions, preserving
+# the installer status. Expected rejections keep using run_install.
+INSTALL_OUT=""
+install_must_succeed() {
+    local rc=0
+    INSTALL_OUT="$(run_install "$@")" || rc=$?
+    if [[ ${rc} -ne 0 ]]; then
+        printf '%s[FAIL]%s install.sh %s exited %d\n%s\n' "${RED}" "${NC}" "${*:2}" "${rc}" "${INSTALL_OUT}" >&2
+        exit "${rc}"
+    fi
+    return 0
 }
 
 # run_install_build <home> <args...> — run_install with the real bundle build
 # (generators, validators and the repo style pass run against this checkout).
 run_install_build() {
     YCC_INSTALL_SKIP_BUILD=0 run_install "$@"
+}
+
+# install_must_succeed_build <home> <args...> — checked real bundle build invocation.
+install_must_succeed_build() {
+    YCC_INSTALL_SKIP_BUILD=0 install_must_succeed "$@"
+}
+
+# checked_failure_probe <stub> <home> <skip_build> <install args...>
+# Regression helper: drives a failing stub installer through
+# install_must_succeed in a child bash — a cleanup-only EXIT trap keeps the
+# child's sandbox from leaking while leaving the parent counters untouched —
+# and appends PROBE_RC=<child status> after the child's output.
+checked_failure_probe() {
+    local stub="$1" home="$2" skip_build="$3"
+    shift 3
+    YCC_INSTALL_SKIP_BUILD="${skip_build}" bash -c '
+        source "$1/scripts/tests/install/lib.sh"
+        trap '\''rm -rf "${SANDBOX_ROOT}"'\'' EXIT
+        INSTALL="$2"
+        install_must_succeed "$3" "${@:4}"
+        echo "PLACEMENT_BLOCK_RAN"
+    ' _ "${REPO_ROOT}" "${stub}" "${home}" "$@" 2>&1
+    echo "PROBE_RC=$?"
 }
 
 ok() {
@@ -129,6 +169,11 @@ assert_not_contains() {
 # puts the stub claude/codex CLIs first on PATH.
 run_install_stubbed() {
     run_install "$@"
+}
+
+# install_must_succeed_stubbed — checked variant for stubbed callers.
+install_must_succeed_stubbed() {
+    install_must_succeed "$@"
 }
 
 # shellcheck disable=SC2034  # read by the suites.

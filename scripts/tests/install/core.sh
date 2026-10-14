@@ -60,7 +60,8 @@ echo
 echo "== install.sh: multiple targets =="
 
 home="$(new_home)"
-out="$(run_install "${home}" sync --target codex,claude,opencode --intent mcp)"
+install_must_succeed "${home}" sync --target codex,claude,opencode --intent mcp
+out="${INSTALL_OUT}"
 assert_contains "${out}" "Codex sync complete" "multi-target runs codex"
 assert_contains "${out}" "Claude sync complete" "multi-target runs claude"
 assert_contains "${out}" "opencode sync complete" "multi-target runs opencode"
@@ -68,7 +69,8 @@ assert_not_contains "${out}" "Cursor sync complete" "multi-target skips unlisted
 assert_contains "$(cat "${home}/project/.mcp.json")" '"mcpServers"' "multi-target merges claude MCP into project scope"
 
 home="$(new_home)"
-out="$(run_install "${home}" sync --target claude,claude --intent mcp)"
+install_must_succeed "${home}" sync --target claude,claude --intent mcp
+out="${INSTALL_OUT}"
 count="$(grep -c "Claude sync complete" <<< "${out}")"
 if [[ "${count}" == "1" ]]; then ok "duplicate targets run once"; else ko "duplicate targets run once" "ran ${count} times"; fi
 
@@ -99,23 +101,27 @@ echo
 echo "== install.sh sync: no implicit base =="
 
 home="$(new_home)"
-out="$(run_install "${home}" sync --target claude --intent settings)"
+install_must_succeed "${home}" sync --target claude --intent settings
+out="${INSTALL_OUT}"
 assert_not_contains "${out}" "register repo checkout as local marketplace" "sync --intent settings does not run base"
 
 home="$(new_home)"
-out="$(run_install "${home}" sync --target cursor --intent plugins)"
+install_must_succeed "${home}" sync --target cursor --intent plugins
+out="${INSTALL_OUT}"
 assert_contains "${out}" "intent 'plugins' is not supported by target 'cursor'" "unsupported intent reported"
 assert_not_contains "${out}" "Generate Cursor-native bundle" "unsupported-only intent does not fall back to base"
 
 home="$(new_home)"
-out="$(run_install "${home}" sync --target codex --intent hooks)"
+install_must_succeed "${home}" sync --target codex --intent hooks
+out="${INSTALL_OUT}"
 assert_contains "${out}" "intent 'hooks' is not supported by target 'codex'" "codex hooks is a no-op"
 
 echo
 echo "== install.sh install (step flags) =="
 
 home="$(new_home)"
-out="$(run_install "${home}" install --target claude --only rules)"
+install_must_succeed "${home}" install --target claude --only rules
+out="${INSTALL_OUT}"
 assert_contains "${out}" "link rules" "install --only rules runs"
 assert_not_contains "${out}" "register repo checkout" "install --only stays exclusive"
 
@@ -136,7 +142,7 @@ assert_contains "${out}" "--project is not supported by step 'settings'" "--proj
 assert_not_contains "${out}" "Claude sync complete" "--project rejection happens before any target runs"
 
 home="$(new_home)"
-run_install "${home}" sync --target all --intent mcp >/dev/null
+install_must_succeed "${home}" sync --target all --intent mcp
 for f in .mcp.json .cursor/mcp.json .codex/config.toml opencode.json; do
     if [[ -f "${home}/project/${f}" ]]; then ok "project MCP written: ${f}"; else ko "project MCP written: ${f}"; fi
 done
@@ -147,7 +153,7 @@ else
 fi
 
 home="$(new_home)"
-run_install "${home}" install --target claude --only mcp --global >/dev/null
+install_must_succeed "${home}" install --target claude --only mcp --global
 assert_contains "$(cat "${home}/.claude.json")" '"mcpServers"' "--global writes ~/.claude.json"
 if [[ ! -e "${home}/project/.mcp.json" ]]; then ok "--global leaves project alone"; else ko "--global leaves project alone"; fi
 
@@ -174,16 +180,17 @@ home="$(new_home)"
 cat > "${home}/project/.mcp.json" <<'JSON'
 { "mcpServers": { "mine": { "url": "https://mine" } } }
 JSON
-run_install "${home}" install --target claude --only mcp >/dev/null
-out="$(run_install "${home}" remove --target claude --only mcp)"
+install_must_succeed "${home}" install --target claude --only mcp
+install_must_succeed "${home}" remove --target claude --only mcp
+out="${INSTALL_OUT}"
 assert_contains "${out}" "Claude remove complete" "remove runs for claude"
 merged="$(cat "${home}/project/.mcp.json")"
 assert_contains "${merged}" '"mine"' "remove keeps user-added server"
 assert_not_contains "${merged}" '"playwright"' "remove drops managed server"
 
 home="$(new_home)"
-run_install "${home}" sync --target all --intent mcp --global >/dev/null
-run_install "${home}" remove --target all --intent mcp --global >/dev/null
+install_must_succeed "${home}" sync --target all --intent mcp --global
+install_must_succeed "${home}" remove --target all --intent mcp --global
 for f in .claude.json .cursor/mcp.json .codex/config.toml .config/opencode/opencode.json; do
     if [[ ! -e "${home}/${f}" ]]; then ok "global remove cleans ${f}"; else ko "global remove cleans ${f}"; fi
 done
@@ -194,8 +201,8 @@ cat > "${home}/.codex/config.toml" <<'TOML'
 [mcp_servers.internal]
 url = "https://internal.example"
 TOML
-run_install "${home}" install --target codex --only mcp --global >/dev/null
-run_install "${home}" remove --target codex --only mcp --global >/dev/null
+install_must_succeed "${home}" install --target codex --only mcp --global
+install_must_succeed "${home}" remove --target codex --only mcp --global
 merged="$(cat "${home}/.codex/config.toml")"
 assert_contains "${merged}" "# keep me" "codex remove keeps comments"
 assert_contains "${merged}" "[mcp_servers.internal]" "codex remove keeps user server"
@@ -206,9 +213,11 @@ echo "== install.sh cli / completion =="
 
 home="$(new_home)"
 bin="${home}/.local/bin"
-out="$(PATH="${bin}:${PATH}" run_install "${home}" cli)"
+PATH="${bin}:${PATH}" install_must_succeed "${home}" cli
+out="${INSTALL_OUT}"
 if [[ "$(readlink "${bin}/ycc")" == "${INSTALL}" ]]; then ok "cli links ycc into ~/.local/bin"; else ko "cli links ycc into ~/.local/bin" "${out}"; fi
-out="$(PATH="${bin}:${PATH}" run_install "${home}" cli)"
+PATH="${bin}:${PATH}" install_must_succeed "${home}" cli
+out="${INSTALL_OUT}"
 assert_contains "${out}" "link up-to-date" "cli rerun is a no-op"
 
 # The regression: a linked command run outside the repo must find its helpers
@@ -220,32 +229,34 @@ home="$(new_home)"
 mkdir -p "${home}/mybin" && echo "mine" > "${home}/mybin/ycc"
 out="$(run_install "${home}" cli --dir "${home}/mybin")"
 assert_contains "${out}" "refusing to replace existing" "cli refuses foreign file without --force"
-run_install "${home}" cli --dir "${home}/mybin" --force >/dev/null
+install_must_succeed "${home}" cli --dir "${home}/mybin" --force
 if [[ "$(readlink "${home}/mybin/ycc")" == "${INSTALL}" ]]; then ok "cli --dir --force replaces"; else ko "cli --dir --force replaces"; fi
 
 home="$(new_home)"
-out="$(run_install "${home}" cli --dir "${home}/offpath")"
+install_must_succeed "${home}" cli --dir "${home}/offpath"
+out="${INSTALL_OUT}"
 assert_contains "${out}" "is not on PATH" "cli warns when dir is off PATH"
 
 home="$(new_home)"
 for sh in bash zsh fish; do
-    out="$(run_install "${home}" completion --shell "${sh}")"
+    install_must_succeed "${home}" completion --shell "${sh}"
+    out="${INSTALL_OUT}"
     assert_contains "${out}" "ycc" "completion prints ${sh} script"
 done
 out="$(run_install "${home}" completion --shell tcsh)"
 assert_contains "${out}" "unsupported shell 'tcsh'" "completion rejects unknown shell"
 
 home="$(new_home)"
-run_install "${home}" completion --shell bash --install >/dev/null
-run_install "${home}" completion --shell zsh --install >/dev/null
-run_install "${home}" completion --shell fish --install >/dev/null
+install_must_succeed "${home}" completion --shell bash --install
+install_must_succeed "${home}" completion --shell zsh --install
+install_must_succeed "${home}" completion --shell fish --install
 for f in .local/share/bash-completion/completions/ycc .local/share/zsh/site-functions/_ycc .config/fish/completions/ycc.fish; do
     if [[ -L "${home}/${f}" ]]; then ok "completion installed: ${f}"; else ko "completion installed: ${f}"; fi
 done
 rm "${home}/.local/share/zsh/site-functions/_ycc" && echo "mine" > "${home}/.local/share/zsh/site-functions/_ycc"
 out="$(run_install "${home}" completion --shell zsh --install)"
 assert_contains "${out}" "refusing to replace existing" "completion --install refuses real file without --force"
-run_install "${home}" completion --shell zsh --install --force >/dev/null
+install_must_succeed "${home}" completion --shell zsh --install --force
 if [[ -L "${home}/.local/share/zsh/site-functions/_ycc" ]]; then ok "completion --install --force replaces"; else ko "completion --install --force replaces"; fi
 
 if bash -n "${REPO_ROOT}/scripts/completions/ycc.bash"; then ok "bash completion parses"; else ko "bash completion parses"; fi

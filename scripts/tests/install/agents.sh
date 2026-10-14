@@ -9,7 +9,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 echo "== install.sh install: agents =="
 
 home="$(new_home)"
-run_install "${home}" install --target agents >/dev/null
+install_must_succeed "${home}" install --target agents
 assert_not_contains "$(cat "${home}/.agents/skills/releaser/SKILL.md")" 'disable-model-invocation' "agents install omits unsupported releaser invocation policy"
 assert_not_contains "$(cat "${home}/.agents/skills/init/SKILL.md")" 'disable-model-invocation' "agents install keeps init unrestricted"
 assert_contains "$(cat "${home}/.agents/skills/releaser/SKILL.md")" 'Prepares external-project releases' "agents install keeps releaser description"
@@ -33,7 +33,7 @@ mkdir -p "${home}/.agents/skills/my-own"
 printf 'mine\n' > "${home}/.agents/skills/my-own/SKILL.md"
 mkdir -p "${home}/.agents/plugins/ycc"
 printf 'foreign\n' > "${home}/.agents/plugins/ycc/plugin.json"
-run_install "${home}" remove --target agents --only skills >/dev/null
+install_must_succeed "${home}" remove --target agents --only skills
 if [[ ! -d "${home}/.agents/skills/backport" ]]; then ok "agents remove drops ycc skills"; else ko "agents remove drops ycc skills" "$(ls "${home}/.agents/skills")"; fi
 if [[ ! -d "${home}/.agents/ycc-shared" ]]; then ok "agents remove drops ycc-shared"; else ko "agents remove drops ycc-shared"; fi
 if [[ -f "${home}/.agents/skills/my-own/SKILL.md" ]]; then ok "agents remove keeps foreign skill my-own"; else ko "agents remove keeps foreign skill my-own"; fi
@@ -44,14 +44,15 @@ echo "== install.sh install: agents duplicate hint =="
 
 home="$(new_home)"
 mkdir -p "${home}/.config/opencode/skills/backport"
-out="$(run_install "${home}" install --target agents 2>&1)"
+install_must_succeed "${home}" install --target agents
+out="${INSTALL_OUT}"
 assert_contains "${out}" "may list them twice" "agents install warns when opencode native skills already hold ycc entries"
 
 echo
 echo "== install.sh: --skills-home agents consolidates shared skills =="
 
 home="$(new_home)"
-run_install "${home}" install --target codex,opencode --only base --skills-home agents >/dev/null
+install_must_succeed "${home}" install --target codex,opencode --only base --skills-home agents
 if [[ -f "${home}/.agents/skills/backport/SKILL.md" ]]; then ok "consolidated: skills land in ~/.agents/skills"; else ko "consolidated: skills land in ~/.agents/skills"; fi
 if [[ ! -d "${home}/.config/opencode/skills" ]]; then ok "consolidated: no skills under ~/.config/opencode"; else ko "consolidated: no skills under ~/.config/opencode"; fi
 if [[ ! -d "${home}/.config/opencode/shared" ]]; then ok "consolidated: no shared/ under ~/.config/opencode"; else ko "consolidated: no shared/ under ~/.config/opencode"; fi
@@ -73,7 +74,8 @@ echo
 echo "== install.sh: --skills-home native keeps per-tool skills =="
 
 home="$(new_home)"
-out="$(run_install "${home}" install --target codex,opencode --only base --skills-home native 2>&1)"
+install_must_succeed "${home}" install --target codex,opencode --only base --skills-home native
+out="${INSTALL_OUT}"
 if [[ -d "${home}/.config/opencode/skills" ]]; then ok "native: opencode skills land in ~/.config/opencode/skills"; else ko "native: opencode skills land in ~/.config/opencode/skills"; fi
 if [[ ! -e "${home}/.agents/skills" ]]; then ok "native: nothing under ~/.agents/skills"; else ko "native: nothing under ~/.agents/skills"; fi
 assert_not_contains "${out}" "Recommended:" "native: no consolidation prompt text"
@@ -82,7 +84,8 @@ echo
 echo "== install.sh: non-TTY overlap warning =="
 
 home="$(new_home)"
-out="$(run_install "${home}" install --target codex,opencode --only base 2>&1)"
+install_must_succeed "${home}" install --target codex,opencode --only base
+out="${INSTALL_OUT}"
 assert_contains "${out}" "codex and opencode" "non-TTY overlap warning names the duplicate pair"
 assert_contains "${out}" "pass --skills-home agents to consolidate" "non-TTY overlap warning suggests --skills-home agents"
 
@@ -90,10 +93,11 @@ echo
 echo "== install.sh: cursor joins the overlap check =="
 
 home="$(new_home)"
-out="$(run_install "${home}" install --target cursor,opencode --only base 2>&1)"
+install_must_succeed "${home}" install --target cursor,opencode --only base
+out="${INSTALL_OUT}"
 assert_contains "${out}" "cursor and opencode" "non-TTY overlap warning names cursor"
 home="$(new_home)"
-run_install "${home}" install --target cursor,codex,opencode --only base --skills-home agents >/dev/null
+install_must_succeed "${home}" install --target cursor,codex,opencode --only base --skills-home agents
 if [[ -f "${home}/.agents/skills/backport/SKILL.md" && ! -d "${home}/.cursor/skills/backport" ]]; then
     ok "consolidated: cursor skills go to ~/.agents/skills only"
 else
@@ -114,5 +118,58 @@ echo "== contract: every target declares ~/.agents/skills readership =="
 ) > "${SANDBOX_ROOT}/contract.out" 2>&1
 contract="$(cat "${SANDBOX_ROOT}/contract.out")"
 if [[ -z "${contract}" ]]; then ok "every target declares reads_agents_skills (+ native_skills_dirs)"; else ko "every target declares reads_agents_skills (+ native_skills_dirs)" "${contract}"; fi
+
+echo
+echo "== harness: installer failures surface with their own diagnostic =="
+
+# Regression for the masked-setup-error class: an installer that dies early
+# (e.g. missing lockfile-pinned prettier) must surface its own exit status and
+# diagnostic instead of letting placement assertions report misleading results.
+# A stub installer exits 42; checked_failure_probe drives it through
+# install_must_succeed in a child bash so the abort cannot touch this suite.
+home="$(new_home)"
+stub_install="${home}/fail-install.sh"
+cat > "${stub_install}" <<'SH'
+#!/usr/bin/env bash
+echo "synthetic installer failure: missing lockfile-pinned prettier" >&2
+exit 42
+SH
+chmod +x "${stub_install}"
+
+assert_checked_failure() {
+    local label="$1" skip_build="$2" probe
+    shift 2
+    probe="$(checked_failure_probe "${stub_install}" "${home}" "${skip_build}" "$@")"
+    assert_contains "${probe}" "synthetic installer failure: missing lockfile-pinned prettier" "${label}: surfaces the original installer diagnostic"
+    assert_contains "${probe}" "install.sh $* exited 42" "${label}: names the invocation and exit status"
+    assert_contains "${probe}" "PROBE_RC=42" "${label}: preserves the installer exit status"
+    assert_not_contains "${probe}" "PLACEMENT_BLOCK_RAN" "${label}: stops before placement assertions"
+}
+
+assert_checked_failure "agents install" 1 install --target agents
+assert_checked_failure "claude sync (non-agents suite path)" 1 sync --target claude --intent settings
+assert_checked_failure "codex remove (non-agents suite path)" 1 remove --target codex --intent base
+assert_checked_failure "cursor base build (build.sh path)" 0 install --target cursor --only base
+
+if [[ ! -e "${home}/.agents/skills" ]]; then ok "failed setup left no placement"; else ko "failed setup left no placement"; fi
+
+# The checked success path stays quiet and still installs.
+probe="$(
+    bash -c '
+        source "$1/scripts/tests/install/lib.sh"
+        trap '\''rm -rf "${SANDBOX_ROOT}"'\'' EXIT
+        install_must_succeed "$2" install --target agents
+        echo "OUT_BYTES=${#INSTALL_OUT}"
+    ' _ "${REPO_ROOT}" "${home}" 2>&1
+)"
+assert_contains "${probe}" "OUT_BYTES=" "checked success path returns to the caller"
+assert_not_contains "${probe}" "[FAIL]" "checked success path reports no failure"
+if [[ -f "${home}/.agents/skills/backport/SKILL.md" ]]; then ok "checked success path installs"; else ko "checked success path installs"; fi
+
+# Expected-negative cases stay on the unchecked primitive: a rejecting run keeps
+# its status and message, and the suite continues past it.
+out="$(run_install "${home}" install --target claude --only bogus)"; rc=$?
+if [[ ${rc} -ne 0 ]]; then ok "expected rejection keeps its nonzero status"; else ko "expected rejection keeps its nonzero status"; fi
+assert_contains "${out}" "is not valid for target" "expected rejection keeps its message"
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then install_tests_finish; fi

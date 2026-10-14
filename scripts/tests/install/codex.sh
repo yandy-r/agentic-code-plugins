@@ -18,7 +18,8 @@ trust_level = "trusted"
 [mcp_servers.internal]
 url = "https://internal.example"
 TOML
-out="$(run_install "${home}" sync --target codex --intent settings,mcp --force)"
+install_must_succeed "${home}" sync --target codex --intent settings,mcp --force
+out="${INSTALL_OUT}"
 merged="$(cat "${home}/.codex/config.toml")"
 assert_contains "${merged}" "# local machine notes" "TOML comment preserved"
 assert_contains "${merged}" '[projects."/home/me/secret-project"]' "trusted project preserved"
@@ -42,8 +43,8 @@ cat > "${home}/.codex/config.toml" <<'TOML'
 [projects."/home/me/secret-project"]
 trust_level = "trusted"
 TOML
-run_install "${home}" sync --target codex --intent settings,plugins,rules >/dev/null
-run_install "${home}" remove --target codex --intent settings,plugins,rules >/dev/null
+install_must_succeed "${home}" sync --target codex --intent settings,plugins,rules
+install_must_succeed "${home}" remove --target codex --intent settings,plugins,rules
 merged="$(cat "${home}/.codex/config.toml")"
 assert_contains "${merged}" "# local machine notes" "codex settings remove keeps comments"
 assert_contains "${merged}" '[projects."/home/me/secret-project"]' "codex settings remove keeps trusted projects"
@@ -59,7 +60,8 @@ echo "== install.sh install: codex base mirrors custom agents =="
 home="$(new_home)"
 mkdir -p "${home}/.codex/agents"
 echo 'name = "mine"' > "${home}/.codex/agents/mine.toml"
-out="$(run_install "${home}" install --target codex --only base --skills-home native)"
+install_must_succeed "${home}" install --target codex --only base --skills-home native
+out="${INSTALL_OUT}"
 if [[ -f "${home}/.codex/agents/mine.toml" ]]; then ok "codex native base install keeps user agents"; else ko "codex native base install keeps user agents"; fi
 first_agent="$(find "${REPO_ROOT}/.codex-plugin/agents" -maxdepth 1 -name '*.toml' -printf '%f\n' | sort | head -n 1)"
 if [[ -n "${first_agent}" && -f "${home}/.codex/agents/${first_agent}" ]]; then ok "codex native base install populates ~/.codex/agents"; else ko "codex native base install populates ~/.codex/agents" "${out}"; fi
@@ -69,7 +71,7 @@ assert_contains "${out}" "(skills agents plugin)" "codex native base install run
 last_step="$(grep -oE '\[[0-9]+/[0-9]+\]' <<< "${out}" | tail -n 1)"
 if [[ "${last_step}" == "[6/6]" ]]; then ok "codex native base install numbers its steps to the total"; else ko "codex native base install numbers its steps to the total" "last step: ${last_step}"; fi
 
-run_install "${home}" remove --target codex --intent base >/dev/null
+install_must_succeed "${home}" remove --target codex --intent base
 if [[ "$(find "${home}/.codex/agents" -mindepth 1 -maxdepth 1 -printf '%f\n')" == "mine.toml" ]]; then ok "codex base remove after install keeps only user agents"; else ko "codex base remove after install keeps only user agents"; fi
 assert_not_contains "$(cat "${home}/.config/ycc/installed-units.json" 2>/dev/null)" ".codex/agents" "codex base remove forgets the tracked agents"
 
@@ -77,7 +79,8 @@ assert_not_contains "$(cat "${home}/.config/ycc/installed-units.json" 2>/dev/nul
 home="$(new_home)"
 mkdir -p "${home}/.codex/agents"
 cp -R "${REPO_ROOT}/.codex-plugin/agents/." "${home}/.codex/agents/"
-out="$(run_install "${home}" install --target codex --only base --skills-home native)"
+install_must_succeed "${home}" install --target codex --only base --skills-home native
+out="${INSTALL_OUT}"
 assert_not_contains "${out}" "refusing to replace" "codex native base install adopts an older untracked mirror"
 
 echo
@@ -97,7 +100,7 @@ cat > "${home}/.agents/plugins/marketplace.json" <<'JSON'
   "plugins": [{ "name": "ycc", "source": { "source": "local", "path": "./plugins/ycc" } }, { "name": "other" }]
 }
 JSON
-run_install "${home}" remove --target codex --intent base >/dev/null
+install_must_succeed "${home}" remove --target codex --intent base
 assert_contains "$(cat "${home}/claude-calls.log" 2>/dev/null)" "codex plugin remove ycc@local-ycc-plugins" "codex base remove uninstalls through the codex CLI"
 for f in .codex/plugins/ycc .agents/plugins/ycc .codex/plugins/cache/local-ycc-plugins; do
     if [[ ! -e "${home}/${f}" && ! -L "${home}/${f}" ]]; then ok "codex base remove cleans ${f}"; else ko "codex base remove cleans ${f}"; fi
@@ -112,13 +115,14 @@ mkdir -p "${home}/.agents/plugins"
 cat > "${home}/.agents/plugins/marketplace.json" <<'JSON'
 { "name": "local-ycc-plugins", "interface": { "displayName": "Local YCC Plugins" }, "plugins": [{ "name": "ycc" }] }
 JSON
-run_install "${home}" remove --target codex --intent base >/dev/null
+install_must_succeed "${home}" remove --target codex --intent base
 if [[ ! -e "${home}/.agents/plugins/marketplace.json" ]]; then ok "codex base remove deletes a marketplace left empty"; else ko "codex base remove deletes a marketplace left empty"; fi
 
 home="$(new_home)"
 mkdir -p "${home}/.codex/plugins"
 ln -s /elsewhere "${home}/.codex/plugins/ycc"
-out="$(run_install "${home}" remove --target codex --intent base)"
+install_must_succeed "${home}" remove --target codex --intent base
+out="${INSTALL_OUT}"
 if [[ -L "${home}/.codex/plugins/ycc" ]]; then ok "codex base remove keeps a foreign link"; else ko "codex base remove keeps a foreign link"; fi
 
 # Codex plugin install through the CLI (lib level; the full base step runs
@@ -155,7 +159,7 @@ ln -s "${REPO_REAL}/.codex-plugin/ycc" "${home}/.codex/plugins/ycc"
 cp -R "${REPO_ROOT}/.codex-plugin/agents/." "${home}/.codex/agents/"
 echo 'name = "mine"' > "${home}/.codex/agents/mine.toml"
 echo '{ "name": "local-ycc-plugins", "plugins": [{ "name": "ycc" }] }' > "${home}/.agents/plugins/marketplace.json"
-run_install "${home}" remove --target codex --intent agents,skills >/dev/null
+install_must_succeed "${home}" remove --target codex --intent agents,skills
 if [[ "$(find "${home}/.codex/agents" -mindepth 1 -printf '%f\n')" == "mine.toml" ]]; then ok "codex agents remove keeps only user agents"; else ko "codex agents remove keeps only user agents"; fi
 if [[ -L "${home}/.codex/plugins/ycc" ]]; then ok "codex slice remove keeps the plugin link"; else ko "codex slice remove keeps the plugin link"; fi
 assert_contains "$(cat "${home}/.agents/plugins/marketplace.json")" '"ycc"' "codex slice remove keeps the marketplace entry"

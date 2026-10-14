@@ -8,7 +8,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 echo "== install.sh sync: cursor =="
 
 home="$(new_home)"
-run_install "${home}" sync --target cursor --intent settings >/dev/null
+install_must_succeed "${home}" sync --target cursor --intent settings
 assert_contains "$(cat "${home}/.cursor/cli-config.json")" '"claude-fable-5-1"' "cursor CLI model applied"
 
 echo
@@ -19,8 +19,8 @@ home="$(new_home)"
 cat > "${home}/.cursor/cli-config.json" <<'JSON'
 { "privacyMode": 1, "permissions": { "allow": ["Shell(ls)"], "deny": [] } }
 JSON
-run_install "${home}" sync --target cursor --intent settings,rules >/dev/null
-run_install "${home}" remove --target cursor --intent settings,rules >/dev/null
+install_must_succeed "${home}" sync --target cursor --intent settings,rules
+install_must_succeed "${home}" remove --target cursor --intent settings,rules
 merged="$(cat "${home}/.cursor/cli-config.json")"
 assert_contains "${merged}" '"privacyMode": 1' "cursor remove keeps unmanaged keys"
 assert_contains "${merged}" '"Shell(ls)"' "cursor remove keeps user permission entries"
@@ -37,7 +37,7 @@ for unit in skills agents rules; do
     cp -R "${REPO_ROOT}/.cursor-plugin/${unit}/." "${home}/.cursor/${unit}/"
 done
 mkdir -p "${home}/.cursor/skills/my-own-skill"
-run_install "${home}" remove --target cursor --intent base >/dev/null
+install_must_succeed "${home}" remove --target cursor --intent base
 if [[ -d "${home}/.cursor/skills/my-own-skill" ]]; then ok "cursor base remove keeps user skills"; else ko "cursor base remove keeps user skills"; fi
 leftover="$(find "${home}/.cursor/skills" -mindepth 1 -maxdepth 1 -printf '%f\n')"
 if [[ "${leftover}" == "my-own-skill" ]]; then ok "cursor base remove drops bundle skills"; else ko "cursor base remove drops bundle skills" "${leftover}"; fi
@@ -58,7 +58,7 @@ for unit in skills agents rules; do
     cp -R "${REPO_ROOT}/.cursor-plugin/${unit}/." "${home}/.cursor/${unit}/"
 done
 mkdir -p "${home}/.cursor/skills/my-own-skill"
-run_install "${home}" remove --target cursor --intent skills >/dev/null
+install_must_succeed "${home}" remove --target cursor --intent skills
 leftover="$(find "${home}/.cursor/skills" -mindepth 1 -maxdepth 1 -printf '%f\n')"
 if [[ "${leftover}" == "my-own-skill" ]]; then ok "cursor skills remove drops only bundle skills"; else ko "cursor skills remove drops only bundle skills" "${leftover}"; fi
 if [[ -n "$(ls -A "${home}/.cursor/agents")" && -n "$(ls -A "${home}/.cursor/rules")" ]]; then ok "cursor skills remove keeps agents + rules"; else ko "cursor skills remove keeps agents + rules"; fi
