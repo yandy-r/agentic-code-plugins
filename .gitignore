@@ -49,3 +49,7 @@ opencode.json
 
 # graphify knowledge-graph output (local scratch)
 graphify-out/
+
+# claude plugin eval results (paid local runs)
+ycc/evals/results/
+ycc/evals-quarantine/results/
