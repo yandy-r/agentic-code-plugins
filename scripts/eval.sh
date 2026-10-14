@@ -8,7 +8,7 @@ usage() {
     '                       [--quarantine] [--max-cost-usd USD] [--model MODEL]' \
     '                       [--keep-temp]' \
     "Runs one arm once, with a suite-wide \$8 cost ceiling by default" \
-    "(a full default run measured \$4.59). --quarantine runs only the known-failing" \
+    "(the 39-case pre-restructure baseline measured \$4.59). --quarantine runs only the known-failing" \
     'YAN-1114 cases in ycc/evals-quarantine/. Paid, local-only; not part of CI.' \
     'See ycc/evals/README.md.'
 }
