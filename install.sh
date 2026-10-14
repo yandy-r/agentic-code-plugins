@@ -295,8 +295,8 @@ Target steps:
             mcp:      merge mcp-configs/mcp.json mcpServers into <project>/.mcp.json
                       (--project, default) or ~/.claude.json (--global).
             hooks:    symlink ycc/settings/hooks/ into ~/.claude/hooks/, enabling
-                      the WorktreeCreate hook (redirects harness-managed
-                      worktrees to ~/.claude-worktrees/).
+                      the WorktreeCreate hook (keeps harness-managed
+                      worktrees inside <repo>/.claude/worktrees/).
             mods:     'claude plugin marketplace add ycc/mods --scope user'
                       (the local 'ycc-mods' marketplace) + 'claude plugin
                       install <mod>@ycc-mods --scope user' for each mod it

@@ -100,7 +100,7 @@ When worktree mode is active, append this line to either variant. No
 `setup-worktree.sh` or `list-worktrees.sh` calls happen in dry-run mode:
 
 ```
-Worktree:   feature=<repo-root>/.claude/worktrees/<repo>-<FEATURE_SLUG>/  (all subtasks)
+Worktree:   feature=<repo-root>/<worktree-root>/<repo>-<FEATURE_SLUG>/  (all subtasks)
 ```
 
 ---
@@ -127,17 +127,17 @@ breaks the single-worktree contract. With `WORKTREE_MODE=false` omit the
 Agent(
   subagent_type = "nodejs-backend-architect",
   description = "Implement auth system",
-  prompt = "Working directory: <repo-root>/.claude/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path A coordination block]"
+  prompt = "Working directory: <repo-root>/<worktree-root>/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path A coordination block]"
 )
 Agent(
   subagent_type = "test-strategy-planner",
   description = "Create auth test plan",
-  prompt = "Working directory: <repo-root>/.claude/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path A coordination block]"
+  prompt = "Working directory: <repo-root>/<worktree-root>/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path A coordination block]"
 )
 Agent(
   subagent_type = "documentation-writer",
   description = "Document auth API",
-  prompt = "Working directory: <repo-root>/.claude/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path A coordination block]"
+  prompt = "Working directory: <repo-root>/<worktree-root>/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path A coordination block]"
 )
 ```
 
@@ -156,19 +156,19 @@ Agent(
   name = "subtask-1",
   subagent_type = "nodejs-backend-architect",
   description = "Implement auth system",
-  prompt = "Working directory: <repo-root>/.claude/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path B Team Communication section]"
+  prompt = "Working directory: <repo-root>/<worktree-root>/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path B Team Communication section]"
 )
 Agent(
   name = "subtask-2",
   subagent_type = "test-strategy-planner",
   description = "Create auth test plan",
-  prompt = "Working directory: <repo-root>/.claude/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path B Team Communication section]"
+  prompt = "Working directory: <repo-root>/<worktree-root>/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path B Team Communication section]"
 )
 Agent(
   name = "subtask-3",
   subagent_type = "documentation-writer",
   description = "Document auth API",
-  prompt = "Working directory: <repo-root>/.claude/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path B Team Communication section]"
+  prompt = "Working directory: <repo-root>/<worktree-root>/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path B Team Communication section]"
 )
 ```
 

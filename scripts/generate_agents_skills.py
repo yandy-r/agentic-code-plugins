@@ -23,6 +23,7 @@ from generate_agents_common import (
     AGENTS_PLUGIN_ROOT,
     AGENTS_SHARED_DST,
     AGENTS_SKILLS_DST,
+    AGENTS_VERBATIM_EXCLUDE,
     SRC_SKILLS_DIR,
     VERBATIM_SKILL_FILES,
     apply_agents_text_transforms,
@@ -132,7 +133,7 @@ def write_tree(dest_root: Path, dry_run: bool) -> set[Path]:
 
         out.parent.mkdir(parents=True, exist_ok=True)
 
-        if str(rel.as_posix()) in VERBATIM_SKILL_FILES:
+        if str(rel.as_posix()) in (VERBATIM_SKILL_FILES - AGENTS_VERBATIM_EXCLUDE):
             out.write_bytes(src.read_bytes())
             copy_mode(src, out)
             continue

@@ -97,11 +97,11 @@ fi
 
 WORKTREE_ROOT="${YCC_WORKTREE_ROOT:-$REPO_ROOT/.claude/worktrees}"
 case "$WORKTREE_ROOT" in
-  ~)
+  "~")
     WORKTREE_ROOT="$HOME"
     ;;
-  ~/*)
-    WORKTREE_ROOT="$HOME/${WORKTREE_ROOT#~/}"
+  "~"/*)
+    WORKTREE_ROOT="$HOME/${WORKTREE_ROOT#"~/"}"
     ;;
   /*)
     ;;

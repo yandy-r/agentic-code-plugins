@@ -25,7 +25,11 @@ from __future__ import annotations
 
 import re
 
-from generate_codex_common import model_invocation_disabled
+from generate_codex_common import (
+    model_invocation_disabled,
+    protect_marked_verbatim_blocks,
+    restore_marked_verbatim_blocks,
+)
 
 # Frontmatter + text helpers are target-agnostic; reuse them directly.
 from generate_opencode_common import (
@@ -52,6 +56,7 @@ __all__ = [
     "load_agent_aliases",
     "parse_frontmatter",
     "rewrite_agents_plugin_paths",
+    "AGENTS_VERBATIM_EXCLUDE",
 ]
 
 REPO_ROOT = SRC_SKILLS_DIR.parent.parent
@@ -75,6 +80,15 @@ AGENTS_FRONTMATTER_KEYS = (
     "metadata",
     "allowed-tools",
 )
+
+
+# worktree-paths.sh marks its one default-root line; the portable bundle swaps in
+# the runtime-detecting resolver defined in the same file.
+WORKTREE_DEFAULT_MARKER_LINE = "printf '%s/.claude/worktrees\\n' \"$repo_root\" # @YCC_DEFAULT_WORKTREE_ROOT@"
+WORKTREE_DEFAULT_AGENTS_LINE = 'ycc_runtime_worktree_root "$repo_root"'
+# Targets whose own bundle is not a portable agents build keep these verbatim;
+# the agents target must transform the marker line instead.
+AGENTS_VERBATIM_EXCLUDE: frozenset[str] = frozenset({"_shared/scripts/worktree-paths.sh"})
 
 
 def rewrite_agents_plugin_paths(text: str) -> str:
@@ -105,6 +119,7 @@ def apply_agents_text_transforms(
     Product names are deliberately left as-is: this bundle is read by many
     tools and renaming "Claude Code" prose to any single tool would be wrong.
     """
+    text, verbatim_blocks = protect_marked_verbatim_blocks(text)
     output = fix_mcp_malformed_tokens(text)
 
     # File naming: every agentskills.io reader uses AGENTS.md.
@@ -114,6 +129,13 @@ def apply_agents_text_transforms(
     # Shared helpers move from skills/_shared/ to the sibling ycc-shared/ dir.
     # A skill at ~/.agents/skills/<name>/ reaches it via ../../../ycc-shared/.
     output = output.replace("../../_shared/", "../../../ycc-shared/")
+
+    # Portable bundle: the worktree root is runtime-selected (YAN-1111), not
+    # fixed to Claude's. Only the marked default line changes; prose that names
+    # `.claude/worktrees` as the Claude root is left alone.
+    output = output.replace(WORKTREE_DEFAULT_MARKER_LINE, WORKTREE_DEFAULT_AGENTS_LINE)
+    # Example paths must be resolved with ycc_worktree_root, never assume Claude.
+    output = output.replace("/.claude/worktrees", "/<worktree-root>")
 
     # Plugin-root variable -> absolute install paths.
     output = rewrite_agents_plugin_paths(output)
@@ -135,7 +157,7 @@ def apply_agents_text_transforms(
 
     if output and not output.endswith("\n"):
         output += "\n"
-    return output
+    return restore_marked_verbatim_blocks(output, verbatim_blocks)
 
 
 def transform_skill_markdown(raw: str, aliases: dict[str, str]) -> str:

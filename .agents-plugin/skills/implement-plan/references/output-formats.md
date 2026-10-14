@@ -121,10 +121,10 @@ Provide completion summary:
 
 [Output of list-worktrees.sh]
 
-> The parent worktree at `<repo-root>/.claude/worktrees/[repo]-[feature]/` survives for inspection
+> The parent worktree at `<repo-root>/<worktree-root>/[repo]-[feature]/` survives for inspection
 > and PR creation. When you are done, run:
 >
-> git worktree remove <repo-root>/.claude/worktrees/[repo]-[feature]/
+> git worktree remove <repo-root>/<worktree-root>/[repo]-[feature]/
 > git branch -d feat/[feature]
 
 ## Next Steps

@@ -14,7 +14,12 @@ import sys
 import tempfile
 from pathlib import Path
 
-from generate_codex_common import model_invocation_disabled, parse_frontmatter
+from generate_codex_common import (
+    model_invocation_disabled,
+    parse_frontmatter,
+    protect_marked_verbatim_blocks,
+    restore_marked_verbatim_blocks,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SRC_DIR = REPO_ROOT / "ycc" / "skills"
@@ -83,6 +88,7 @@ def fix_mcp_malformed_tokens(s: str) -> str:
 
 def apply_skills_text_transforms(s: str) -> str:
     """Cursor-native rewrites for skills content."""
+    s, verbatim_blocks = protect_marked_verbatim_blocks(s)
     s = s.replace("CLAUDE_PLUGIN_ROOT", "CURSOR_PLUGIN_ROOT")
 
     s = fix_mcp_malformed_tokens(s)
@@ -189,7 +195,7 @@ def apply_skills_text_transforms(s: str) -> str:
     s = s.replace("parallel Task execution", "parallel agent runs")
     s = s.replace("Parallel Task execution", "Parallel agent runs")
 
-    return preamble + s
+    return restore_marked_verbatim_blocks(preamble + s, verbatim_blocks)
 
 
 def restore_bundle_release_source_paths(content: str) -> str:

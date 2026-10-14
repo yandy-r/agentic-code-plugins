@@ -91,11 +91,11 @@ fi
 
 ## Phase 2.5: Worktree Setup
 
-Follow standalone-dispatch §8 for mode decision (with this skill's inputs: no `## Worktree Setup` auto-detect, so `--no-worktree` is the only opt-out; EXECUTION_MODE and PLAN_ONLY are orchestrate-local), preparation, and agent lines. Summary inputs: `FEATURE_SLUG` per team-sanitizer (20 chars, fallback `untitled`); one shared parent worktree `<repo-root>/.config/opencode/worktrees/<repo>-<FEATURE_SLUG>/`.
+Follow standalone-dispatch §8 for mode decision (with this skill's inputs: no `## Worktree Setup` auto-detect, so `--no-worktree` is the only opt-out; EXECUTION_MODE and PLAN_ONLY are orchestrate-local), preparation, and agent lines. Summary inputs: `FEATURE_SLUG` per team-sanitizer (20 chars, fallback `untitled`); one shared parent worktree `<repo-root>/.opencode/worktrees/<repo>-<FEATURE_SLUG>/`.
 
 When `DRY_RUN=false` and `PLAN_ONLY=false`, follow standalone-dispatch §8.2: prepare the feature branch before any worktree setup or dispatch; if `WORKTREE_MODE=true`, create one parent with `<repo-name>` + `FEATURE_SLUG` and store its echoed path as `PARENT_WORKTREE_PATH`; otherwise skip setup. No plan-move call here (orchestrate builds its own decomposition, not a pre-existing plan file). Every agent uses §8.3 directory lines; treat `PARENT_WORKTREE_PATH` as `WT_PARENT_PATH` and derive `REPO_ROOT` there. Branch-prep exit contract: `~/.config/opencode/shared/references/branch-prep.md`.
 
-- `WORKTREE_MODE=true` and `DRY_RUN=true`: no script calls; compute `<repo-root>/.config/opencode/worktrees/<repo>-<FEATURE_SLUG>/` for the dry-run output.
+- `WORKTREE_MODE=true` and `DRY_RUN=true`: no script calls; compute `<repo-root>/.opencode/worktrees/<repo>-<FEATURE_SLUG>/` for the dry-run output.
 - `WORKTREE_MODE=true` and `PLAN_ONLY=true`: no script calls; add the worktree annotation to the written plan.
 
 Read `~/.config/opencode/shared/references/worktree-strategy.md` when writing the `## Worktree Setup` plan section (section 2 annotation format).

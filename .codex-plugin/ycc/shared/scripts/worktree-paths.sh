@@ -19,13 +19,15 @@ ycc_expand_worktree_root() {
 
   case "$raw_root" in
     "")
-      printf '%s/.codex/worktrees\n' "$repo_root"
+      # Default for this runtime bundle's build. Portable `agents` builds
+      # replace only this marker line with ycc_runtime_worktree_root below.
+      printf '%s/.codex/worktrees\n' "$repo_root" # @YCC_DEFAULT_WORKTREE_ROOT@
       ;;
-    ~)
+    "~")
       printf '%s\n' "$HOME"
       ;;
-    ~/*)
-      printf '%s/%s\n' "$HOME" "${raw_root#~/}"
+    "~"/*)
+      printf '%s/%s\n' "$HOME" "${raw_root#"~/"}"
       ;;
     /*)
       printf '%s\n' "$raw_root"
@@ -53,4 +55,32 @@ ycc_feature_worktree_path() {
 
   root="$(ycc_worktree_root "$repo_root")"
   printf '%s/%s-%s\n' "$root" "$repo_name" "$feature_slug"
+}
+
+# Used only by portable (agents) builds, which swap the default marker line in
+# ycc_expand_worktree_root for this resolver. Evidence-based runtime markers;
+# missing or conflicting markers (nested agents) fall back to the portable
+# .agents root. See worktree-strategy.md §1 for the evidence list.
+ycc_runtime_worktree_root() {
+  local repo_root="$1"
+  local runtime=""
+  local count=0
+
+  if [[ "${OPENCODE:-}" == "1" ]]; then
+    runtime="opencode"
+    count=$((count + 1))
+  fi
+  if [[ "${CLAUDECODE:-}" == "1" ]]; then
+    runtime="claude"
+    count=$((count + 1))
+  fi
+  if [[ -n "${CODEX_THREAD_ID:-}" ]]; then
+    runtime="codex"
+    count=$((count + 1))
+  fi
+
+  if [[ "$count" -ne 1 ]]; then
+    runtime="agents"
+  fi
+  printf '%s/.%s/worktrees\n' "$repo_root" "$runtime"
 }

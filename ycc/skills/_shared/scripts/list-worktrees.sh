@@ -3,7 +3,8 @@
 # Usage: list-worktrees.sh <repo-name> <feature-slug>
 #
 # Runs `git worktree list --porcelain` and filters results to worktrees whose
-# path contains <repo-root>/.claude/worktrees/<repo-name>-<feature-slug>.
+# path contains <repo-root>/.claude/worktrees/<repo-name>-<feature-slug>
+# (generated bundles rewrite the root for their runtime).
 #
 # Output:
 #   A markdown table of matching worktrees (path, branch, status) followed by
@@ -30,7 +31,7 @@ Examples:
 
 Output:
   Markdown table of matching worktrees under <repo-root>/.claude/worktrees/<repo>-<feature>/
-  followed by cleanup commands.
+  followed by cleanup commands. Legacy roots are not migrated or deleted.
 EOF
   exit 1
 }
@@ -169,7 +170,7 @@ main() {
   echo ""
   echo '```bash'
   for i in "${!wt_paths[@]}"; do
-    echo "git worktree remove ${display_paths[$i]}"
+    printf 'git worktree remove %q\n' "${wt_paths[$i]}"
   done
   echo '```'
 }

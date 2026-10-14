@@ -37,7 +37,7 @@ these fields mechanically.
 
 <!-- Only emitted when WORKTREE_ACTIVE=true. Lists only the feature worktree; fixers run inside this path. -->
 
-- **Parent**: <repo-root>/.config/opencode/worktrees/<repo>-pr-<N>/ (branch: <pr-head-branch>)
+- **Parent**: <repo-root>/.opencode/worktrees/<repo>-pr-<N>/ (branch: <pr-head-branch>)
 
 ## Summary
 
