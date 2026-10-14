@@ -1,8 +1,7 @@
 ---
-description: 'Coordinates specialized agents in dependency-resolved batches. Use when
+description: Coordinates specialized agents in dependency-resolved batches. Use when
   delegating a complex task, splitting independent implementation work, or coordinating
-  multiple specialists. Usage: [--dry-run] [--plan-only] [--sequential] [--worktree]
-  [--no-worktree] <task-description>'
+  multiple specialists.
 ---
 
 Use the skill tool to load the `orchestrate` skill, then follow its instructions with these arguments:

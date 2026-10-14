@@ -3,7 +3,8 @@
 
 Keep native commands for commands-only installs. Each command loads its skill
 via the skill tool and forwards $ARGUMENTS; workflow logic stays in SKILL.md.
-Description, argument hints and model mappings come from skill frontmatter.
+Descriptions and model mappings come from skill frontmatter. Argument hints stay
+in the source skill; opencode command frontmatter has no argument-hint field.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from description_budget import DESCRIPTION_LIMIT, DESCRIPTION_TOTAL_CAP
 from generate_opencode_common import (
     OPENCODE_COMMANDS_DIR,
     SRC_SKILLS_DIR,
@@ -28,19 +30,29 @@ from generate_opencode_common import (
 from generate_opencode_dispatch import project_opencode_dispatch_description
 
 
-def _stringify_argument_hint(value: object) -> str:
-    """Argument hints may be strings, lists, or dicts in the Claude source.
-    Return a plain string suitable for prepending to the description.
+def description_budget_errors(commands_dir: Path) -> list[str]:
+    """Return listing-budget violations for generated command descriptions:
+    each description <= DESCRIPTION_LIMIT and the aggregate <= DESCRIPTION_TOTAL_CAP.
+    Messages name the source ycc/skills/<stem>/SKILL.md to edit, since the
+    generated command file must never be hand-edited.
     """
-    if value is None:
-        return ""
-    if isinstance(value, str):
-        return value.strip()
-    if isinstance(value, list):
-        return " ".join(str(item).strip() for item in value if str(item).strip())
-    if isinstance(value, dict):
-        return " ".join(f"{key}={val}" for key, val in value.items())
-    return str(value).strip()
+    errors: list[str] = []
+    total = 0
+    for path in sorted(commands_dir.glob("*.md")):
+        frontmatter, _ = parse_frontmatter(path.read_text(encoding="utf-8"))
+        length = len(str(frontmatter.get("description") or "").strip())
+        total += length
+        if length > DESCRIPTION_LIMIT:
+            errors.append(
+                f"DESCRIPTION length {length} exceeds {DESCRIPTION_LIMIT}-char listing cap in {path}; "
+                f"shorten the description in ycc/skills/{path.stem}/SKILL.md"
+            )
+    if total > DESCRIPTION_TOTAL_CAP:
+        errors.append(
+            f"DESCRIPTION total {total} exceeds {DESCRIPTION_TOTAL_CAP}-char listing budget; "
+            "shorten source descriptions in ycc/skills/<stem>/SKILL.md"
+        )
+    return errors
 
 
 def transform_command(
@@ -56,13 +68,17 @@ def transform_command(
     if not transformed_description:
         transformed_description = f"{stem} command"
 
-    # Fold argument-hint into description so the usage hint still appears in
-    # the TUI autocomplete, even though opencode doesn't have a dedicated
-    # argument-hint field.
-    argument_hint = _stringify_argument_hint(frontmatter.get("argument-hint"))
-    if argument_hint and argument_hint not in transformed_description:
-        transformed_description = f"{transformed_description} Usage: {argument_hint}".strip()
+    # Command frontmatter has no argument-hint field and the always-loaded
+    # command listing shares the skill listing budget, so keep the full hint
+    # where it is supported: in SKILL.md, loaded by the command body below.
     transformed_description = project_opencode_dispatch_description(transformed_description)
+
+    if len(transformed_description) > DESCRIPTION_LIMIT:
+        print(
+            f"generate_opencode_commands: WARN {stem} description is {len(transformed_description)} chars "
+            f"(listing cap {DESCRIPTION_LIMIT}); shorten it in ycc/skills/{stem}/SKILL.md",
+            file=sys.stderr,
+        )
 
     payload: dict[str, object] = {"description": transformed_description}
 

@@ -38,12 +38,61 @@ class SkillCommandsTest(unittest.TestCase):
         raw = "---\ndescription: Example\nargument-hint: '[path] [--dry-run]'\nmodel: fast\n---\nDo not copy me\n"
         rendered = commands.transform_command("example", raw, {}, {"fast": "provider/model"})
         frontmatter, body = parse_frontmatter(rendered)
-        self.assertEqual(frontmatter["description"], "Example Usage: [path] [--dry-run]")
+        self.assertEqual(frontmatter["description"], "Example")
         self.assertEqual(frontmatter["model"], "provider/model")
         self.assertIn("skill tool to load the `example` skill", body)
         self.assertIn("$ARGUMENTS", body)
         self.assertNotIn("/example", body)
         self.assertNotIn("Do not copy me", body)
+
+    def test_argument_hint_never_enters_description(self) -> None:
+        long_hint = "[--flag-1] [--flag-2] " * 20
+        raw = f"---\ndescription: Short description\nargument-hint: '{long_hint}'\n---\nBody"
+        rendered = commands.transform_command("example", raw, {}, {})
+        frontmatter, _ = parse_frontmatter(rendered)
+        self.assertEqual(frontmatter["description"], "Short description")
+        self.assertNotIn("Usage:", rendered)
+        self.assertNotIn("--flag-1", rendered)
+
+    def _write_commands(self, root: Path, lengths: list[int]) -> None:
+        for index, length in enumerate(lengths):
+            (root / f"cmd-{index}.md").write_text(f"---\ndescription: {'x' * length}\n---\nbody\n", encoding="utf-8")
+
+    def test_budget_accepts_commands_within_caps(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_commands(root, [commands.DESCRIPTION_LIMIT, 10])
+            self.assertEqual(commands.description_budget_errors(root), [])
+
+    def test_budget_rejects_over_cap_description(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_commands(root, [commands.DESCRIPTION_LIMIT + 1])
+            errors = commands.description_budget_errors(root)
+            self.assertEqual(len(errors), 1)
+            self.assertIn("listing cap", errors[0])
+            self.assertIn("SKILL.md", errors[0])
+
+    def test_budget_accepts_exact_aggregate_cap(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            full_files = commands.DESCRIPTION_TOTAL_CAP // commands.DESCRIPTION_LIMIT
+            self._write_commands(root, [commands.DESCRIPTION_LIMIT] * full_files)
+            self.assertEqual(commands.description_budget_errors(root), [])
+
+    def test_budget_rejects_one_char_over_aggregate_cap(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            full_files = commands.DESCRIPTION_TOTAL_CAP // commands.DESCRIPTION_LIMIT
+            lengths = [commands.DESCRIPTION_LIMIT] * full_files + [1]
+            self._write_commands(root, lengths)
+            self.assertEqual(sum(lengths), commands.DESCRIPTION_TOTAL_CAP + 1)
+            errors = commands.description_budget_errors(root)
+            self.assertEqual(len(errors), 1)
+            self.assertIn("listing budget", errors[0])
+
+    def test_generated_commands_fit_budget(self) -> None:
+        self.assertEqual(commands.description_budget_errors(commands.OPENCODE_COMMANDS_DIR), [])
 
     def test_absent_hint_has_no_usage(self) -> None:
         for hint in ("", "argument-hint: null\n"):
