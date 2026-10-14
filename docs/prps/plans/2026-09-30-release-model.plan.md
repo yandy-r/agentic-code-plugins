@@ -123,19 +123,19 @@ extract_block() { # $1=file → key: value lines on stdout; exit 3 if no block
 }
 ```
 
-      Validate keys against `model trunk maintenance frozen support backport_label tracker tracker_ref`;
-      normalise lists by removing spaces around commas. `base` logic: read state; if
-      `present=0`, print `origin/HEAD`'s branch, falling back to `main` (no network calls);
-      otherwise for each maintenance branch `B`: `n=$(git rev-list --count origin/B ^origin/$trunk)`,
-      `m=$(git rev-list --count origin/B ^origin/$trunk ^HEAD)`; if `n>0 && m<n` (HEAD contains
-      at least one `B`-only commit) print `B`. Otherwise print `$trunk`. A branch cut from a
-      `release/X.Y` that has no commits of its own yet resolves to the trunk; callers offer
-      `--base` for that case. `check` renders
-      the expected table (Task 1.3's renderer, sourced from a shared function file
-      `lib/release-state-lib.sh`) and diffs it against the file's table section, then verifies
-      `git ls-remote --heads origin <branch>` for trunk and maintenance.
-      Put `extract_block`, `parse_state`, and `render_table` in
-      `ycc/skills/_shared/scripts/lib/release-state-lib.sh` so both scripts share them.
+Validate keys against `model trunk maintenance frozen support backport_label tracker tracker_ref`;
+normalise lists by removing spaces around commas. `base` logic: read state; if
+`present=0`, print `origin/HEAD`'s branch, falling back to `main` (no network calls);
+otherwise for each maintenance branch `B`: `n=$(git rev-list --count origin/B ^origin/$trunk)`,
+`m=$(git rev-list --count origin/B ^origin/$trunk ^HEAD)`; if `n>0 && m<n` (HEAD contains
+at least one `B`-only commit) print `B`. Otherwise print `$trunk`. A branch cut from a
+`release/X.Y` that has no commits of its own yet resolves to the trunk; callers offer
+`--base` for that case. `check` renders
+the expected table (Task 1.3's renderer, sourced from a shared function file
+`lib/release-state-lib.sh`) and diffs it against the file's table section, then verifies
+`git ls-remote --heads origin <branch>` for trunk and maintenance.
+Put `extract_block`, `parse_state`, and `render_table` in
+`ycc/skills/_shared/scripts/lib/release-state-lib.sh` so both scripts share them.
 
 - [ ] **Step 4:** Run the tests → PASS. Run `shellcheck` on both files → clean.
 - [ ] **Step 5:** Add `release` to `VALID_TARGETS` in `scripts/validate.sh` with a
@@ -166,8 +166,8 @@ extract_block() { # $1=file → key: value lines on stdout; exit 3 if no block
 | Model       | release-branches | Support window: latest-minor   |
 ```
 
-      (Maintenance and Frozen rows repeat per branch; omitted when empty. Column widths are
-      padded so prettier leaves the table unchanged.)
+(Maintenance and Frozen rows repeat per branch; omitted when empty. Column widths are
+padded so prettier leaves the table unchanged.)
 
 - [ ] Tests first: add-maintenance on `latest-minor` moves the previous maintenance branch to
       `frozen`; on `latest-two-minors` keeps two; `--freeze`; `--set-trunk`; `--set-model trunk-only`

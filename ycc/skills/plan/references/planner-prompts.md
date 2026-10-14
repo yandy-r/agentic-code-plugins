@@ -12,7 +12,7 @@ Use the Agent tool with `subagent_type: "ycc:planner"`. In the prompt, include:
 - A note that the agent should follow its Plan Format and end with `**WAITING FOR CONFIRMATION**: Proceed with this plan? (yes / no / modify)`
 - **If `PARALLEL_MODE=true`**: append the parallel output directives (see below)
 
-#### Sequential prompt (`PARALLEL_MODE=false` — default)
+### Sequential prompt (`PARALLEL_MODE=false` — default)
 
 ```
 The user asked: "<user's request>"
@@ -24,7 +24,7 @@ Read/Grep/Glob tools to analyze the codebase and include concrete file
 paths. End with your standard confirmation prompt.
 ```
 
-#### Parallel prompt (`PARALLEL_MODE=true`)
+### Parallel prompt (`PARALLEL_MODE=true`)
 
 Append these directives to the sequential prompt:
 
