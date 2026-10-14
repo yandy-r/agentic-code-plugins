@@ -5,9 +5,13 @@ the skill checks for the marker before writing and never rewrites an existing se
 
 ## Pointer section
 
-Added to each of `CLAUDE.md`, `AGENTS.md`, and `.github/copilot-instructions.md` that
-exists. Marker: a line matching `^## Branching & releases`. When absent, append at the end
-of the file after one blank line.
+Added to every existing pointer target that `$TARGETS --repo "$ROOT"` lists
+(`scripts/pointer-targets.sh`), never to a file created for this purpose. Marker: a line
+matching `^## Branching & releases`. When absent, append at the end
+of the file after one blank line. When `CLAUDE.md` imports `AGENTS.md` (a live
+`@AGENTS.md` line, not inside a comment, code span, or fence), the pointer belongs in
+`AGENTS.md` alone; `$TARGETS` leaves `CLAUDE.md` out. A dangling import exits 1 — repair it
+first. Repos without the import keep the legacy behavior (every existing file).
 
 Trunk-only:
 

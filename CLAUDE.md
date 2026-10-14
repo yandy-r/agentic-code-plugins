@@ -21,7 +21,4 @@
   the intent unsupported until translated. Validate with
   `./scripts/validate.sh --only mods`; see `ycc/mods/README.md`.
 
-<!-- Maintainer marker for release-model's heading check; not a second policy.
-## Branching & releases
-The canonical pointer is in AGENTS.md (imported above). Update that pointer,
-not this file; do not append a duplicate policy here. -->
+<!-- Canonical branching and release policy lives in AGENTS.md (imported above). -->

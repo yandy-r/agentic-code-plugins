@@ -59,6 +59,7 @@ Script paths used below:
 
 - `SIGNALS=${CURSOR_PLUGIN_ROOT}/skills/release-model/scripts/collect-signals.sh`
 - `STATE=${CURSOR_PLUGIN_ROOT}/skills/_shared/scripts/release-state.sh`
+- `TARGETS=${CURSOR_PLUGIN_ROOT}/skills/release-model/scripts/pointer-targets.sh`
 - `UPDATE=${CURSOR_PLUGIN_ROOT}/skills/_shared/scripts/release-state-update.sh`
 - `TEMPLATE=${CURSOR_PLUGIN_ROOT}/skills/release-model/templates/RELEASING.md.tmpl`
 
@@ -161,12 +162,12 @@ Build the file in a scratch directory (`SCRATCH=$(mktemp -d)`), never in `ROOT` 
 
 ## Phase 4 — Pointer sections
 
-For each of `CLAUDE.md`, `AGENTS.md`, and `.github/copilot-instructions.md` that exists in
-`ROOT` (never create one), read the pointer section in
-`references/pointer-and-labels.md#pointer-section` and add it unless a line matching
-`^## Branching & releases` is already present — then leave the file untouched and report
-"already present". Append it at the end of the file, separated by one blank line. When
-neither `CLAUDE.md` nor `AGENTS.md` exists, report that and suggest `/init`.
+For each `POINTER_TARGET` below (every line `$TARGETS --repo "$ROOT"` prints: existing
+`CLAUDE.md`, `AGENTS.md`, and `.github/copilot-instructions.md` — never create one), read
+the pointer section in `references/pointer-and-labels.md#pointer-section` and add it unless
+a line matching `^## Branching & releases` is already present — then leave the file untouched
+and report "already present". Append it at the end of the file, separated by one blank line.
+When neither `CLAUDE.md` nor `AGENTS.md` exists, report that and suggest `/init`.
 
 ## Phase 5 — Labels doc (release-branches only)
 

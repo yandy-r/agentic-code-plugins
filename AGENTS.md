@@ -7,7 +7,8 @@ other runtime bundles are generated from it. Keep the plugin name `ycc` stable.
 ## Canonical policy
 
 - This file is the canonical, tool-neutral repository policy. Claude imports it through
-  `CLAUDE.md`; Cursor, Codex, and opencode read `AGENTS.md` directly.
+  `CLAUDE.md`; Codex and opencode read `AGENTS.md` natively, and Cursor reads it
+  when available; Cursor user rules are settings-configured.
 - Keep this file ≤150 lines and `CLAUDE.md` ≤40 lines. Put only Claude-specific notes in
   `CLAUDE.md`, and path-specific Claude guidance in `.claude/rules/` with `paths:` frontmatter.
 - Use HTML block comments (`<!-- -->`) for maintainer notes, not injected instructions.
