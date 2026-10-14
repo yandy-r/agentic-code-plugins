@@ -43,7 +43,7 @@ Each skill fills the skeleton with its own signal keys (see that skill's
 ## Caveats
 
 1. **Worktree cwd**: when the skill runs in worktree mode (the default for both), reports
-   and artifacts live under `<repo-root>/.config/opencode/worktrees/<repo>-<slug>/...`. Conditions must key off
+   and artifacts live under `<repo-root>/.opencode/worktrees/<repo>-<slug>/...`. Conditions must key off
    printed signals, never main-repo file paths.
 2. **Interactive failure prompts**: parallel/team batch failures raise `ask the user`
    prompts that `/goal` cannot answer, so the loop stalls. Expect manual intervention on

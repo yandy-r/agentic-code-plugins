@@ -94,7 +94,7 @@ When worktree mode is active, append this line to either variant. No
 `setup-worktree.sh` or `list-worktrees.sh` calls happen in dry-run mode:
 
 ```
-Worktree:   feature=<repo-root>/.config/opencode/worktrees/<repo>-<FEATURE_SLUG>/  (all subtasks)
+Worktree:   feature=<repo-root>/.opencode/worktrees/<repo>-<FEATURE_SLUG>/  (all subtasks)
 ```
 
 ---
@@ -121,19 +121,19 @@ breaks the single-worktree contract. With `WORKTREE_MODE=false` omit the
 subagent(
   agent = "nodejs-backend-architect",
   description = "Implement auth system",
-  prompt = "Working directory: <repo-root>/.config/opencode/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path A coordination block]",
+  prompt = "Working directory: <repo-root>/.opencode/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path A coordination block]",
   background = false
 )
 subagent(
   agent = "test-strategy-planner",
   description = "Create auth test plan",
-  prompt = "Working directory: <repo-root>/.config/opencode/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path A coordination block]",
+  prompt = "Working directory: <repo-root>/.opencode/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path A coordination block]",
   background = false
 )
 subagent(
   agent = "documentation-writer",
   description = "Document auth API",
-  prompt = "Working directory: <repo-root>/.config/opencode/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path A coordination block]",
+  prompt = "Working directory: <repo-root>/.opencode/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path A coordination block]",
   background = false
 )
 ```

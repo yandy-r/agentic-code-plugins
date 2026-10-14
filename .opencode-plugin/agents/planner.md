@@ -50,7 +50,7 @@ Use this exact structure for your output:
 
 ## Worktree Setup _(optional — present only in worktree mode; omit entirely for non-worktree plans)_
 
-- **Parent**: `<repo-root>/.config/opencode/worktrees/<repo>-<feature>/` (branch: `feat/<feature>`)
+- **Parent**: `<repo-root>/.opencode/worktrees/<repo>-<feature>/` (branch: `feat/<feature>`)
 
 ## Requirements
 
@@ -114,7 +114,7 @@ elements in your plan:
    ```markdown
    ## Worktree Setup
 
-   - **Parent**: <repo-root>/.config/opencode/worktrees/<repo>-<feature>/ (branch: feat/<feature>)
+   - **Parent**: <repo-root>/.opencode/worktrees/<repo>-<feature>/ (branch: feat/<feature>)
    ```
 
 The calling skill provides `<repo>` and `<feature-slug>` in its prompt. If not provided,

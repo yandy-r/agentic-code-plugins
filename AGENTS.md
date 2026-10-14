@@ -88,8 +88,19 @@ this table records install ownership, not a claim of runtime feature parity:
 ## Worktrees
 
 - Default to a git worktree for non-trivial work.
-- Manual worktree path rule: target `~/.claude-worktrees/<repo>-<branch>/`, never
-  a path inside the current repository. If `.claude/worktrees/` exists, keep it gitignored.
+- Every runtime creates worktrees inside the repository, under its own root
+  (details in `ycc/skills/_shared/references/worktree-strategy.md`):
+
+  | Agent    | Worktree root                      |
+  | -------- | ---------------------------------- |
+  | Claude   | `<repo-root>/.claude/worktrees/`   |
+  | opencode | `<repo-root>/.opencode/worktrees/` |
+  | Codex    | `<repo-root>/.codex/worktrees/`    |
+  | Cursor   | `<repo-root>/.cursor/worktrees/`   |
+
+- Each worktree is named `<repo>-<branch-or-feature>/`; the out-of-repo
+  `~/.claude-worktrees/` rule is retired (legacy worktrees are left in place).
+- `YCC_WORKTREE_ROOT` overrides the root; keep the active root gitignored.
 
 ## Branching & releases
 

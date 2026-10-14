@@ -166,7 +166,7 @@ Default-on deduction (no annotations):
   description (cap 20); `plan` confirmed execution uses the team sanitization (cap 20,
   fallback `untitled`). Shared sanitizer: lowercase, `[^a-z0-9-]` to `-`, collapse runs, trim
 - `FEATURE_BRANCH` = `feat/${WT_FEATURE_SLUG}`
-- `WT_PARENT_PATH` = `<repo-root>/.config/opencode/worktrees/${WT_REPO_NAME}-${WT_FEATURE_SLUG}/`
+- `WT_PARENT_PATH` = `<repo-root>/.opencode/worktrees/${WT_REPO_NAME}-${WT_FEATURE_SLUG}/`
 
 ### 8.2 Prepare (before any implementor dispatch)
 
@@ -231,7 +231,7 @@ In your emitted plan:
 
    ## Worktree Setup
 
-   - **Parent**: <repo-root>/.config/opencode/worktrees/<repo>-<feature>/ (branch: feat/<feature>)
+   - **Parent**: <repo-root>/.opencode/worktrees/<repo>-<feature>/ (branch: feat/<feature>)
 
    All tasks - parallel and sequential - share this one path. Do NOT add a
    `**Children**:` list and do NOT add per-task `**Worktree**:` annotations.
@@ -282,7 +282,7 @@ sequential, abort). Standalone partial failure: continue only independent tasks.
 ## 10. Executing a Confirmed Plan
 
 After a user confirms an in-conversation parallel plan: run section 8 (worktree: plan names parent
-`<repo-root>/.config/opencode/worktrees/<repo>-<feature>/`; run `setup-worktree.sh parent` once, dispatch with
+`<repo-root>/.opencode/worktrees/<repo>-<feature>/`; run `setup-worktree.sh parent` once, dispatch with
 `Working directory: <parent path>`; `--no-worktree`: derive the slug with the team-name sanitization
 rules (lowercase, non `[a-z0-9-]` to `-`, collapse, cap 20, fallback `untitled`) and run
 `prepare-feature-branch.sh`). The helper is idempotent, exits 1 on unrelated dirty tree, exits 2 on

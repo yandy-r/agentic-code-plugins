@@ -104,7 +104,7 @@ flags that emit machine-readable output.
 - **Worktrees**: `git worktree list --porcelain`. Flag entries whose `worktree`
   path no longer exists, whose branch is `[gone]`, or which sit under a legacy
   global ycc root (`~/.claude-worktrees/`) instead of the repo-local managed root
-  (`<repo-root>/.claude/worktrees/`).
+  (`<repo-root>/<worktree-root>/`).
 - **Stashes**: `git stash list --date=iso`. Parse the date from each entry.
 - **Tags**: `git for-each-ref refs/tags/ --format='%(refname:short)|%(creatordate:iso8601)|%(objectname)'`
   then `git ls-remote --tags <remote>` to find local-only tags.
@@ -297,7 +297,7 @@ options so the agent applies the same protected set and release-model rules
 - **A malformed `RELEASING.md` state block stops the audit** with the parse
   error and a pointer to `/release-model --audit`.
 - **Never `git branch -D`** without explicit per-item confirmation.
-- **Worktrees under `<repo-root>/.claude/worktrees/`** are fair game per this repo's
+- **Worktrees under `<repo-root>/<worktree-root>/`** are fair game per this repo's
   convention. Legacy worktrees under `~/.claude-worktrees/` should be reported
   and, if the user confirms, relocated or removed.
 - **Respect the repo's label taxonomy**. Do not invent stale/wontfix labels.

@@ -9,6 +9,7 @@
 # Modes:
 #   parent  Creates <repo-root>/.claude/worktrees/<repo>-<feature>/.  This is the
 #           only supported worktree-creation path for the shared contract.
+#           Generated bundles retarget this root for their runtime.
 #
 #           Default base ref: HEAD of the current branch; new branch feat/<feature>.
 #           With --base-ref: checks out the existing branch (e.g. PR head). If the
@@ -46,9 +47,10 @@ Arguments:
 
 Worktree (single contract):
   feature  <repo-root>/.claude/worktrees/<repo>-<feature>/
+           (generated bundles rewrite the root for their runtime)
 
 Set YCC_WORKTREE_ROOT to override the root. Relative overrides are resolved
-against the current repository root.
+against the current repository root. Legacy roots are not migrated or touched.
 
 'child' mode is deprecated: it echoes the feature worktree path if present; it does
 not create separate child worktrees. See worktree-strategy.md.

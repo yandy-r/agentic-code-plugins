@@ -40,6 +40,41 @@ RUNTIME_LIST_BUNDLES_TEXT = f"{RUNTIME_LIST_TEXT} bundles"
 CODEX_RUNTIME_ONLY_TEXT = "Codex runtime only; not available in bundle invocations"
 CODEX_RUNTIME_ONLY_HYPHEN_TEXT = "Codex-runtime-only (not available in bundle invocations)"
 
+# Multi-runtime policy blocks (worktree roots table, native-placement evidence,
+# retired-root literals) must survive per-target rewrites byte-for-byte; a blind
+# .claude/ -> .codex/ or /.claude/worktrees -> /.opencode/worktrees pass would
+# corrupt them. Marker comments delimit the block and are stripped on output.
+MULTI_RUNTIME_MARKER_BEGIN = "<!-- ycc:verbatim-block:begin -->"
+MULTI_RUNTIME_MARKER_END = "<!-- ycc:verbatim-block:end -->"
+_MULTI_RUNTIME_SENTINEL = "\x00YCC_MULTI_RUNTIME_BLOCK_{idx}\x00"
+
+
+def protect_marked_verbatim_blocks(text: str) -> tuple[str, dict[str, str]]:
+    """Replace every marker-delimited block with a sentinel; returns (text, map).
+
+    The markers themselves are stripped from the output. Call
+    ``restore_marked_verbatim_blocks`` after all target rewrites.
+    """
+    blocks: dict[str, str] = {}
+    pattern = re.compile(
+        re.escape(MULTI_RUNTIME_MARKER_BEGIN) + r"\n?(.*?)\n?" + re.escape(MULTI_RUNTIME_MARKER_END) + "\n?",
+        re.DOTALL,
+    )
+
+    def _stash(match: re.Match[str]) -> str:
+        sentinel = _MULTI_RUNTIME_SENTINEL.format(idx=len(blocks))
+        blocks[sentinel] = match.group(1)
+        return sentinel
+
+    return pattern.sub(_stash, text), blocks
+
+
+def restore_marked_verbatim_blocks(text: str, blocks: dict[str, str]) -> str:
+    for sentinel, block in blocks.items():
+        text = text.replace(sentinel, block)
+    return text
+
+
 PRODUCT_FILE_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ("CLAUDE.md", "AGENTS.md"),
     ("claude.template.md", "agents.template.md"),
@@ -213,6 +248,7 @@ def map_namespaced_reference(name: str, aliases: dict[str, str]) -> str:
 
 
 def apply_codex_text_transforms(text: str, aliases: dict[str, str]) -> str:
+    text, verbatim_blocks = protect_marked_verbatim_blocks(text)
     output = fix_mcp_malformed_tokens(text)
 
     # Product/file naming.
@@ -268,6 +304,7 @@ def apply_codex_text_transforms(text: str, aliases: dict[str, str]) -> str:
     )
     output = apply_literal_replacements(output, TOOL_WORDING_REPLACEMENTS)
     output = restore_codex_runtime_terms(output)
+    output = restore_marked_verbatim_blocks(output, verbatim_blocks)
 
     if output and not output.endswith("\n"):
         output += "\n"

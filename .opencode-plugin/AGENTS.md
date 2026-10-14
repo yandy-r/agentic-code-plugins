@@ -29,7 +29,10 @@ come first; the current project's rules override these defaults.
 
 - Prefer a git worktree for non-trivial work. Use the main checkout only for a
   one-line change, when the task needs its current state, or when creation is blocked.
-- Use the runtime's managed repo-local worktree root, named `<repo>-<branch>/`.
-  Do not redirect harness-created worktrees outside the repository or to a path
-  the harness cannot enter.
-- Add the worktree root to `.gitignore` before committing.
+- Create skill-managed worktrees inside the repository: Claude uses
+  `.claude/worktrees/`, opencode `.opencode/worktrees/`, Codex `.codex/worktrees/`,
+  and Cursor `.cursor/worktrees/`. Portable cross-agent installs detect the runtime
+  conservatively and fall back to `.agents/worktrees/`. Name each `<repo>-<branch>/`.
+  `YCC_WORKTREE_ROOT` is the explicit override. Native harness features may use
+  different roots; do not redirect them to a path the harness cannot enter.
+- Add every runtime worktree root to `.gitignore` before committing.

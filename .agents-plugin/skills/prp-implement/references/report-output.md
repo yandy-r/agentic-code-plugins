@@ -155,7 +155,7 @@ Report to user:
 
 [Output of `list-worktrees.sh <repo> <feature>` — surviving parent worktree path, branch, and cleanup commands]
 
-> Run `git worktree remove <repo-root>/.claude/worktrees/<repo>-<feature>/` after merging and pushing to clean up the parent worktree.
+> Run `git worktree remove <repo-root>/<worktree-root>/<repo>-<feature>/` after merging and pushing to clean up the parent worktree.
 
 > Next step: Run `/prp-pr` to create a pull request, or `/code-review` to review changes first.
 

@@ -9,7 +9,7 @@
 - 4. Per-Target Dispatch Matrix
 - 5. End-of-Run Cleanup
 - 7. Plan-artifact handoff
-- 8. Harness `WorktreeCreate` Hook Integration
+- 8. Native harness integration
 
 Used by `ycc:plan`, `ycc:prp-plan`, `ycc:parallel-plan`, `ycc:plan-workflow`,
 `ycc:prp-implement`, `ycc:orchestrate`, and `ycc:implement-plan` for default
@@ -65,7 +65,7 @@ annotations and the default.
 **Artifact location for `code-review`** — In PR mode the review artifact is
 written _into the active worktree_ at
 `<worktree>/docs/prps/reviews/pr-<N>-review.md`, then committed and pushed to
-the PR's head branch. See `ycc/skills/code-review/SKILL.md` for
+the PR's head branch. See the `ycc:code-review` skill (`SKILL.md`) for
 the full lifecycle (draft→ready promotion, artifact commit+push, post-review
 worktree removal, opt-outs `--keep-draft` and `--keep-worktree`).
 
@@ -84,7 +84,7 @@ Every worktree-enabled run uses **exactly one** git worktree for isolated work
 
 | Property   | Value                                                                 |
 | ---------- | --------------------------------------------------------------------- |
-| Path       | `<repo-root>/.claude/worktrees/<repo>-<feature>/`                     |
+| Path       | `<repo-root>/<worktree-root>/<repo>-<feature>/`                       |
 | Branch     | `feat/<feature>` (default) or `<base-ref>` (see below)                |
 | Created    | Once, before the first batch or task (via `setup-worktree.sh parent`) |
 | Lifetime   | Survives to end of run; used for the final PR                         |
@@ -97,14 +97,64 @@ so concurrent writers do not corrupt the tree (e.g. file-level batching, no
 two agents on the same file, or serial execution for conflicting edits — see
 per-skill rules).
 
-The source contract uses the repo-local root
-`<repo-root>/.claude/worktrees/` so each runtime stays inside the managed
-worktree parent it is willing to enter. Generated target bundles rewrite this
-root to the target equivalent (`<repo-root>/.codex/worktrees/`,
-`<repo-root>/.cursor/worktrees/`, or
-`<repo-root>/.config/opencode/worktrees/`). The shared `setup-worktree.sh`
-helper also honors `YCC_WORKTREE_ROOT` for explicit overrides; relative
-override values are resolved against the active repo root.
+<!-- ycc:verbatim-block:begin -->
+
+### Worktree root per runtime (YAN-1111)
+
+Each runtime keeps its skill-managed worktrees inside the repository, under a
+root named for that runtime. Each worktree keeps the name
+`<repo>-<branch-or-feature>/`.
+
+| Bundle      | Worktree root                         | How the default is set                    |
+| ----------- | ------------------------------------- | ----------------------------------------- |
+| Claude Code | `<repo-root>/.claude/worktrees/`      | source default (`worktree-paths.sh`)      |
+| opencode    | `<repo-root>/.opencode/worktrees/`    | generator rewrite (`.opencode`)           |
+| Codex       | `<repo-root>/.codex/worktrees/`       | generator rewrite (`.codex`)              |
+| Cursor      | `<repo-root>/.cursor/worktrees/`      | generator rewrite (`.cursor`)             |
+| `agents`    | runtime-selected, `.agents/` fallback | `worktree-paths.sh` detection (see below) |
+
+`YCC_WORKTREE_ROOT` remains the explicit override for every runtime; relative
+override values are resolved against the active repo root. **Migration
+(YAN-1111):** worktrees created under the retired roots (`~/.claude-worktrees/`,
+`<repo-root>/.config/opencode/worktrees/`) are neither migrated nor removed —
+only new worktrees use the per-runtime roots.
+
+#### Native harness worktree placement (verified)
+
+Each runtime's own worktree feature places worktrees as follows; ycc-managed
+worktrees follow the table above via the scripts, not via these defaults,
+except where noted:
+
+- **Claude Code**: repo-local placement is provided by the `WorktreeCreate`
+  hook (`ycc/settings/hooks/worktree-create.sh`), which defaults to
+  `<repo-root>/.claude/worktrees` and honors `YCC_WORKTREE_ROOT`. Without the
+  hook, Claude Code creates worktrees with `git worktree add` under its
+  default location and copies gitignored files per `.worktreeinclude`.
+- **opencode**: the built-in worktree tools (`opencode.worktree_create` /
+  `worktree_list`) manage their own worktrees; their placement is not
+  configurable through ycc. ycc's `.opencode/worktrees` root applies to
+  skill-managed worktrees only. (Verified against the installed opencode v2
+  tool surface; no repo-local placement option found.)
+- **Codex**: no worktree placement option was found in the installed
+  codex-cli 0.161.0 `--help` surface. This does not establish the Codex app's
+  native placement or configurability (not verified here). ycc's
+  `.codex/worktrees` root applies to skill-managed worktrees only; no native
+  Codex setting is changed.
+- **Cursor**: Cursor-managed worktrees live under `~/.cursor/worktrees/`
+  (documented at cursor.com/docs/cli/reference/parameters, `-w/--worktree`),
+  not repo-locally; no repo-local placement option is documented. ycc's
+  `.cursor/worktrees` root applies to skill-managed worktrees only.
+- **`agents` bundle**: no fixed runtime. `worktree-paths.sh` picks the root
+  from verified single-runtime markers: `OPENCODE=1` (opencode), `CLAUDECODE=1`
+  (Claude Code), non-empty `CODEX_THREAD_ID` (Codex). Zero or multiple
+  markers — including nested agents — fall back to
+  `<repo-root>/.agents/worktrees/`. Deliberately **not** used (not evidence of
+  the active runtime): installed binaries, `CLAUDE_CODE_*` credentials,
+  `~/.cursor/` presence, `AI_AGENT` (multi-agent generic), and generic
+  sandbox markers like `CODEX_SANDBOX`/`CODEX_SANDBOX_NETWORK_DISABLED`
+  (sandbox state, not runtime identity).
+
+<!-- ycc:verbatim-block:end -->
 
 #### Checking out an existing branch (`--base-ref`)
 
@@ -148,11 +198,13 @@ Placed at the top of the plan, after frontmatter and before the first batch or s
 ```markdown
 ## Worktree Setup
 
-- **Parent**: <repo-root>/.claude/worktrees/<repo>-<feature>/ (branch: feat/<feature>)
+- **Parent**: <repo-root>/<worktree-root>/<repo>-<feature>/ (branch: feat/<feature>)
 ```
 
-The `**Parent**:` line names the one feature worktree path. Do **not** add a
-`**Children**:` list in new plans; parallel work happens **inside** this path.
+`<worktree-root>` is the creating runtime's root from the per-runtime table
+above. The `**Parent**:` line names the one feature worktree path. Do **not**
+add a `**Children**:` list in new plans; parallel work happens **inside** this
+path.
 
 ### Legacy fields (back-compat, not part of the new contract)
 
@@ -209,13 +261,13 @@ per-target table.
 
 ## 5. End-of-Run Cleanup
 
-The feature worktree remains at `<repo-root>/.claude/worktrees/<repo>-<feature>/` after the
+The feature worktree remains at `<repo-root>/<worktree-root>/<repo>-<feature>/` after the
 run completes. Skills do not auto-remove it.
 
 `list-worktrees.sh` can report the path, branch, and manual cleanup:
 
 ```bash
-git worktree remove <repo-root>/.claude/worktrees/<repo>-<feature>/
+git worktree remove <repo-root>/<worktree-root>/<repo>-<feature>/
 # If you created feat/<feature> and it is fully merged:
 git branch -d feat/<feature>
 ```
@@ -253,14 +305,10 @@ end of the run (`<plan-dir>/completed/<plan>`), keeping main untouched.
 
 ---
 
-## 8. Harness `WorktreeCreate` Hook Integration
+## 8. Native harness integration
 
-The `WorktreeCreate` hook registered in `ycc/settings/settings.json` still
-matters for runtimes that intentionally use harness-managed worktree
-creation. But for the single-worktree contract described here, executors should
-pre-create the feature worktree once and dispatch agents against that existing
-path via `Working directory:`. Do **not** rely on `Agent(isolation: "worktree")`
-for per-task fan-out in these workflows, because the harness will create distinct
-harness worktrees per agent. The hook body lives at
-`ycc/settings/hooks/worktree-create.sh`. The full worktree placement policy is
-documented in the worktree section of the user-global rules (`ycc/settings/rules/CLAUDE.md`).
+For the single-worktree contract described here, executors pre-create the
+feature worktree once with `setup-worktree.sh` and dispatch agents against that
+existing path via `Working directory:`. Do not use native per-agent isolation
+for task fan-out: it can create distinct harness worktrees for every agent.
+See the native-placement evidence in section 1 for runtime-specific behavior.

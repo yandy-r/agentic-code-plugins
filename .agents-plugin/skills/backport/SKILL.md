@@ -182,7 +182,7 @@ bash "${HOME}/.agents/skills/backport/scripts/cherry-pick-pr.sh" \
 
 The script fetches `origin/release/X.Y`, creates the branch and a worktree through
 `~/.agents/ycc-shared/scripts/setup-worktree.sh` (under
-`<repo>/.claude/worktrees/`, or `YCC_WORKTREE_ROOT`), and runs `git cherry-pick -x`
+`<repo>/<worktree-root>/`, or `YCC_WORKTREE_ROOT`), and runs `git cherry-pick -x`
 (`-m 1` for a true merge commit). It never pushes. Parse its `key=value` stdout:
 
 | Exit | Meaning                                                                 | Action                    |

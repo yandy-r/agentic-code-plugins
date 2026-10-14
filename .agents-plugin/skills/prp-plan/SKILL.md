@@ -323,7 +323,7 @@ Derive `<feature-slug>` from the kebab-case plan file name (same value used for 
 ```markdown
 ## Worktree Setup
 
-- **Parent**: <repo-root>/.claude/worktrees/<repo>-<feature-slug>/ (branch: feat/<feature-slug>)
+- **Parent**: <repo-root>/<worktree-root>/<repo>-<feature-slug>/ (branch: feat/<feature-slug>)
 ```
 
 All tasks — parallel and sequential — share this one feature worktree path. No `**Children**:` list and no per-task `**Worktree**:` annotation lines are emitted.

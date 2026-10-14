@@ -29,6 +29,8 @@ from generate_codex_common import (
     dump_frontmatter,
     fix_mcp_malformed_tokens,
     parse_frontmatter,
+    protect_marked_verbatim_blocks,
+    restore_marked_verbatim_blocks,
     strip_preamble_before_frontmatter,
 )
 
@@ -304,6 +306,7 @@ def apply_opencode_text_transforms(
     namespace, Task-tool orchestration phrasing, and Claude-only tool names.
     The order mirrors the Codex transform so tests can compare outputs.
     """
+    text, verbatim_blocks = protect_marked_verbatim_blocks(text)
     output = fix_mcp_malformed_tokens(text)
 
     # Product / file naming
@@ -316,7 +319,9 @@ def apply_opencode_text_transforms(
         output = re.sub(r"\bycc/skills/", ".opencode-plugin/skills/", output)
         output = re.sub(r"\bycc/agents/", ".opencode-plugin/agents/", output)
 
-    # Home / config paths (XDG)
+    # Repo-local worktree roots MUST be rewritten before generic config paths.
+    output = output.replace("/.claude/worktrees", "/.opencode/worktrees")
+    # Home / config paths (XDG) remain user-global for settings and hooks.
     output = output.replace("~/.claude/", "~/.config/opencode/")
     output = re.sub(r"\$\{HOME\}/\.claude/", r"${HOME}/.config/opencode/", output)
     output = re.sub(r"\$HOME/\.claude/", r"$HOME/.config/opencode/", output)
@@ -411,7 +416,7 @@ def apply_opencode_text_transforms(
 
     if output and not output.endswith("\n"):
         output += "\n"
-    return output
+    return restore_marked_verbatim_blocks(output, verbatim_blocks)
 
 
 # ---------------------------------------------------------------------------
