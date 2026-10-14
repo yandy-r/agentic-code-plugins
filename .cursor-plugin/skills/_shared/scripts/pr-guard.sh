@@ -268,6 +268,7 @@ cmd_backport_label() {
     return 0
   fi
   RS_BACKPORT_LABEL="$STATE_LABEL_TEMPLATE"
+  export RS_BACKPORT_LABEL
   echo "backport=1"
   echo "branch=${STATE_LATEST}"
   echo "label=$(rs_label_for "$STATE_LATEST")"

@@ -50,7 +50,6 @@ fi
 PLAN_DIR="${PLANS_DIR}/${FEATURE_NAME}"
 
 # Colors for output
-RED='\033[0;31m'
 YELLOW='\033[0;33m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'

@@ -32,6 +32,8 @@ else
   BLUE=''
   NC=''
 fi
+# Sourcing scripts (validate-*.sh, check-*.sh) rely on these for their own output.
+export RED YELLOW GREEN BLUE NC
 
 _debug() {
   if [[ "${PLANS_DEBUG:-}" == "1" ]]; then

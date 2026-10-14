@@ -233,6 +233,7 @@ parse_parent_args() {
         ;;
     esac
   done
+  : "$out_base_ref"
 }
 
 run_parent_mode() {

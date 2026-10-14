@@ -23,8 +23,9 @@ RS_BRANCH_RE='^release/[0-9]+\.[0-9]+$'
 # on under set -u) inside double quotes.
 RS_HINT_CREATE='/ycc:release-model'
 RS_HINT_AUDIT='/ycc:release-model --audit'
-
 RS_ERROR=""
+# Read by the scripts that source this library.
+export RS_HINT_CREATE RS_HINT_AUDIT RS_ERROR
 
 # rs_reset — clear all parsed state and apply defaults.
 rs_reset() {
