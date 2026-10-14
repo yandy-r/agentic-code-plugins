@@ -30,7 +30,12 @@ hook in `package.json` can run `lefthook install` automatically.
 | Stage        | Purpose                                            | When it fires                |
 | ------------ | -------------------------------------------------- | ---------------------------- |
 | `pre-commit` | Lint + format staged files (stack-specific)        | Before each `git commit`     |
+{{#IF_TEST_CMD}}
 | `pre-push`   | Run the test suite (`{{TEST_CMD}}`)                | Before each `git push`       |
+{{/IF_TEST_CMD}}
+{{#IF_NO_TEST_CMD}}
+| `pre-push`   | Not configured (no test command detected)          | —                            |
+{{/IF_NO_TEST_CMD}}
 {{#IF_TS}}
 | `commit-msg` | Validate commit message against Conventional Commits via commitlint | On each `git commit` |
 {{/IF_TS}}
@@ -58,8 +63,8 @@ Edit `lefthook.yml` at the project root. Common additions:
 pre-commit:
   commands:
     custom-check:
-      run: {{LINT_CMD}}
-      glob: "*.{{PRIMARY_LANG}}"
+      run: <your command>
+      glob: "*.<extension>"
 ```
 
 See the [lefthook documentation](https://github.com/evilmartians/lefthook/blob/master/docs/configuration.md)

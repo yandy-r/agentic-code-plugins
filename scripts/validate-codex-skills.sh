@@ -64,6 +64,13 @@ echo "== Content policy (generated skills) =="
 # references the content policy normally forbids are intentional here.
 # Must mirror VERBATIM_SKILL_FILES in scripts/generate_codex_common.py.
 VERBATIM=(
+  "${SKILLS_DIR}/init/scripts/migrate-rules.sh"
+  "${SKILLS_DIR}/init/scripts/migrate-rules.py"
+  "${SKILLS_DIR}/init/scripts/rules_file_lib.py"
+  "${SKILLS_DIR}/init/scripts/render-template.sh"
+  "${SKILLS_DIR}/init/scripts/render-template.py"
+  "${SKILLS_DIR}/init/scripts/profile-project.sh"
+  "${SKILLS_DIR}/init/scripts/rules-report.sh"
   "${SHARED_DIR}/references/target-capability-matrix.md"
   "${SKILLS_DIR}/hooks-workflow/references/support-notes.md"
   "${SKILLS_DIR}/hooks-workflow/scripts/build-hook-config.sh"

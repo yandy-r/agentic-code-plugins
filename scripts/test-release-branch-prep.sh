@@ -503,6 +503,59 @@ reason=not a fix" "backport: feat title -> no prompt"
   assert_contains "$GUARD_OUT" "backport=1" "backport: fix: commit in the range -> prompt"
 }
 
+# delayed_log_git_dir — directory holding a `git` wrapper whose `log --format=%s`
+# writes one subject per line with a short fixture delay between writes. Every
+# other git command is passed through untouched. The wrapper is its own writer
+# (no inner pipeline), so a reader that exits early gives it a real SIGPIPE and
+# exit status 141 — the scheduling a slow CI runner can produce on its own.
+delayed_log_git_dir() {
+  local dir real_git
+  dir="$(mktemp -d "${SANDBOX_ROOT}/delaygit.XXXXXX")"
+  real_git="$(command -v git)"
+  cat >"${dir}/git" <<WRAP
+#!/usr/bin/env bash
+if [[ "\${1:-}" == log && "\${2:-}" == --format=%s ]]; then
+  subjects="\$("${real_git}" "\$@")" || exit \$?
+  while IFS= read -r subject; do
+    printf '%s\n' "\$subject"
+    sleep 0.05
+  done <<<"\$subjects"
+  exit 0
+fi
+exec "${real_git}" "\$@"
+WRAP
+  chmod +x "${dir}/git"
+  echo "$dir"
+}
+
+# A fix: subject followed (in git log order) by a non-fix subject. A reader that
+# stops at the first match must not kill the producer under pipefail.
+test_guard_backport_label_slow_log() {
+  local repo wrapdir
+  repo="$(release_repo "model: release-branches
+trunk: main
+maintenance: release/0.6, release/0.5
+backport_label: port-to/{X.Y}")"
+  git -C "$repo" checkout -q -b feat/slow
+  commit_file "$repo" a.txt "a" "feat: older non-fix commit"
+  commit_file "$repo" b.txt "b" "fix: newer fix commit"
+  wrapdir="$(delayed_log_git_dir)"
+
+  GUARD_RC=0
+  GUARD_OUT="$(cd "$repo" && PATH="${wrapdir}:${PATH}" bash "$GUARD" backport-label --base main --title "chore: tidy" 2>&1)" || GUARD_RC=$?
+  assert_exit "$GUARD_RC" 0 "backport: slow git log, fix first -> guard exits cleanly"
+  assert_contains "$GUARD_OUT" "backport=1" "backport: slow git log, fix commit then non-fix -> prompt"
+
+  # The delay must not turn a range without any fix into a prompt.
+  git -C "$repo" checkout -q -b feat/slow-nofix main
+  commit_file "$repo" c.txt "c" "feat: another thing"
+  commit_file "$repo" d.txt "d" "docs: note"
+  GUARD_RC=0
+  GUARD_OUT="$(cd "$repo" && PATH="${wrapdir}:${PATH}" bash "$GUARD" backport-label --base main --title "chore: tidy" 2>&1)" || GUARD_RC=$?
+  assert_eq "$GUARD_OUT" "backport=0
+reason=not a fix" "backport: slow git log, no fix in range -> no prompt"
+}
+
 # ---------------------------------------------------------------------------
 # create-pr.sh (git-workflow) with a stubbed gh
 # ---------------------------------------------------------------------------
@@ -595,6 +648,7 @@ test_prep_malformed_state
 test_guard_base
 test_guard_sync_check
 test_guard_backport_label
+test_guard_backport_label_slow_log
 test_create_pr
 
 echo

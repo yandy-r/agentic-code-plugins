@@ -2,8 +2,8 @@
 # like "[WIP]" / "Draft:" / "Initial plan" that agents sometimes open PRs with.
 #
 # Rationale and full contributor guidance:
-#   - .github/copilot-instructions.md  (PR-workflow essentials for code agents)
-#   - AGENTS.md / AGENTS.md            (canonical project rules)
+#   - AGENTS.md                        (canonical project rules; CLAUDE.md imports it)
+#   - .github/copilot-instructions.md  (code-agent pointer to AGENTS.md)
 #
 # The PR title becomes the squash-merge commit subject verbatim and lands in
 # CHANGELOG.md / git log as-is — that's why this check is required to merge.
@@ -29,8 +29,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          # Mirror the type list in AGENTS.md § "Git & Conventional Commits";
-          # adjust if your repo customises the allowed Conventional Commits types.
+          # Keep this list in sync with AGENTS.md § "MUST / MUST NOT" and
+          # references/conventional-commits.md; adjust for custom types.
           types: |
             feat
             fix

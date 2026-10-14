@@ -88,6 +88,13 @@ echo "== Content policy (generated skills) =="
 # Note: _shared/references/target-capability-matrix.md lives under
 # .opencode-plugin/shared/ (outside SKILLS_DIR) and is already excluded.
 VERBATIM=(
+  "${SKILLS_DIR}/init/scripts/migrate-rules.sh"
+  "${SKILLS_DIR}/init/scripts/migrate-rules.py"
+  "${SKILLS_DIR}/init/scripts/rules_file_lib.py"
+  "${SKILLS_DIR}/init/scripts/render-template.sh"
+  "${SKILLS_DIR}/init/scripts/render-template.py"
+  "${SKILLS_DIR}/init/scripts/profile-project.sh"
+  "${SKILLS_DIR}/init/scripts/rules-report.sh"
   "${SKILLS_DIR}/hooks-workflow/references/support-notes.md"
   "${SKILLS_DIR}/hooks-workflow/scripts/build-hook-config.sh"
   "${SKILLS_DIR}/compatibility-audit/scripts/audit-install-assumptions.sh"

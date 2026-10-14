@@ -235,7 +235,7 @@ is_fix() {
     [[ "$(rs_trim "$label")" == "type:bug" ]] && return 0
   done < <(tr ',' '\n' <<<"$LABELS")
   if ref_exists "origin/${BASE}" && ref_exists "$HEAD_REF"; then
-    git log --format=%s "origin/${BASE}..${HEAD_REF}" | grep -Eq "$BP_FIX_TITLE_RE" && return 0
+    git log --format=%s "origin/${BASE}..${HEAD_REF}" | grep -E "$BP_FIX_TITLE_RE" >/dev/null && return 0
   fi
   return 1
 }

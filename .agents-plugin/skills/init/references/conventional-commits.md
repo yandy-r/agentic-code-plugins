@@ -9,7 +9,7 @@
 - Internal Docs Convention
 - Examples
 
-Condensed Conventional Commits 1.0.0 spec, embedded verbatim in every generated `AGENTS.md`.
+Condensed Conventional Commits 1.0.0 spec. The generated `AGENTS.md` carries a one-line rule (not the types table); read this when a maintainer asks for the full reference.
 
 ---
 

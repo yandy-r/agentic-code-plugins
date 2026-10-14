@@ -45,10 +45,16 @@ pre-commit:
       glob: "*.{ts,tsx,mts,cts}"
 {{/IF_TS}}
 
+{{#IF_TEST_CMD}}
 pre-push:
   commands:
     test:
       run: {{TEST_CMD}}
+{{/IF_TEST_CMD}}
+{{#IF_NO_TEST_CMD}}
+# No test command was detected, so no pre-push hook is configured.
+# Add `pre-push: commands: test: run: <your test command>` when one exists.
+{{/IF_NO_TEST_CMD}}
 
 {{#IF_TS}}
 commit-msg:

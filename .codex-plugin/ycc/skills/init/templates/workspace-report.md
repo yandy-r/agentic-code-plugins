@@ -46,6 +46,12 @@ No agents were configured.
 - `.mcp.json` - MCP server configuration
 - `.claude/agents/` - Agent configuration files
 
+## Rules Files
+
+{{RULES_FILES_LINES}}
+
+_Warn when any rules file exceeds 200 lines._
+
 ## Next Steps
 
 1. **Restart Codex CLI** to activate the new MCP servers

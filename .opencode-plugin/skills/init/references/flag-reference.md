@@ -12,19 +12,22 @@ Detailed reference for every flag accepted by `init`. See also `SKILL.md` for th
 
 ## Flag Matrix
 
-| Flag                        | Default     | Affects phases | Writes to                                                                                                                                                                                         | Example                               |
-| --------------------------- | ----------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| `--dry-run`                 | off         | 5 (halt)       | nothing                                                                                                                                                                                           | `init --dry-run`                  |
-| `--docs-only`               | off         | 2, 4 (skip)    | `AGENTS.md`, `AGENTS.md`, `.cursor/rules/project.mdc`                                                                                                                                             | `init --docs-only`                |
-| `--templates`               | off         | 3 (extend)     | `.github/ISSUE_TEMPLATE/`, `.github/pull_request_template.md`, `.github/labels.md`, `.github/copilot-instructions.md`, `.github/workflows/pr-title.yml`, `.github/workflows/pr-title-autofix.yml` | `init --templates`                |
-| `--git`                     | off         | 3 (extend)     | `.gitignore`, `.gitmessage`, `commitlint.config.cjs` (JS/TS only), `lefthook.yml`, `scripts/install-lefthook.sh`, `docs/lefthook-usage.md`                                                        | `init --git`                      |
-| `--vendor-neutral`          | off         | 3 (extend)     | `.ai/rules/project.md`                                                                                                                                                                            | `init --vendor-neutral`           |
-| `--formatters`              | off         | 6.5 (delegate) | (delegates to `formatters` — see its flag matrix)                                                                                                                                             | `init --formatters`               |
-| `--release-model[=<model>]` | off (offer) | 5.5 (delegate) | `RELEASING.md` (via `release-model`)                                                                                                                                                          | `init --release-model=trunk-only` |
-| `--no-release-model`        | off         | 5.5 (skip)     | nothing                                                                                                                                                                                           | `init --no-release-model`         |
-| `--update`                  | off         | 6 (merge)      | existing targets only                                                                                                                                                                             | `init --update`                   |
-| `--force`                   | off         | 6 (overwrite)  | all target files                                                                                                                                                                                  | `init --force`                    |
-| `--profile=<name>`          | auto-detect | 1 (skip)       | (drives template variables)                                                                                                                                                                       | `init --profile=rust`             |
+| Flag                        | Default     | Affects phases | Writes to                                                                                                                                                                                         | Example                                    |
+| --------------------------- | ----------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `--dry-run`                 | off         | 5 (halt)       | nothing                                                                                                                                                                                           | `init --dry-run`                       |
+| `--docs-only`               | off         | 2, 4 (skip)    | `AGENTS.md`, optional `CLAUDE.md`                                                                                                                                                                 | `init --docs-only`                     |
+| `--templates`               | off         | 3 (extend)     | `.github/ISSUE_TEMPLATE/`, `.github/pull_request_template.md`, `.github/labels.md`, `.github/copilot-instructions.md`, `.github/workflows/pr-title.yml`, `.github/workflows/pr-title-autofix.yml` | `init --templates`                     |
+| `--git`                     | off         | 3 (extend)     | `.gitignore`, `.gitmessage`, `commitlint.config.cjs` (JS/TS only), `lefthook.yml`, `scripts/install-lefthook.sh`, `docs/lefthook-usage.md`                                                        | `init --git`                           |
+| `--vendor-neutral`          | off         | 3 (extend)     | `.ai/rules/project.md` (pointer to `AGENTS.md`)                                                                                                                                                   | `init --vendor-neutral`                |
+| `--formatters`              | off         | 6.5 (delegate) | (delegates to `formatters` — see its flag matrix)                                                                                                                                             | `init --formatters`                    |
+| `--release-model[=<model>]` | off (offer) | 5.5 (delegate) | `RELEASING.md` (via `release-model`)                                                                                                                                                          | `init --release-model=trunk-only`      |
+| `--no-release-model`        | off         | 5.5 (skip)     | nothing                                                                                                                                                                                           | `init --no-release-model`              |
+| `--migrate-rules`           | off         | 5.7 (migrate)  | `AGENTS.md` (moved content), `CLAUDE.md` (pointer) — preview only with `--dry-run`                                                                                                                | `init --migrate-rules --dry-run`       |
+| `--allow-non-git`           | off         | 5.7            | timestamped backups of the rules files before migrating outside git                                                                                                                               | `init --migrate-rules --allow-non-git` |
+| `--no-claude-md`            | off         | 3              | skips the `@AGENTS.md` CLAUDE.md shim (needs Claude Code 2.1.277+)                                                                                                                                | `init --no-claude-md`                  |
+| `--update`                  | off         | 6 (merge)      | existing targets only                                                                                                                                                                             | `init --update`                        |
+| `--force`                   | off         | 6 (overwrite)  | all target files                                                                                                                                                                                  | `init --force`                         |
+| `--profile=<name>`          | auto-detect | 1 (skip)       | (drives template variables)                                                                                                                                                                       | `init --profile=rust`                  |
 
 ### `--profile` accepted values
 
@@ -54,7 +57,7 @@ Output: a table of planned files with their rendered content previewed inline.
 
 ### `--docs-only`
 
-Emit only the doc trio; skip MCP/agent selection (phase 4) and profiler agent dispatch (phase 2).
+Emit canonical `AGENTS.md` and optional Claude-only/path-scoped files; skip MCP/agent selection (phase 4) and profiler agent dispatch (phase 2).
 
 ```
 /init --docs-only
@@ -71,9 +74,8 @@ Adds the full GitHub templates bundle. Extends the default run or combines with 
   preamble pointing at the PR-title workflow and copilot instructions
 - `.github/labels.md` — reference list of the project's label taxonomy
   (`gh label create` commands included)
-- `.github/copilot-instructions.md` — PR-workflow essentials restated for
-  GitHub Copilot's coding agent (points at `AGENTS.md` / `AGENTS.md` for
-  canonical rules)
+- `.github/copilot-instructions.md` — a short pointer to `AGENTS.md` plus the
+  detected commands (test / lint / build), for GitHub Copilot's coding agent
 - `.github/workflows/pr-title.yml` — required GitHub Actions check that
   validates PR titles as Conventional Commits and rejects placeholder
   prefixes (`[WIP]`, `Draft:`, `Initial plan`) that agents often open PRs
@@ -121,7 +123,7 @@ Adds the full git-conventions bundle:
 
 ### `--vendor-neutral`
 
-Add `.ai/rules/project.md` — a plain-markdown mirror of the Cursor `.mdc` rule body with no frontmatter.
+Add `.ai/rules/project.md` — a one-line pointer to the canonical `AGENTS.md` for vendor-neutral tooling.
 
 ```
 /init --vendor-neutral
@@ -154,13 +156,30 @@ from `{{#IF_RELEASE_MODEL}}` blocks — see `template-library.md`.
 /init --no-release-model
 ```
 
+### `--migrate-rules`
+
+Rules-only migration: profile, show the full unified diff and content-loss list, then ask
+for approval. `--dry-run` changes nothing; `--force` never bypasses the migration prompt.
+The helper must run at the git root, refuses dirty, git-ignored or symlinked rules files
+(`--allow-non-git` opts in, with timestamped backups), and writes both files atomically.
+Routing is by heading: exact Claude runtime headings stay in `CLAUDE.md` after
+`@AGENTS.md`; everything else moves to `AGENTS.md`. Headings that merely mention Claude are
+routed to `AGENTS.md` and listed as ambiguous. An existing `AGENTS.md` is merged, not
+replaced, unless it is the short legacy pointer (its full text is shown). Review the
+per-section routing, content-loss list and diff before approving.
+
+```text
+/init --migrate-rules --dry-run
+/init --migrate-rules
+```
+
 ### `--update`
 
 Structured refresh of existing artifacts. Never clobbers user content — merges instead.
 
-- `AGENTS.md`: append template sections that are missing; preserve everything else verbatim.
-- `AGENTS.md`: refresh pointer text, preserve custom `## Agent-runtime notes`. If the existing file is custom (long, no AGENTS.md reference), asks to migrate.
-- `.cursorrules` (legacy): migrate to `.cursor/rules/project.mdc`; leaves the old file for you to delete.
+- `AGENTS.md`: append template sections that are missing; preserve everything else verbatim. A legacy pointer-style `AGENTS.md` (short, names `CLAUDE.md`) triggers the `--migrate-rules` offer instead.
+- `CLAUDE.md`: never rewritten by `--update`. A long one triggers the `--migrate-rules` offer; an `@AGENTS.md` one is left as is.
+- `.cursorrules` (legacy): fold project-specific lines into `AGENTS.md`; leaves the old file for you to delete.
 - `.github/ISSUE_TEMPLATE/*.yml`: create missing templates; skip existing ones with a diff (pair with `--force` to overwrite).
 - `.github/labels.md`, `docs/lefthook-usage.md`, `scripts/install-lefthook.sh`: always overwritten (managed reference docs / tooling).
 - `commitlint.config.cjs`: diff + skip by default (often customized). Pair with `--force` to overwrite.
@@ -210,8 +229,8 @@ Flags are independent and composable. Any combination is valid:
 | `--docs-only --templates --git`        | Full doc/workflow bundle, no MCP/agent touch                              |
 | `--dry-run --templates`                | Preview only the template output                                          |
 | `--force --profile=python --templates` | Apply Python doc set + GitHub forms, overwrite freely                     |
-| `--docs-only --vendor-neutral`         | Doc trio + `.ai/rules/project.md`, skip MCP                               |
-| `--update`                             | Refresh existing doc trio in place; skip untouched files                  |
+| `--docs-only --vendor-neutral`         | Canonical rules + `.ai/rules/project.md` pointer, skip MCP                |
+| `--update`                             | Refresh existing rules files in place; skip untouched files               |
 | `--update --force --templates`         | Refresh everything aggressively — merge semantics + overwrite on conflict |
 
 ---

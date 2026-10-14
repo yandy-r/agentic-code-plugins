@@ -11,12 +11,14 @@
 # Every test runs in throwaway git repos under a temp dir with an isolated git
 # config, so the caller's repositories and global git settings are never used.
 set -uo pipefail
+export PYTHONDONTWRITEBYTECODE=1
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 PROFILE="${REPO_ROOT}/ycc/skills/init/scripts/profile-project.sh"
 APPLY_CI="${REPO_ROOT}/ycc/skills/formatters/scripts/apply-ci.sh"
 INIT_TEMPLATES="${REPO_ROOT}/ycc/skills/init/templates"
+INIT_SCRIPTS="${REPO_ROOT}/ycc/skills/init/scripts"
 GIT_CLEANUP_SKILL="${REPO_ROOT}/ycc/skills/git-cleanup/SKILL.md"
 GIT_CLEANUP_RULES="${REPO_ROOT}/ycc/skills/git-cleanup/references/active-code-rules.md"
 GIT_CLEANUP_AGENT="${REPO_ROOT}/ycc/agents/git-cleanup.md"
@@ -71,6 +73,15 @@ assert_eq() {
     ok "$name"
   else
     ko "$name" "expected: $(printf '%q' "$expected") got: $(printf '%q' "$actual")"
+  fi
+}
+
+assert_le() {
+  local actual="$1" limit="$2" name="$3"
+  if [[ "$actual" -le "$limit" ]]; then
+    ok "$name"
+  else
+    ko "$name" "expected <= ${limit}, got ${actual}"
   fi
 }
 
@@ -294,7 +305,7 @@ block_body() {
 
 test_init_templates() {
   local tmpl opens closes
-  for tmpl in "${INIT_TEMPLATES}/CLAUDE.md.tmpl" "${INIT_TEMPLATES}/github/labels.md.tmpl"; do
+  for tmpl in "${INIT_TEMPLATES}/AGENTS.md.tmpl" "${INIT_TEMPLATES}/github/labels.md.tmpl"; do
     opens="$(grep -c '{{#IF_RELEASE_MODEL}}' "$tmpl")"
     closes="$(grep -c '{{/IF_RELEASE_MODEL}}' "$tmpl")"
     if [[ "$opens" -ge 1 && "$opens" == "$closes" ]]; then
@@ -303,12 +314,535 @@ test_init_templates() {
       ko "templates: $(basename "$tmpl") has balanced IF_RELEASE_MODEL blocks" "opens=$opens closes=$closes"
     fi
   done
-  assert_contains "$(block_body "${INIT_TEMPLATES}/CLAUDE.md.tmpl" IF_RELEASE_MODEL)" "## Branching & releases" \
-    "templates: CLAUDE.md Branching & releases section is conditional"
-  assert_contains "$(block_body "${INIT_TEMPLATES}/CLAUDE.md.tmpl" IF_RELEASE_MODEL)" "RELEASING.md" \
-    "templates: CLAUDE.md section points at RELEASING.md"
+  assert_contains "$(block_body "${INIT_TEMPLATES}/AGENTS.md.tmpl" IF_RELEASE_MODEL)" "## Branching & releases" \
+    "templates: AGENTS.md Branching & releases section is conditional"
+  assert_contains "$(block_body "${INIT_TEMPLATES}/AGENTS.md.tmpl" IF_RELEASE_MODEL)" "RELEASING.md" \
+    "templates: AGENTS.md section points at RELEASING.md"
   assert_contains "$(block_body "${INIT_TEMPLATES}/github/labels.md.tmpl" IF_RELEASE_MODEL)" 'gh label create "backport:' \
     "templates: labels.md backport family has a gh label create example"
+}
+
+# ---------------------------------------------------------------------------
+# init — canonical AGENTS.md rules files (Node / Python / Go scratch repos)
+# ---------------------------------------------------------------------------
+
+# scratch_stack <node|python|go> — scratch git repo with that stack's manifest; echo path.
+scratch_stack() {
+  local dir
+  dir="$(mktemp -d "${SANDBOX_ROOT}/stack.XXXXXX")"
+  git -C "$dir" init -q
+  case "$1" in
+    node)
+      echo '{"name":"demo","scripts":{"test":"vitest run","lint":"eslint .","build":"tsc"}}' >"${dir}/package.json"
+      echo '{}' >"${dir}/tsconfig.json"
+      ;;
+    python) printf '[project]\nname = "demo"\n\n[tool.pytest.ini_options]\n\n[tool.ruff]\n' >"${dir}/pyproject.toml" ;;
+    go) printf 'module example.com/demo\n' >"${dir}/go.mod" ;;
+  esac
+  echo "$dir"
+}
+
+# render <repo> <template> [render-template args...] — profile the repo, render to stdout.
+render() {
+  local repo="$1" tmpl="$2"
+  shift 2
+  bash "$PROFILE" "$repo" | bash "${INIT_SCRIPTS}/render-template.sh" --template "${INIT_TEMPLATES}/${tmpl}" "$@"
+}
+
+test_init_rules_shape() {
+  local stack repo agents claude lines expect_test
+  for stack in node python go; do
+    repo="$(scratch_stack "$stack")"
+    agents="$(render "$repo" AGENTS.md.tmpl --set "PROJECT_PURPOSE=Demo project.")"
+    lines="$(printf '%s\n' "$agents" | wc -l | tr -d ' ')"
+    if [[ "$lines" -le 100 ]]; then
+      ok "init[$stack]: AGENTS.md is ${lines} lines (<=100)"
+    else
+      ko "init[$stack]: AGENTS.md is ${lines} lines (<=100)"
+    fi
+    case "$stack" in
+      node) expect_test="npm test" ;;
+      python) expect_test="pytest" ;;
+      go) expect_test="go test ./..." ;;
+    esac
+    assert_contains "$agents" "$expect_test" "init[$stack]: AGENTS.md has the detected test command"
+    assert_contains "$agents" "Conventional Commits 1.0.0" "init[$stack]: AGENTS.md carries the commits rule"
+    if grep -q '^| `feat`' <<<"$agents" || grep -q 'Stack Overview' <<<"$agents" || grep -q '^## SHOULD' <<<"$agents"; then
+      ko "init[$stack]: AGENTS.md has no types table, stack table or generic SHOULDs"
+    else
+      ok "init[$stack]: AGENTS.md has no types table, stack table or generic SHOULDs"
+    fi
+    if grep -q 'Branching & releases' <<<"$agents"; then
+      ko "init[$stack]: Branching & releases is dropped without RELEASING.md"
+    else
+      ok "init[$stack]: Branching & releases is dropped without RELEASING.md"
+    fi
+    claude="$(render "$repo" CLAUDE.md.tmpl)"
+    assert_eq "$claude" "@AGENTS.md" "init[$stack]: CLAUDE.md without Claude-only content is just @AGENTS.md"
+  done
+
+  # A Node repo without scripts, and a bare Python manifest, must not get guessed commands.
+  repo="$(mktemp -d "${SANDBOX_ROOT}/bare.XXXXXX")"
+  git -C "$repo" init -q
+  echo '{"name":"bare","scripts":{"start":"node x"}}' >"${repo}/package.json"
+  agents="$(render "$repo" AGENTS.md.tmpl --set "PROJECT_PURPOSE=Demo.")"
+  if grep -q 'npm' <<<"$agents"; then ko "init[node-bare]: no npm commands without package scripts"; else ok "init[node-bare]: no npm commands without package scripts"; fi
+  repo="$(mktemp -d "${SANDBOX_ROOT}/pybare.XXXXXX")"
+  git -C "$repo" init -q
+  printf '[project]\nname = "bare"\n' >"${repo}/pyproject.toml"
+  agents="$(render "$repo" AGENTS.md.tmpl --set "PROJECT_PURPOSE=Demo.")"
+  if grep -q 'pytest\|ruff' <<<"$agents"; then ko "init[python-bare]: no pytest/ruff without config signals"; else ok "init[python-bare]: no pytest/ruff without config signals"; fi
+
+  # Unknown stacks never get an invented command.
+  repo="$(mktemp -d "${SANDBOX_ROOT}/empty.XXXXXX")"
+  git -C "$repo" init -q
+  agents="$(render "$repo" AGENTS.md.tmpl --set "PROJECT_PURPOSE=Demo.")"
+  assert_contains "$agents" "# not detected" "init[unknown]: undetected commands render as '# not detected'"
+
+  # Claude-only content: short section after the import.
+  claude="$(render "$repo" CLAUDE.md.tmpl --keep IF_CLAUDE_ONLY --set "CLAUDE_ONLY_NOTES=- Use /ycc: skills.")"
+  assert_eq "$(printf '%s\n' "$claude" | head -n 1)" "@AGENTS.md" "init: CLAUDE.md starts with @AGENTS.md"
+  lines="$(printf '%s\n' "$claude" | wc -l | tr -d ' ')"
+  if [[ "$lines" -le 15 ]]; then ok "init: CLAUDE.md with notes is ${lines} lines (<=15)"; else ko "init: CLAUDE.md with notes is ${lines} lines (<=15)"; fi
+
+  # Template line budget and the optional Cursor/Copilot/vendor files.
+  lines="$(wc -l <"${INIT_TEMPLATES}/AGENTS.md.tmpl" | tr -d ' ')"
+  if [[ "$lines" -le 80 ]]; then ok "templates: AGENTS.md.tmpl is ${lines} lines (<=80)"; else ko "templates: AGENTS.md.tmpl is ${lines} lines (<=80)"; fi
+  assert_contains "$(cat "${INIT_TEMPLATES}/cursor-rule.mdc.tmpl")" "alwaysApply: false" \
+    "templates: cursor rule is path-scoped, never always-apply"
+  assert_contains "$(cat "${INIT_TEMPLATES}/github/copilot-instructions.md.tmpl")" "AGENTS.md" \
+    "templates: copilot instructions point at AGENTS.md"
+  assert_contains "$(cat "${INIT_TEMPLATES}/ai-rule.md.tmpl")" "AGENTS.md" "templates: vendor-neutral rule points at AGENTS.md"
+  repo="$(scratch_stack go)"
+  assert_contains "$(render "$repo" github/copilot-instructions.md.tmpl)" "go test ./..." \
+    "init[go]: copilot instructions carry the detected commands"
+  if [[ "$(wc -l <"${INIT_TEMPLATES}/github/copilot-instructions.md.tmpl")" -le 30 ]]; then
+    ok "templates: copilot instructions stay a short pointer"
+  else
+    ko "templates: copilot instructions stay a short pointer"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# init --migrate-rules — dry-run first, nothing lost silently
+# ---------------------------------------------------------------------------
+
+# long_claude_repo — committed repo with a long CLAUDE.md and a legacy pointer AGENTS.md.
+long_claude_repo() {
+  local dir
+  dir="$(mkrepo)"
+  {
+    printf '# demo — Agent Rules\n\nA demo.\n\n## Precedence\n\n1. User.\n\n## MUST / MUST NOT\n\n- Never commit secrets.\n\n'
+    printf '## Claude-only notes\n\n- Use /ycc: skills.\n\n## Commands\n\n```bash\nnpm test\n## not a heading\n```\n'
+  } >"${dir}/CLAUDE.md"
+  printf '# demo\n\nThe canonical agent rules live in CLAUDE.md.\n' >"${dir}/AGENTS.md"
+  git -C "$dir" add -A
+  git -C "$dir" commit -q -m "chore: add rules"
+  echo "$dir"
+}
+
+test_migrate_rules() {
+  local repo out rc before after
+  repo="$(long_claude_repo)"
+  before="$(cd "$repo" && sha256sum CLAUDE.md AGENTS.md && git status --porcelain | wc -l)"
+
+  out="$(bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" --dry-run)"
+  rc=$?
+  assert_exit "$rc" 0 "migrate: dry-run succeeds"
+  after="$(cd "$repo" && sha256sum CLAUDE.md AGENTS.md && git status --porcelain | wc -l)"
+  assert_eq "$after" "$before" "migrate: dry-run changes nothing"
+  assert_contains "$out" "Section routing" "migrate: dry-run prints per-section routing"
+  assert_contains "$out" "## Claude-only notes -> CLAUDE.md" "migrate: exact Claude heading stays in CLAUDE.md"
+  assert_contains "$out" "## Precedence -> AGENTS.md" "migrate: Precedence moves instead of being dropped"
+  assert_contains "$out" "Replaced pointer-style AGENTS.md" "migrate: replaced legacy pointer is shown"
+  assert_contains "$out" "| The canonical agent rules live in CLAUDE.md." "migrate: replaced pointer text is printed in full"
+
+  out="$(bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" 2>&1)"
+  rc=$?
+  assert_exit "$rc" 1 "migrate: refuses to write without --dry-run or --yes"
+
+  echo "local edit" >>"${repo}/CLAUDE.md"
+  out="$(bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" --yes 2>&1)"
+  rc=$?
+  assert_exit "$rc" 1 "migrate: refuses to apply over uncommitted rules edits"
+  assert_contains "$out" "uncommitted changes" "migrate: names the uncommitted-changes safeguard"
+  git -C "$repo" checkout -q -- CLAUDE.md
+
+  bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" --yes >/dev/null
+  assert_eq "$(head -n 1 "${repo}/CLAUDE.md")" "@AGENTS.md" "migrate: CLAUDE.md now starts with @AGENTS.md"
+  assert_contains "$(cat "${repo}/CLAUDE.md")" "Claude-only notes" "migrate: Claude-only section stays in CLAUDE.md"
+  assert_contains "$(cat "${repo}/AGENTS.md")" "Never commit secrets" "migrate: rules moved into AGENTS.md"
+  assert_contains "$(cat "${repo}/AGENTS.md")" "## Precedence" "migrate: Precedence content preserved in AGENTS.md"
+  assert_contains "$(cat "${repo}/AGENTS.md")" "## not a heading" "migrate: fenced '## ' lines do not split sections"
+  assert_eq "$(find "${repo}" -maxdepth 1 -name '.*.migrate-*' | wc -l | tr -d ' ')" "0" "migrate: no temp files left behind"
+  assert_eq "$(find "$(git -C "$repo" rev-parse --absolute-git-dir)/ycc-rule-backups" -maxdepth 1 -mindepth 1 | wc -l | tr -d ' ')" "1" \
+    "migrate: apply wrote one backup of the original pair"
+  out="$(bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" --yes)"
+  assert_contains "$out" "already a @AGENTS.md pointer" "migrate: second run is a no-op"
+}
+
+# mig_repo <name> <claude-bytes-via-printf-format> [agents-bytes] — committed scratch repo.
+mig_repo() {
+  local dir="${SANDBOX_ROOT}/mig.$1"
+  mkdir -p "$dir"
+  git -C "$dir" init -q
+  printf "%b" "$2" >"${dir}/CLAUDE.md"
+  [[ -n "${3:-}" ]] && printf "%b" "$3" >"${dir}/AGENTS.md"
+  git -C "$dir" add -A
+  git -C "$dir" commit -q -m "chore: seed"
+  echo "$dir"
+}
+
+test_migrate_import_detection() {
+  local repo out
+  # Already migrated, CRLF and BOM variants: must be a no-op, never a self-import rewrite.
+  repo="$(mig_repo crlf '@AGENTS.md\r\n## Claude notes\r\n- foo\r\n' '# a\r\n')"
+  out="$(bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" --yes)"
+  assert_contains "$out" "already a @AGENTS.md pointer" "migrate: CRLF @AGENTS.md is detected as migrated"
+  assert_eq "$(tr -d '\r' <"${repo}/AGENTS.md")" "# a" "migrate: CRLF no-op leaves AGENTS.md alone"
+  repo="$(mig_repo bom '\xef\xbb\xbf@AGENTS.md\n' '# a\n')"
+  out="$(bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" --dry-run)"
+  assert_contains "$out" "already a @AGENTS.md pointer" "migrate: BOM @AGENTS.md is detected as migrated"
+  # Not imports: fenced, commented, inline code, prose. Each must still be migrated.
+  repo="$(mig_repo fence '# r\n\n```\n@AGENTS.md\n```\n\n## Rules\n- x\n')"
+  out="$(bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" --dry-run)"
+  assert_contains "$out" "Migration plan" "migrate: fenced @AGENTS.md is not an import"
+  repo="$(mig_repo comment '# r\n<!--\n@AGENTS.md\n-->\n## Rules\n- x\n')"
+  out="$(bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" --dry-run)"
+  assert_contains "$out" "Migration plan" "migrate: commented @AGENTS.md is not an import"
+  repo="$(mig_repo prose '# r\nAdd @AGENTS.md later, see `@AGENTS.md`.\n## Rules\n- x\n')"
+  out="$(bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" --dry-run)"
+  assert_contains "$out" "Migration plan" "migrate: prose mention of @AGENTS.md is not an import"
+  # Dangling import fails loudly (same contract as pointer-targets.sh).
+  repo="$(mig_repo dangling '@AGENTS.md\n')"
+  out="$(bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" --yes 2>&1)"
+  assert_eq "$?" "1" "migrate: dangling @AGENTS.md import exits 1"
+  # Cross-check against the release-model helper (BOM support is an init extension).
+  local case_dir expect got targets
+  for case_dir in crlf fence comment prose; do
+    # All compared fixtures need an existing AGENTS.md so a dangling import
+    # is distinguishable from a negative detection result.
+    if [[ ! -f "${SANDBOX_ROOT}/mig.${case_dir}/AGENTS.md" ]]; then
+      printf '# a\n' >"${SANDBOX_ROOT}/mig.${case_dir}/AGENTS.md"
+    fi
+    targets="$(bash "$POINTER_TARGETS" --repo "${SANDBOX_ROOT}/mig.${case_dir}" | tr '\n' ' ')"
+    out="$(bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "${SANDBOX_ROOT}/mig.${case_dir}" --dry-run)"
+    if [[ "$targets" == *"CLAUDE.md"* ]]; then expect=none; else expect=import; fi
+    if [[ "$out" == *"already a @AGENTS.md pointer"* ]]; then got=import; else got=none; fi
+    assert_eq "$got" "$expect" "migrate: ${case_dir} import decision agrees with release-model pointer-targets.sh"
+  done
+}
+
+test_migrate_routing() {
+  local repo out
+  repo="$(mig_repo route '# t\n\n## General\n- g\n\n# Claude Code setup\n- c-setup\n\n## Using the Claude API client\n- api-line\n\n## Hooks\n- plain hooks text\n')"
+  out="$(bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" --dry-run)"
+  assert_contains "$out" "# Claude Code setup -> CLAUDE.md" "migrate: mid-file H1 is its own section and Claude-only"
+  assert_contains "$out" "## Using the Claude API client -> AGENTS.md (ambiguous" "migrate: substring 'claude' alone does not divert content"
+  assert_contains "$out" "## Hooks -> AGENTS.md (ambiguous" "migrate: generic Hooks heading is reported, not guessed"
+  assert_contains "$out" "Ambiguous headings routed to AGENTS.md" "migrate: ambiguous headings are listed for review"
+  bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" --yes >/dev/null
+  assert_contains "$(cat "${repo}/CLAUDE.md")" "c-setup" "migrate: Claude-only H1 content lands in CLAUDE.md"
+  assert_eq "$(grep -c 'c-setup' "${repo}/AGENTS.md" || true)" "0" "migrate: Claude-only content does not leak into AGENTS.md"
+  assert_contains "$(cat "${repo}/AGENTS.md")" "api-line" "migrate: Claude-API project content stays tool-neutral"
+  assert_contains "$(cat "${repo}/AGENTS.md")" "plain hooks text" "migrate: no content is dangling or lost"
+}
+
+test_migrate_agents_merge() {
+  local repo out
+  repo="$(mig_repo merge '# demo\n\n## Commands\n- from-claude\n\n## Extra\n- extra\n' '# demo\n\nCustom note mentioning CLAUDE.md.\n\n## Commands\n- from-agents\n')"
+  out="$(bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" --dry-run)"
+  assert_contains "$out" "Merge conflict preserved" "migrate: conflicting duplicate sections are reported"
+  bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" --yes >/dev/null
+  assert_eq "$(grep -c '^# demo' "${repo}/AGENTS.md")" "1" "migrate: no duplicate H1 after merging into an existing AGENTS.md"
+  assert_eq "$(grep -c '^## Commands' "${repo}/AGENTS.md")" "1" "migrate: no duplicate ## Commands heading"
+  assert_contains "$(cat "${repo}/AGENTS.md")" "from-agents" "migrate: existing AGENTS.md rule preserved"
+  assert_contains "$(cat "${repo}/AGENTS.md")" "from-claude" "migrate: conflicting CLAUDE.md rule retained, not dropped"
+  assert_contains "$(cat "${repo}/AGENTS.md")" "Custom note mentioning CLAUDE.md" "migrate: AGENTS.md that merely mentions CLAUDE.md is never replaced"
+}
+
+test_migrate_safety() {
+  local repo out dir sub rc
+  # Non-git: refused without --allow-non-git; with it, a backup is written and the pair is migrated.
+  dir="${SANDBOX_ROOT}/mig.nongit"
+  mkdir -p "$dir"
+  printf '# r\n\n## Rules\n- x\n' >"${dir}/CLAUDE.md"
+  out="$(bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$dir" --yes 2>&1)"
+  assert_eq "$?" "1" "migrate: non-git target is refused by default"
+  assert_eq "$(head -n 1 "${dir}/CLAUDE.md")" "# r" "migrate: refused non-git run changed nothing"
+  out="$(bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$dir" --yes --allow-non-git)"
+  assert_contains "$out" "Backups written" "migrate: --allow-non-git writes backups first"
+  assert_eq "$(find "${dir}/.ycc-rule-backups" -name CLAUDE.md | wc -l | tr -d ' ')" "1" "migrate: backup copy of CLAUDE.md exists"
+  # Git-ignored rules files are not silently overwritten.
+  repo="$(mig_repo ignored '# r\n\n## Rules\n- x\n')"
+  printf 'CLAUDE.md\n' >"${repo}/.gitignore"
+  git -C "$repo" rm -q --cached CLAUDE.md
+  git -C "$repo" add .gitignore && git -C "$repo" commit -q -m "chore: ignore"
+  out="$(bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" --yes 2>&1)"
+  assert_eq "$?" "1" "migrate: git-ignored rules file is refused"
+  # --repo that is a subdirectory of a parent repo is refused (git would scope to the parent).
+  sub="${repo}/sub"
+  mkdir -p "$sub"
+  printf '# r\n\n## Rules\n- x\n' >"${sub}/CLAUDE.md"
+  out="$(bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$sub" --yes 2>&1)"
+  assert_eq "$?" "1" "migrate: non-root --repo inside a parent repo is refused"
+  # Symlinked rules file and read-only target leave the pair untouched.
+  repo="$(mig_repo ro '# r\n\n## Rules\n- x\n')"
+  chmod a-w "${repo}/CLAUDE.md"
+  out="$(bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" --yes 2>&1)"
+  rc=$?
+  if [[ "$(id -u)" != "0" ]]; then
+    assert_eq "$rc" "2" "migrate: unwritable CLAUDE.md fails before any write"
+    assert_eq "$(find "${repo}" -maxdepth 1 -name AGENTS.md | wc -l | tr -d ' ')" "0" "migrate: failed run does not leave a partial pair"
+  fi
+  chmod u+w "${repo}/CLAUDE.md"
+  repo="$(mig_repo rollback '# r\n\n## Rules\n- x\n' '# custom\n\n- original\n')"
+  local before after
+  before="$(cd "$repo" && sha256sum CLAUDE.md AGENTS.md)"
+  out="$(python3 - "$INIT_SCRIPTS" "$repo" <<'PYFAULT'
+import importlib.util, sys
+from pathlib import Path
+scripts, repo = map(Path, sys.argv[1:])
+sys.path.insert(0, str(scripts))
+spec = importlib.util.spec_from_file_location("migration", scripts / "migrate-rules.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+real = module.os.replace
+calls = 0
+def fault(src, dst):
+    global calls
+    calls += 1
+    if calls == 2:
+        raise OSError("simulated second rename failure")
+    return real(src, dst)
+module.os.replace = fault
+sys.argv = ["migrate-rules", "--repo", str(repo), "--yes"]
+sys.exit(module.main())
+PYFAULT
+  )"
+  assert_exit "$?" 2 "migrate: second rename failure is reported"
+  after="$(cd "$repo" && sha256sum CLAUDE.md AGENTS.md)"
+  assert_eq "$after" "$before" "migrate: failed second rename restores both files byte-for-byte"
+  repo="$(mig_repo 'with spaces' '# r\n\n## Rules\n- x\n')"
+  out="$(bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" --dry-run)"
+  assert_exit "$?" 0 "migrate: repository paths with spaces are supported"
+  ln -s CLAUDE.md "${repo}/AGENTS.md"
+  out="$(bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" --dry-run 2>&1)"
+  assert_exit "$?" 1 "migrate: symlinked AGENTS.md is refused"
+}
+
+test_init_generated_mirrors() {
+  local mirror repo out
+  for mirror in .cursor-plugin/skills .codex-plugin/ycc/skills .opencode-plugin/skills .agents-plugin/skills; do
+    local scripts="${REPO_ROOT}/${mirror}/init/scripts"
+    local f
+    for f in migrate-rules.sh migrate-rules.py rules_file_lib.py render-template.sh render-template.py profile-project.sh rules-report.sh; do
+      if cmp -s "${INIT_SCRIPTS}/${f}" "${scripts}/${f}"; then
+        ok "mirror: ${mirror} init/${f} is byte-identical to source"
+      else
+        ko "mirror: ${mirror} init/${f} is byte-identical to source"
+      fi
+    done
+    # EXECUTE the generated migrate script on a temp canonical repo; content must be preserved.
+    repo="$(mig_repo "exec.$(echo "$mirror" | tr '/.' '__')" '# demo\n\n## MUST / MUST NOT\n- Never commit secrets.\n\n## Claude-only notes\n- notes-here\n' '# demo\n\nThe canonical agent rules live in CLAUDE.md.\n')"
+    out="$(bash "${scripts}/migrate-rules.sh" --repo "$repo" --yes 2>&1)"
+    assert_exit "$?" 0 "mirror: ${mirror} migrate-rules.sh applies"
+    assert_eq "$(head -n 1 "${repo}/CLAUDE.md")" "@AGENTS.md" "mirror: ${mirror} CLAUDE.md is the @AGENTS.md importer"
+    assert_contains "$(cat "${repo}/AGENTS.md")" "Never commit secrets" "mirror: ${mirror} rules moved into AGENTS.md, not overwritten"
+    assert_contains "$(cat "${repo}/CLAUDE.md")" "notes-here" "mirror: ${mirror} Claude-only content kept in CLAUDE.md"
+    if [[ "$(cat "${repo}/AGENTS.md")" == *"@AGENTS.md"* ]]; then
+      ko "mirror: ${mirror} AGENTS.md never imports itself"
+    else
+      ok "mirror: ${mirror} AGENTS.md never imports itself"
+    fi
+    # The generated renderer works too and keeps CLAUDE.md as the importer name.
+    out="$(printf 'project_name=demo\n' | bash "${scripts}/render-template.sh" --template CLAUDE.md.tmpl)"
+    assert_eq "$out" "@AGENTS.md" "mirror: ${mirror} renderer emits the @AGENTS.md shim"
+  done
+}
+
+test_init_renderer_hardening() {
+  local out rc repo
+  out="$(bash "${INIT_SCRIPTS}/render-template.sh" --template /etc/passwd </dev/null 2>&1)"
+  assert_eq "$?" "1" "render: template outside the bundled templates dir is rejected"
+  assert_contains "$out" "bundled templates" "render: rejection names the allowed root"
+  # A fixture bundle gives the renderer its own allowed template root; never edit source.
+  local fixture="${SANDBOX_ROOT}/fixture-init"
+  mkdir -p "$fixture/scripts" "$fixture/templates"
+  cp "${INIT_SCRIPTS}/render-template.py" "$fixture/scripts/render-template.py"
+  printf '{{#IF_RUST}}\ntext\n{{/IF_TS}}\n' >"$fixture/templates/bad.tmpl"
+  out="$(python3 "$fixture/scripts/render-template.py" --template bad.tmpl </dev/null 2>&1)"
+  assert_eq "$?" "1" "render: mismatched block closer fails"
+  assert_contains "$out" "mismatched closer" "render: error identifies the unmatched block"
+  printf '{{PLACEHOLDER2}}\n' >"$fixture/templates/digits.tmpl"
+  out="$(python3 "$fixture/scripts/render-template.py" --template digits.tmpl </dev/null 2>&1)"
+  assert_eq "$?" "1" "render: unresolved placeholders containing digits fail"
+  mkdir -p "${SANDBOX_ROOT}/tpl-escape"
+  repo="$(scratch_stack go)"
+  # Mismatched traversal probe path is unquoted on purpose (no globs); keep shellcheck quiet.
+  # shellcheck disable=SC2086
+  out="$(bash "$PROFILE" "$repo" | bash "${INIT_SCRIPTS}/render-template.sh" --template ../../../../../..${SANDBOX_ROOT}/tpl-escape 2>&1)"
+  assert_eq "$?" "1" "render: path traversal out of templates dir is rejected"
+  # Process-substitution profile is accepted.
+  out="$(bash "${INIT_SCRIPTS}/render-template.sh" --template AGENTS.md.tmpl --profile <(bash "$PROFILE" "$repo") --set PROJECT_PURPOSE=x 2>&1)"
+  assert_contains "$out" "go test ./..." "render: --profile accepts a process-substitution path"
+  # Unknown stack: lefthook renders a valid config (no 'run: # ...'), usage doc explains it.
+  repo="$(mktemp -d "${SANDBOX_ROOT}/unk.XXXXXX")"
+  git -C "$repo" init -q
+  out="$(bash "$PROFILE" "$repo" | bash "${INIT_SCRIPTS}/render-template.sh" --template git/lefthook.yml.tmpl)"
+  if grep -qE '^\s*run:\s*#' <<<"$out"; then ko "render: lefthook never renders 'run: # not detected'"; else ok "render: lefthook never renders 'run: # not detected'"; fi
+  assert_contains "$out" "no pre-push hook is configured" "render: lefthook documents the omitted pre-push hook"
+  out="$(bash "$PROFILE" "$repo" | bash "${INIT_SCRIPTS}/render-template.sh" --template git/lefthook-usage.md.tmpl)"
+  assert_contains "$out" "Not configured (no test command detected)" "render: lefthook usage doc states the hook status"
+  out="$(bash "$PROFILE" "$repo" | bash "${INIT_SCRIPTS}/render-template.sh" --template github/pull_request_template.md.tmpl)"
+  if grep -q 'not detected' <<<"$out"; then ko "render: PR template has no 'not detected' checklist item"; else ok "render: PR template has no 'not detected' checklist item"; fi
+  # Detected stack keeps the real pre-push test command.
+  repo="$(scratch_stack go)"
+  out="$(bash "$PROFILE" "$repo" | bash "${INIT_SCRIPTS}/render-template.sh" --template git/lefthook.yml.tmpl)"
+  assert_contains "$out" "run: go test ./..." "render: detected test command still drives pre-push"
+  # Mixed profiles keep every component language (lefthook + gitignore).
+  out="$(printf 'primary_language=mixed\nsecondary_languages=typescript,python\nproject_name=m\n' | bash "${INIT_SCRIPTS}/render-template.sh" --template git/lefthook.yml.tmpl)"
+  assert_contains "$out" "biome" "render: mixed profile keeps the TypeScript block"
+  assert_contains "$out" "ruff" "render: mixed profile keeps the Python block"
+  out="$(printf 'primary_language=mixed\nsecondary_languages=typescript,python\nproject_name=m\n' | bash "${INIT_SCRIPTS}/render-template.sh" --template git/gitignore.tmpl)"
+  assert_contains "$out" "__pycache__" "render: mixed gitignore includes Python entries"
+  assert_contains "$out" "node_modules" "render: mixed gitignore includes Node entries"
+  # No Bash 4-only constructs in the shell helpers (stock macOS bash 3.2).
+  if grep -nE 'declare -A|mapfile|readarray|\$\{[A-Za-z_]+,,\}|\$\{[A-Za-z_]+\^\^\}' \
+      "${INIT_SCRIPTS}/render-template.sh" "${INIT_SCRIPTS}/migrate-rules.sh" "${INIT_SCRIPTS}/rules-report.sh" >/dev/null; then
+    ko "init helpers: shell entrypoints avoid Bash 4-only constructs"
+  else
+    ok "init helpers: shell entrypoints avoid Bash 4-only constructs"
+  fi
+}
+
+test_profile_detection_robustness() {
+  local d out
+  # Comments mentioning pytest/ruff and a tests/ dir (unittest) must not stamp commands.
+  d="$(mktemp -d "${SANDBOX_ROOT}/pyc.XXXXXX")"
+  git -C "$d" init -q
+  printf '# we do not use pytest or ruff\n[project]\nname = "x"\n' >"${d}/pyproject.toml"
+  mkdir "${d}/tests"
+  out="$(bash "$PROFILE" "$d")"
+  assert_eq "$(get_key "$out" test_cmd)" "unknown" "profile: pytest in a comment / bare tests dir is not a signal"
+  assert_eq "$(get_key "$out" lint_cmd)" "unknown" "profile: ruff in a comment is not a signal"
+  d="$(mktemp -d "${SANDBOX_ROOT}/pyd.XXXXXX")"
+  git -C "$d" init -q
+  printf '[project]\nname = "x"\n[dependency-groups]\ndev = ["pytest>=8", "ruff"]\n[build-system]\nrequires = ["hatchling"]\n' >"${d}/pyproject.toml"
+  out="$(bash "$PROFILE" "$d")"
+  assert_eq "$(get_key "$out" test_cmd)" "pytest" "profile: a pytest dependency is a signal"
+  assert_eq "$(get_key "$out" lint_cmd)" "ruff check ." "profile: a ruff dependency is a signal"
+  # check / format:check are not stamped as lint.
+  d="$(mktemp -d "${SANDBOX_ROOT}/jsc.XXXXXX")"
+  git -C "$d" init -q
+  echo '{"name":"x","scripts":{"check":"tsc","test":"vitest"}}' >"${d}/package.json"
+  out="$(bash "$PROFILE" "$d")"
+  assert_eq "$(get_key "$out" lint_cmd)" "unknown" "profile: a 'check' script is not stamped as lint"
+  # golangci config selects golangci-lint.
+  d="$(scratch_stack go)"
+  touch "${d}/.golangci.yml"
+  assert_eq "$(get_key "$(bash "$PROFILE" "$d")" lint_cmd)" "golangci-lint run" "profile: .golangci config selects golangci-lint"
+  # Missing jq warns instead of silently emitting unknown commands.
+  local bindir t src
+  bindir="$(mktemp -d "${SANDBOX_ROOT}/bin.XXXXXX")"
+  for t in bash sh find git wc tr head grep basename cat sed awk mktemp dirname pwd ls cut sort uniq mv cp chmod touch printf readlink date python3 env rm; do
+    src="$(command -v "$t" 2>/dev/null)" && ln -sf "$src" "${bindir}/${t}"
+  done
+  d="$(scratch_stack node)"
+  out="$(PATH="$bindir" bash "$PROFILE" "$d" 2>&1)"
+  assert_contains "$out" "jq is unavailable" "profile: missing jq prints a warning"
+}
+
+test_rules_report() {
+  local repo out i
+  repo="$(mktemp -d "${SANDBOX_ROOT}/rep.XXXXXX")"
+  printf 'one\ntwo\n' >"${repo}/AGENTS.md"
+  : >"${repo}/CLAUDE.md"
+  for i in $(seq 1 205); do echo "line $i" >>"${repo}/CLAUDE.md"; done
+  out="$(bash "${INIT_SCRIPTS}/rules-report.sh" --repo "$repo")"
+  assert_contains "$out" "AGENTS.md: 2 lines" "report: reports actual AGENTS.md line count"
+  assert_contains "$out" "CLAUDE.md: 205 lines  WARNING: over 200 lines" "report: warns above 200 lines"
+}
+
+test_init_docs_claims() {
+  local skill
+  skill="$(cat "${REPO_ROOT}/ycc/skills/init/SKILL.md")"
+  assert_contains "$skill" "2.1.277" "docs: CLAUDE.md omission names the Claude Code minimum version"
+  assert_contains "$skill" "when available" "docs: Cursor AGENTS.md support is qualified"
+  assert_contains "$skill" "does not rely on Copilot following the link" "docs: Copilot pointer does not assert link following"
+  if grep -q "Cursor reads \`AGENTS.md\`, so" <<<"$skill"; then ko "docs: no unqualified Cursor claim"; else ok "docs: no unqualified Cursor claim"; fi
+  assert_contains "$(cat "${INIT_TEMPLATES}/github/copilot-instructions.md.tmpl")" "Conventional Commits" \
+    "templates: Copilot instructions carry repo-neutral essentials"
+  if grep -rn 'CLAUDE.md / AGENTS.md' "${INIT_TEMPLATES}" >/dev/null; then ko "templates: no stale 'CLAUDE.md / AGENTS.md' wording"; else ok "templates: no stale 'CLAUDE.md / AGENTS.md' wording"; fi
+}
+
+# ---------------------------------------------------------------------------
+# release-model after init — "Branching & releases" appears exactly once
+
+# ---------------------------------------------------------------------------
+# init --migrate-rules on the actual pre-1092 root rules shape
+# ---------------------------------------------------------------------------
+
+test_migrate_pre1092_dry_run() {
+  local repo before after out live
+  repo="$(mig_repo pre1092 '# placeholder\n')"
+  if ! git -C "$REPO_ROOT" cat-file -e cd4c57c:CLAUDE.md 2>/dev/null; then
+    printf '%s[skip]%s migrate[pre-1092]: commit cd4c57c not available (shallow clone)\n' "" ""
+    return 0
+  fi
+  git -C "$REPO_ROOT" show cd4c57c:CLAUDE.md >"${repo}/CLAUDE.md"
+  git -C "$REPO_ROOT" show cd4c57c:AGENTS.md >"${repo}/AGENTS.md"
+  git -C "$repo" add -A
+  git -C "$repo" commit -q -m "chore: pre-1092 rules"
+  before="$(cd "$repo" && sha256sum CLAUDE.md AGENTS.md && git status --porcelain | wc -l)"
+  out="$(bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" --dry-run)"
+  assert_exit "$?" 0 "migrate[pre-1092]: dry-run on the real pre-YAN-1092 rules succeeds"
+  after="$(cd "$repo" && sha256sum CLAUDE.md AGENTS.md && git status --porcelain | wc -l)"
+  assert_eq "$after" "$before" "migrate[pre-1092]: dry run changes nothing"
+  assert_contains "$out" "## Stack Overview -> AGENTS.md" "migrate[pre-1092]: legacy sections are routed, not deleted"
+  assert_contains "$out" "Retired legacy directive" "migrate[pre-1092]: stale 'CLAUDE.md is canonical' directives are reported"
+  bash "${INIT_SCRIPTS}/migrate-rules.sh" --repo "$repo" --yes >/dev/null
+  assert_eq "$(head -n 1 "${repo}/CLAUDE.md")" "@AGENTS.md" "migrate[pre-1092]: CLAUDE.md becomes the importer"
+  live="$(awk '/<!--/{c=1} !c && /(`?CLAUDE\.md`? is the source of truth|canonical agent rules for this repository live in)/{n++} /-->/{c=0} END{print n+0}' "${repo}/AGENTS.md")"
+  assert_eq "$live" "0" "migrate[pre-1092]: no live legacy 'CLAUDE.md is canonical' directive remains"
+  assert_contains "$(cat "${repo}/AGENTS.md")" "## Stack Overview" "migrate[pre-1092]: moved content present in AGENTS.md"
+  assert_le "$(awk '/^(```|~~~)/{f=!f; next} !f && /^# /{n++} END{print n+0}' "${repo}/AGENTS.md")" 1 "migrate[pre-1092]: at most one H1 outside fences in the merged AGENTS.md"
+}
+
+# ---------------------------------------------------------------------------
+
+test_release_model_single_pointer() {
+  local repo target before_count total
+  repo="$(scratch_stack go)"
+  # init output (CLAUDE.md absent, no RELEASING.md yet): the canonical file is AGENTS.md.
+  render "$repo" AGENTS.md.tmpl --set "PROJECT_PURPOSE=Demo." >"${repo}/AGENTS.md"
+  printf '@AGENTS.md\n' >"${repo}/CLAUDE.md"
+  target="$(bash "$POINTER_TARGETS" --repo "$repo")"
+  assert_eq "$target" "AGENTS.md" "release-model after init: canonical target is AGENTS.md only"
+  # Simulate release-model Phase 4: append the section to the single target when absent.
+  before_count="$(grep -c '^## Branching & releases' "${repo}/${target}" || true)"
+  assert_eq "$before_count" "0" "release-model after init: section absent before the run"
+  printf '\n## Branching & releases\n\n[`RELEASING.md`](RELEASING.md) pointer.\n' >>"${repo}/${target}"
+  total="$(cat "${repo}/AGENTS.md" "${repo}/CLAUDE.md" | grep -c '^## Branching & releases' || true)"
+  assert_eq "$total" "1" "release-model after init: Branching & releases appears exactly once"
+
+  # init run after RELEASING.md exists renders the section itself; release-model then finds it.
+  render "$repo" AGENTS.md.tmpl --set "PROJECT_PURPOSE=Demo." --keep IF_RELEASE_MODEL >"${repo}/AGENTS.md"
+  target="$(bash "$POINTER_TARGETS" --repo "$repo")"
+  assert_eq "$(grep -c '^## Branching & releases' "${repo}/${target}")" "1" \
+    "init with RELEASING.md: section rendered once into the canonical file"
+  assert_eq "$(grep -c '^## Branching & releases' "${repo}/CLAUDE.md" || true)" "0" \
+    "init with RELEASING.md: CLAUDE.md never gets the section"
+
+  # Legacy inverted layout: AGENTS.md is a pointer to CLAUDE.md, so CLAUDE.md stays canonical.
+  printf '# demo\n\nThe canonical agent rules for this repository live in [`CLAUDE.md`](CLAUDE.md).\n' >"${repo}/AGENTS.md"
+  printf '# demo\n\n## Commands\n' >"${repo}/CLAUDE.md"
+  assert_contains "$(bash "$POINTER_TARGETS" --repo "$repo" | tr '\n' ' ')" "CLAUDE.md" \
+    "pointer-targets: legacy inverted layout still lists CLAUDE.md"
+
+  # Neither rules file: no output, nothing created.
+  assert_eq "$(bash "$POINTER_TARGETS" --repo "$(mkrepo)" | wc -l | tr -d ' ')" "0" \
+    "pointer-targets: no rules files -> no target"
 }
 
 # ---------------------------------------------------------------------------
@@ -375,6 +909,19 @@ test_apply_ci_default_branch
 test_apply_ci_custom_default_branch
 test_apply_ci_no_git
 test_init_templates
+test_init_rules_shape
+test_migrate_rules
+test_migrate_import_detection
+test_migrate_routing
+test_migrate_agents_merge
+test_migrate_safety
+test_migrate_pre1092_dry_run
+test_init_generated_mirrors
+test_init_renderer_hardening
+test_profile_detection_robustness
+test_rules_report
+test_init_docs_claims
+test_release_model_single_pointer
 test_pointer_targets
 test_git_cleanup_wiring
 test_git_cleanup_sync_merge_pattern

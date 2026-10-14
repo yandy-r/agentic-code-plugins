@@ -164,6 +164,13 @@ VERBATIM_SKILL_FILES: frozenset[str] = frozenset(
         "compatibility-audit/scripts/audit-target-features.sh",
         "compatibility-audit/references/reading-the-report.md",
         "release-model/scripts/pointer-targets.sh",
+        "init/scripts/migrate-rules.sh",
+        "init/scripts/rules_file_lib.py",
+        "init/scripts/migrate-rules.py",
+        "init/scripts/render-template.py",
+        "init/scripts/rules-report.sh",
+        "init/scripts/profile-project.sh",
+        "init/scripts/render-template.sh",
     }
 )
 
