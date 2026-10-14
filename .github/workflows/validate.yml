@@ -26,5 +26,17 @@ jobs:
       - name: Install pinned shellcheck
         run: ./scripts/install-shellcheck.sh
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install locked Node deps
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint
+
       - name: Run unified validator
         run: ./scripts/validate.sh
