@@ -136,12 +136,13 @@ sync_cursor_target() {
 
     if [[ $do_rules -eq 1 ]]; then
         step=$((step + 1))
-        printf '\n%s[%d/%d] Link Cursor rules (CLAUDE.md + AGENTS.md)%s\n' "${BOLD}" "$step" "$total" "${NC}"
-        # NOTE: linked at the ~/.cursor/ top level, NOT inside ~/.cursor/rules/.
-        # The base step's rsync --delete on ~/.cursor/rules/ would clobber a link
-        # placed inside that directory.
-        link_rules_file "${SCRIPT_DIR}/ycc/settings/rules/CLAUDE.md" "${cursor_dir}/CLAUDE.md"
-        link_rules_file "${SCRIPT_DIR}/ycc/settings/rules/AGENTS.md" "${cursor_dir}/AGENTS.md"
+        printf '\n%s[%d/%d] Cursor rules: user rules are settings-managed%s\n' "${BOLD}" "$step" "$total" "${NC}"
+        # Official docs describe User Rules in Settings (Customize → Rules).
+        # File-based global provisioning is unsupported/unverified, so link nothing.
+        # Project rules use .cursor/rules/*.mdc or AGENTS.md. https://cursor.com/docs/rules
+        info "To install these rules for Cursor, paste ycc/settings/rules/CLAUDE.md"
+        info "into Cursor Settings → Rules (User Rules)."
+        # Links from older installs are left alone; 'remove --intent rules' still unlinks them.
     fi
 
     printf '\n%sCursor %s complete.%s\n' "${BOLD}" "${COMMAND}" "${NC}"

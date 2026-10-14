@@ -55,6 +55,16 @@ project scope; pass `--global` to keep writing the user config. See
 [Project Vs Global Scope](README.md#project-vs-global-scope) and
 [Removing Installed Config](README.md#removing-installed-config).
 
+## Global Rules
+
+opencode loads `~/.config/opencode/AGENTS.md`; see the
+[official rules guide](https://opencode.ai/docs/rules). The generated bundle copies
+the tool-neutral source `ycc/settings/rules/CLAUDE.md` verbatim after a generated
+header, without filename or runtime substitutions. The `rules` step refuses to
+replace a real user rules file without `--force`. No additional global filename
+is linked. This is distinct from repo-local `AGENTS.md` loading and Claude
+compatibility fallbacks.
+
 ## Plugins
 
 The generated `opencode.json` declares the bundle's shared OpenCode V2 plugins in

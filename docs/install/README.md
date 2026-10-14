@@ -76,7 +76,7 @@ or `source <(ycc completion --shell zsh)`.
 | `agents`   | Standalone agents, one entry each, in the tool's own agents dir (no plugin).                |
 | `commands` | Slash commands: standalone skills on claude (alias), generated native commands on opencode. |
 | `settings` | Merge repo-managed config keys (models, effort levels, statusline, ...).                    |
-| `rules`    | Symlink shared rule files so rule edits flow across runtimes.                               |
+| `rules`    | Symlink the global rules file each runtime reads (Cursor: manual, see its page).            |
 | `mcp`      | Merge MCP server definitions into the target's MCP surface.                                 |
 | `hooks`    | Merge hook configuration; Claude also links the hook scripts directory.                     |
 | `plugins`  | Merge plugin enablement and marketplace entries. Add `base` for CLI-side registration too.  |
@@ -98,6 +98,13 @@ Per-target mapping (intents a target cannot execute are skipped with a notice):
 | `mods`     | `mods`             | no-op      | no-op      | no-op      |
 
 `sync` is exclusive: it never implicitly runs `base`.
+
+Global instructions are linked as `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, or
+`~/.config/opencode/AGENTS.md`, not both filenames. Cursor User Rules are
+settings-configured; `rules` prints manual guidance and provisions no files
+(file-based user-global provisioning is unsupported/unverified). See each target
+page for official loading references. Install/sync preserves legacy rule links;
+remove still unlinks only links to this checkout.
 
 ### Standalone Slices
 

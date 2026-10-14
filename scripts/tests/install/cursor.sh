@@ -63,4 +63,25 @@ leftover="$(find "${home}/.cursor/skills" -mindepth 1 -maxdepth 1 -printf '%f\n'
 if [[ "${leftover}" == "my-own-skill" ]]; then ok "cursor skills remove drops only bundle skills"; else ko "cursor skills remove drops only bundle skills" "${leftover}"; fi
 if [[ -n "$(ls -A "${home}/.cursor/agents")" && -n "$(ls -A "${home}/.cursor/rules")" ]]; then ok "cursor skills remove keeps agents + rules"; else ko "cursor skills remove keeps agents + rules"; fi
 
+echo
+echo "== install.sh rules: cursor provisions no global rules files =="
+
+home="$(new_home)"
+install_must_succeed "${home}" install --target cursor --only rules
+out="${INSTALL_OUT}"
+assert_contains "${out}" "Cursor Settings → Rules" "cursor rules prints manual User Rules guidance"
+for f in CLAUDE.md AGENTS.md; do
+    if [[ ! -e "${home}/.cursor/${f}" && ! -L "${home}/.cursor/${f}" ]]; then ok "cursor rules creates no ~/.cursor/${f}"; else ko "cursor rules creates no ~/.cursor/${f}"; fi
+done
+
+home="$(new_home)"
+ln -s "${REPO_ROOT}/ycc/settings/rules/CLAUDE.md" "${home}/.cursor/CLAUDE.md"
+ln -s "${REPO_ROOT}/ycc/settings/rules/AGENTS.md" "${home}/.cursor/AGENTS.md"
+install_must_succeed "${home}" install --target cursor --only rules
+if [[ -L "${home}/.cursor/CLAUDE.md" && -L "${home}/.cursor/AGENTS.md" ]]; then ok "cursor install leaves legacy links alone"; else ko "cursor install leaves legacy links alone"; fi
+install_must_succeed "${home}" remove --target cursor --intent rules
+for f in CLAUDE.md AGENTS.md; do
+    if [[ ! -e "${home}/.cursor/${f}" && ! -L "${home}/.cursor/${f}" ]]; then ok "cursor remove unlinks legacy ~/.cursor/${f}"; else ko "cursor remove unlinks legacy ~/.cursor/${f}"; fi
+done
+
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then install_tests_finish; fi

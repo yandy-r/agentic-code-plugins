@@ -263,4 +263,4 @@ path via `Working directory:`. Do **not** rely on `Agent(isolation: "worktree")`
 for per-task fan-out in these workflows, because the harness will create distinct
 harness worktrees per agent. The hook body lives at
 `ycc/settings/hooks/worktree-create.sh`. The full worktree placement policy is
-documented in `ycc/settings/rules/AGENTS.md:207–224`.
+documented in the worktree section of the user-global rules (`ycc/settings/rules/AGENTS.md`).

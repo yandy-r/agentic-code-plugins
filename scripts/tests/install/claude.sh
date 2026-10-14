@@ -299,4 +299,25 @@ if out="$(python3 "${REPO_ROOT}/scripts/test_install_slices_legacy.py" 2>&1)"; t
 # A copy the 'base' step mirrored is identical to the bundle, so a slice
 # remove takes it back even without a recorded install.
 
+echo
+echo "== install.sh rules: claude links only CLAUDE.md, legacy links removable =="
+
+home="$(new_home)"
+install_must_succeed "${home}" install --target claude --only rules
+if [[ -L "${home}/.claude/CLAUDE.md" && "$(readlink "${home}/.claude/CLAUDE.md")" == "${REPO_ROOT}/ycc/settings/rules/CLAUDE.md" ]]; then ok "claude rules links CLAUDE.md"; else ko "claude rules links CLAUDE.md"; fi
+if [[ ! -e "${home}/.claude/AGENTS.md" && ! -L "${home}/.claude/AGENTS.md" ]]; then ok "claude rules no longer links the unread AGENTS.md"; else ko "claude rules no longer links the unread AGENTS.md"; fi
+
+# A legacy AGENTS.md link survives install and is removed by remove; a real file never is.
+home="$(new_home)"
+ln -s "${REPO_ROOT}/ycc/settings/rules/AGENTS.md" "${home}/.claude/AGENTS.md"
+install_must_succeed "${home}" install --target claude --only rules
+if [[ -L "${home}/.claude/AGENTS.md" ]]; then ok "claude install leaves a legacy AGENTS.md link alone"; else ko "claude install leaves a legacy AGENTS.md link alone"; fi
+install_must_succeed "${home}" remove --target claude --intent rules
+if [[ ! -e "${home}/.claude/AGENTS.md" && ! -L "${home}/.claude/AGENTS.md" ]]; then ok "claude remove unlinks the legacy AGENTS.md link"; else ko "claude remove unlinks the legacy AGENTS.md link"; fi
+
+home="$(new_home)"
+echo "# mine" > "${home}/.claude/AGENTS.md"
+install_must_succeed "${home}" remove --target claude --intent rules --force
+assert_contains "$(cat "${home}/.claude/AGENTS.md" 2>/dev/null)" "# mine" "claude remove keeps a real AGENTS.md even with --force"
+
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then install_tests_finish; fi
