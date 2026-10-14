@@ -1,6 +1,6 @@
 ---
 name: go-patterns
-description: 'Guides idiomatic Go design, errors, and concurrency. Use when structuring Go packages, handling wrapped errors, or managing goroutines and cancellation.'
+description: 'Use when structuring Go packages or service layers, handling wrapped errors, or managing goroutines and context cancellation. Guides idiomatic Go package layout.'
 ---
 
 # Go Development Patterns

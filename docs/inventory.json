@@ -62,7 +62,7 @@
     },
     {
       "name": "go-patterns",
-      "description": "Guides idiomatic Go design, errors, and concurrency. Use when structuring Go packages, handling wrapped errors, or managing goroutines and cancellation."
+      "description": "Use when structuring Go packages or service layers, handling wrapped errors, or managing goroutines and context cancellation. Guides idiomatic Go package layout."
     },
     {
       "name": "go-testing",
@@ -90,11 +90,11 @@
     },
     {
       "name": "plan",
-      "description": "Creates lightweight conversational implementation plans and waits for approval. Use when outlining an approach, breaking down a change before coding, or comparing implementation options."
+      "description": "Use when comparing two implementation options or walking through tradeoffs before committing to one, breaking a change into steps, or planning conversationally for approval."
     },
     {
       "name": "plan-workflow",
-      "description": "Researches, analyzes, and validates feature plans with checkpoints. Use when running research-to-plan workflow, producing shared.md and parallel-plan.md, or reviewing research before planning."
+      "description": "Use when validating existing research docs before planning, running a research-to-plan workflow, or producing shared.md and parallel-plan.md. Researches and validates plans with checkpoints."
     },
     {
       "name": "pr-autofix",
@@ -260,7 +260,7 @@
     },
     {
       "name": "go-patterns",
-      "description": "Guides idiomatic Go design, errors, and concurrency. Use when structuring Go packages, handling wrapped errors, or managing goroutines and cancellation."
+      "description": "Use when structuring Go packages or service layers, handling wrapped errors, or managing goroutines and context cancellation. Guides idiomatic Go package layout."
     },
     {
       "name": "go-testing",
@@ -288,11 +288,11 @@
     },
     {
       "name": "plan",
-      "description": "Creates lightweight conversational implementation plans and waits for approval. Use when outlining an approach, breaking down a change before coding, or comparing implementation options."
+      "description": "Use when comparing two implementation options or walking through tradeoffs before committing to one, breaking a change into steps, or planning conversationally for approval."
     },
     {
       "name": "plan-workflow",
-      "description": "Researches, analyzes, and validates feature plans with checkpoints. Use when running research-to-plan workflow, producing shared.md and parallel-plan.md, or reviewing research before planning."
+      "description": "Use when validating existing research docs before planning, running a research-to-plan workflow, or producing shared.md and parallel-plan.md. Researches and validates plans with checkpoints."
     },
     {
       "name": "pr-autofix",
