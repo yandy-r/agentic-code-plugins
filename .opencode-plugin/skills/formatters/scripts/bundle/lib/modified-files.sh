@@ -166,9 +166,8 @@ symlink_target_is_linted() {
   target_rel="$(path_relative_to_root "$resolved_root" "$resolved_target")" || return 1
   [[ -n "$target_rel" && ! -L "$root_dir/$target_rel" ]] || return 1
 
-  if is_git_repo "$root_dir"; then
-    git -C "$root_dir" ls-files --error-unmatch -- "$target_rel" >/dev/null 2>&1 || return 1
-  fi
+  is_git_repo "$root_dir" || return 1
+  git -C "$root_dir" ls-files --error-unmatch -- ":(literal)$target_rel" >/dev/null 2>&1 || return 1
 
   path_matches_filter "$target_rel" "$prefix" "$@"
 }
