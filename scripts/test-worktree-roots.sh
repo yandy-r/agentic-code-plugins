@@ -12,9 +12,33 @@
 #   - gitignore template and generated bundles ignore every root
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+REPO_ROOT="$(cd "$(dirname "$SELF")/.." && pwd)"
 SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/ycc-worktree-roots.XXXXXX")"
 trap 'rm -rf "$SCRATCH"' EXIT
+
+# Git hooks (pre-push runs validate.sh) export GIT_DIR and friends; left set,
+# they would point every scratch `git` call at the caller's repository —
+# polluting its refs, worktree registrations, and config. Clear them all before
+# any git operation, then pin git to a scratch config so neither system nor
+# global config is read or written.
+while IFS= read -r git_var; do
+  unset "$git_var"
+done < <(git rev-parse --local-env-vars)
+unset git_var
+export GIT_CONFIG_NOSYSTEM=1
+export GIT_CONFIG_GLOBAL="${SCRATCH}/gitconfig"
+cat >"${GIT_CONFIG_GLOBAL}" <<'EOF'
+[user]
+	name = ycc test
+	email = ycc-test@example.invalid
+[init]
+	defaultBranch = main
+[commit]
+	gpgsign = false
+[tag]
+	gpgsign = false
+EOF
 
 FAILED=0
 pass() { printf 'PASS: %s\n' "$*"; }
@@ -196,6 +220,45 @@ for f in \
     grep -qxF "$r" "$f" && pass "$(basename "$(dirname "$f")")/$(basename "$f") ignores $r" || fail "${f#"$REPO_ROOT"/} missing $r"
   done
 done
+
+# Regression (YAN-1111 push incident): when this suite runs inside a git hook,
+# GIT_DIR/GIT_WORK_TREE/GIT_COMMON_DIR point at a foreign repository. Re-invoke
+# the full suite with those vars aimed at a disposable sentinel repo and assert
+# the sentinel's git state is byte-identical afterwards. The sentinel is a
+# scratch repo under this run's temp dir — never a real checkout.
+if [[ -z "${YCC_WT_ROOTS_SELFTEST:-}" ]]; then
+  SENTINEL="${SCRATCH}/sentinel repo"
+  make_repo "$SENTINEL"
+  git -C "$SENTINEL" worktree add -q -b sentinel-peer "${SCRATCH}/sentinel peer"
+  snapshot_git_state() { # <repo> -> deterministic listing+digest of .git
+    find "$1/.git" -mindepth 1 | sort | while IFS= read -r path; do
+      if [[ -d "$path" ]]; then
+        printf 'd %s\n' "${path#"$1"/}"
+      else
+        printf 'f %s %s\n' "${path#"$1"/}" "$(sha256sum "$path" | cut -d' ' -f1)"
+      fi
+    done
+  }
+  before="$(snapshot_git_state "$SENTINEL")"
+
+  nested_output="$(cd / && YCC_WT_ROOTS_SELFTEST=1 \
+    GIT_DIR="${SENTINEL}/.git" \
+    GIT_WORK_TREE="$SENTINEL" \
+    GIT_COMMON_DIR="${SENTINEL}/.git" \
+    GIT_INDEX_FILE="${SENTINEL}/.git/index" \
+    GIT_OBJECT_DIRECTORY="${SENTINEL}/.git/objects" \
+    GIT_PREFIX="sentinel-prefix/" \
+    bash "$SELF" 2>&1)" || nested_output="${nested_output}
+(nested run exited nonzero)"
+
+  after="$(snapshot_git_state "$SENTINEL")"
+  assert_eq "hook-env selftest leaves foreign repo untouched" "$before" "$after"
+  if grep -q 'test-worktree-roots.sh: all checks passed' <<<"$nested_output"; then
+    pass "hook-env selftest nested suite passed"
+  else
+    fail "hook-env selftest nested suite failed: ${nested_output##*$'\n'}"
+  fi
+fi
 
 if [[ "$FAILED" -ne 0 ]]; then
   echo "test-worktree-roots.sh: FAILED" >&2
