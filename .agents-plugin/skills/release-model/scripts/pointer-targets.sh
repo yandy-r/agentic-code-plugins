@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 root = Path(sys.argv[1])
-claude = root / "AGENTS.md"
+claude = root / "CLAUDE.md"
 imports_agents = False
 if claude.is_file():
     text = re.sub(r"<!--.*?-->", "", claude.read_text(encoding="utf-8"), flags=re.S)
@@ -33,11 +33,11 @@ if claude.is_file():
             break
 
 if imports_agents and not (root / "AGENTS.md").is_file():
-    print("pointer-targets: AGENTS.md imports missing AGENTS.md; repair the import first", file=sys.stderr)
+    print("pointer-targets: CLAUDE.md imports missing AGENTS.md; repair the import first", file=sys.stderr)
     sys.exit(1)
 
-for rel in ("AGENTS.md", "AGENTS.md", ".github/copilot-instructions.md"):
-    if rel == "AGENTS.md" and imports_agents:
+for rel in ("CLAUDE.md", "AGENTS.md", ".github/copilot-instructions.md"):
+    if rel == "CLAUDE.md" and imports_agents:
         continue
     if (root / rel).is_file():
         print(rel)

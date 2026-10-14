@@ -119,6 +119,14 @@ get_key() {
 # ---------------------------------------------------------------------------
 
 test_pointer_targets() {
+  local target
+  for target in .codex-plugin/ycc/skills .opencode-plugin/skills .agents-plugin/skills .cursor-plugin/skills; do
+    if cmp -s "$POINTER_TARGETS" "$REPO_ROOT/$target/release-model/scripts/pointer-targets.sh"; then
+      ok "pointer-targets: $target preserves cross-runtime filenames verbatim"
+    else
+      ko "pointer-targets: $target preserves cross-runtime filenames verbatim"
+    fi
+  done
   local dir out
   dir="$(mktemp -d "${SANDBOX_ROOT}/ptr.XXXXXX")"
   mkdir -p "${dir}/.github"

@@ -96,6 +96,7 @@ VERBATIM_SKILL_FILES: frozenset[str] = frozenset(
         "compatibility-audit/scripts/audit-install-assumptions.sh",
         "compatibility-audit/scripts/audit-target-features.sh",
         "compatibility-audit/references/reading-the-report.md",
+        "release-model/scripts/pointer-targets.sh",
     }
 )
 """Skill-tree source files that must be copied verbatim into the Codex bundle.
