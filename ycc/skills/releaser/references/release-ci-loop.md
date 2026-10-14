@@ -187,6 +187,12 @@ The monitor wrote one JSONL line to the audit log with the failed run's metadata
    <!-- recut-transaction -->
 
    ```bash
+   TAG="${TAG:-}"
+   FIX_SHA="${FIX_SHA:-}"
+   RELEASED_SHA="${RELEASED_SHA:-}"
+   NOTES_PATH="${NOTES_PATH:-}"
+   RELEASE_BRANCH="${RELEASE_BRANCH:-}"
+   PUBLISHER="${PUBLISHER:-}"
    recovery() {
      printf 'RESULT=loop-blocked\nRECOVERY_STEP=%s\nTAG=%s\nFIX_SHA=%s\n' "$1" "$TAG" "$FIX_SHA"
      git show-ref --verify "refs/tags/$TAG" || true
@@ -196,6 +202,8 @@ The monitor wrote one JSONL line to the audit log with the failed run's metadata
    }
    [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]] || recovery preflight-tag
    [[ "$FIX_SHA" =~ ^[0-9a-f]{40}$ ]] || recovery preflight-sha
+   test -n "$RELEASED_SHA" || recovery preflight-released-sha
+   test -n "$RELEASE_BRANCH" || recovery preflight-branch
    test -r "$NOTES_PATH" && test -x "$PUBLISHER" || recovery preflight-files
    test "$(git rev-parse HEAD)" = "$FIX_SHA" || recovery preflight-head
    test "$(git ls-remote origin "refs/heads/$RELEASE_BRANCH" | cut -f1)" = "$FIX_SHA" || recovery preflight-remote-head
