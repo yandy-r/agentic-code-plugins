@@ -9,6 +9,7 @@ REPO_ROOT="${PRACTICES_ROOT:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 for required in \
     "${SCRIPT_DIR}/validate_practices.py" \
     "${SCRIPT_DIR}/practices_parse.py" \
+    "${SCRIPT_DIR}/practices_rules.py" \
     "${REPO_ROOT}/scripts/practices-baseline.json" \
     "${REPO_ROOT}/ycc"; do
     if [[ ! -e "${required}" ]]; then
