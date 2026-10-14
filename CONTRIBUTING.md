@@ -54,10 +54,8 @@ ln -s "$(pwd)/ycc/settings/hooks" ~/.claude/hooks
 
 Run this once from the repo root. After that, Claude Code will invoke
 `ycc/settings/hooks/worktree-create.sh` whenever it would otherwise create a worktree
-under `<repo>/.claude/worktrees/`, redirecting it to `~/.claude-worktrees/` instead.
-Until this symlink is created, `Agent(isolation: "worktree")` falls back to the harness
-default and creates worktrees under `<repo>/.claude/worktrees/` (the path the policy in
-`ycc/settings/rules/CLAUDE.md:207–224` specifically tries to avoid).
+under `<repo>/.claude/worktrees/`, keeping it in that harness-managed root.
+See the Worktrees section of `ycc/settings/rules/CLAUDE.md` for placement policy.
 
 ## Repository Model
 

@@ -366,9 +366,11 @@ sync_codex_target() {
 
     if [[ $do_rules -eq 1 ]]; then
         step=$((step + 1))
-        printf '\n%s[%d/%d] Link Codex rules (default.rules + CLAUDE.md + AGENTS.md)%s\n' "${BOLD}" "$step" "$total" "${NC}"
+        printf '\n%s[%d/%d] Link Codex rules (default.rules + AGENTS.md)%s\n' "${BOLD}" "$step" "$total" "${NC}"
+        # Codex loads global instructions from AGENTS.md under $CODEX_HOME;
+        # CLAUDE.md is not a native global filename, so only AGENTS.md is linked.
+        # https://developers.openai.com/codex/guides/agents-md
         link_file       "${SCRIPT_DIR}/.codex-plugin/config/default.rules" "${HOME}/.codex/rules/default.rules"
-        link_rules_file "${SCRIPT_DIR}/ycc/settings/rules/CLAUDE.md"       "${HOME}/.codex/CLAUDE.md"
         link_rules_file "${SCRIPT_DIR}/ycc/settings/rules/AGENTS.md"       "${HOME}/.codex/AGENTS.md"
     fi
 

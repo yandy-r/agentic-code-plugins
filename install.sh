@@ -106,7 +106,7 @@ plugins, mods):
     agents    ~/.agents/skills/<name> (+ ~/.agents/ycc-shared/), read by Zed,
               Codex, opencode, Cursor, Gemini CLI, Copilot, Amp, Goose, Windsurf
   settings  Merge repo-managed config keys (models, effort levels, ...).
-  rules     Symlink the shared CLAUDE.md / AGENTS.md ruleset.
+  rules     Link native global instructions (Cursor: manual Settings guidance).
   mcp       Merge MCP server definitions.
   hooks     Merge hook config; claude also links the hook scripts directory.
   plugins   Merge plugin enablement and marketplace entries. Add 'base' too
@@ -223,9 +223,9 @@ Options:
                       Refuses to replace a real rules file without --force;
                       replaces existing symlinks idempotently. Mode-agnostic.
                       Scope per target:
-                        claude   — CLAUDE.md, AGENTS.md at ~/.claude/
-                        cursor   — CLAUDE.md, AGENTS.md at ~/.cursor/
-                        codex    — default.rules, CLAUDE.md, AGENTS.md at ~/.codex/
+                        claude   — CLAUDE.md at ~/.claude/
+                        cursor   — manual User Rules in Settings; no file links
+                        codex    — default.rules + AGENTS.md at ~/.codex/
                         opencode — AGENTS.md at ~/.config/opencode/
   --mcp               Additive: also run the target's 'mcp' step. Mode-agnostic.
                       Scope follows --project (default) / --global.
@@ -290,7 +290,7 @@ Target steps:
                       ~/.claude/settings.json and COPY statusline-command.sh.
                       Local edits and CLI-written marketplace entries are
                       preserved unless --force resolves a managed conflict.
-            rules:    symlink ycc/settings/rules/{CLAUDE.md,AGENTS.md} into
+            rules:    symlink ycc/settings/rules/CLAUDE.md into
                       ~/.claude/.
             mcp:      merge mcp-configs/mcp.json mcpServers into <project>/.mcp.json
                       (--project, default) or ~/.claude.json (--global).
@@ -313,9 +313,9 @@ Target steps:
                       ~/.cursor/cli-config.json (main CLI model preference).
             mcp:      merge mcp-configs/mcp.json mcpServers into
                       <project>/.cursor/mcp.json or ~/.cursor/mcp.json.
-            rules:    symlink ycc/settings/rules/{CLAUDE.md,AGENTS.md} into
-                      ~/.cursor/ (top level — NOT inside ~/.cursor/rules/, which
-                      is rsynced with --delete during 'base').
+            rules:    print manual User Rules instructions (Settings → Rules).
+                      File-based user-global provisioning is unsupported/unverified;
+                      no ~/.cursor/CLAUDE.md or AGENTS.md links are created.
                       Cursor sub-agent models are set per generated agent file
                       in .cursor-plugin/agents/, not in cli-config.json.
   codex     base | skills | agents | settings | rules | mcp
@@ -339,7 +339,7 @@ Target steps:
             mcp:      merge [mcp_servers.*] from .codex-plugin/config/config.toml
                       into <project>/.codex/config.toml or ~/.codex/config.toml.
             rules:    symlink .codex-plugin/config/default.rules AND
-                      ycc/settings/rules/{CLAUDE.md,AGENTS.md} into ~/.codex/.
+                      ycc/settings/rules/AGENTS.md into ~/.codex/.
   opencode  base | skills | agents | commands | settings | rules | mcp
             base:     generate + validate + format + rsync skills/agents/commands
                       into ~/.config/opencode/.
@@ -378,11 +378,11 @@ Examples:
   $(basename "$0") install --target claude --only hooks            # hooks only
   $(basename "$0") install --target cursor                         # base only
   $(basename "$0") install --target cursor --mcp                   # base + mcp
-  $(basename "$0") install --target cursor --rules                 # base + rules symlinks
+  $(basename "$0") install --target cursor --rules                 # base + manual User Rules guidance
   $(basename "$0") install --target cursor --only rules            # rules only
   $(basename "$0") install --target codex --settings --rules       # base + merge config + link rules
   $(basename "$0") install --target codex --only settings          # merge config.toml only
-  $(basename "$0") install --target codex --only rules             # link default.rules + CLAUDE.md + AGENTS.md
+  $(basename "$0") install --target codex --only rules             # link default.rules + AGENTS.md
   $(basename "$0") install --target opencode                       # base only
   $(basename "$0") install --target opencode --settings --rules    # base + merge opencode.json + link AGENTS.md
   $(basename "$0") install --target opencode --only skills,agents  # just skills + agents

@@ -39,4 +39,9 @@ if [[ ! -f "${BUNDLE_ROOT}/AGENTS.md" ]]; then
   exit 1
 fi
 
+echo "== Global rules budgets and artifact assertions =="
+python3 "${REPO_ROOT}/scripts/validate_global_rules.py" \
+  "${REPO_ROOT}/ycc/settings/rules/CLAUDE.md" "${BUNDLE_ROOT}/AGENTS.md"
+python3 "${REPO_ROOT}/scripts/test_generate_opencode_plugin.py"
+
 echo "OK: opencode plugin metadata is in sync and valid."

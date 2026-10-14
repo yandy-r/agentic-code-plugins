@@ -39,7 +39,7 @@ Step behavior:
 | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `base`                         | Runs `claude plugin marketplace add <repo> --scope user` and `claude plugin install ycc@ycc --scope user`.                                                                                                                                                                                |
 | `settings`                     | Merges managed keys from `ycc/settings/settings.json` into `~/.claude/settings.json` and copies `ycc/settings/statusline-command.sh` into `~/.claude/`.                                                                                                                                   |
-| `rules`                        | Symlinks `ycc/settings/rules/CLAUDE.md` and `AGENTS.md` into `~/.claude/`.                                                                                                                                                                                                                |
+| `rules`                        | Symlinks `ycc/settings/rules/CLAUDE.md` into `~/.claude/CLAUDE.md`, the user memory file Claude Code reads.                                                                                                                                                                               |
 | `mcp`                          | Merges `mcp-configs/mcp.json` into `<project>/.mcp.json` (or `~/.claude.json` with `--global`).                                                                                                                                                                                           |
 | `hooks`                        | Symlinks `ycc/settings/hooks/` into `~/.claude/hooks/`.                                                                                                                                                                                                                                   |
 | `skills`, `agents`, `commands` | Claude `skills` installs standalone skill entries; `commands` is a compatibility alias for that same install. `agents` copies standalone agents. Skills are native `/name` invocations; `user-invocable: false` skills stay hidden. See [Standalone Slices](README.md#standalone-slices). |
@@ -48,8 +48,18 @@ Step behavior:
 Settings are merge-safe: unmanaged local keys are preserved, and managed keys
 you changed locally are kept unless `--force` is passed. Model defaults are
 `claude-fable-5-1` at Medium effort for the main session and `opus[1m]` at High
-effort for subagents. `--rules` symlinks rules so rule edits stay shared across
-runtimes.
+effort for subagents. `--rules` symlinks the global rules file so edits stay live.
+
+## Global Rules
+
+Claude Code documents `~/.claude/CLAUDE.md` as its user memory file
+([official memory guide](https://code.claude.com/docs/en/memory)). The `rules`
+step links only that file. Older `~/.claude/AGENTS.md` links are left alone on
+install; `remove --intent rules` still removes them if owned by this checkout.
+Real files and foreign links are preserved on remove.
+
+The directory-source plugin install model is local-mode guidance below, not a
+user-global instruction: it does not belong in every project's rules prompt.
 
 ## Local Vs Repo Mode
 

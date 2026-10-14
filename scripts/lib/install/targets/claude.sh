@@ -289,9 +289,11 @@ sync_claude_target() {
         ran=1
     fi
     if step_enabled rules; then
-        printf '\n%sClaude: link rules (CLAUDE.md + AGENTS.md)%s\n' "${BOLD}" "${NC}"
+        printf '\n%sClaude: link rules (CLAUDE.md)%s\n' "${BOLD}" "${NC}"
+        # Documented user memory filename; do not also install a pointer prompt.
+        # Leave legacy AGENTS.md links intact; remove still unlinks owned links.
+        # https://code.claude.com/docs/en/memory
         link_rules_file "${SCRIPT_DIR}/ycc/settings/rules/CLAUDE.md" "${HOME}/.claude/CLAUDE.md"
-        link_rules_file "${SCRIPT_DIR}/ycc/settings/rules/AGENTS.md" "${HOME}/.claude/AGENTS.md"
         ran=1
     fi
     if step_enabled mcp; then

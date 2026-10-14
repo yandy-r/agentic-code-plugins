@@ -30,14 +30,14 @@ The step-flag `install` form is equivalent:
 
 Step behavior:
 
-| Step       | Effect                                                                                                     |
-| ---------- | ---------------------------------------------------------------------------------------------------------- |
-| `base`     | Generates and validates `.cursor-plugin/{skills,agents,rules}/`, then rsyncs them into `~/.cursor/`.       |
-| `skills`   | Generates the skills and installs each into `~/.cursor/skills/<name>`, leaving your own skills alone.      |
-| `agents`   | Generates the agents and installs each into `~/.cursor/agents/<name>.md`.                                  |
-| `settings` | Merges `.cursor-plugin/config/cli-config.json` into `~/.cursor/cli-config.json`.                           |
-| `rules`    | Symlinks `ycc/settings/rules/CLAUDE.md` and `AGENTS.md` into `~/.cursor/`.                                 |
-| `mcp`      | Merges `mcp-configs/mcp.json` into `<project>/.cursor/mcp.json` (or `~/.cursor/mcp.json` with `--global`). |
+| Step       | Effect                                                                                                                        |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `base`     | Generates and validates `.cursor-plugin/{skills,agents,rules}/`, then rsyncs them into `~/.cursor/`.                          |
+| `skills`   | Generates the skills and installs each into `~/.cursor/skills/<name>`, leaving your own skills alone.                         |
+| `agents`   | Generates the agents and installs each into `~/.cursor/agents/<name>.md`.                                                     |
+| `settings` | Merges `.cursor-plugin/config/cli-config.json` into `~/.cursor/cli-config.json`.                                              |
+| `rules`    | Links nothing: Cursor User Rules are set in Settings → Rules, not a file. Prints how to paste `ycc/settings/rules/CLAUDE.md`. |
+| `mcp`      | Merges `mcp-configs/mcp.json` into `<project>/.cursor/mcp.json` (or `~/.cursor/mcp.json` with `--global`).                    |
 
 Cursor has no `commands`, `hooks` or `plugins` step; those intents are reported
 as no-ops. The generated `rules/` bundle unit ships with `base` only.
@@ -85,17 +85,19 @@ directories, so use the default local mode.
 
 ## Installed Surfaces
 
-| Surface                | Location                                             |
-| ---------------------- | ---------------------------------------------------- |
-| Skills                 | `~/.cursor/skills/`                                  |
-| Agents                 | `~/.cursor/agents/`                                  |
-| Cursor rules           | `~/.cursor/rules/`                                   |
-| Shared top-level rules | `~/.cursor/CLAUDE.md`, `~/.cursor/AGENTS.md`         |
-| CLI config             | `~/.cursor/cli-config.json`                          |
-| MCP config             | `<project>/.cursor/mcp.json` or `~/.cursor/mcp.json` |
+| Surface      | Location                                             |
+| ------------ | ---------------------------------------------------- |
+| Skills       | `~/.cursor/skills/`                                  |
+| Agents       | `~/.cursor/agents/`                                  |
+| Cursor rules | `~/.cursor/rules/`                                   |
+| CLI config   | `~/.cursor/cli-config.json`                          |
+| MCP config   | `<project>/.cursor/mcp.json` or `~/.cursor/mcp.json` |
 
-The top-level rule links intentionally live outside `~/.cursor/rules/` because
-the `base` step rsyncs `~/.cursor/rules/` with `--delete`.
+Cursor User Rules live in Cursor Settings (Customize → Rules); file-based
+user-global provisioning is unsupported/unverified per
+[cursor.com/docs/rules](https://cursor.com/docs/rules), so `rules` creates no
+files. Older `~/.cursor/CLAUDE.md` / `AGENTS.md` links are left in place on
+install and removed by `remove --intent rules` only while they point at this checkout.
 
 ## Regenerate Only Cursor Artifacts
 

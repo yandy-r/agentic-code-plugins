@@ -34,11 +34,10 @@ subscriptions. Machines that need different models override
 ~/.config/opencode/opencode.json rather than this generated bundle file.
 - `mcp`: translated from mcp-configs/mcp.json (Claude Code shape → opencode shape)
 
-AGENTS.md is derived from ycc/settings/rules/CLAUDE.md (the user-global
-generic ruleset) with opencode text transforms applied. The install target
-for .opencode-plugin/AGENTS.md is ~/.config/opencode/AGENTS.md — i.e., the
-user-global opencode rules file — so it must source from the generic
-ycc/settings/rules tree, not this repo's project-specific CLAUDE.md.
+AGENTS.md copies ycc/settings/rules/CLAUDE.md (the tool-neutral user-global
+ruleset) verbatim after a generated-file header. No product, path or filename
+substitution is applied. It installs to ~/.config/opencode/AGENTS.md, so it
+must not source this repo's project-specific contributor instructions.
 
 Source of truth:
 - ycc/.claude-plugin/plugin.json (name/version reference, not emitted)
@@ -51,7 +50,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 import tempfile
 from pathlib import Path
@@ -63,8 +61,6 @@ from generate_opencode_common import (
     REPO_ROOT,
     SOURCE_MCP_PATH,
     SRC_AGENTS_DIR,
-    apply_opencode_text_transforms,
-    load_agent_aliases,
     translate_mcp_servers,
 )
 
@@ -215,52 +211,6 @@ def build_agents_config(settings: dict[str, object]) -> dict[str, object]:
     return {agent_id: {"model": reference} for agent_id, reference in agent_models.items()}
 
 
-def normalize_agents_runtime_syntax(text: str) -> str:
-    """Normalize AGENTS.md invocation examples to canonical `ycc:` form."""
-    normalized = text
-    normalized = normalized.replace("`/ycc:{command}`", "`ycc:{command}`")
-    normalized = normalized.replace('`subagent_type: "ycc:{agent}"`', "`ycc:{agent}`")
-    normalized = normalized.replace("`@ycc:{agent}`", "`ycc:{agent}`")
-    normalized = normalized.replace("`/ycc:clean`", "`ycc:clean`")
-    normalized = normalized.replace("`@codebase-advisor`", "`ycc:codebase-advisor`")
-    normalized = normalized.replace("`/clean`", "`ycc:clean`")
-    normalized = re.sub(r"`@ycc:([a-z0-9-]+)`", r"`ycc:\1`", normalized)
-
-    normalized = re.sub(
-        r"marketplace at `\.opencode-plugin/marketplace\.json`\.",
-        "metadata in `.opencode-plugin/opencode.json` with rules in `.opencode-plugin/AGENTS.md`.",
-        normalized,
-    )
-    marketplace_block_pattern = (
-        r"The marketplace registry at `\.opencode-plugin/marketplace\.json` contains a single entry:\n\n"
-        r"```json\n\{\n  \"name\": \"ycc\",\n  \"version\": \"2\.0\.0\",\n  \"source\": \"\./ycc\"\n\}\n```"
-    )
-    marketplace_block_replacement = (
-        "The opencode bundle metadata is defined in `.opencode-plugin/opencode.json`, "
-        "and its rules are installed separately as the global `~/.config/opencode/AGENTS.md`."
-    )
-    normalized = re.sub(marketplace_block_pattern, marketplace_block_replacement, normalized)
-    normalized = normalized.replace(
-        "├── .opencode-plugin/\n│   └── marketplace.json     # single ycc entry",
-        "├── .claude-plugin/\n│   └── marketplace.json     # single ycc entry",
-    )
-    normalized = normalized.replace(
-        '│   ├── .opencode-plugin/\n│   │   └── plugin.json      # name: "ycc", version bumped by /ycc:bundle-release',
-        '│   ├── .claude-plugin/\n│   │   └── plugin.json      # name: "ycc", version bumped by /ycc:bundle-release',
-    )
-
-    # opencode bundle metadata shape is opencode.json + AGENTS.md.
-    normalized = normalized.replace(
-        "1. Validate JSON with `python3 -m json.tool`:\n"
-        "   - `python3 -m json.tool .opencode-plugin/marketplace.json`\n"
-        "   - `python3 -m json.tool ycc/.opencode-plugin/plugin.json`",
-        "1. Validate bundle metadata outputs:\n"
-        "   - `python3 -m json.tool .opencode-plugin/opencode.json`\n"
-        "   - `test -s .opencode-plugin/AGENTS.md`",
-    )
-    return normalized
-
-
 def load_mcp_block() -> dict[str, object]:
     if not SOURCE_MCP_PATH.is_file():
         return {}
@@ -295,33 +245,21 @@ def build_opencode_config() -> dict[str, object]:
 
 
 def build_agents_md() -> str:
-    """Read ycc/settings/rules/CLAUDE.md (the user-global generic rules) and
-    apply opencode text transforms to produce the bundle's rules file.
+    """Emit the bundle's rules file from ycc/settings/rules/CLAUDE.md.
 
-    .opencode-plugin/AGENTS.md installs to ~/.config/opencode/AGENTS.md, so it
-    must source from the generic user-global rules tree — sourcing from the
-    repo-root CLAUDE.md would leak this project's contributor-specific
-    guidance into every opencode user's global rules.
+    The source is tool-neutral, so it is copied verbatim behind a generated-file
+    header; no product-name or filename substitution runs over it. Sourcing from
+    the repo-root CLAUDE.md would leak this project's contributor guidance into
+    every opencode user's global rules.
     """
     if not SOURCE_RULES_PATH.is_file():
         raise SystemExit(f"opencode plugin generator cannot find {SOURCE_RULES_PATH.relative_to(REPO_ROOT)}")
-
-    source_text = SOURCE_RULES_PATH.read_text(encoding="utf-8")
-
-    aliases = load_agent_aliases()
-    transformed = apply_opencode_text_transforms(
-        source_text,
-        aliases,
-        rewrite_source_paths=False,
-        rewrite_runtime_aliases=False,
-    )
-    transformed = normalize_agents_runtime_syntax(transformed)
 
     header = (
         f"<!-- Generated from {SOURCE_RULES_PATH.relative_to(REPO_ROOT)} "
         "by scripts/generate_opencode_plugin.py — do not edit by hand. -->\n\n"
     )
-    return header + transformed
+    return header + SOURCE_RULES_PATH.read_text(encoding="utf-8")
 
 
 def write_json(path: Path, payload: dict, *, dry_run: bool) -> None:

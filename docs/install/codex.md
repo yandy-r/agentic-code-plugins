@@ -50,13 +50,24 @@ Step behavior:
 | `agents`   | Generates the custom agents and installs each into `~/.codex/agents/<name>.toml`, leaving your own agents alone.                                                                                                                                                                                                                                                                                          |
 | `settings` | Merges managed keys from `.codex-plugin/config/config.toml` into `~/.codex/config.toml`. Plugin enablement lives in the same file, so the `plugins` intent also maps here.                                                                                                                                                                                                                                |
 | `mcp`      | Merges `[mcp_servers.*]` from `.codex-plugin/config/config.toml` into `<project>/.codex/config.toml` (or `~/.codex/config.toml` with `--global`).                                                                                                                                                                                                                                                         |
-| `rules`    | Symlinks `.codex-plugin/config/default.rules`, `CLAUDE.md`, and `AGENTS.md` into `~/.codex/`.                                                                                                                                                                                                                                                                                                             |
+| `rules`    | Symlinks `.codex-plugin/config/default.rules` and `AGENTS.md` into `~/.codex/`; Codex reads `AGENTS.md`, not `CLAUDE.md`.                                                                                                                                                                                                                                                                                 |
 
 Settings merge without rewriting the rest of TOML: comments, local trusted
 projects, account-specific connectors, tokens, and unknown tables stay intact.
 Managed defaults are `gpt-6-astra` at Medium effort for the main agent and
 `gpt-5.6-sol` at High effort for spawned agents (`[agents]` defaults). `--rules`
-symlinks rules so rule edits stay shared across runtimes.
+symlinks the global rules so edits stay live.
+
+## Global Rules
+
+Codex loads global instructions from `~/.codex/AGENTS.md` (or an
+`AGENTS.override.md` under `CODEX_HOME`); see the
+[official AGENTS.md guide](https://learn.chatgpt.com/docs/agent-configuration/agents-md).
+The installer uses the default home path, links the complete tool-neutral body
+as `AGENTS.md`, and does not alter overrides. `default.rules` is separate command
+approval policy. `CLAUDE.md` is not a native global filename: no new link is made.
+Existing legacy links stay in place until `remove --intent rules`, which removes
+only links owned by this checkout, never real files or foreign links.
 
 ## Local Vs Repo Mode
 

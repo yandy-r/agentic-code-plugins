@@ -159,13 +159,9 @@ sync_opencode_target() {
         step=$((step + 1))
         printf '\n%s[%d/%d] Link opencode rules (AGENTS.md)%s\n' "${BOLD}" "$step" "$total" "${NC}"
         mkdir -p "${opencode_dir}"
-        # opencode's AGENTS.md is generator-produced from
-        # ycc/settings/rules/CLAUDE.md (the same user-global ruleset the other
-        # targets symlink directly). See scripts/generate_opencode_plugin.py
-        # for the text transforms applied during generation. We link to the
-        # bundle's AGENTS.md — not directly to ycc/settings/rules/ — so the
-        # transformed copy is what lands in ~/.config/opencode/.
-        link_file "${OPENCODE_PLUGIN_DIR}/AGENTS.md" "${opencode_dir}/AGENTS.md"
+        # Native global rules path: https://opencode.ai/docs/rules
+        # The generator copies the tool-neutral source verbatim behind a header.
+        link_rules_file "${OPENCODE_PLUGIN_DIR}/AGENTS.md" "${opencode_dir}/AGENTS.md"
     fi
 
     if [[ $do_mcp -eq 1 ]]; then

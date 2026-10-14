@@ -166,4 +166,24 @@ assert_contains "$(cat "${home}/.agents/plugins/marketplace.json")" '"ycc"' "cod
 
 echo
 
+echo "== install.sh rules: codex links only AGENTS.md, legacy CLAUDE.md link removable =="
+
+home="$(new_home)"
+install_must_succeed "${home}" install --target codex --only rules
+if [[ -L "${home}/.codex/AGENTS.md" && "$(readlink "${home}/.codex/AGENTS.md")" == "${REPO_ROOT}/ycc/settings/rules/AGENTS.md" ]]; then ok "codex rules links AGENTS.md"; else ko "codex rules links AGENTS.md"; fi
+if [[ -L "${home}/.codex/rules/default.rules" ]]; then ok "codex rules still links default.rules"; else ko "codex rules still links default.rules"; fi
+if [[ ! -e "${home}/.codex/CLAUDE.md" && ! -L "${home}/.codex/CLAUDE.md" ]]; then ok "codex rules no longer links the unread CLAUDE.md"; else ko "codex rules no longer links the unread CLAUDE.md"; fi
+assert_contains "$(readlink -f "${home}/.codex/AGENTS.md" | xargs wc -l | awk '{print ($1 <= 120) ? "within-budget" : "over-budget"}')" "within-budget" "codex AGENTS.md resolves to a within-budget body"
+
+home="$(new_home)"
+ln -s "${REPO_ROOT}/ycc/settings/rules/CLAUDE.md" "${home}/.codex/CLAUDE.md"
+install_must_succeed "${home}" remove --target codex --intent rules
+if [[ ! -e "${home}/.codex/CLAUDE.md" && ! -L "${home}/.codex/CLAUDE.md" ]]; then ok "codex remove unlinks the legacy CLAUDE.md link"; else ko "codex remove unlinks the legacy CLAUDE.md link"; fi
+
+home="$(new_home)"
+echo "# mine" > "${home}/.codex/AGENTS.md"
+out="$(run_install "${home}" install --target codex --only rules)"
+assert_contains "${out}" "refusing to replace user-authored rules file" "codex rules refuses a real AGENTS.md without --force"
+assert_contains "$(cat "${home}/.codex/AGENTS.md")" "# mine" "codex rules keeps the real AGENTS.md"
+
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then install_tests_finish; fi
