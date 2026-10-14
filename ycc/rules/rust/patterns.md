@@ -1,8 +1,7 @@
 ---
 paths:
   - '**/*.rs'
-description: When working on Rust files, apply idiomatic design and resource-management
-  patterns.
+description: When designing Rust enums, traits or response types, match enums exhaustively and apply sealed traits; use the rust-patterns skill.
 ---
 
 # Rust Patterns

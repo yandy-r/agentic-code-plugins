@@ -5,7 +5,7 @@
 - Core Principles
 - Error Handling
 - Enums and Pattern Matching
-- Traits and Generics
+- Traits and Generics (including sealed traits and the serde response envelope)
 
 ## Core Principles
 
@@ -213,3 +213,50 @@ fn get_order_bad(user_id: u64, order_id: u64) -> Result<Order> {
     todo!()
 }
 ```
+
+### Sealed Traits for Closed Extension
+
+Use a private supertrait when a public trait must stay open to use but closed to
+implementation. Downstream crates cannot name `private::Sealed`, so they cannot add
+implementations — new variants stay under this crate's control.
+
+```rust
+mod private {
+    pub trait Sealed {}
+}
+
+pub trait Format: private::Sealed {
+    fn encode(&self, data: &[u8]) -> Vec<u8>;
+}
+
+pub struct Json;
+impl private::Sealed for Json {}
+impl Format for Json {
+    fn encode(&self, data: &[u8]) -> Vec<u8> {
+        todo!()
+    }
+}
+```
+
+Reach for this when the set of implementations must remain under crate control or
+external implementations would break crate invariants; use plain public traits for
+true extension points.
+
+### API Response Envelope with serde
+
+Model API responses as a single internally tagged enum so every endpoint shares one
+consistent wire envelope:
+
+```rust
+#[derive(Debug, serde::Serialize)]
+#[serde(tag = "status")]
+pub enum ApiResponse<T: serde::Serialize> {
+    #[serde(rename = "ok")]
+    Ok { data: T },
+    #[serde(rename = "error")]
+    Error { message: String },
+}
+```
+
+Clients discriminate success from failure on the `status` tag instead of parsing two
+different response shapes.

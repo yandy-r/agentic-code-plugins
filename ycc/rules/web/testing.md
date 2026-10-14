@@ -1,6 +1,5 @@
 ---
-description: When working on web frontend files, apply test organization, framework
-  usage and failure verification.
+description: When testing web frontends, prioritize visual regression, accessibility, performance, cross-browser and responsive checks, then E2E and unit tests.
 paths:
   - '**/*.html'
   - '**/*.css'

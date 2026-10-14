@@ -2,8 +2,7 @@
 paths:
   - '**/*.py'
   - '**/*.pyi'
-description: When working on Python files, apply idiomatic design and resource-management
-  patterns.
+description: When managing Python resources or iteration, use context managers and generators; use the python-patterns skill for idioms.
 ---
 
 # Python Patterns

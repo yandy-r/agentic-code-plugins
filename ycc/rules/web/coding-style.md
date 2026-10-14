@@ -1,6 +1,5 @@
 ---
-description: When working on web frontend files, apply formatting, types and idiomatic
-  error handling.
+description: When editing web frontend files, apply feature-based file layout, CSS design tokens, compositor-only animation, semantic HTML and naming conventions.
 paths:
   - '**/*.html'
   - '**/*.css'

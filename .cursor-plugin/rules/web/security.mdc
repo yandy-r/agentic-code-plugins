@@ -1,6 +1,6 @@
 ---
-description: When working on web frontend files, apply secret management, input boundaries
-  and security checks.
+description: When editing web frontend code or headers, apply CSP, XSS prevention,
+  third-party script, HTTPS header and form-protection checks.
 alwaysApply: false
 globs:
 - '**/*.html'

@@ -3,8 +3,7 @@ paths:
   - '**/*.go'
   - '**/go.mod'
   - '**/go.sum'
-description: When working on Go files, apply idiomatic design and resource-management
-  patterns.
+description: When designing Go interfaces, define small interfaces where they are consumed; use the go-patterns skill for idioms.
 ---
 
 # Go Patterns

@@ -1,6 +1,5 @@
 ---
-description: When working on web frontend files, apply idiomatic design and resource-management
-  patterns.
+description: When building web UI, apply compound components, render-props/slots, container-presentational split, separated state types, URL state and data-fetching patterns.
 paths:
   - '**/*.html'
   - '**/*.css'

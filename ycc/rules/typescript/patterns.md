@@ -4,8 +4,7 @@ paths:
   - '**/*.tsx'
   - '**/*.js'
   - '**/*.jsx'
-description: When working on TypeScript/JavaScript files, apply idiomatic design and
-  resource-management patterns.
+description: When handling external TypeScript/JavaScript input, validate at runtime boundaries; use the ts-patterns skill for idioms.
 ---
 
 # TypeScript/JavaScript Patterns
