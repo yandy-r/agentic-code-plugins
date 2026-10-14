@@ -1,5 +1,6 @@
 ---
-description: Web Testing Rules
+description: When working on web frontend files, apply test organization, framework
+  usage and failure verification.
 alwaysApply: false
 globs:
 - '**/*.html'
@@ -18,7 +19,6 @@ globs:
 - '**/*.vue'
 - '**/*.svelte'
 ---
-> This file extends [common/testing.mdc](../common/testing.mdc) with web-specific testing content.
 
 # Web Testing Rules
 

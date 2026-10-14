@@ -1,5 +1,23 @@
-> This file extends [common/patterns.md](../common/patterns.md) with web-specific design-quality
-> guidance.
+---
+description: When working on web frontend files, apply anti-template design-quality
+  constraints.
+paths:
+  - '**/*.html'
+  - '**/*.css'
+  - '**/*.scss'
+  - '**/*.sass'
+  - '**/*.less'
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+  - '**/*.ts'
+  - '**/*.mts'
+  - '**/*.cts'
+  - '**/*.jsx'
+  - '**/*.tsx'
+  - '**/*.vue'
+  - '**/*.svelte'
+---
 
 # Web Design Quality Standards
 

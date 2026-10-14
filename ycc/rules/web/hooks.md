@@ -1,4 +1,23 @@
-> This file extends [common/hooks.md](../common/hooks.md) with web-specific hook recommendations.
+---
+description: When working on web frontend files, apply hook configuration and formatter/linter
+  recommendations.
+paths:
+  - '**/*.html'
+  - '**/*.css'
+  - '**/*.scss'
+  - '**/*.sass'
+  - '**/*.less'
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+  - '**/*.ts'
+  - '**/*.mts'
+  - '**/*.cts'
+  - '**/*.jsx'
+  - '**/*.tsx'
+  - '**/*.vue'
+  - '**/*.svelte'
+---
 
 # Web Hooks
 

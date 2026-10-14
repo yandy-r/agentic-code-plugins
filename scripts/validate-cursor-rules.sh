@@ -15,9 +15,9 @@ echo "== Content policy (generated rules) =="
 BAD=0
 while IFS= read -r -d '' f; do
   [[ "$f" == *.mdc ]] || continue
-  if grep -qE '/ycc:|~/.claude/|\bycc:|CLAUDE_PLUGIN_ROOT|\$\{HOME\}/\.claude/|\$HOME/\.claude/' "$f" 2>/dev/null; then
+  if grep -qE '/ycc:|~/.claude/|\.claude/settings\.json|Task execution|\bycc:|CLAUDE_PLUGIN_ROOT|\$\{HOME\}/\.claude/|\$HOME/\.claude/' "$f" 2>/dev/null; then
     echo "FORBIDDEN pattern in $f:" >&2
-    grep -nE '/ycc:|~/.claude/|\bycc:|CLAUDE_PLUGIN_ROOT|\$\{HOME\}/\.claude/|\$HOME/\.claude/' "$f" >&2 || true
+    grep -nE '/ycc:|~/.claude/|\.claude/settings\.json|Task execution|\bycc:|CLAUDE_PLUGIN_ROOT|\$\{HOME\}/\.claude/|\$HOME/\.claude/' "$f" >&2 || true
     BAD=1
   fi
   if grep -q 'mcp\*\*' "$f" 2>/dev/null; then

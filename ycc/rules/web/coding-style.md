@@ -1,4 +1,23 @@
-> This file extends [common/coding-style.md](../common/coding-style.md) with web-specific frontend content.
+---
+description: When working on web frontend files, apply formatting, types and idiomatic
+  error handling.
+paths:
+  - '**/*.html'
+  - '**/*.css'
+  - '**/*.scss'
+  - '**/*.sass'
+  - '**/*.less'
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+  - '**/*.ts'
+  - '**/*.mts'
+  - '**/*.cts'
+  - '**/*.jsx'
+  - '**/*.tsx'
+  - '**/*.vue'
+  - '**/*.svelte'
+---
 
 # Web Coding Style
 

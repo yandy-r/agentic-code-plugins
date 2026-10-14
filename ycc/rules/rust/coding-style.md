@@ -1,11 +1,11 @@
 ---
 paths:
   - '**/*.rs'
+description: When working on Rust files, apply formatting, types and idiomatic error
+  handling.
 ---
 
 # Rust Coding Style
-
-> This file extends [common/coding-style.md](../common/coding-style.md) with Rust-specific content.
 
 ## Formatting
 

@@ -1,5 +1,6 @@
 ---
-description: Web Patterns
+description: When working on web frontend files, apply idiomatic design and resource-management
+  patterns.
 alwaysApply: false
 globs:
 - '**/*.html'
@@ -18,7 +19,6 @@ globs:
 - '**/*.vue'
 - '**/*.svelte'
 ---
-> This file extends [common/patterns.mdc](../common/patterns.mdc) with web-specific patterns.
 
 # Web Patterns
 

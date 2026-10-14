@@ -1,3 +1,9 @@
+---
+description: Before committing or changing trust boundaries, check secrets, input
+  validation, injection defenses and safe error reporting.
+alwaysApply: true
+---
+
 # Security Guidelines
 
 ## Mandatory Security Checks

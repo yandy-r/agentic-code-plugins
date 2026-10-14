@@ -1,4 +1,23 @@
-> This file extends [common/testing.md](../common/testing.md) with web-specific testing content.
+---
+description: When working on web frontend files, apply test organization, framework
+  usage and failure verification.
+paths:
+  - '**/*.html'
+  - '**/*.css'
+  - '**/*.scss'
+  - '**/*.sass'
+  - '**/*.less'
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+  - '**/*.ts'
+  - '**/*.mts'
+  - '**/*.cts'
+  - '**/*.jsx'
+  - '**/*.tsx'
+  - '**/*.vue'
+  - '**/*.svelte'
+---
 
 # Web Testing Rules
 

@@ -2,11 +2,11 @@
 paths:
   - '**/*.py'
   - '**/*.pyi'
+description: When working on Python files, apply formatting, types and idiomatic error
+  handling.
 ---
 
 # Python Coding Style
-
-> This file extends [common/coding-style.md](../common/coding-style.md) with Python specific content.
 
 ## Standards
 

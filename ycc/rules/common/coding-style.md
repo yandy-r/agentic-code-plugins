@@ -1,3 +1,9 @@
+---
+description: When implementing or refactoring code, preserve request scope, trust
+  boundaries and observable verification; prefer simple, cohesive code.
+alwaysApply: false
+---
+
 # Coding Style
 
 ## Immutability (CRITICAL)
@@ -82,14 +88,6 @@ ALWAYS validate at system boundaries:
 - Fail fast with clear error messages
 - Never trust external data (API responses, user input, file content)
 
-## Naming Conventions
-
-- Variables and functions: `camelCase` with descriptive names
-- Booleans: prefer `is`, `has`, `should`, or `can` prefixes
-- Interfaces, types, and components: `PascalCase`
-- Constants: `UPPER_SNAKE_CASE`
-- Custom hooks: `camelCase` with a `use` prefix
-
 ## Code Smells to Avoid
 
 ### Deep Nesting
@@ -103,15 +101,3 @@ Use named constants for meaningful thresholds, delays, and limits.
 ### Long Functions
 
 Split large functions into focused pieces with clear responsibilities.
-
-## Code Quality Checklist
-
-Before marking work complete:
-
-- [ ] Code is readable and well-named
-- [ ] Functions are small (<50 lines)
-- [ ] Files are focused (<800 lines)
-- [ ] No deep nesting (>4 levels)
-- [ ] Proper error handling
-- [ ] No hardcoded values (use constants or config)
-- [ ] No mutation (immutable patterns used)

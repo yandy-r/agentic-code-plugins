@@ -1,4 +1,23 @@
-> This file extends [common/patterns.md](../common/patterns.md) with web-specific patterns.
+---
+description: When working on web frontend files, apply idiomatic design and resource-management
+  patterns.
+paths:
+  - '**/*.html'
+  - '**/*.css'
+  - '**/*.scss'
+  - '**/*.sass'
+  - '**/*.less'
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+  - '**/*.ts'
+  - '**/*.mts'
+  - '**/*.cts'
+  - '**/*.jsx'
+  - '**/*.tsx'
+  - '**/*.vue'
+  - '**/*.svelte'
+---
 
 # Web Patterns
 

@@ -1,4 +1,23 @@
-> This file extends [common/security.md](../common/security.md) with web-specific security content.
+---
+description: When working on web frontend files, apply secret management, input boundaries
+  and security checks.
+paths:
+  - '**/*.html'
+  - '**/*.css'
+  - '**/*.scss'
+  - '**/*.sass'
+  - '**/*.less'
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+  - '**/*.ts'
+  - '**/*.mts'
+  - '**/*.cts'
+  - '**/*.jsx'
+  - '**/*.tsx'
+  - '**/*.vue'
+  - '**/*.svelte'
+---
 
 # Web Security Rules
 

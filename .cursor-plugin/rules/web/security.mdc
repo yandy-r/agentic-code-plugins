@@ -1,5 +1,6 @@
 ---
-description: Web Security Rules
+description: When working on web frontend files, apply secret management, input boundaries
+  and security checks.
 alwaysApply: false
 globs:
 - '**/*.html'
@@ -18,7 +19,6 @@ globs:
 - '**/*.vue'
 - '**/*.svelte'
 ---
-> This file extends [common/security.mdc](../common/security.mdc) with web-specific security content.
 
 # Web Security Rules
 

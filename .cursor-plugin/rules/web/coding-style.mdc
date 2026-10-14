@@ -1,5 +1,6 @@
 ---
-description: Web Coding Style
+description: When working on web frontend files, apply formatting, types and idiomatic
+  error handling.
 alwaysApply: false
 globs:
 - '**/*.html'
@@ -18,7 +19,6 @@ globs:
 - '**/*.vue'
 - '**/*.svelte'
 ---
-> This file extends [common/coding-style.mdc](../common/coding-style.mdc) with web-specific frontend content.
 
 # Web Coding Style
 

@@ -2,11 +2,11 @@
 paths:
   - '**/*.rs'
   - '**/Cargo.toml'
+description: When working on Rust files, apply hook configuration and formatter/linter
+  recommendations.
 ---
 
 # Rust Hooks
-
-> This file extends [common/hooks.md](../common/hooks.md) with Rust-specific content.
 
 ## PostToolUse Hooks
 

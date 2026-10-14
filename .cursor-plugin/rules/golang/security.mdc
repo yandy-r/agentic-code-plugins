@@ -1,5 +1,6 @@
 ---
-description: Go Security
+description: When working on Go files, apply secret management, input boundaries and
+  security checks.
 alwaysApply: false
 globs:
 - '**/*.go'
@@ -8,8 +9,6 @@ globs:
 ---
 
 # Go Security
-
-> This file extends [common/security.mdc](../common/security.mdc) with Go specific content.
 
 ## Secret Management
 

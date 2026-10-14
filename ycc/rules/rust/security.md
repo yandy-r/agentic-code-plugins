@@ -1,11 +1,11 @@
 ---
 paths:
   - '**/*.rs'
+description: When working on Rust files, apply secret management, input boundaries
+  and security checks.
 ---
 
 # Rust Security
-
-> This file extends [common/security.md](../common/security.md) with Rust-specific content.
 
 ## Secrets Management
 
@@ -139,4 +139,4 @@ match order_service.find_by_id(id) {
 ## References
 
 See skill: `rust-patterns` for unsafe code guidelines and ownership patterns.
-See [common/security.md](../common/security.md) for the mandatory security checklist, and run the `code-review` skill for a security-focused review.
+Validate external inputs, parameterize queries and keep error responses free of sensitive details, and run the `code-review` skill for a security-focused review.

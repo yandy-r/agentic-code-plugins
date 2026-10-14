@@ -2,11 +2,11 @@
 paths:
   - '**/*.py'
   - '**/*.pyi'
+description: When working on Python files, apply hook configuration and formatter/linter
+  recommendations.
 ---
 
 # Python Hooks
-
-> This file extends [common/hooks.md](../common/hooks.md) with Python specific content.
 
 ## PostToolUse Hooks
 

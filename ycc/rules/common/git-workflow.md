@@ -1,26 +1,20 @@
+---
+description: When committing changes or preparing a pull request, use Conventional
+  Commits and summarize the full branch diff with an honest test plan.
+alwaysApply: true
+---
+
 # Git Workflow
 
-## Commit Message Format
+## Commits
 
-```
-<type>: <description>
+Use Conventional Commits: `<type>[optional scope]: <description>`.
+Types: feat, fix, refactor, docs, test, chore, perf, ci.
 
-<optional body>
-```
+## Pull Requests
 
-Types: feat, fix, refactor, docs, test, chore, perf, ci
-
-Note: Attribution disabled globally via ~/.claude/settings.json.
-
-## Pull Request Workflow
-
-When creating PRs:
-
-1. Analyze full commit history (not just latest commit)
-2. Use `git diff [base-branch]...HEAD` to see all changes
-3. Draft comprehensive PR summary
-4. Include test plan with TODOs
-5. Push with `-u` flag if new branch
-
-> For the full development process (planning, TDD, code review) before git operations,
-> see [development-workflow.md](./development-workflow.md).
+1. Analyze the full branch history, not just the latest commit.
+2. Use `git diff [base-branch]...HEAD` to summarize the complete change.
+3. Follow the project PR template and link the related issue.
+4. Include an honest test plan, with unperformed checks marked explicitly.
+5. Push with `-u` when publishing a new branch.

@@ -1,9 +1,24 @@
 ---
-description: Web Design Quality Standards
-alwaysApply: true
+description: When working on web frontend files, apply anti-template design-quality
+  constraints.
+alwaysApply: false
+globs:
+- '**/*.html'
+- '**/*.css'
+- '**/*.scss'
+- '**/*.sass'
+- '**/*.less'
+- '**/*.js'
+- '**/*.mjs'
+- '**/*.cjs'
+- '**/*.ts'
+- '**/*.mts'
+- '**/*.cts'
+- '**/*.jsx'
+- '**/*.tsx'
+- '**/*.vue'
+- '**/*.svelte'
 ---
-> This file extends [common/patterns.mdc](../common/patterns.mdc) with web-specific design-quality
-> guidance.
 
 # Web Design Quality Standards
 

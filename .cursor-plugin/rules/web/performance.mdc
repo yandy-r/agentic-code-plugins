@@ -1,5 +1,6 @@
 ---
-description: Web Performance Rules
+description: When working on web frontend files, apply loading strategies, asset budgets
+  and Core Web Vitals.
 alwaysApply: false
 globs:
 - '**/*.html'
@@ -18,7 +19,6 @@ globs:
 - '**/*.vue'
 - '**/*.svelte'
 ---
-> This file extends [common/performance.mdc](../common/performance.mdc) with web-specific performance content.
 
 # Web Performance Rules
 

@@ -1,127 +1,69 @@
-# Rules
+# Cursor rule sources
 
-This directory is the **source of truth** for rule content. For **Cursor**, generated `.mdc` files
-live under `.cursor-plugin/rules/` (nested layout preserved). Regenerate after edits:
+This tree supplies Cursor rule content, generated as `.cursor-plugin/rules/**/*.mdc`.
+No Claude, Codex or opencode rules generator/installer loads this tree as rules.
+Exception: the `hooks-workflow` skill reads `common/hooks.md` and language `hooks.md`
+as hook-configuration inputs across targets. These live inputs are retained for
+supported stacks, but **no hooks.md is emitted to Cursor**: the source recommendations
+are not native Cursor hooks.
+
+After editing sources, regenerate and validate:
 
 ```bash
 ./scripts/generate-cursor-rules.sh
 ./scripts/validate-cursor-rules.sh
 ```
 
-Generated files use YAML frontmatter (`description`, `alwaysApply`, `globs`) and Cursor-native path
-wording. Prefer **single-root** Cursor workspaces when using nested `.cursor/rules/**` trees.
+## Scope and descriptions
 
-## Cursor `.mdc` frontmatter
+- Every rule has a source `description:` explaining **when** to apply it and **what**
+  it covers (nonempty, at most 200 characters, not its H1). The generator uses this
+  description; there is no title fallback.
+- Only `common/security.md` and `common/git-workflow.md` are `alwaysApply: true`.
+  The validator caps the global set at **2 rules / 60 combined body lines**, counting
+  headings and blank lines, excluding YAML frontmatter.
+- Other `common/` rules are **Apply Intelligently**: description, no globs, not always
+  applied. Language and web rules use explicit source `paths:` (converted to Cursor
+  `globs:`) or `globs:`. Nothing silently falls back to an all-files glob.
+- Rules do not inherit or inline other rules. Keep necessary constraints in the
+  selected rule itself, not in "This file extends" link chains.
 
-Each generated rule starts with YAML between `---` lines:
+## Supported stacks
 
-- **`description`**: short summary (required).
-- **`alwaysApply`**: `true` for `common/*` and `web/design-quality.md`; `false` for scoped rules.
-- **`globs`**: file patterns for scoped rules (language folders and most `web/*`); omitted when `alwaysApply: true`.
+`common/`, `golang/`, `python/`, `rust/`, `typescript/`, and `web/` are retained.
+Languages without a corresponding ycc skill/agent (C++, C#, Dart, Java, Kotlin,
+Perl, PHP, Swift) have been removed; add focused rules only when actual usage
+justifies them. The hooks-workflow language list is derived from retained hooks.md
+inputs and will reject a removed language rather than emitting an empty config.
 
-Source files may use Claude-style `paths:` in YAML; the generator rewrites that to `globs:`.
+Language `patterns.md` and `testing.md` bodies are three-line entry points to the
+corresponding `go-patterns` / `go-testing`, `python-patterns` / `python-testing`,
+`rust-patterns` / `rust-testing`, and `ts-patterns` / `ts-testing` skills, with one
+nonobvious constraint. Detailed guidance belongs in skills, not duplicate rules.
 
-## Structure
+## Installation and loading
 
-Rules are organized into a **common** layer plus **language-specific** directories:
-
-```
-rules/
-├── common/          # Language-agnostic principles (always install)
-│   ├── coding-style.md
-│   ├── git-workflow.md
-│   ├── testing.md
-│   ├── performance.md
-│   ├── patterns.md
-│   ├── hooks.md
-│   ├── agents.md
-│   └── security.md
-├── typescript/      # TypeScript/JavaScript specific
-├── python/          # Python specific
-├── golang/          # Go specific
-├── web/             # Web and frontend specific
-├── swift/           # Swift specific
-└── php/             # PHP specific
-```
-
-- **common/** contains universal principles — no language-specific code examples.
-- **Language directories** extend the common rules with framework-specific patterns, tools, and code examples. Each file references its common counterpart.
-
-## Installation
-
-### Cursor (this plugin bundle)
-
-From the repo root, sync the generated bundle to your Cursor config:
+`./install.sh install --target cursor` generates and mirrors the bundle, including
+rules, to `~/.cursor/rules/`. That is the installer's destination, **not a verified
+native user-global rule-loading surface**. Cursor user-global rules are configured
+in Cursor Settings. For file-based project rules, copy the desired generated
+folders to the project's `.cursor/rules/`:
 
 ```bash
-./install.sh install --target cursor
-# or: ./install.sh install --target all   # base step only for every target
+mkdir -p .cursor/rules
+cp -r /path/to/claude-plugins/.cursor-plugin/rules/common .cursor/rules/
+cp -r /path/to/claude-plugins/.cursor-plugin/rules/python .cursor/rules/
 ```
 
-MCP is never merged implicitly. Opt in with `--mcp`, `--only mcp`, or
-`./install.sh sync --target <targets> --intent mcp`. It writes project scope by
-default; only `--global` writes user-global files such as `~/.claude.json`.
+Keep directories intact to avoid colliding filenames. Choose only the stacks you
+need. The installer's `--rules` option is separate: it links files from
+`ycc/settings/rules/`, not this tree. It does not install these sources as Claude,
+Codex or opencode rules.
 
-This copies `.cursor-plugin/rules/` (including nested `common/`, `typescript/`, …) to `~/.cursor/rules/`.
+## Adding guidance
 
-### Manual copy (any editor)
-
-> **Important:** Copy entire directories — do NOT flatten with `/*`.
-> Common and language-specific directories contain files with the same names.
-> Flattening them into one directory causes language-specific files to overwrite
-> common rules, and breaks the relative `../common/` references used by
-> language-specific files.
-
-```bash
-# Example: copy into Cursor project rules
-cp -r .cursor-plugin/rules/common ~/.cursor/rules/common
-cp -r .cursor-plugin/rules/typescript ~/.cursor/rules/typescript
-# ...add only the stacks you need
-```
-
-## Rules vs Skills
-
-- **Rules** define standards, conventions, and checklists that apply broadly (e.g., "80% test coverage", "no hardcoded secrets").
-- **Skills** (`skills/` directory) provide deep, actionable reference material for specific tasks (e.g., `python-patterns`, `go-testing`).
-
-Language-specific rule files reference relevant skills where appropriate. Rules tell you _what_ to do; skills tell you _how_ to do it.
-
-## Adding a New Language
-
-To add support for a new language (e.g., `rust/`):
-
-1. Create a `rules/rust/` directory
-2. Add files that extend the common rules:
-   - `coding-style.md` — formatting tools, idioms, error handling patterns
-   - `testing.md` — test framework, coverage tools, test organization
-   - `patterns.md` — language-specific design patterns
-   - `hooks.md` — PostToolUse hooks for formatters, linters, type checkers
-   - `security.md` — secret management, security scanning tools
-3. Each file should start with:
-
-   ```
-   > This file extends [common/xxx.mdc](../common/xxx.mdc) with <Language> specific content.
-   ```
-
-4. Reference existing skills (`ycc/skills/<name>/SKILL.md`) only; never cite a skill that is not in the bundle.
-
-For non-language domains like `web/`, follow the same layered pattern when there is enough reusable domain-specific guidance to justify a standalone ruleset.
-
-## Rule Priority
-
-When language-specific rules and common rules conflict, **language-specific rules take precedence** (specific overrides general). This follows the standard layered configuration pattern (similar to CSS specificity or `.gitignore` precedence).
-
-- `rules/common/` defines universal defaults applicable to all projects.
-- `rules/golang/`, `rules/python/`, `rules/swift/`, `rules/php/`, `rules/typescript/`, etc. override those defaults where language idioms differ.
-
-### Example
-
-`common/coding-style.md` recommends immutability as a default principle. A language-specific `golang/coding-style.md` can override this:
-
-> Idiomatic Go uses pointer receivers for struct mutation — see [common/coding-style.mdc](../common/coding-style.mdc) for the general principle, but Go-idiomatic mutation is preferred here.
-
-### Common rules with override notes
-
-Rules in `rules/common/` that may be overridden by language-specific files are marked with:
-
-> **Language note**: This rule may be overridden by language-specific rules for languages where this pattern is not idiomatic.
+Add source Markdown with a real description and an explicit scope. Prefer existing
+project formatters/linters over copying style guides. Retain only constraints that
+change agent behavior; reference existing bundled skills for deeper guidance.
+Do not add Claude settings paths, Claude tool execution instructions, or generic
+always-applied checklists to generated Cursor rules.

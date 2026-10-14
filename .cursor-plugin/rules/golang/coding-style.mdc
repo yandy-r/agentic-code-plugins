@@ -1,5 +1,6 @@
 ---
-description: Go Coding Style
+description: When working on Go files, apply formatting, types and idiomatic error
+  handling.
 alwaysApply: false
 globs:
 - '**/*.go'
@@ -8,8 +9,6 @@ globs:
 ---
 
 # Go Coding Style
-
-> This file extends [common/coding-style.mdc](../common/coding-style.mdc) with Go specific content.
 
 ## Formatting
 
