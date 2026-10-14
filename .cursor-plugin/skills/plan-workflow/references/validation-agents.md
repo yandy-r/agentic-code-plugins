@@ -17,8 +17,8 @@ Apply this contract to every prompt in this file:
 - Validators **report** findings; they never write or edit any artifact file (the orchestrator applies fixes to `parallel-plan.md`).
 - Do not touch files under `{{FEATURE_DIR}}` or anywhere else.
 - Read only `{{FEATURE_DIR}}/parallel-plan.md` (and `shared.md` where listed).
-- **Path A (standalone, default)**: no `SendMessage`, `TaskList`, `TaskUpdate` — report all findings in your final response.
-- **Path B (`--team`)**: share cross-check findings with teammates via `SendMessage` and coordinate via `TaskList`/`TaskUpdate` (sections marked Path B only).
+- **Path A (standalone, default)**: no `SendMessage`, `task list`, `task status update` — report all findings in your final response.
+- **Path B (`--team`)**: share cross-check findings with teammates via `SendMessage` and coordinate via `task list`/`task status update` (sections marked Path B only).
 
 ---
 
@@ -59,7 +59,7 @@ Scan the plan and check:
 
 ## Team Communication
 
-> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `TaskUpdate`, or `TaskList`, ignore this section entirely and just report your findings in your final response.
+> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `task status update`, or `task list`, ignore this section entirely and just report your findings in your final response.
 
 You are part of a validation team. Your teammates are:
 
@@ -73,13 +73,13 @@ You are part of a validation team. Your teammates are:
 
 ## Task Coordination
 
-> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `TaskList` / `TaskUpdate`, ignore this section entirely; report your findings in your final response.
+> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `task list` / `task status update`, ignore this section entirely; report your findings in your final response.
 
-1. Check TaskList for your assigned task
-2. Claim your task with TaskUpdate (set status to in_progress, owner to your name)
+1. Check task list for your assigned task
+2. Claim your task with task status update (set status to in_progress, owner to your name)
 3. Do your validation
 4. Share findings with teammates
-5. Mark your task complete with TaskUpdate
+5. Mark your task complete with task status update
 
 ## Output Format
 
@@ -144,7 +144,7 @@ Extract all tasks and their dependencies, then check for:
 
 ## Team Communication
 
-> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `TaskUpdate`, or `TaskList`, ignore this section entirely and just report your findings in your final response.
+> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `task status update`, or `task list`, ignore this section entirely and just report your findings in your final response.
 
 You are part of a validation team. Your teammates are:
 
@@ -160,13 +160,13 @@ You are part of a validation team. Your teammates are:
 
 ## Task Coordination
 
-> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `TaskList` / `TaskUpdate`, ignore this section entirely; report your findings in your final response.
+> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `task list` / `task status update`, ignore this section entirely; report your findings in your final response.
 
-1. Check TaskList for your assigned task
-2. Claim your task with TaskUpdate (set status to in_progress, owner to your name)
+1. Check task list for your assigned task
+2. Claim your task with task status update (set status to in_progress, owner to your name)
 3. Do your validation
 4. Share findings with teammates
-5. Mark your task complete with TaskUpdate
+5. Mark your task complete with task status update
 
 ## Output Format
 
@@ -254,7 +254,7 @@ For each task, evaluate:
 
 ## Team Communication
 
-> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `TaskUpdate`, or `TaskList`, ignore this section entirely and just report your findings in your final response.
+> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `task status update`, or `task list`, ignore this section entirely and just report your findings in your final response.
 
 You are part of a validation team. Your teammates are:
 
@@ -270,13 +270,13 @@ You are part of a validation team. Your teammates are:
 
 ## Task Coordination
 
-> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `TaskList` / `TaskUpdate`, ignore this section entirely; report your findings in your final response.
+> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `task list` / `task status update`, ignore this section entirely; report your findings in your final response.
 
-1. Check TaskList for your assigned task
-2. Claim your task with TaskUpdate (set status to in_progress, owner to your name)
+1. Check task list for your assigned task
+2. Claim your task with task status update (set status to in_progress, owner to your name)
 3. Do your validation
 4. Share findings with teammates
-5. Mark your task complete with TaskUpdate
+5. Mark your task complete with task status update
 
 ## Output Format
 
@@ -348,7 +348,7 @@ Extract tasks and dependencies. Check for: circular dependencies, missing depend
 
 ## Team Communication
 
-> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `TaskUpdate`, or `TaskList`, ignore this section entirely and just report your findings in your final response.
+> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `task status update`, or `task list`, ignore this section entirely and just report your findings in your final response.
 
 Your teammate is: **completeness-validator**
 
@@ -356,7 +356,7 @@ Share tasks with path issues or dependency problems for their quality assessment
 
 ## Task Coordination
 
-> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `TaskList` / `TaskUpdate`, ignore this section entirely; report your findings in your final response.
+> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `task list` / `task status update`, ignore this section entirely; report your findings in your final response.
 
 Claim your task, do validation, share findings, mark complete.
 
@@ -392,7 +392,7 @@ For each task evaluate: Clear Purpose, Specific Files, Actionable Instructions, 
 
 ## Team Communication
 
-> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `TaskUpdate`, or `TaskList`, ignore this section entirely and just report your findings in your final response.
+> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `task status update`, or `task list`, ignore this section entirely and just report your findings in your final response.
 
 Your teammate is: **path-dep-validator**
 
@@ -400,7 +400,7 @@ Listen for path/dependency issues they find and factor into your quality assessm
 
 ## Task Coordination
 
-> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `TaskList` / `TaskUpdate`, ignore this section entirely; report your findings in your final response.
+> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `task list` / `task status update`, ignore this section entirely; report your findings in your final response.
 
 Claim your task, do validation, share findings, mark complete.
 
@@ -422,15 +422,15 @@ Common to both paths:
 
 **Path A — standalone sub-agents (default)**:
 
-3. **Spawn in parallel** with the Task/Agent tool, one sub-agent per prompt; strip the Path B sections' `SendMessage`/`TaskList`/`TaskUpdate` instructions — agents report findings in their final response only
+3. **Spawn in parallel** with Cursor, one sub-agent per prompt; strip the Path B sections' `SendMessage`/`task list`/`task status update` instructions — agents report findings in their final response only
 4. **Collect results** from each sub-agent's final response
 5. **Review results** - Address issues found before finalizing plan
 
 **Path B — `--team` (validation teammates)**:
 
-3. **Create tasks** - Use TaskCreate for validation tasks
-4. **Spawn in parallel** - Use a single message with Agent tool calls, each with `team_name` and `name`
-5. **Monitor progress** - Use TaskList to check when all tasks complete
+3. **Create tasks** - Use task registration for validation tasks
+4. **Spawn in parallel** - Use a single message with parallel agent invocations, each with `name`
+5. **Monitor progress** - Use task list to check when all tasks complete
 6. **Review results** - Address issues found before finalizing plan
 
 ## Teammate Configuration

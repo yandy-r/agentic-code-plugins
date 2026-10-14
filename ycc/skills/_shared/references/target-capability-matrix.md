@@ -89,7 +89,7 @@ Same constraint as HOOKS.PreToolUse:cursor. PostToolUse hook guidance is rule-em
 Same constraint as HOOKS.PreToolUse:cursor. Stop hook guidance is rule-embedded only.
 
 **HOOKS.PreToolUse:codex**
-The Codex config reference documents `features.codex_hooks` as still under development as of
+The Codex config reference documents `features.codex_hooks` as under development as of
 the April 2026 research audit. No primary source confirms production availability. Marked
 `unsupported` pending a verified Codex GA announcement.
 

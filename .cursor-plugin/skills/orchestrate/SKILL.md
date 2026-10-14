@@ -7,10 +7,7 @@ allowed-tools:
   - Grep
   - Glob
   - Write
-  - Task
   - Agent
-  - TeamCreate
-  - TeamDelete
   - TaskCreate
   - TaskUpdate
   - TaskList
@@ -32,8 +29,8 @@ You are an orchestration expert coordinating multiple specialized agents to acco
 
 Parallelism is the baseline: every batch's tasks dispatch concurrently. The only choice is how the implementor agents are dispatched:
 
-- **Standalone sub-agents** (default): plain `Task` calls per batch, no shared task list. Works in Claude Code, Cursor, and Codex.
-- **Agent team** (`--team`, Claude Code only): one `TeamCreate` with all subtasks registered up front (`TaskCreate` + `addBlockedBy`), per-batch teammate spawn, inter-batch shutdown via `SendMessage`, `TeamDelete` at the end.
+- **Standalone sub-agents** (default): plain `Agent` calls per batch, no shared task list. Works in Claude Code, Cursor, and Codex.
+- **Agent team** (`--team`, Claude Code only): use the implicit session team with all subtasks registered up front (`task registration` + `addBlockedBy`), per-batch teammate spawn via `Agent(name=...)`, inter-batch shutdown via `SendMessage`, and confirmation that all teammates shut down at the end.
 
 ## Current Task
 
@@ -41,7 +38,7 @@ Parallelism is the baseline: every batch's tasks dispatch concurrently. The only
 
 Parse flags first, then treat the remainder as the task description:
 
-- `--team`: (Claude Code only) dispatch each batch under a shared `TeamCreate` with up-front `TaskCreate` + `addBlockedBy` wiring and per-batch shutdown via `SendMessage`. Aborts from a Cursor or Codex bundle (team tools absent there).
+- `--team`: (Claude Code only) dispatch each batch under the implicit session team with up-front `task registration` + `addBlockedBy` wiring and per-batch shutdown via `SendMessage`. Aborts from a Cursor or Codex bundle (team dispatch absent there).
 - `--dry-run`: show the orchestration plan without deploying agents. Print a `Worktree:` line when worktree mode is active (no scripts called).
 - With `--team --dry-run`, also print the team name and per-batch teammate roster.
 - `--plan-only`: write the plan to `docs/orchestration/[sanitized-task].md` without execution. With worktree mode active, the plan gains a `## Worktree Setup` section.
@@ -82,8 +79,8 @@ ${CURSOR_PLUGIN_ROOT}/skills/orchestrate/scripts/analyze-task.sh "$TASK_DESCRIPT
 
 **Step 4**: read `${CURSOR_PLUGIN_ROOT}/skills/orchestrate/references/task-breakdown.md` (patterns for decomposing by feature area, technical layer, cross-cutting concern, and dependency).
 
-**Step 5**: register standalone subtasks as local `TodoWrite` items, tracking batch completion in-context. Read `references/dispatch-playbook.md` section 10 now for exact registration formats. With `DRY_RUN=true` or `PLAN_ONLY=true`, skip registration and proceed to Step 10.
-With `--team`, create one team `orch-<FEATURE_SLUG>` and register/wire every subtask up front; abort on creation failure and clean up on registration/wiring failure. For dry-run or plan-only, skip team creation/registration and compute the team name in memory only.
+**Step 5**: register standalone subtasks with `task registration`, tracking batch completion in-context. Read `references/dispatch-playbook.md` section 10 now for exact registration formats. With `DRY_RUN=true` or `PLAN_ONLY=true`, skip registration and proceed to Step 10.
+With `--team`, use the implicit session team (run label `orch-<FEATURE_SLUG>`) and register/wire every subtask up front; abort if `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is unset and shut down any spawned teammates on registration/wiring failure. For dry-run or plan-only, skip registration and compute the run label in memory only.
 
 **Step 6**: validate each subtask: clear specific scope, single responsibility, completable in one focused session, dependencies stated, success criteria clear, agent assignment justified. Optionally run:
 
@@ -152,7 +149,7 @@ Per-batch teammate roster:
 ```
 
 Do not dispatch agents or run worktree scripts in dry-run mode.
-With `--team`, do not call `TeamCreate`, `TaskCreate`, `Agent`, `SendMessage`, or `TeamDelete`.
+With `--team`, do not call `task registration`, `Agent`, or `SendMessage` in dry-run mode.
 **Stop here.**
 
 `--plan-only`:
@@ -184,7 +181,7 @@ Organize agent outputs by files created, files modified, documentation added, te
 **Step 15**: integration check: no conflicting changes between agents, dependencies integrated, cross-references valid, consistent patterns and conventions.
 
 **Step 16**: standalone completion needs no cleanup.
-With `--team`, run `TeamDelete` to clean up the team.
+With `--team`, confirm all teammates have received shutdown requests before completing.
 
 **Step 17**: final summary. With `WORKTREE_MODE=true`, run this and append its output (feature worktree path, branch, and the `git worktree remove` command for manual cleanup; the worktree survives until removed, and there are no child worktrees):
 

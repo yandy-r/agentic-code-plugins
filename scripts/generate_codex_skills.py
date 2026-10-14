@@ -183,7 +183,13 @@ def write_tree(dest_root: Path, dry_run: bool) -> set[Path]:
 
         if should_transform_text(src):
             text = src.read_text(encoding="utf-8")
-            if src.name == "SKILL.md":
+            if rel.as_posix() == "_shared/references/agent-team-dispatch.md":
+                transformed = (
+                    "# Agent Team Dispatch\n\n"
+                    "Agent teams (`--team`) are unsupported in the Codex bundle. Abort if "
+                    "requested; rerun without `--team` using standalone dispatch.\n"
+                )
+            elif src.name == "SKILL.md":
                 transformed = transform_skill_markdown(text, aliases)
             else:
                 transformed = apply_codex_text_transforms(

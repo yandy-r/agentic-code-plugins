@@ -15,7 +15,7 @@ Execute a parallel implementation plan by deploying implementor agents in depend
 ## Hard Gates
 
 - `--worktree` and `--no-worktree` together → abort (exact message in Arguments).
-- `--dry-run` → print the plan only; never call `subagent`, `subagent`, or any team tool. STOP HERE.
+- `--dry-run` → print the plan only; never dispatch agents or manage team state. STOP HERE.
 - Always run the branch-prep helper before any dispatch — narrative-only branch instructions are how agents end up committing to `main`.
 - Never pass `isolation: "worktree"` per agent — all agents in all batches share the one feature worktree (or the prepared checkout under `--no-worktree`).
 - Standalone task failure: record it and continue only independent tasks. Team failure: no auto-retry or skipping; ask the user before advancing.
@@ -101,11 +101,14 @@ Build the independent-vs-dependent graph using standalone-dispatch.md §9; examp
 
 
 
-## Phase 2: Create Todo List
+## Phase 2: Create Task List
 
-### Step 5: Generate Comprehensive Todos
+### Step 5: Register Tasks
 
-Using **the todo tracker**, create a todo per task: `id` "task-<n>-<m>", `content` "[Task ID] [Task Title] - Depends on: [dependencies]", `status` "pending". Example in `references/plan-inputs.md` (Todo format).
+Use `track the task` for each plan item with `subject="[Task ID] [Task Title]"` and
+`description="<full specification and dependencies>"`. Capture the returned task IDs;
+wire dependencies via `update the todo tracker` with `addBlockedBy` using those IDs. See
+`references/plan-inputs.md` (Task list format).
 
 ### Step 6: Identify First Batch
 
@@ -213,6 +216,6 @@ Pair with the `/goal` session directive to loop the batch executor to completion
 
 ## References
 
-- `references/plan-inputs.md` — read when parsing tasks, building the dependency graph, generating todos, showing usage, or resolving the monorepo plans directory.
+- `references/plan-inputs.md` — read when parsing tasks, building the dependency graph, registering tasks, showing usage, or resolving the monorepo plans directory.
 - `references/agent-task-prompt.md` — read once before dispatching implementor agents.
 - `references/output-formats.md` — read when printing `--dry-run` output or the Phase 4 completion summary, or writing a `/goal` condition.

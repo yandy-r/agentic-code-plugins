@@ -56,7 +56,7 @@ Strip flags from `$ARGUMENTS` and set ``, `DRY_RUN=true|false`, `PLAN_ONLY=true|
 
 **Step 4**: read `~/.config/opencode/skills/orchestrate/references/task-breakdown.md` (patterns for decomposing by feature area, technical layer, cross-cutting concern, and dependency).
 
-**Step 5**: register standalone subtasks as local `the todo tracker` items, tracking batch completion in-context. Read `references/dispatch-playbook.md` section 10 now for exact registration formats. With `DRY_RUN=true` or `PLAN_ONLY=true`, skip registration and proceed to Step 10.
+**Step 5**: register standalone subtasks with `track the task`, tracking batch completion in-context. Read `references/dispatch-playbook.md` section 10 now for exact registration formats. With `DRY_RUN=true` or `PLAN_ONLY=true`, skip registration and proceed to Step 10.
 
 **Step 6**: validate each subtask: clear specific scope, single responsibility, completable in one focused session, dependencies stated, success criteria clear, agent assignment justified. Optionally run:
 
@@ -144,6 +144,8 @@ Organize agent outputs by files created, files modified, documentation added, te
 **Step 15**: integration check: no conflicting changes between agents, dependencies integrated, cross-references valid, consistent patterns and conventions.
 
 **Step 16**: standalone completion needs no cleanup.
+
+
 
 **Step 17**: final summary. With `WORKTREE_MODE=true`, run this and append its output (feature worktree path, branch, and the `git worktree remove` command for manual cleanup; the worktree survives until removed, and there are no child worktrees):
 

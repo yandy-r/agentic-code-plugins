@@ -496,7 +496,7 @@ When spawning research teammates:
    - `{{FEATURE_NAME}}` - The feature directory name (e.g., `user-authentication`)
    - `{{FEATURE_DIR}}` - Full output directory (e.g., `docs/plans/user-authentication`)
 3. **Create tasks** - Use record the task to create research tasks
-4. **Spawn in parallel** - Use a single message with multiple parallel agent runs, each with `team_name` and `name`
+4. **Spawn in parallel** - Use a single message with multiple parallel agent runs, each with `name`
 5. **Monitor progress** - Use the task tracker to check when all tasks complete
 6. **Verify artifacts** - Check all research files exist on disk
 7. **Shut down teammates** - Send shutdown requests via send follow-up instructions

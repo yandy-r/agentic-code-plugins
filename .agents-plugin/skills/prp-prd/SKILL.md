@@ -8,12 +8,10 @@ allowed-tools:
 - Glob
 - Write
 - Edit
-- Task
 - Agent
 - WebSearch
 - WebFetch
 - AskUserQuestion
-- TodoWrite
 - Bash(ls:*)
 - Bash(cat:*)
 - Bash(test:*)
@@ -89,7 +87,7 @@ Ask these questions (present all at once, user can answer together):
 
 ## Phase 3: GROUNDING — Market & Context Research
 
-After foundation answers, dispatch the **`prp-researcher`** agent via the blocking **`Task`** tool, in **market+codebase (dual) mode**, to investigate:
+After foundation answers, dispatch the **`prp-researcher`** agent via the **`Agent`** tool, in **market+codebase (dual) mode**, to investigate:
 
 - Similar products/features in the market
 - How competitors solve this problem
@@ -97,7 +95,7 @@ After foundation answers, dispatch the **`prp-researcher`** agent via the blocki
 - Recent trends or changes
 - If a codebase exists: relevant existing functionality, patterns that could be leveraged, and technical constraints
 
-Instruct the researcher to return file:line references for codebase findings and URL citations for market findings. This is a standalone single-researcher dispatch — see `~/.agents/ycc-shared/references/standalone-dispatch.md` for the `Task` spawn/return contract (never `Agent` without a `team_name`).
+Instruct the researcher to return file:line references for codebase findings and URL citations for market findings. This is a standalone single-researcher dispatch — see `~/.agents/ycc-shared/references/standalone-dispatch.md` for the `Agent` spawn/return contract (omit `name` for standalone dispatch).
 
 **Summarize findings to user:**
 
@@ -131,7 +129,7 @@ Based on foundation + research, ask:
 
 ## Phase 5: GROUNDING — Technical Feasibility
 
-Dispatch the **`prp-researcher`** agent again via the blocking **`Task`** tool, this time scoped to **technical feasibility**:
+Dispatch the **`prp-researcher`** agent again via the **`Agent`** tool, this time scoped to **technical feasibility**:
 
 - If a codebase exists, run two investigations:
   1. **Explore feasibility** — existing infrastructure that can be leveraged, similar patterns already implemented, integration points, dependencies, relevant config and type definitions

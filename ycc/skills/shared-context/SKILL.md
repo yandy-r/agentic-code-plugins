@@ -7,10 +7,7 @@ allowed-tools:
   - Grep
   - Glob
   - Write
-  - Task
   - Agent
-  - TeamCreate
-  - TeamDelete
   - TaskCreate
   - TaskUpdate
   - TaskList
@@ -63,7 +60,7 @@ After creating the shared context files and displaying the summary, **STOP COMPL
 
 **Target**: `$ARGUMENTS`
 
-- **--team**: Optional. (Claude Code only) Deploy researchers as teammates. Default is standalone parallel sub-agents via the `Task` tool. Cursor and Codex bundles lack team tools — do not pass `--team` there.
+- **--team**: Optional. (Claude Code only) Deploy researchers as teammates. Default is standalone parallel sub-agents via the `Agent` tool. Cursor and Codex bundles lack team tools — do not pass `--team` there.
 - **--dry-run**: Show orchestration plan without creating files. Writes nothing.
 - **feature-name**: Required. Directory name under `${PLANS_DIR}` (kebab-case).
 

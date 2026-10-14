@@ -110,7 +110,7 @@ section 2: list only the parent path. Do not add child paths or a `**Children**:
 
 ## 4. Path A Dispatch Call (standalone)
 
-One message, multiple calls, Every call uses only native OpenCode arguments. Each prompt
+One message, multiple calls. Each call uses native foreground arguments. Each prompt
 uses the Path A Coordination Block from `agent-prompts.md`. With `WORKTREE_MODE=true`
 each prompt starts with the `Working directory:` line and the coordination note. Do not
 pass `isolation: "worktree"`: it creates a separate harness worktree per agent and
@@ -240,7 +240,7 @@ Execution:
 - [ ] Parse flags and set ``, `DRY_RUN`, `PLAN_ONLY`, `SEQUENTIAL`, `WORKTREE_MODE` before any side effects (default `WORKTREE_MODE=true` unless `--no-worktree`)
 - [ ] Deploy independent tasks in parallel (single message, multiple dispatch calls)
 - [ ] Respect dependency ordering between batches
-- [ ] Track progress via `the todo tracker` (Path A) or `the todo tracker` (Path B)
+- [ ] Track progress via `track the task`/`update the todo tracker` (Path A) or `the todo tracker` (Path B)
 - [ ] Handle failures gracefully
 - [ ] Synthesize results on completion
 - [ ] Verify integration between agent outputs
@@ -264,7 +264,7 @@ Principles:
 2. Maximize parallelism: run independent tasks simultaneously.
 3. Clear boundaries: no overlap between agents.
 4. Single goal: keep all agents aligned to the main objective.
-5. Track progress: `the todo tracker` in Path A, `the todo tracker` in Path B.
+5. Track progress: `track the task`/`update the todo tracker` in Path A, `the todo tracker` in Path B.
 6. Synthesize results into a coherent whole.
 
 Use `--sequential` when subtasks are tightly coupled, each step informs the next,
@@ -294,12 +294,13 @@ Common patterns:
 
 ## 10. Subtask Registration Formats
 
-Path A (`STANDALONE_MODE=true`): register each subtask as a `the todo tracker` item; no team is
-created. Track batch completion in-context after each batch returns.
+Path A (`STANDALONE_MODE=true`): register each subtask as a task item with `track the task`; no sub-agent dispatch is used. Capture the returned task IDs and track batch completion
+after all results have arrived.
 
 ```
-- id: "subtask-1", content: "[Subtask 1 title] — agent: [agent-type] — depends: [none/list]", status: "pending"
-- id: "subtask-2", content: "[Subtask 2 title] — agent: [agent-type] — depends: [subtask-1]", status: "pending"
+track the task: subject="subtask-1: <title>", description="Agent: <type>. Scope: <full spec>"
+track the task: subject="subtask-2: <title>", description="Agent: <type>. Scope: <full spec>"
+update the todo tracker: taskId="<subtask-2 returned ID>", addBlockedBy=["<subtask-1 returned ID>"]
 ```
 
 
@@ -318,7 +319,7 @@ Path A (standalone), per batch in order:
    the Path A coordination block and, when active, the shared parent working directory.
 3. Wait for all batch calls to return; the shared standalone-dispatch.md result and
    fallback rules govern how results are read.
-4. Review each returned summary; update matching `the todo tracker` items to `completed`.
+4. Review each returned summary; update matching tasks via `update the todo tracker` to `completed`.
 5. If a subtask fails, record the failure, decide whether dependent subtasks can proceed,
    and continue independent subtasks. Never start a task before its dependencies complete.
 6. Scan `the todo tracker` for pending subtasks whose dependencies are all `completed`. If

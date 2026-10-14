@@ -45,7 +45,7 @@ Display the subject, output path, four phases (8 personas, 2 crucible agents,
 
 With `--team`, also show `drpr-<sanitized-subject>`, 14 teammates, and dependencies:
 Batch 2 blocked by all Batch 1 tasks; Batch 3 blocked by both Batch 2 tasks.
-Do not call TeamCreate, TaskCreate, Task, Agent, SendMessage, or TeamDelete.
+Do not call `task registration`, `Agent`, or `SendMessage` in dry-run mode.
 
 ### Infrastructure and objective (not dry run)
 
@@ -99,27 +99,26 @@ half a batch fails, abort and report the gaps instead of fabricating results.
 ### Agent-team dispatch (`--team` only)
 
 Read `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/agent-team-dispatch.md` when
-`--team` is used. Do not mix standalone Task calls with team Agent calls.
+`--team` is used. Do not mix standalone Agent calls with team Agent calls.
 
 1. Sanitize subject for team name: lowercase; replace `[^a-z0-9-]` with `-`;
    collapse hyphens, trim edges, truncate to 20 characters; fallback `untitled`.
-2. TeamCreate once: `team_name="drpr-<sanitized-subject>"`, description includes subject.
-   On failure, abort; no silent fallback.
-3. TaskCreate all 14 roster tasks up front, using teammate name as subject prefix.
-   Capture real task IDs. TaskUpdate both Batch 2 tasks with all eight Batch 1 IDs
+2. Confirm the implicit session team (flag `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`); abort if absent.
+3. task registration all 14 roster tasks up front, using teammate name as subject prefix.
+   Capture real task IDs. task status update both Batch 2 tasks with all eight Batch 1 IDs
    in `addBlockedBy`; each Batch 3 task gets both Batch 2 IDs. On registration
-   failure, TeamDelete and abort.
+   failure, shut down any spawned teammates and abort.
 4. Spawn each batch in one message with multiple Agent calls. Every call carries
-   `team_name`, unique `name` from the roster, `subagent_type`, and its mandate.
-5. Confirm that batch's tasks are `completed` via TaskList before consuming outputs.
+   unique `name` from the roster, `subagent_type`, and its mandate.
+5. Confirm that batch's tasks are `completed` via task list before consuming outputs.
    Send `shutdown_request` via SendMessage to every teammate in that batch before
    advancing. Keep the team through Phases 1–3.
-6. After final batch shutdown, TeamDelete **before** Phase 4 synthesis.
+6. After final batch shutdown, confirm all teammates have shut down **before** Phase 4 synthesis.
 
 Failure policy: record a single failure as a gap in its artifact and adapt later
 phases. If at least half a batch fails, abort; in team mode shut down active
-teammates and TeamDelete. Suggest retry without `--team`. On user abort, shut down
-all active teammates and TeamDelete. Never leave a team live after exit.
+teammates. Suggest retry without `--team`. On user abort, shut down
+all active teammates. Never leave a teammate live after exit.
 
 ## Phase 1: Asymmetric Persona Deployment (Batch 1)
 
@@ -136,7 +135,7 @@ All eight use `research-specialist`. Output paths are relative to `$OUTPUT_DIR`.
 | Futurist                | `futurist`                | `references/persona-futurist.md`       | `persona-findings/futurist.md`        |
 | Negative Space Explorer | `negative-space-explorer` | `references/persona-negative-space.md` | `persona-findings/negative-space.md`  |
 
-**CRITICAL**: Deploy all 8 persona agents in a **SINGLE message** with **MULTIPLE `Task` tool calls** (standalone mode only).
+**CRITICAL**: Deploy all 8 persona agents in a **SINGLE message** with **MULTIPLE `Agent` tool calls** (standalone mode only).
 
 In `--team` mode, use multiple `Agent` calls in one message instead, following the team dispatch contract.
 
@@ -162,7 +161,7 @@ In team mode, shut down Batch 1.
 
 Read all eight persona artifacts and objective.
 
-**CRITICAL**: Deploy both analysis agents in a **SINGLE message** with **MULTIPLE `Task` tool calls** (standalone mode only).
+**CRITICAL**: Deploy both analysis agents in a **SINGLE message** with **MULTIPLE `Agent` tool calls** (standalone mode only).
 
 In `--team` mode, use multiple `Agent` calls in one message instead, following the team dispatch contract.
 
@@ -187,7 +186,7 @@ In team mode, shut down Batch 2.
 
 ## Phase 3: Emergent Insights (Batch 3)
 
-**CRITICAL**: Deploy all 4 strategic analysis agents in a **SINGLE message** with **MULTIPLE `Task` tool calls** (standalone mode only).
+**CRITICAL**: Deploy all 4 strategic analysis agents in a **SINGLE message** with **MULTIPLE `Agent` tool calls** (standalone mode only).
 
 In `--team` mode, use multiple `Agent` calls in one message instead, following the team dispatch contract.
 
@@ -205,7 +204,7 @@ verification log. Require the following artifacts:
 Keep `negative-space-analyst` distinct from Phase 1's `negative-space-explorer`.
 Consume all four results (or gap records).
 
-In team mode, shut down Batch 3 and TeamDelete now, not after reporting.
+In team mode, shut down Batch 3 teammates now, not after reporting.
 
 ## Phase 4: Strategic Synthesis (Orchestrator Only)
 
@@ -277,7 +276,7 @@ and far future (5+ years). Sources must be authoritative and dated/current where
 - [ ] Evidence portfolio includes confidence and preserves distinct viewpoints.
 - [ ] Strategic implications cover second/third-order effects and temporal range.
 - [ ] Research gaps and validation result explicitly reported.
-- [ ] Team shutdown and TeamDelete completed if applicable.
+- [ ] Teammate shutdown completed via SendMessage if applicable.
 
 ## Corrective Actions
 

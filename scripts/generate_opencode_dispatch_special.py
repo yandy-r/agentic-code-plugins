@@ -86,8 +86,11 @@ then report the missing perspective. Follow
 
 def _project_implementor(text: str) -> str:
     old_contract = re.compile(
-        r"You are dispatched via [^\n]*— your entire response is returned\n"
+        r"You are dispatched via (?:"
+        r"[^\n]*— your entire response is returned\n"
         r"inline to the orchestrator in the same turn, so it must be mechanically parseable\."
+        r"|[^\n]*\. Your report may be delivered directly or\n"
+        r"asynchronously; always return a nonempty, mechanically parseable report\.)"
     )
     replacement = (
         "You are dispatched through OpenCode V2's native `subagent` tool. Return a "

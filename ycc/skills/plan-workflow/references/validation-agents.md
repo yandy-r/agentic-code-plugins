@@ -422,14 +422,14 @@ Common to both paths:
 
 **Path A — standalone sub-agents (default)**:
 
-3. **Spawn in parallel** with the Task/Agent tool, one sub-agent per prompt; strip the Path B sections' `SendMessage`/`TaskList`/`TaskUpdate` instructions — agents report findings in their final response only
+3. **Spawn in parallel** with the Agent tool, one sub-agent per prompt; strip the Path B sections' `SendMessage`/`TaskList`/`TaskUpdate` instructions — agents report findings in their final response only
 4. **Collect results** from each sub-agent's final response
 5. **Review results** - Address issues found before finalizing plan
 
 **Path B — `--team` (validation teammates)**:
 
 3. **Create tasks** - Use TaskCreate for validation tasks
-4. **Spawn in parallel** - Use a single message with Agent tool calls, each with `team_name` and `name`
+4. **Spawn in parallel** - Use a single message with Agent tool calls, each with `name`
 5. **Monitor progress** - Use TaskList to check when all tasks complete
 6. **Review results** - Address issues found before finalizing plan
 

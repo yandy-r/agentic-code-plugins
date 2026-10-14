@@ -84,11 +84,11 @@ the stated requirements.
 
 ## Parallel Reviewer Roster (Path B / Path C)
 
-Three standalone `code-reviewer` sub-agents, dispatched via the blocking `Task`
-tool — never the async `Agent` tool (Path B), or agent-team teammates spawned via
-`Agent`+`team_name` (Path C). See
+Three standalone `code-reviewer` sub-agents, dispatched via `Agent` without
+`name` or `run_in_background` (Path B), or agent-team teammates spawned via
+`Agent` with `name` (Path C). See
 `~/.agents/ycc-shared/references/standalone-dispatch.md`
-for the full `Task` spawn/return contract that Path B must follow. The **focus
+for the full `Agent` spawn/return contract that Path B must follow. The **focus
 split** differs between local/quick and PR modes because local mode has a
 narrower category set.
 
@@ -145,9 +145,9 @@ split already implies a category).
 
 After all 3 reviewers return (Path B only — see
 `~/.agents/ycc-shared/references/standalone-dispatch.md`
-for the blocking `Task` semantics this relies on):
+for the result-delivery and batch-completion contract):
 
-1. For any reviewer whose `Task` return was empty, missing, or malformed,
+1. For any reviewer whose `Agent` return was empty, missing, or malformed,
    treat that reviewer as a failure for that role (do not fabricate findings
    for it). In Path B only, the scratch file at
    `docs/prps/reviews/.review-scratch/<run-id>/<reviewer-name>.md` is the

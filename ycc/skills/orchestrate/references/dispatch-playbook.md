@@ -116,7 +116,7 @@ section 2: list only the parent path. Do not add child paths or a `**Children**:
 
 ## 4. Path A Dispatch Call (standalone)
 
-One message, multiple calls, no `team_name`, no `name`, no `TaskCreate`. Each prompt
+One message, multiple calls, no `name`, no `run_in_background`. Each prompt
 uses the Path A Coordination Block from `agent-prompts.md`. With `WORKTREE_MODE=true`
 each prompt starts with the `Working directory:` line and the coordination note. Do not
 pass `isolation: "worktree"`: it creates a separate harness worktree per agent and
@@ -124,17 +124,17 @@ breaks the single-worktree contract. With `WORKTREE_MODE=false` omit the
 `Working directory:` line and the note.
 
 ```
-Task(
+Agent(
   subagent_type = "nodejs-backend-architect",
   description = "Implement auth system",
   prompt = "Working directory: <repo-root>/.claude/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path A coordination block]"
 )
-Task(
+Agent(
   subagent_type = "test-strategy-planner",
   description = "Create auth test plan",
   prompt = "Working directory: <repo-root>/.claude/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path A coordination block]"
 )
-Task(
+Agent(
   subagent_type = "documentation-writer",
   description = "Document auth API",
   prompt = "Working directory: <repo-root>/.claude/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path A coordination block]"
@@ -145,7 +145,7 @@ Task(
 
 ## 5. Path B Dispatch Call (`--team`)
 
-One message, multiple `Agent` calls. Every call includes `team_name` and `name`. With
+One message, multiple `Agent` calls. Every call includes `name`. With
 `WORKTREE_MODE=true` each prompt carries the same `Working directory:` line and
 coordination note as Path A. Do not pass `isolation: "worktree"` in either worktree
 mode. Each prompt includes the Path B Team Communication section from
@@ -153,21 +153,18 @@ mode. Each prompt includes the Path B Team Communication section from
 
 ```
 Agent(
-  team_name = "orch-<sanitized-task>",
   name = "subtask-1",
   subagent_type = "nodejs-backend-architect",
   description = "Implement auth system",
   prompt = "Working directory: <repo-root>/.claude/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path B Team Communication section]"
 )
 Agent(
-  team_name = "orch-<sanitized-task>",
   name = "subtask-2",
   subagent_type = "test-strategy-planner",
   description = "Create auth test plan",
   prompt = "Working directory: <repo-root>/.claude/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path B Team Communication section]"
 )
 Agent(
-  team_name = "orch-<sanitized-task>",
   name = "subtask-3",
   subagent_type = "documentation-writer",
   description = "Document auth API",
@@ -281,11 +278,11 @@ Execution:
 - [ ] Parse flags and set `TEAM_FLAG`, `DRY_RUN`, `PLAN_ONLY`, `SEQUENTIAL`, `WORKTREE_MODE` before any side effects (default `WORKTREE_MODE=true` unless `--no-worktree`)
 - [ ] Deploy independent tasks in parallel (single message, multiple dispatch calls)
 - [ ] Respect dependency ordering between batches
-- [ ] Track progress via `TodoWrite` (Path A) or `TaskList` (Path B)
+- [ ] Track progress via `TaskCreate`/`TaskUpdate` (Path A) or `TaskList` (Path B)
 - [ ] Handle failures gracefully
 - [ ] Synthesize results on completion
 - [ ] Verify integration between agent outputs
-- [ ] Path B: create team before spawning, include `team_name` + `name` on every `Agent` call, shut down teammates between batches via `SendMessage`, clean up with `TeamDelete`
+- [ ] Path B: use the implicit session team, include `name` (never `team_name`) on every `Agent` call, shut down teammates between batches via `SendMessage`, confirm all teammates have stopped
 
 Result:
 
@@ -306,7 +303,7 @@ Principles:
 2. Maximize parallelism: run independent tasks simultaneously.
 3. Clear boundaries: no overlap between agents.
 4. Single goal: keep all agents aligned to the main objective.
-5. Track progress: `TodoWrite` in Path A, `TaskList` in Path B.
+5. Track progress: `TaskCreate`/`TaskUpdate` in Path A, `TaskList` in Path B.
 6. Synthesize results into a coherent whole.
 7. Path B additions: follow shared agent-team-dispatch §8.2 (single team, graph, batch spawn and cleanup).
 
@@ -337,15 +334,16 @@ Common patterns:
 
 ## 10. Subtask Registration Formats
 
-Path A (`TEAM_FLAG=false`): register each subtask as a `TodoWrite` item; no team is
-created. Track batch completion in-context after each batch returns.
+Path A (`TEAM_FLAG=false`): register each subtask as a task item with `TaskCreate`; no teammate dispatch is used. Capture the returned task IDs and track batch completion
+after all results have arrived.
 
 ```
-- id: "subtask-1", content: "[Subtask 1 title] — agent: [agent-type] — depends: [none/list]", status: "pending"
-- id: "subtask-2", content: "[Subtask 2 title] — agent: [agent-type] — depends: [subtask-1]", status: "pending"
+TaskCreate: subject="subtask-1: <title>", description="Agent: <type>. Scope: <full spec>"
+TaskCreate: subject="subtask-2: <title>", description="Agent: <type>. Scope: <full spec>"
+TaskUpdate: taskId="<subtask-2 returned ID>", addBlockedBy=["<subtask-1 returned ID>"]
 ```
 
-Path B (`--team`): team name `orch-<FEATURE_SLUG>`, description `Orchestration team for: <task description>`. Register `subject="[subtask-N]: [Description]"`, `description="Agent: [agent-type]. Scope: [details]. Expected output: [deliverables]."`; dependencies from decomposed graph. `DRY_RUN` or `PLAN_ONLY`: skip registration/setup, compute sanitized name in memory. Mechanism follows shared team §8.2.
+Path B (`--team`): implicit session team, run label `orch-<FEATURE_SLUG>`, purpose `Orchestration team for: <task description>`. Register `subject="[subtask-N]: [Description]"`, `description="Agent: [agent-type]. Scope: [details]. Expected output: [deliverables]."`; dependencies from decomposed graph. `DRY_RUN` or `PLAN_ONLY`: skip registration/setup, compute sanitized name in memory. Mechanism follows shared team §8.2.
 
 ---
 
@@ -358,14 +356,14 @@ execution defaults do not change this skill's agent assignments or output format
 Path A (standalone), per batch in order:
 
 1. Build the agent list: each subtask's name, agent type, focus, deliverables.
-2. Spawn all agents in one message with multiple `Task` calls (section 4). Prompts use
+2. Spawn all agents in one message with multiple `Agent` calls (section 4). Prompts use
    the Path A coordination block and, when active, the shared parent working directory.
 3. Wait for all batch calls to return; the shared standalone-dispatch.md result and
    fallback rules govern how results are read.
-4. Review each returned summary; update matching `TodoWrite` items to `completed`.
+4. Review each returned summary; update matching tasks via `TaskUpdate` to `completed`.
 5. If a subtask fails, record the failure, decide whether dependent subtasks can proceed,
    and continue independent subtasks. Never start a task before its dependencies complete.
-6. Scan `TodoWrite` for pending subtasks whose dependencies are all `completed`. If
+6. Scan `TaskList` for pending subtasks whose dependencies are all `completed`. If
    subtasks remain but none is unblocked, report deadlock and stop.
 
 No `SendMessage` shutdown is needed in Path A: there are no teammates.

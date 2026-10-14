@@ -103,13 +103,13 @@ Integrate any relevant information from teammate messages into your work.
 
 ### Task Coordination
 
-1. Check TaskList for your assigned task
-2. Claim your task with TaskUpdate (set status to in_progress, owner to your name)
+1. Check task list for your assigned task
+2. Claim your task with task status update (set status to in_progress, owner to your name)
 3. Read all context files
 4. Implement your subtask
 5. Share key findings with relevant teammates via SendMessage
 6. Validate your work
-7. Mark your task complete with TaskUpdate (set status to completed)
+7. Mark your task complete with task status update (set status to completed)
 ```
 
 ---
@@ -176,10 +176,10 @@ You are part of an orchestration team working on batch {{BATCH_NUMBER}} for: "{{
 
 ### Task Coordination
 
-1. Check TaskList for your assigned task
-2. Claim with TaskUpdate (status=in_progress, owner=your name)
+1. Check task list for your assigned task
+2. Claim with task status update (status=in_progress, owner=your name)
 3. Read context files, implement, share findings, validate
-4. Mark complete with TaskUpdate (status=completed)
+4. Mark complete with task status update (status=completed)
 
 ## Output Format
 
@@ -240,10 +240,10 @@ You are part of an orchestration team working on batch {{BATCH_NUMBER}} for: "{{
 
 ### Task Coordination
 
-1. Check TaskList for your assigned task
-2. Claim with TaskUpdate (status=in_progress, owner=your name)
+1. Check task list for your assigned task
+2. Claim with task status update (status=in_progress, owner=your name)
 3. Investigate, share findings, write report
-4. Mark complete with TaskUpdate (status=completed)
+4. Mark complete with task status update (status=completed)
 
 ## Output Format
 
@@ -298,10 +298,10 @@ You are part of an orchestration team working on batch {{BATCH_NUMBER}} for: "{{
 
 ### Task Coordination
 
-1. Check TaskList for your assigned task
-2. Claim with TaskUpdate (status=in_progress, owner=your name)
+1. Check task list for your assigned task
+2. Claim with task status update (status=in_progress, owner=your name)
 3. Implement fix, share findings, validate
-4. Mark complete with TaskUpdate (status=completed)
+4. Mark complete with task status update (status=completed)
 
 ## Output Format
 
@@ -353,10 +353,10 @@ You are part of an orchestration team working on batch {{BATCH_NUMBER}} for: "{{
 
 ### Task Coordination
 
-1. Check TaskList for your assigned task
-2. Claim with TaskUpdate (status=in_progress, owner=your name)
+1. Check task list for your assigned task
+2. Claim with task status update (status=in_progress, owner=your name)
 3. Analyze, share findings, write report
-4. Mark complete with TaskUpdate (status=completed)
+4. Mark complete with task status update (status=completed)
 
 ## Output Format
 
@@ -410,10 +410,10 @@ You are part of an orchestration team working on batch {{BATCH_NUMBER}} for: "{{
 
 ### Task Coordination
 
-1. Check TaskList for your assigned task
-2. Claim with TaskUpdate (status=in_progress, owner=your name)
+1. Check task list for your assigned task
+2. Claim with task status update (status=in_progress, owner=your name)
 3. Refactor, share findings, validate
-4. Mark complete with TaskUpdate (status=completed)
+4. Mark complete with task status update (status=completed)
 
 ## Output Format
 
@@ -479,10 +479,10 @@ You are part of an orchestration team working on batch {{BATCH_NUMBER}} for: "{{
 
 ### Task Coordination
 
-1. Check TaskList for your assigned task
-2. Claim with TaskUpdate (status=in_progress, owner=your name)
+1. Check task list for your assigned task
+2. Claim with task status update (status=in_progress, owner=your name)
 3. Document, share findings, validate
-4. Mark complete with TaskUpdate (status=completed)
+4. Mark complete with task status update (status=completed)
 
 ## Output Format
 
@@ -537,10 +537,10 @@ You are part of an orchestration team working on batch {{BATCH_NUMBER}} for: "{{
 
 ### Task Coordination
 
-1. Check TaskList for your assigned task
-2. Claim with TaskUpdate (status=in_progress, owner=your name)
+1. Check task list for your assigned task
+2. Claim with task status update (status=in_progress, owner=your name)
 3. Create test plan, share findings
-4. Mark complete with TaskUpdate (status=completed)
+4. Mark complete with task status update (status=completed)
 
 ## Output Format
 
@@ -608,10 +608,10 @@ You are part of an orchestration team working on batch {{BATCH_NUMBER}} for: "{{
 
 ### Task Coordination
 
-1. Check TaskList for your assigned task
-2. Claim with TaskUpdate (status=in_progress, owner=your name)
+1. Check task list for your assigned task
+2. Claim with task status update (status=in_progress, owner=your name)
 3. Implement endpoints, share findings, validate
-4. Mark complete with TaskUpdate (status=completed)
+4. Mark complete with task status update (status=completed)
 
 ## Constraints
 
@@ -688,10 +688,10 @@ You are part of an orchestration team working on batch {{BATCH_NUMBER}} for: "{{
 
 ### Task Coordination
 
-1. Check TaskList for your assigned task
-2. Claim with TaskUpdate (status=in_progress, owner=your name)
+1. Check task list for your assigned task
+2. Claim with task status update (status=in_progress, owner=your name)
 3. Create schema/migrations, share findings, validate
-4. Mark complete with TaskUpdate (status=completed)
+4. Mark complete with task status update (status=completed)
 
 ## Constraints
 

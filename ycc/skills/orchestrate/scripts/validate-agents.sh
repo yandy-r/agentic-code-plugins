@@ -7,7 +7,7 @@ set -euo pipefail
 echo "# Agent Assignment Validation"
 echo ""
 
-# List of all valid agent types from Task tool
+# List of all valid agent types from Agent tool
 VALID_AGENTS=(
   "generalPurpose"
   "explore"

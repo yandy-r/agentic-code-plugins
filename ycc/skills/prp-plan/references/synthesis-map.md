@@ -14,7 +14,7 @@
 | practices-researcher  | ycc:prp-researcher   | Patterns to Mirror (NAMING_CONVENTION, TEST_STRUCTURE)   | Step-by-Step Tasks (MIRROR field source); NOT Building (over-engineering callouts)                  | seeds MIRROR field on tasks                                 |
 | recommendations-agent | ycc:prp-researcher   | Notes; Completion Checklist                              | NOT Building; Risks (cross-cutting)                                                                 | seeds Notes paragraph and confidence score                  |
 
-> **Note**: `subagent_type` is `ycc:prp-researcher` for every row. The `name=` field on the Task/subagent call is what differentiates one researcher role from another — all 7 enhanced roles dispatch the same agent type.
+> **Note**: `subagent_type` is `ycc:prp-researcher` for every row. The `description` and role-specific `prompt` on the Agent call differentiate one researcher role from another — all 7 enhanced roles dispatch the same agent type.
 
 ## Synthesis Rules
 

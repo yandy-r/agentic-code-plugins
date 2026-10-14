@@ -156,7 +156,7 @@ Output format by target:
   prefix the entire output with:
 
   ```
-  # Advisory only — Codex hooks under development as of 2026-04-16.
+  # Advisory only — Codex hooks are under development; verify support in the installed CLI.
   ```
 
   Codex output is printed to stdout unless `--force` was passed. If `--force`

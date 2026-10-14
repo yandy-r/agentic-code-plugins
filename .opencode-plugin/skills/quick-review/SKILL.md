@@ -25,14 +25,14 @@ inline findings directly to `/quick-fix`. Only "Save to file" and
 
 Extract flags from `$ARGUMENTS`:
 
-| Flag                 | Effect                                                                                                                                                                                                    |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--parallel`         | Fan out REVIEW across 3 standalone `code-reviewer` sub-agents (correctness, security, quality) and merge findings. Works in opencode, Cursor, and Codex bundles.                                   |
-| `--yes`              | Skip the confirmation prompt and behave as "Apply fixes" through `/quick-fix`. Mutually exclusive with `--save` and `--write-and-apply`.                                                              |
-| `--save`             | Skip the confirmation prompt and behave as "Save to file" (write artifact, print Next steps, exit). Mutually exclusive with `--yes` and `--write-and-apply`.                                              |
-| `--write-and-apply`  | Skip the confirmation prompt, write the review artifact, then hand off to `/review-fix`. Mutually exclusive with `--yes` and `--save`.                                                                |
-| `--severity <level>` | Forwarded to `/quick-fix` or `/review-fix` during hand-off. Valid: `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`. Default: `HIGH`. Ignored on "Save to file" / "Discard".                                   |
-| `--no-worktree`      | Accepted as a **no-op**. Quick mode never creates a worktree. Emit a note: `--no-worktree has no effect in quick mode.`                                                                                   |
+| Flag                 | Effect                                                                                                                                                                                      |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--parallel`         | Fan out REVIEW across 3 standalone `code-reviewer` sub-agents (correctness, security, quality) and merge findings. Works in opencode, Cursor, and Codex bundles.                     |
+| `--yes`              | Skip the confirmation prompt and behave as "Apply fixes" through `/quick-fix`. Mutually exclusive with `--save` and `--write-and-apply`.                                                |
+| `--save`             | Skip the confirmation prompt and behave as "Save to file" (write artifact, print Next steps, exit). Mutually exclusive with `--yes` and `--write-and-apply`.                                |
+| `--write-and-apply`  | Skip the confirmation prompt, write the review artifact, then hand off to `/review-fix`. Mutually exclusive with `--yes` and `--save`.                                                  |
+| `--severity <level>` | Forwarded to `/quick-fix` or `/review-fix` during hand-off. Valid: `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`. Default: `HIGH`. Ignored on "Save to file" / "Discard".                     |
+| `--no-worktree`      | Accepted as a **no-op**. Quick mode never creates a worktree. Emit a note: `--no-worktree has no effect in quick mode.`                                                                     |
 
 Strip these from `$ARGUMENTS` and set `PARALLEL_MODE`, ``,
 `AUTO_YES`, `AUTO_SAVE`, `AUTO_WRITE_AND_APPLY`, and `MIN_SEVERITY` (default

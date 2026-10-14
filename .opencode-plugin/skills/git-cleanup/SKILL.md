@@ -68,7 +68,7 @@ Parse `$ARGUMENTS`:
      Unknown hosts skip the remote-domain audits with a loud notice.
 5. **Check working-tree state**: Capture `git status --porcelain` and
    `git stash list`. Record whether the current branch has unpushed commits.
-6. **Initialize progress tracking** with the todo tracker (one entry per phase).
+6. **Initialize progress tracking** with the task tools (one entry per phase).
 7. **Create audit directory**: `.git-cleanup/` at the repo root. Report and
    per-domain finding files land here.
 8. **If `--dry-run` was passed alongside `--apply`**: Abort — they conflict.

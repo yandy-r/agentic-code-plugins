@@ -47,6 +47,8 @@ If the plan was requested with `--parallel`, verify:
 
 If any are missing, re-dispatch the planner with a directive to add the missing parallel annotations.
 
+
+
 ### Check 4: Multi-agent merge integrity (Path B and Path C)
 
 After a Path B or Path C merge — that is, whenever multiple sub-agents contributed to the plan — verify the unified plan reflects every spawned perspective:

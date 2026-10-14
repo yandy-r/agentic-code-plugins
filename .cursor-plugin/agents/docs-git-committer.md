@@ -7,7 +7,6 @@ tools:
   - Grep
   - Read
   - WebFetch
-  - TodoWrite
   - WebSearch
   - Edit
   - Write

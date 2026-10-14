@@ -65,7 +65,7 @@ Per-batch teammate roster:
   ...
 ```
 
-Do **not** call `create an agent group`, `record the task`, `Agent`, `Task`, `send follow-up instructions`, or `close the agent group` in dry-run mode. **STOP HERE**.
+Do **not** call `record the task`, `Agent`, or `send follow-up instructions` in dry-run mode. **STOP HERE**.
 
 ## Completion summary
 

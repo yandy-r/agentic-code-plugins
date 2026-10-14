@@ -692,14 +692,14 @@ When spawning research teammates:
    - `{{FEATURE_NAME}}` - The feature directory name (e.g., `plex-integration`)
    - `{{FEATURE_DIR}}` - Full output directory (e.g., `docs/plans/plex-integration`)
    - `{{FEATURE_DESCRIPTION}}` - Description provided by user (or feature name if none)
-3. **Create team** - Use create an agent group with name `fr-[feature-name]`
+3. **Register tasks** - Use record the task for all 7 research tasks
 4. **Create tasks** - Use record the task to create 7 research tasks
-5. **Spawn in parallel** - Use a single message with 7 parallel agent runs, each with `team_name` and `name`
+5. **Spawn in parallel** - Use a single message with 7 parallel agent runs, each with `name`
 6. **Monitor progress** - Use the task tracker to check when all tasks complete
 7. **Validate results** - Run research validator before synthesis
 8. **Shut down teammates** - Send shutdown requests via send follow-up instructions
 9. **Read results** - Review each research file before writing feature-spec.md
-10. **Clean up team** - Use close the agent group
+10. **Clean up team** - Confirm all teammates have shut down
 
 ## Variable Reference
 

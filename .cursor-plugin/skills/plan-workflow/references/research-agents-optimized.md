@@ -39,7 +39,7 @@ Perform both architecture research AND context synthesis:
 
 ## Team Communication
 
-> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `TaskUpdate`, or `TaskList`, ignore this section entirely and just write your output file.
+> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `task status update`, or `task list`, ignore this section entirely and just write your output file.
 
 Your teammates are: `pattern-analyst`, `integration-analyst`, `docs-analyst`, `task-planner`. Share architectural patterns with `pattern-analyst`, integration points with `integration-analyst`, architecture docs with `docs-analyst`, and parallelization opportunities with `task-planner`.
 
@@ -84,7 +84,7 @@ Be concise. Each bullet should be information-dense.
 
 1. **Write file**: Use the Write tool to create {{FEATURE_DIR}}/analysis-architecture.md
 2. **Verify file**: Use the Read tool to confirm the file exists and has the expected structure
-3. **(Path B only)** Share findings via SendMessage, then mark your task complete via TaskUpdate
+3. **(Path B only)** Share findings via SendMessage, then mark your task complete via task status update
 ```
 
 ### Agent 2: Pattern Analyst (Unified)
@@ -115,7 +115,7 @@ Perform both pattern research AND code analysis:
 
 ## Team Communication
 
-> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `TaskUpdate`, or `TaskList`, ignore this section entirely and just write your output file.
+> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `task status update`, or `task list`, ignore this section entirely and just write your output file.
 
 Your teammates are: `arch-analyst`, `integration-analyst`, `docs-analyst`, `task-planner`. Share pattern insights with `arch-analyst`, API patterns with `integration-analyst`, and file-to-task mapping with `task-planner`.
 
@@ -158,7 +158,7 @@ Extract actual code patterns with file paths, not just file listings.
 
 1. **Write file**: Use the Write tool to create {{FEATURE_DIR}}/analysis-patterns.md
 2. **Verify file**: Use the Read tool to confirm the file exists and has the expected structure
-3. **(Path B only)** Share findings via SendMessage, then mark your task complete via TaskUpdate
+3. **(Path B only)** Share findings via SendMessage, then mark your task complete via task status update
 ```
 
 ### Agent 3: Integration Analyst
@@ -191,7 +191,7 @@ Investigate:
 
 ## Team Communication
 
-> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `TaskUpdate`, or `TaskList`, ignore this section entirely and just write your output file.
+> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `task status update`, or `task list`, ignore this section entirely and just write your output file.
 
 Your teammates are: `arch-analyst`, `pattern-analyst`, `docs-analyst`, `task-planner`. Share service boundaries with `arch-analyst`, API patterns with `pattern-analyst`, and API docs with `docs-analyst`.
 
@@ -230,7 +230,7 @@ Be specific with route paths, table names, and file references.
 
 1. **Write file**: Use the Write tool to create {{FEATURE_DIR}}/analysis-integration.md
 2. **Verify file**: Use the Read tool to confirm the file exists and has the expected structure
-3. **(Path B only)** Share findings via SendMessage, then mark your task complete via TaskUpdate
+3. **(Path B only)** Share findings via SendMessage, then mark your task complete via task status update
 ```
 
 ### Agent 4: Documentation Analyst
@@ -263,7 +263,7 @@ Search for documentation in:
 
 ## Team Communication
 
-> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `TaskUpdate`, or `TaskList`, ignore this section entirely and just write your output file.
+> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `task status update`, or `task list`, ignore this section entirely and just write your output file.
 
 Your teammates are: `arch-analyst`, `pattern-analyst`, `integration-analyst`, `task-planner`. Share architecture docs with `arch-analyst`, coding guidelines with `pattern-analyst`, and API docs with `integration-analyst`.
 
@@ -302,7 +302,7 @@ Identify which documents are REQUIRED reading vs nice-to-have.
 
 1. **Write file**: Use the Write tool to create {{FEATURE_DIR}}/analysis-docs.md
 2. **Verify file**: Use the Read tool to confirm the file exists and has the expected structure
-3. **(Path B only)** Share findings via SendMessage, then mark your task complete via TaskUpdate
+3. **(Path B only)** Share findings via SendMessage, then mark your task complete via task status update
 ```
 
 ### Agent 5: Task Planner (Unified)
@@ -333,7 +333,7 @@ Analyze the codebase structure for "{{FEATURE_NAME}}" and suggest an optimal tas
 
 ## Team Communication
 
-> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `TaskUpdate`, or `TaskList`, ignore this section entirely and just write your output file.
+> **Path B (`--team`) only — skip in standalone (Path A) mode.** If you do not have access to `SendMessage`, `task status update`, or `task list`, ignore this section entirely and just write your output file.
 
 Your teammates are: `arch-analyst`, `pattern-analyst`, `integration-analyst`, `docs-analyst`. Listen for parallelization opportunities from `arch-analyst` and file-to-task mapping from `pattern-analyst`.
 
@@ -373,7 +373,7 @@ Focus on actionable structure. The goal is to help organize the parallel plan, n
 
 1. **Write file**: Use the Write tool to create {{FEATURE_DIR}}/analysis-tasks.md
 2. **Verify file**: Use the Read tool to confirm the file exists and has the expected structure
-3. **(Path B only)** Share findings via SendMessage, then mark your task complete via TaskUpdate
+3. **(Path B only)** Share findings via SendMessage, then mark your task complete via task status update
 ```
 
 ---

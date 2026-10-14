@@ -61,20 +61,20 @@ Use Option 1 for small features and quick iterations. Use Option 2 when the user
 ### When to use `--team`
 
 `--team` is a **Claude Code-only** execution mode. Cursor and Codex bundles ship
-without the team tools (`TeamCreate`, `SendMessage`, etc.), so invoking `--team`
+without team tools (`SendMessage`, etc.), so invoking `--team`
 there has no effect — use `--parallel` instead.
 
 - **`/plan --team`** — The task is complex enough that you want architect, risk, and testing perspectives but not heavy enough for an artifact file. Outputs a merged multi-perspective plan in the conversation.
 - **`/plan --parallel --team`** — Same as above, but the merged plan is also formatted for parallel implementation (Batches section, `Depends on` annotations).
-- **`/prp-plan --team`** — Team-coordinated research with shared TaskList for medium/large features that will produce an artifact file.
-- **`/prp-implement --team`** — Team-coordinated execution with shared TaskList across all batches. Best for implementation runs where you want coordinated inter-batch shutdown and a single shared task graph.
+- **`/prp-plan --team`** — Team-coordinated research with shared task list for medium/large features that will produce an artifact file.
+- **`/prp-implement --team`** — Team-coordinated execution with shared task list across all batches. Best for implementation runs where you want coordinated inter-batch shutdown and a single shared task graph.
 
 ### When to use `--enhanced`
 
 `--enhanced` widens the roster from 3 to **5** personas, adding `security-reviewer` and `ux-reviewer`. By default (no `--team`) it dispatches via **Path C** — 5 standalone parallel sub-agents — which works in every bundle (Claude Code, Cursor, Codex). Combine with `--team` (Claude Code only) for team-coordinated dispatch via **Path B enhanced**. Reach for `--enhanced` when the change has plausible security exposure (new endpoint, new input source, authn/authz touch, secret handling) or user-facing surface (new UI / CLI flag / API response shape / error path). Skip it for purely internal refactors where no new threat surface or user touchpoint is introduced.
 
 - **`/plan --enhanced <request>`** — Fans out 5 standalone parallel sub-agents (Path C). Works in every bundle. Best for medium-complexity features where a 3-persona plan would miss security or UX considerations and you don't need the team coordination overhead.
-- **`/plan --enhanced --team <request>`** — Same 5-persona roster but dispatched as a Claude Code agent team with shared `TaskList` and coordinated shutdown. Use when you want team observability across the 5 perspectives.
+- **`/plan --enhanced --team <request>`** — Same 5-persona roster but dispatched as a Claude Code agent team with shared `task list` and coordinated shutdown. Use when you want team observability across the 5 perspectives.
 - **`/plan --enhanced --parallel <request>`** — 5-persona plan formatted for parallel execution (Batches section, `Depends on` annotations).
 - **`/plan --enhanced --dry-run <request>`** — Print the 5-persona roster without spawning anyone. Useful to confirm the team shape before paying the dispatch cost.
 - **`/prp-plan --enhanced <request>`** — The heavier sibling: 7 researchers, artifact-producing. Use when you want the enhanced perspectives _and_ a saved plan file, not just an in-conversation plan.

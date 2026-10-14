@@ -103,7 +103,7 @@ Based on `$ARGUMENTS`:
 
 ### Step 5: Create Task Plan
 
-Use **the todo tracker** to create a prioritized task list:
+Use the task tools (`track the task`) to create a prioritized task list:
 
 1. Critical documentation gaps (public APIs, core features)
 2. Architecture and system design
@@ -348,7 +348,7 @@ Provide completion summary:
 ## Important Notes
 
 - **You are the orchestrator** - delegate writing to agents
-- **Deploy agents in parallel** - single message with multiple native subagent calls
+- **Deploy agents in parallel** - single message with multiple Agent calls
 - **Respect existing work** - enhance, don't replace (unless --fresh)
 - **Quality over quantity** - focused docs are better than comprehensive but vague
 - **Verify before completing** - run all checks before marking done

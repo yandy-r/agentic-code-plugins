@@ -90,7 +90,7 @@ Every later phase keys off the action set.
 
 Read `references/commit-phases.md` before Phase 0 for exact commands, the dry-run report template, the documentation rules, the commit-message steps, the `docs-git-committer` agent prompt, agent-result validation (including the `git rebase -x` check), and the summary template. Key decisions:
 
-- Strategy: direct commit vs parallel agents (single message, multiple Task calls, one `docs-git-committer` per scope; todos per agent).
+- Strategy: direct commit vs parallel agents (single message, multiple Agent calls, one `docs-git-committer` per scope; todos per agent).
 - Read `templates/documentation-decision.md` (Step 6), `templates/commit-types.md` (Step 8), `templates/agent-prompts.md` (Step 14) when the step is reached.
 - Documentation: feature docs only for new user-facing features, significant API changes, complex flows, breaking changes; directory-level `AGENTS.md` only for critical directory-specific patterns.
 - Step 12/21: `git push` only when `push ∈ actions`.

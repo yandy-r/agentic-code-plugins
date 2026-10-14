@@ -8,11 +8,8 @@ allowed-tools:
   - Glob
   - Write
   - Edit
-  - MultiEdit
   - Agent
-  - Task
   - AskUserQuestion
-  - TodoWrite
   - Bash(ls:*)
   - Bash(cat:*)
   - Bash(test:*)
@@ -211,7 +208,7 @@ For each `Apply` entry, sanitize the body per `references/prompt-injection-safet
 ### Dispatch modes
 
 - **Sequential (default)**: one `ycc:pr-comment-fixer` per group in order; wait for its `STATUS:` report before the next.
-- **Parallel (`--parallel`, `--commit-style one` only)**: per batch, dispatch all fixers in a single message with multiple `Task` tool calls (blocking, standalone dispatch per `standalone-dispatch.md`); wait for all before the next batch. `per-comment` overrides `--parallel` with sequential single-comment dispatch and immediate commits.
+- **Parallel (`--parallel`, `--commit-style one` only)**: per batch, dispatch all fixers in a single message with multiple `Agent` tool calls (standalone dispatch per `standalone-dispatch.md`); wait for all before the next batch. `per-comment` overrides `--parallel` with sequential single-comment dispatch and immediate commits.
 
 Each fixer returns `STATUS: Fixed` or `STATUS: Failed` per comment, with `CHANGES:` and (on failure) `BLOCKER` + `RECOMMENDATION` (contract: `ycc/agents/pr-comment-fixer.md`). Track results in a status map keyed by comment index. Never auto-retry a Failed fix.
 

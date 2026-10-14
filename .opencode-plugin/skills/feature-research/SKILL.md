@@ -131,7 +131,7 @@ Researchers: 7 (api-researcher, business-analyzer, tech-designer, ux-researcher,
 
 
 
-Do not dispatch any `subagent` calls in dry-run mode.
+Do **not** call `track the task`, `subagent`, or `re-dispatch the affected sub-agent with the needed guidance` in dry-run mode.
 
 **STOP** without creating files or deploying agents.
 
@@ -195,6 +195,7 @@ If a child report is empty or contentless, record its `sessionID`, inspect the d
 **Failure policy for Path B** (mirrors deep-research):
 
 - **Single sub-agent failure**: record the gap in the corresponding `research-*.md` (stub note) and continue — downstream synthesis will adapt.
+- **Mid-run user abort**: `re-dispatch the affected sub-agent with the needed guidance(shutdown)` to every active sub-agent, then confirm all sub-agents have shut down. Never exit with sub-agents still live.
 
 ---
 
@@ -282,6 +283,7 @@ Each research file should: focus on its specific domain, include concrete exampl
 ## Important Notes
 
 - **You are the research orchestrator** — coordinate the 7 researchers and synthesize the spec
+- **Spawn in parallel** — a single message with 7 native `subagent` calls (Path A) or 7 native `subagent` calls with `description` plus the role-specific `prompt` (Path B)
 - **Single-owner research files** — each researcher writes only its assigned artifact
 - **Gate synthesis with validation** — do not generate `feature-spec.md` before validator pass
 - **Use web search** — external APIs require current documentation

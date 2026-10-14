@@ -105,7 +105,7 @@ Ask (present all at once):
 
 ## Phase 3: GROUNDING — Market & Context
 
-Dispatch **`prp-researcher`** via the blocking **`Task`** tool, in **dual (market + codebase) mode**, to investigate:
+Dispatch **`prp-researcher`** via the **`Agent`** tool, in **dual (market + codebase) mode**, to investigate:
 
 - Comparable products/systems and how they're typically built (their stacks are useful
   priors for the Tech Stack phase)
@@ -115,8 +115,8 @@ Dispatch **`prp-researcher`** via the blocking **`Task`** tool, in **dual (marke
 
 Instruct the researcher to return URL citations for market findings and `file:line`
 references for codebase findings. This is a standalone single-researcher dispatch — see
-`~/.codex/plugins/ycc/shared/references/standalone-dispatch.md` for the `Task`
-spawn/return contract (never `Agent` without a `team_name`).
+`~/.codex/plugins/ycc/shared/references/standalone-dispatch.md` for the `Agent`
+spawn/return contract (omit `name` for standalone dispatch).
 
 **Summarize to the user:**
 

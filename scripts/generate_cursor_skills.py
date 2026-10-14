@@ -91,13 +91,21 @@ def apply_skills_text_transforms(s: str) -> str:
 
     s = re.sub(r"\bycc:([a-zA-Z0-9-]+)\b", r"\1", s)
 
-    # Phrase-specific Task tool wording (before generic replacements)
+    # Phrase-specific Task / Agent tool wording (before generic replacements)
     s = s.replace(
         "Refer to Task tool description for latest updates.",
         "Refer to Cursor agent documentation for latest updates.",
     )
     s = s.replace(
+        "Refer to Agent tool description for latest updates.",
+        "Refer to Cursor agent documentation for latest updates.",
+    )
+    s = s.replace(
         "available agents in the Task tool",
+        "available agents in Cursor",
+    )
+    s = s.replace(
+        "available agents in the Agent tool",
         "available agents in Cursor",
     )
     s = s.replace(
@@ -108,24 +116,53 @@ def apply_skills_text_transforms(s: str) -> str:
         "List of all valid agent types from Task tool",
         "List of all valid agent types for Cursor",
     )
+    s = s.replace(
+        "List of all valid agent types from Agent tool",
+        "List of all valid agent types for Cursor",
+    )
     s = s.replace("Use the Task tool with", "Use parallel agents with")
+    s = s.replace("Use the Agent tool with", "Use parallel agents with")
 
     s = re.sub(
-        r"(?i)use the Task tool to launch (?:the )?`?([a-zA-Z0-9-]+)`? agent",
+        r"(?i)use the (?:Task|Agent) tool to launch (?:the )?`?([a-zA-Z0-9-]+)`? agent",
         r"invoke the `\1` agent",
         s,
     )
     s = re.sub(
-        r"(?i)use the Task tool to launch the ([a-zA-Z0-9-]+) agent",
+        r"(?i)use the (?:Task|Agent) tool to launch the ([a-zA-Z0-9-]+) agent",
         r"invoke the `\1` agent",
         s,
     )
     s = s.replace("Task tool to launch", "invoke")
+    s = s.replace("Agent tool to launch", "invoke")
     s = s.replace("the Task tool", "Cursor")
+    s = s.replace("the Agent tool", "Cursor")
     s = s.replace("Task tool calls", "parallel agent invocations")
+    s = s.replace("Agent tool calls", "parallel agent invocations")
     s = s.replace("Task tool call", "agent invocation")
+    s = s.replace("Agent tool call", "agent invocation")
     s = s.replace("Single Task tool call", "Single agent invocation")
+    s = s.replace("Single Agent tool call", "Single agent invocation")
     s = s.replace("MULTIPLE Task tool calls", "Multiple parallel agent invocations")
+    s = s.replace("MULTIPLE Agent tool calls", "Multiple parallel agent invocations")
+
+    # Preserve tool identifiers in YAML; translate prose only. Path/namespace
+    # rewrites above still apply to scoped Bash permissions in frontmatter.
+    preamble = ""
+    if s.startswith("---\n"):
+        end = s.find("\n---\n", 4)
+        if end >= 0:
+            preamble, s = s[: end + 5], s[end + 5 :]
+    for tool, wording in (
+        ("TodoWrite", "task tracker"),
+        ("TaskCreate", "task registration"),
+        ("TaskUpdate", "task status update"),
+        ("TaskList", "task list"),
+        ("TaskGet", "task details"),
+        ("TeamCreate", "agent group setup"),
+        ("TeamDelete", "agent group cleanup"),
+    ):
+        s = re.sub(rf"\b{tool}\b", wording, s)
 
     s = s.replace("main Claude session", "main Cursor session")
     s = s.replace("Claude is running ", "When running ")
@@ -145,7 +182,7 @@ def apply_skills_text_transforms(s: str) -> str:
     s = s.replace("parallel Task execution", "parallel agent runs")
     s = s.replace("Parallel Task execution", "Parallel agent runs")
 
-    return s
+    return preamble + s
 
 
 def restore_bundle_release_source_paths(content: str) -> str:
@@ -158,6 +195,12 @@ def restore_bundle_release_source_paths(content: str) -> str:
 
 
 def transform_text_content(content: str, rel: Path) -> str:
+    if rel.as_posix() == "_shared/references/agent-team-dispatch.md":
+        return (
+            "# Agent Team Dispatch\n\n"
+            "Agent teams (`--team`) are unsupported in the Cursor bundle. Abort if requested; "
+            "rerun without `--team` using standalone dispatch.\n"
+        )
     out = apply_skills_text_transforms(content)
     if rel.parts and rel.parts[0] == "bundle-release":
         out = restore_bundle_release_source_paths(out)

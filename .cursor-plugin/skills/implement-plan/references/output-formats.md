@@ -65,7 +65,7 @@ Per-batch teammate roster:
   ...
 ```
 
-Do **not** call `TeamCreate`, `TaskCreate`, `Agent`, `Task`, `SendMessage`, or `TeamDelete` in dry-run mode. **STOP HERE**.
+Do **not** call `task registration`, `Agent`, or `SendMessage` in dry-run mode. **STOP HERE**.
 
 ## Completion summary
 

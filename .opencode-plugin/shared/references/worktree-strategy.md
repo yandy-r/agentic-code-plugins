@@ -258,7 +258,7 @@ The `WorktreeCreate` hook registered in `ycc/settings/settings.json` still
 matters for runtimes that intentionally use harness-managed worktree
 creation. But for the single-worktree contract described here, executors should
 pre-create the feature worktree once and dispatch agents against that existing
-path via `Working directory:`. Do **not** rely on `Agent(isolation: "worktree")`
+path via `Working directory:`. Do **not** rely on `subagent(isolation: "worktree", background=false)`
 for per-task fan-out in these workflows, because the harness will create distinct
 harness worktrees per agent. The hook body lives at
 `ycc/settings/hooks/worktree-create.sh`. The full worktree placement policy is

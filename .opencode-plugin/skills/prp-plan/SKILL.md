@@ -115,7 +115,7 @@ When `ENHANCED_MODE=true`, run `~/.config/opencode/skills/prp-plan/scripts/prefl
 
 ### Path A — Sequential (default)
 
-Dispatch a single `prp-researcher` agent via the foreground native `subagent` call (`background=false`), in codebase mode, to cover all 8 categories and 5 traces. Use the discovery table for the plan's Patterns to Mirror section.
+Dispatch a single `prp-researcher` agent via the `subagent` tool, in codebase mode, to cover all 8 categories and 5 traces. Use the discovery table for the plan's Patterns to Mirror section.
 
 **IMPORTANT — Researcher prompt constraints**: Tell the researcher to keep code snippets to **5 lines max** per finding and limit the total response to the discovery table format only — no prose summaries.
 
@@ -131,7 +131,7 @@ Dispatch `patterns-research`, `quality-research`, and `infra-research` in one pa
 
 - Replace the 3-row researcher table above with the 7-row roster from `~/.config/opencode/skills/prp-plan/references/enhanced-researchers.md`.
 - Dispatch in a **SINGLE message** with **SEVEN native `subagent` calls**, each with `background=false`; validate every candidate report against its backstop artifact.
-- Each call uses `agent="prp-researcher"`; put the role name in `description` and the complete role instructions in `prompt`.
+- Each call uses `@prp-researcher` with `description` set to the role name (`api-researcher`, `business-analyzer`, `tech-designer`, `ux-researcher`, `security-researcher`, `practices-researcher`, `recommendations-agent`) and the role-specific prompt copied verbatim from `enhanced-researchers.md`. Per `enhanced-researchers.md`, each role-specific prompt also instructs the researcher to write a backstop file at `docs/prps/plans/.prp-research/<feature-slug>/<role-name>.md` (`api-researcher.md`, `business-analyzer.md`, `tech-designer.md`, `ux-researcher.md`, `security-researcher.md`, `practices-researcher.md`, `recommendations-agent.md`) in addition to returning the same content inline.
 - The 5-line snippet cap and discovery-table-only constraints used in the 3-researcher path apply unchanged.
 
 ## Phase 3 — RESEARCH

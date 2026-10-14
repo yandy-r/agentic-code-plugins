@@ -136,7 +136,7 @@ Step 13 — identify scopes: group files by feature or area; each scope independ
 
 Step 14 — read `${CLAUDE_PLUGIN_ROOT}/skills/git-workflow/templates/agent-prompts.md`.
 
-Step 15 — deploy all agents in a SINGLE message with MULTIPLE Task tool calls, one `docs-git-committer` per scope:
+Step 15 — deploy all agents in a SINGLE message with MULTIPLE Agent tool calls, one `docs-git-committer` per scope:
 
 | Field         | Value                                                             |
 | ------------- | ----------------------------------------------------------------- |

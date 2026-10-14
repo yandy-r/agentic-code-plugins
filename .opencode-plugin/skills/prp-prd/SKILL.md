@@ -72,7 +72,7 @@ Ask these questions (present all at once, user can answer together):
 
 ## Phase 3: GROUNDING — Market & Context Research
 
-After foundation answers, dispatch the **`prp-researcher`** agent via the foreground native `subagent` call (`background=false`), in **market+codebase (dual) mode**, to investigate:
+After foundation answers, dispatch the **`prp-researcher`** agent via the **`subagent`** tool, in **market+codebase (dual) mode**, to investigate:
 
 - Similar products/features in the market
 - How competitors solve this problem
@@ -80,7 +80,7 @@ After foundation answers, dispatch the **`prp-researcher`** agent via the foregr
 - Recent trends or changes
 - If a codebase exists: relevant existing functionality, patterns that could be leveraged, and technical constraints
 
-Instruct the researcher to return file:line references for codebase findings and URL citations for market findings. This is a standalone single-researcher dispatch — see `~/.config/opencode/shared/references/standalone-dispatch.md` for the `subagent` native dispatch and result contract.
+Instruct the researcher to return file:line references for codebase findings and URL citations for market findings. This is a standalone single-researcher dispatch — see `~/.config/opencode/shared/references/standalone-dispatch.md` for the `subagent` spawn/return contract (omit `name` for standalone dispatch).
 
 **Summarize findings to user:**
 
@@ -114,7 +114,7 @@ Based on foundation + research, ask:
 
 ## Phase 5: GROUNDING — Technical Feasibility
 
-Dispatch the **`prp-researcher`** agent again via the foreground native `subagent` call (`background=false`), this time scoped to **technical feasibility**:
+Dispatch the **`prp-researcher`** agent again via the **`subagent`** tool, this time scoped to **technical feasibility**:
 
 - If a codebase exists, run two investigations:
   1. **Explore feasibility** — existing infrastructure that can be leveraged, similar patterns already implemented, integration points, dependencies, relevant config and type definitions

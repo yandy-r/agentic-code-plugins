@@ -498,7 +498,7 @@ Each agent prompt should have:
 
 **Problem**: Deploying agents one at a time
 
-**Solution**: Deploy all agents in single message with multiple Task calls
+**Solution**: Deploy all agents in single message with multiple Agent calls
 
 ---
 
@@ -510,7 +510,7 @@ Each agent prompt should have:
 2. Provide clear scope and file list
 3. Reference appropriate templates
 4. Include documentation decision guidance
-5. Deploy agents in parallel (single message, multiple Task calls)
+5. Deploy agents in parallel (single message, multiple Agent calls)
 6. Ensure non-overlapping scopes
 7. Specify expected output format
 

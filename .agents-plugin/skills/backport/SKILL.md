@@ -9,9 +9,7 @@ allowed-tools:
 - Write
 - Edit
 - Agent
-- Task
 - AskUserQuestion
-- TodoWrite
 - Bash(ls:*)
 - Bash(cat:*)
 - Bash(test:*)

@@ -8,7 +8,6 @@ tools:
   - Write
   - WebFetch
   - WebSearch
-  - TodoWrite
 model: opus
 color: blue
 ---
