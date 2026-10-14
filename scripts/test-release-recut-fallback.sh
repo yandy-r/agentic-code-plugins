@@ -50,7 +50,14 @@ printf published > "$RELEASE_STATE"
     transaction = base / 'transaction.sh'
     transaction.write_text(block)
     env['PATH'] = str(bin_dir) + os.pathsep + env['PATH']
-    for case in ('success', 'preflight', 'delete', 'push', 'publish'):
+    # Each required variable unset under `bash -u` must stop at its preflight
+    # stage with the recovery report and no mutation (YAN-1105).
+    unset_stage = {'TAG': 'preflight-tag', 'FIX_SHA': 'preflight-sha',
+                   'RELEASED_SHA': 'preflight-released-sha',
+                   'RELEASE_BRANCH': 'preflight-branch',
+                   'NOTES_PATH': 'preflight-files', 'PUBLISHER': 'preflight-files'}
+    cases = ['success', 'preflight', 'delete', 'push', 'publish'] + ['unset-' + v for v in unset_stage]
+    for case in cases:
         folder = base / case
         folder.mkdir()
         repo = folder / 'repo'
@@ -96,10 +103,23 @@ printf published > "$RELEASE_STATE"
                        RELEASE_BRANCH='main', NOTES_PATH=str(notes), PUBLISHER=str(publisher),
                        REMOTE=str(remote), CALLS=str(calls), RELEASE_STATE=str(release_state),
                        FAIL_STEP=case)
-        result = subprocess.run(['bash', str(transaction)], cwd=repo, env=run_env,
+        shell = ['bash']
+        if case.startswith('unset-'):
+            run_env.pop(case.removeprefix('unset-'))
+            shell = ['bash', '-u']
+        result = subprocess.run([*shell, str(transaction)], cwd=repo, env=run_env,
                                 text=True, capture_output=True, timeout=30)
         trace = calls.read_text()
-        if case == 'success':
+        if case.startswith('unset-'):
+            stage = unset_stage[case.removeprefix('unset-')]
+            assert result.returncode != 0 and 'RESULT=loop-blocked' in result.stdout, result.stdout + result.stderr
+            assert 'RECOVERY_STEP=' + stage in result.stdout, result.stdout + result.stderr
+            assert 'unbound variable' not in result.stderr, result.stderr
+            assert not trace
+            assert git('rev-parse', 'v1.0.0', bare=True) == old_tag
+            assert git('rev-parse', 'v1.0.0') == old_tag
+            assert release_state.read_text() == 'original release metadata'
+        elif case == 'success':
             assert result.returncode == 0, result.stdout + result.stderr
             assert git('rev-parse', 'v1.0.0^{commit}', bare=True) == fix
             assert git('cat-file', '-t', 'v1.0.0', bare=True) == 'tag'
@@ -127,5 +147,5 @@ printf published > "$RELEASE_STATE"
                 assert not release_state.exists()
                 assert 'publisher-verified-remote-tag' in trace
         print('[pass] scratch re-cut ' + case)
-print('5 passed, 0 failed (no network; real git only inside temporary repos)')
+print(f'{len(cases)} passed, 0 failed (no network; real git only inside temporary repos)')
 PY
