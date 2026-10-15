@@ -15,16 +15,16 @@ The following files carry version information for the `ycc` bundle. Only hand-ed
 files are modified directly; regenerated files are produced by running the listed
 generator script.
 
-| File                              | Kind        | Maintained by                      |
-| --------------------------------- | ----------- | ---------------------------------- |
-| `ycc/.claude-plugin/plugin.json`  | hand-edited | `bundle-release` `bump-version.sh` |
-| `.claude-plugin/marketplace.json` | hand-edited | `bundle-release` `bump-version.sh` |
-| `ycc/package.json`                | optional    | `bundle-release` `bump-version.sh` (only if it already has a `version` field) |
+| File                                                                                                                                            | Kind        | Maintained by                                                                                            |
+| ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------- |
+| `ycc/.claude-plugin/plugin.json`                                                                                                                | hand-edited | `bundle-release` `bump-version.sh`                                                                       |
+| `.claude-plugin/marketplace.json`                                                                                                               | hand-edited | `bundle-release` `bump-version.sh`                                                                       |
+| `ycc/package.json`                                                                                                                              | optional    | `bundle-release` `bump-version.sh` (only if it already has a `version` field)                            |
 | `packages/<package>` and `packages/<runtime>/<package>` manifests (`{.claude-plugin,.codex-plugin,.cursor-plugin}/plugin.json`, `package.json`) | regenerated | runtime package generators via `scripts/sync.sh` (checked only when they already have a `version` field) |
-| `.agents/plugins/marketplace.json` | regenerated | `scripts/generate-codex-plugin.sh` |
-| `.codex-plugin/**`            | regenerated | `scripts/generate-codex-plugin.sh` |
-| `.cursor-plugin/**`               | regenerated | `scripts/sync.sh --only cursor`    |
-| `.opencode-plugin/**`             | regenerated | `scripts/sync.sh --only opencode`  |
+| `.agents/plugins/marketplace.json`                                                                                                              | regenerated | `scripts/generate-codex-plugin.sh`                                                                       |
+| `.codex-plugin/**`                                                                                                                              | regenerated | `scripts/generate-codex-plugin.sh`                                                                       |
+| `.cursor-plugin/**`                                                                                                                             | regenerated | `scripts/sync.sh --only cursor`                                                                          |
+| `.opencode-plugin/**`                                                                                                                           | regenerated | `scripts/sync.sh --only opencode`                                                                        |
 
 Discovery rules are implemented in `bundle-release/scripts/release_versions.py`
 (shared by `bump-version.sh` and `preflight.sh`):
