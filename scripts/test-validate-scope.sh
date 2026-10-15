@@ -45,7 +45,7 @@ expect_targets() {
 }
 
 ALL="${VALIDATE_TARGETS[*]}"
-BUNDLES="inventory cursor codex opencode agents release practices"
+BUNDLES="inventory cursor codex opencode agents packages release practices"
 
 echo "== path -> target mapping =="
 
@@ -72,6 +72,9 @@ expect_targets "packages manifest selects packages" "packages" ycc/settings/pack
 expect_targets "packages schema selects packages" "packages" ycc/settings/packages.schema.json
 expect_targets "package model selects packages" "packages" scripts/package_model.py
 expect_targets "package model tests select packages" "packages" scripts/test_package_model.py
+expect_targets "package graph builder selects packages" "packages" scripts/build_package_graph.py
+expect_targets "package graph extractor selects packages" "packages" scripts/package_graph_extract.py
+expect_targets "package graph tests select packages" "packages" scripts/test_package_graph.py
 expect_targets "generators select everything" "${ALL}" scripts/generate_codex_skills.py
 expect_targets "validate.sh selects everything" "${ALL}" scripts/validate.sh
 expect_targets "the scope lib selects everything" "${ALL}" scripts/lib/validate-scope.sh

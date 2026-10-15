@@ -101,9 +101,10 @@ findings are pinned to opencode v2.0.29; other versions are unverified. The `plu
 - Every other runtime ships self-contained packages. No runtime other than Claude has a
   dependency field. A closure expansion from `ycc/settings/packages.json` through
   `install.sh --package` is planned but not implemented.
-- The package graph and closure validator are planned (`build_package_graph.py` is not in
-  the tree yet). Any shared `_shared/` content and cross-skill script reach-ins stay inside
-  `ycc`, so nothing is vendored in 6.0.
+- `scripts/build_package_graph.py` (YAN-1129) builds the component graph and validates package
+  closures and public-package duplicates in the `packages` validator group. Any shared
+  `_shared/` content and cross-skill script reach-ins stay inside `ycc`, so nothing is vendored
+  in 6.0.
 
 ### Versioning
 
@@ -164,7 +165,8 @@ The gates and feature switches are listed in
 
 Historical snapshot as of this ADR's authoring on **2026-10-15**, before YAN-1128:
 each item below was planned and absent from the tree then. YAN-1128 implements the manifest,
-schema, loader, and `packages` validator group; generator consumption remains pending.
+schema, loader, and `packages` validator group; YAN-1129 implements the package graph and
+closure validator; generator consumption remains pending.
 
 - `ycc/settings/packages.json` and the package graph (`scripts/build_package_graph.py`).
 - Per-runtime package generators and the `install.sh --package` and `migrate` commands.

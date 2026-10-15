@@ -19,7 +19,7 @@
 #   - json       validates .claude-plugin/marketplace.json plus ycc/.claude-plugin/plugin.json
 #   - config     tests the managed-config merge helper and install.sh sync CLI
 #   - packages   validates the package manifest (ycc/settings/packages.json) against its schema
-#                and invariants, and runs the package model unit tests
+#                and invariants, package graph closures, and their unit tests
 #   - release    runs every scripts/test-release-*.sh (release-model state scripts,
 #                RELEASING.md template, signal collector)
 #   - mods       validates the Claude Code mods under ycc/mods and their marketplace
@@ -259,6 +259,9 @@ run_target() {
 		python3 "${REPO_ROOT}/scripts/package_model.py" --check || fail "package_model.py --check"
 		echo "== validate: package model unit tests =="
 		python3 "${REPO_ROOT}/scripts/test_package_model.py" || fail "test_package_model.py"
+		echo "== validate: package component graph & closures =="
+		python3 "${REPO_ROOT}/scripts/build_package_graph.py" --check || fail "build_package_graph.py --check"
+		python3 "${REPO_ROOT}/scripts/test_package_graph.py" || fail "test_package_graph.py"
 		;;
         release)
             local -a release_tests=("${REPO_ROOT}"/scripts/test-release-*.sh)

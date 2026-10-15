@@ -30,13 +30,13 @@ validate_scope_targets_for_path() {
 	# The package manifest and its model are read only by the packages
 	# validators, so they must match before the catch-all settings rule.
 	ycc/settings/packages.json | ycc/settings/packages.schema.json) echo "packages" ;;
-	scripts/package_model.py | scripts/test_package_model.py) echo "packages" ;;
+	scripts/package_model.py | scripts/test_package_model.py | scripts/build_package_graph.py | scripts/package_graph_extract.py | scripts/test_package_graph.py) echo "packages" ;;
 
         # Plugin source. Settings and the plugin manifest feed the generators,
         # the install tests and the manifest checks, so they select everything.
         ycc/settings/* | ycc/.claude-plugin/*) echo "all" ;;
         ycc/mods/*) echo "config mods" ;;
-        ycc/*) echo "inventory cursor codex opencode agents release practices" ;;
+	ycc/*) echo "inventory cursor codex opencode agents packages release practices" ;;
 
         # install.sh and its tests. The install-coverage validators in the
         # agents and opencode targets parse the per-target install libs.
