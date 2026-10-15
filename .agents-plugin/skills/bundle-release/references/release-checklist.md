@@ -23,7 +23,7 @@ The completed checklist for each release is saved to `docs/releases/<version>.md
 
 - [ ] Working tree is clean (no uncommitted changes). `git status --porcelain` must return empty output.
 - [ ] Currently on `main` branch (or a dedicated release branch with intent).
-- [ ] Version fields are in parity: `ycc/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` agree before the bump.
+- [ ] Version fields are in parity: every marketplace `plugins[]` entry and every versioned package manifest agrees with `ycc/.claude-plugin/plugin.json` (`ycc-mods` excluded).
 - [ ] `./scripts/validate.sh` passes on the pre-release tree.
 
 Run: `ycc/skills/bundle-release/scripts/preflight.sh`
@@ -50,10 +50,14 @@ If pre-flight fails: resolve all failing conditions before proceeding. Do not sk
 Run: `ycc/skills/bundle-release/scripts/bump-version.sh <new-version>`
 
 - [ ] `ycc/.claude-plugin/plugin.json` — `version` field updated.
-- [ ] `.claude-plugin/marketplace.json` — both `metadata.version` and `plugins[0].version` updated.
-- [ ] Diff reviewed with `git diff` to confirm only version strings changed.
+- [ ] `.claude-plugin/marketplace.json` — `metadata.version` and every `plugins[].version` updated.
+- [ ] Versioned `ycc/package.json` updated; generated `packages/**` is check-only until regeneration.
+- [ ] Versionless entries stay versionless; `ycc/mods` untouched.
+- [ ] Diff reviewed: only version values and JSON formatting normalization (2-space indent, trailing newline) changed; unrelated fields preserved.
 
-If this step fails: restore both files with `git checkout -- ycc/.claude-plugin/plugin.json .claude-plugin/marketplace.json` and investigate.
+Malformed inputs cause no writes (all inputs are validated first); write errors have
+best-effort rollback only, not crash-atomicity. Investigate the reported diagnostics. To undo a successful
+bump, restore the modified files listed by `git status --short` with `git checkout --` (see Rollback).
 
 ---
 
@@ -61,10 +65,14 @@ If this step fails: restore both files with `git checkout -- ycc/.claude-plugin/
 
 Run: `./scripts/sync.sh`
 
+- [ ] Generated `packages/`, `.agents/plugins/marketplace.json`, and `.agents-plugin/` regenerated when present.
 - [ ] `.cursor-plugin/` fully regenerated.
 - [ ] `.codex-plugin/` fully regenerated.
 - [ ] `.opencode-plugin/` fully regenerated.
 - [ ] No unexpected file changes (inspect with `git status`).
+
+Do not hand-edit generated manifests; sync must finish before post-bump parity
+checks can pass (`preflight.sh` also requires a clean committed tree).
 
 If unexpected files appear: diff them before proceeding. Do not commit unreviewed generated output.
 
@@ -108,16 +116,21 @@ Run: `ycc/skills/bundle-release/scripts/draft-notes.sh <new-version>`
 The skill does NOT auto-commit. After reviewing all changes, run:
 
 ```
-git add ycc/.claude-plugin/plugin.json \
-        .claude-plugin/marketplace.json \
-        .cursor-plugin \
-        .codex-plugin \
-        .opencode-plugin \
-        docs/inventory.json \
-        docs/releases/<new-version>.md
+for path in ycc/.claude-plugin/plugin.json .claude-plugin/marketplace.json \
+            ycc/package.json \
+            packages .agents/plugins/marketplace.json .agents-plugin \
+            .cursor-plugin .codex-plugin .opencode-plugin docs/inventory.json \
+            docs/releases/<new-version>.md; do
+  if [ -e "$path" ]; then
+    git add -- "$path"
+  fi
+done
 git commit -m "chore(release): v<new-version>"
 git tag v<new-version>
 ```
+
+Omit `docs/releases/<new-version>.md` from the loop when `--skip-notes` was passed.
+Absent paths are skipped; review additions/deletions in each generated directory.
 
 - [ ] Commit authored with message `chore(release): v<new-version>`.
 - [ ] Annotated or lightweight tag `v<new-version>` created.
@@ -144,11 +157,22 @@ gh release create v<new-version> --notes-file docs/releases/<new-version>.md --t
 
 If anything fails after Phase 1:
 
-1. Restore version files:
+1. Restore tracked source and generated changes using this explicit allowlist
+   (skips absent optional paths safely; also restores deleted tracked files):
 
    ```
-   git checkout -- ycc/.claude-plugin/plugin.json .claude-plugin/marketplace.json
+   for path in ycc/.claude-plugin/plugin.json .claude-plugin/marketplace.json \
+               ycc/package.json \
+               packages .agents/plugins/marketplace.json .agents-plugin \
+               .cursor-plugin .codex-plugin .opencode-plugin docs/inventory.json; do
+     if git ls-files --error-unmatch -- "$path" >/dev/null 2>&1; then
+       git checkout -- "$path"
+     fi
+   done
    ```
+
+   Review/remove any newly generated untracked files separately; the loop never
+   deletes untracked files.
 
 2. Restore generated bundles to pre-release state:
 

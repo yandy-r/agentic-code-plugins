@@ -1,26 +1,62 @@
 # Bundle Version Policy
 
+## Contents
+
+- Version Surfaces
+- Parity Rule
+- No Stale Version Literals in Docs
+- Semver Bump Rules
+- Never-Edit List
+- Pre-Bump Checklist
+
 ## Version Surfaces
 
 The following files carry version information for the `ycc` bundle. Only hand-edited
 files are modified directly; regenerated files are produced by running the listed
 generator script.
 
-| File                              | Kind        | Maintained by                      |
-| --------------------------------- | ----------- | ---------------------------------- |
-| `ycc/.claude-plugin/plugin.json`  | hand-edited | `bundle-release` `bump-version.sh` |
-| `.claude-plugin/marketplace.json` | hand-edited | `bundle-release` `bump-version.sh` |
-| `.codex-plugin/ycc/**`            | regenerated | `scripts/generate-codex-plugin.sh` |
-| `.cursor-plugin/**`               | regenerated | `scripts/sync.sh --only cursor`    |
-| `.opencode-plugin/**`             | regenerated | `scripts/sync.sh --only opencode`  |
+| File                                                                                                                                            | Kind        | Maintained by                                                                                            |
+| ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------- |
+| `ycc/.claude-plugin/plugin.json`                                                                                                                | hand-edited | `bundle-release` `bump-version.sh`                                                                       |
+| `.claude-plugin/marketplace.json`                                                                                                               | hand-edited | `bundle-release` `bump-version.sh`                                                                       |
+| `ycc/package.json`                                                                                                                              | optional    | `bundle-release` `bump-version.sh` (only if it already has a `version` field)                            |
+| `packages/<package>` and `packages/<runtime>/<package>` manifests (`{.claude-plugin,.codex-plugin,.cursor-plugin}/plugin.json`, `package.json`) | regenerated | runtime package generators via `scripts/sync.sh` (checked only when they already have a `version` field) |
+| `.agents/plugins/marketplace.json`                                                                                                              | regenerated | `scripts/generate-codex-plugin.sh`                                                                       |
+| `.codex-plugin/**`                                                                                                                              | regenerated | `scripts/generate-codex-plugin.sh`                                                                       |
+| `.cursor-plugin/**`                                                                                                                             | regenerated | `scripts/sync.sh --only cursor`                                                                          |
+| `.opencode-plugin/**`                                                                                                                           | regenerated | `scripts/sync.sh --only opencode`                                                                        |
+
+Discovery rules are implemented in `bundle-release/scripts/release_versions.py`
+(shared by `bump-version.sh` and `preflight.sh`):
+
+- The canonical version is `ycc/.claude-plugin/plugin.json:"version"` (required).
+- `ycc/mods/**` is excluded entirely — `ycc-mods` keeps its own version. Marketplace
+  entries named `ycc-mods` or sourced from `./ycc/mods` are ignored wherever they appear.
+- The root `package.json` (repo dev tooling), `node_modules`, git worktrees, docs and
+  test fixtures are never scanned; discovery is a fixed allowlist of product paths, not
+  a repository-wide search.
+- Versionless entries, metadata and manifests are valid and never gain a `version`
+  field; existing string versions always participate. `packages/<package>` and
+  `packages/<runtime>/<package>` are both supported layouts.
 
 ## Parity Rule
 
-`ycc/.claude-plugin/plugin.json:"version"` and both `"version"` fields inside
-`.claude-plugin/marketplace.json` (top-level `metadata.version` and
-`plugins[0].version`) MUST be identical at all times. `bundle-release/scripts/preflight.sh`
-enforces this check before any release action proceeds. If the values diverge, fix them
-manually in both hand-edited files before continuing.
+Every product version field must equal `ycc/.claude-plugin/plugin.json:"version"`:
+`.claude-plugin/marketplace.json` `metadata.version` (when present) and every
+non-excluded `plugins[]` entry's `version`, plus the optional package manifests above.
+Only source manifests and versioned `ycc/package.json` are bumped directly;
+`packages/**` is generated check-only, including future runtime package trees.
+Generated marketplaces and package manifests (`.agents/plugins/marketplace.json`,
+`.cursor-plugin/**`, `.codex-plugin/**`, `packages/**`) are checked for parity too, refreshed only by
+`./scripts/sync.sh`. `bundle-release/scripts/preflight.sh` enforces all of this before
+any release action proceeds. If generated surfaces are stale after a bump, run
+`./scripts/sync.sh` — never hand-edit them. If hand-edited sources diverge, fix them
+before continuing.
+
+Bumped files are re-serialized through JSON (`indent=2`, UTF-8, trailing newline);
+key order and unrelated fields are preserved, but a hand-edited file with custom
+formatting is normalized on its next bump. Reviewers should expect only version
+values (and at most that formatting normalization) to change.
 
 ## No Stale Version Literals in Docs
 
@@ -83,6 +119,9 @@ The following paths are fully regenerated. Do not hand-edit them. Make the
 corresponding source change and rerun `./scripts/sync.sh` (or the individual generator
 scripts) to propagate:
 
+- `packages/**`
+- `.agents/plugins/marketplace.json`
+- `.agents-plugin/**`
 - `.cursor-plugin/**`
 - `.codex-plugin/**`
 - `.opencode-plugin/**`

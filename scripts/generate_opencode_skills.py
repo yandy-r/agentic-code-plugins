@@ -236,6 +236,8 @@ def restore_bundle_release_source_paths(content: str) -> str:
         content.replace("ycc/.opencode-plugin/plugin.json", "ycc/.claude-plugin/plugin.json")
         .replace(".opencode-plugin/marketplace.json", ".claude-plugin/marketplace.json")
         .replace(".opencode-plugin/skills/bundle-release", "ycc/skills/bundle-release")
+        # release_versions.py discovers Claude manifests by directory name.
+        .replace('MANIFEST_SUBDIRS = (".opencode-plugin",', 'MANIFEST_SUBDIRS = (".claude-plugin",')
     )
 
 
