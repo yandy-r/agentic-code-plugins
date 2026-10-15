@@ -9,7 +9,7 @@ metadata:
 # ycc Bundle Release
 
 This skill prepares a `ycc` release by validating a clean tree, bumping the version
-across the two hand-edited source-of-truth JSON files, regenerating the derived Cursor,
+across all source product version fields, regenerating the derived Cursor,
 Codex, and opencode bundles, running the full validator sweep, and drafting release notes. It
 never auto-commits or pushes — the user reviews all changes and runs the emitted
 commands manually.
@@ -33,8 +33,11 @@ Checks owned by `preflight.sh`:
 
 - Working tree is clean (`git status --porcelain` returns empty output).
 - Currently on `main` branch (or user has confirmed a release branch is intentional).
-- Version parity: `ycc/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`
-  carry identical version strings before the bump.
+- Version parity: every existing product version field (all marketplace `plugins[]`
+  entries, optional metadata versions and package manifests) equals the canonical
+  `ycc/.claude-plugin/plugin.json` version. `ycc-mods` is excluded. Discovery is bounded
+  to the product paths in `references/version-policy.md`; versionless entries stay
+  versionless.
 - No stale version literals (`version: X.Y.Z` or `"version": "X.Y.Z"`) in hand-edited
   docs (`AGENTS.md`, `AGENTS.md`, `README.md`, `docs/README.md`) where the semver does
   not match the current bundle version. Author should use the `<managed by
@@ -63,8 +66,9 @@ to confirm before continuing.
 If `--dry-run` was passed, print the full release plan:
 
 - Current version and new version.
-- Files that will be modified (`ycc/.claude-plugin/plugin.json`,
-  `.claude-plugin/marketplace.json`).
+- Source files that will be modified: `ycc/.claude-plugin/plugin.json`,
+  `.claude-plugin/marketplace.json`, and `ycc/package.json` when it carries a version.
+  `packages/**` is generated check-only.
 - Derived bundles that will be regenerated (`.cursor-plugin/`, `.codex-plugin/`, `.opencode-plugin/`).
 - All commands that would be executed, in order.
 
@@ -74,21 +78,42 @@ Then STOP without writing or executing anything.
 
 Run `ycc/skills/bundle-release/scripts/bump-version.sh <new-version>`.
 
-This script updates both hand-edited JSON files atomically. After it exits, surface the
-diff (`git diff ycc/.claude-plugin/plugin.json .claude-plugin/marketplace.json`) for
-user review. If the script exits non-zero, surface stderr and STOP.
+The wrappers share `scripts/release_versions.py`, which discovers every product
+version field and validates all inputs before writing. Malformed inputs cause no
+writes; a write error mid-bump has best-effort rollback only (not crash-atomic).
+Generated surfaces (`packages/`, runtime bundles, `.agents/plugins/marketplace.json`)
+are checked by preflight but never bumped directly. Bumped files are JSON
+re-serialized (2-space indent, trailing newline), preserving key order and unrelated
+fields. After it exits, surface the diff (`git diff` of the modified files from
+`git status --short`) for user review. If the script exits non-zero, surface stderr
+and STOP.
 
 ## Phase 4: Regenerate derived bundles
 
-Run `./scripts/sync.sh`.
+Run `./scripts/sync.sh`. Source and generated versions temporarily differ after the
+bump; sync must finish before post-bump parity checks can pass. Never fix stale
+generated versions by hand. Review all source package/marketplace changes along
+with the generated diff; after committing the reviewed changes, `preflight.sh` can
+check parity again (its clean-tree gate still applies).
 
 If it fails, surface the following rollback command and STOP:
 
 ```
-git checkout -- ycc/.claude-plugin/plugin.json .claude-plugin/marketplace.json .opencode-plugin/ && ./scripts/sync.sh
+for path in ycc/.claude-plugin/plugin.json .claude-plugin/marketplace.json \
+            ycc/package.json \
+            packages .agents/plugins/marketplace.json .agents-plugin \
+            .cursor-plugin .codex-plugin .opencode-plugin docs/inventory.json; do
+  if git ls-files --error-unmatch -- "$path" >/dev/null 2>&1; then
+    git checkout -- "$path"
+  fi
+done
+./scripts/sync.sh
 ```
 
-Do not hand-edit `.cursor-plugin/`, `.codex-plugin/`, or `.opencode-plugin/` — these are regenerated only.
+Do not hand-edit `packages/`, `.agents/plugins/marketplace.json`, `.agents-plugin/`,
+`.cursor-plugin/`, `.codex-plugin/`, or `.opencode-plugin/` — regenerate them only.
+The rollback loop restores tracked paths (including deleted files) but does not
+remove newly generated untracked files; review those separately.
 
 ## Phase 5: Validate
 
@@ -117,11 +142,15 @@ ALWAYS emit the following block, substituting the actual `<new-version>` value:
 ```
 Release prepared. No commits have been made — review the diff, then run:
 
-git add ycc/.claude-plugin/plugin.json \
-        .claude-plugin/marketplace.json \
-        .cursor-plugin .codex-plugin .opencode-plugin \
-        docs/inventory.json \
-        docs/releases/<new-version>.md
+for path in ycc/.claude-plugin/plugin.json .claude-plugin/marketplace.json \
+            ycc/package.json \
+            packages .agents/plugins/marketplace.json .agents-plugin \
+            .cursor-plugin .codex-plugin .opencode-plugin docs/inventory.json \
+            docs/releases/<new-version>.md; do
+  if [ -e "$path" ]; then
+    git add -- "$path"
+  fi
+done
 git commit -m "chore(release): v<new-version>"
 git tag v<new-version>
 git push origin main --tags
@@ -130,17 +159,16 @@ git push origin main --tags
 gh release create v<new-version> --notes-file docs/releases/<new-version>.md --title "v<new-version>"
 ```
 
-Omit `docs/releases/<new-version>.md` from the `git add` line if `--skip-notes` was
-passed.
+The loop skips absent paths safely. If `--skip-notes` was passed, omit the
+`docs/releases/<new-version>.md` line from the loop.
 
 ## Important Notes
 
 - Never auto-commits or pushes. The user reviews all changes and runs the emitted
   commands manually.
-- Never hand-edits `.cursor-plugin/`, `.codex-plugin/`, or `.opencode-plugin/` — these paths are fully
-  regenerated by `./scripts/sync.sh`.
-- Rollback command for any mid-run failure after Phase 3:
-  `git checkout -- ycc/.claude-plugin/plugin.json .claude-plugin/marketplace.json .opencode-plugin/ && ./scripts/sync.sh`
+- Never hand-edits generated paths, including `packages/**`; use `./scripts/sync.sh`.
+- Rollback command for any mid-run failure after Phase 3: the conditional
+  `git checkout` loop from Phase 4 followed by `./scripts/sync.sh`.
 - See `references/release-checklist.md` for the full manual checklist.
 - `references/release-notes-template.md` is the release-notes template; `scripts/draft-notes.sh` reads it (Phase 6), so read it directly only when editing the notes layout.
 - See `references/version-policy.md` for semver bump rules and the never-edit list.

@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
-# Atomically bump version across the two hand-edited source-of-truth JSON files.
+# Bump the product version across every hand-edited version surface in lockstep.
 #
 # Usage:
 #   bump-version.sh <new-version>
 #
-# Updates:
+# Updates (discovery rules live in release_versions.py):
 #   - ycc/.claude-plugin/plugin.json (.version)
-#   - .claude-plugin/marketplace.json (.metadata.version and .plugins[0].version)
+#   - .claude-plugin/marketplace.json (.metadata.version and each
+#     .plugins[].version that exists)
+#   - versioned source package manifest (ycc/package.json)
+# Never touches ycc/mods (versioned separately) or generated bundles
+# (packages/, .agents/plugins/, .cursor-plugin/, .codex-plugin/) — refresh those with
+# ./scripts/sync.sh after the bump; preflight.sh enforces their parity.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -47,11 +52,14 @@ usage() {
     cat <<EOF
 Usage: bump-version.sh <new-version>
 
-Atomically bump version across the two hand-edited source-of-truth files:
+Bump the product version across every hand-edited version surface in lockstep:
   - ycc/.claude-plugin/plugin.json (.version)
-  - .claude-plugin/marketplace.json (.metadata.version and .plugins[0].version)
-
-Does not touch generated bundles. Validates semver format (x.y.z).
+  - .claude-plugin/marketplace.json (.metadata.version and every .plugins[].version)
+  - ycc/package.json if it already carries a version
+Versionless entries stay versionless. ycc/mods is never touched. Generated
+bundles (packages/, .agents/plugins/, .cursor-plugin/, .codex-plugin/) are not edited —
+run ./scripts/sync.sh afterwards. Validates semver format (x.y.z); malformed
+inputs abort before any file is written.
 EOF
 }
 
@@ -74,38 +82,9 @@ if ! [[ "${NEW_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     exit 1
 fi
 
-python3 - "${REPO_ROOT}" "${NEW_VERSION}" <<'PY'
-import json, sys, pathlib
-
-repo_root = pathlib.Path(sys.argv[1])
-new_version = sys.argv[2]
-
-plugin_path = repo_root / "ycc" / ".claude-plugin" / "plugin.json"
-marketplace_path = repo_root / ".claude-plugin" / "marketplace.json"
-
-def load(p):
-    return json.loads(p.read_text())
-
-def dump(p, data):
-    p.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
-
-plugin = load(plugin_path)
-marketplace = load(marketplace_path)
-
-old_plugin = plugin.get("version")
-old_meta = marketplace["metadata"]["version"]
-old_entry = marketplace["plugins"][0]["version"]
-
-plugin["version"] = new_version
-marketplace["metadata"]["version"] = new_version
-marketplace["plugins"][0]["version"] = new_version
-
-dump(plugin_path, plugin)
-dump(marketplace_path, marketplace)
-
-print(f"ycc/.claude-plugin/plugin.json:       {old_plugin} -> {new_version}")
-print(f".claude-plugin/marketplace.json meta: {old_meta} -> {new_version}")
-print(f".claude-plugin/marketplace.json entry: {old_entry} -> {new_version}")
-PY
+python3 "${SCRIPT_DIR}/release_versions.py" bump "${REPO_ROOT}" "${NEW_VERSION}" || {
+    echo "bump-version.sh: FAIL: version bump failed (see diagnostics above)" >&2
+    exit 1
+}
 
 echo "bump-version.sh: OK (${NEW_VERSION})"

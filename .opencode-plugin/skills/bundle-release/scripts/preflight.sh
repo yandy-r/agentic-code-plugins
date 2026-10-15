@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Pre-flight gate for the bundle-release skill.
-# Checks that the git working tree is clean, versions are in parity across
-# ycc/.claude-plugin/plugin.json and .claude-plugin/marketplace.json, warns
-# if not on the main branch, and scans hand-edited docs for stale semver
-# literals that don't match the current version.
+# Checks that the git working tree is clean, every product version field is in
+# parity with ycc/.claude-plugin/plugin.json (all marketplace plugins[] entries
+# and package manifests; ycc/mods is excluded), warns if not on the main
+# branch, and scans hand-edited docs for stale semver literals that don't
+# match the current version.
 #
 # Usage:
 #   preflight.sh
@@ -54,8 +55,8 @@ Usage: preflight.sh
 
 Gate checks before a ycc release:
   1. git working tree is clean
-  2. current version parity across ycc/.claude-plugin/plugin.json
-     and .claude-plugin/marketplace.json
+  2. version parity across ycc/.claude-plugin/plugin.json, every
+     marketplace plugins[] entry, and package manifests (ycc/mods excluded)
   3. warn if not on main branch
   4. no stale version literals (version: X.Y.Z or "version": "X.Y.Z")
      in hand-edited docs where the semver does not match the current
@@ -95,20 +96,11 @@ if [[ "${BRANCH}" != "main" ]]; then
     echo "preflight.sh: WARN: current branch is '${BRANCH}', not 'main'" >&2
 fi
 
-# --- Check 3: version parity ---
-read_json_value() {
-    python3 -c "import json,sys; print(json.load(open(sys.argv[1]))$2)" "$1"
-}
-
-PLUGIN_VERSION="$(read_json_value "${REPO_ROOT}/ycc/.claude-plugin/plugin.json" '["version"]')"
-MARKETPLACE_META_VERSION="$(read_json_value "${REPO_ROOT}/.claude-plugin/marketplace.json" '["metadata"]["version"]')"
-MARKETPLACE_PLUGIN_VERSION="$(read_json_value "${REPO_ROOT}/.claude-plugin/marketplace.json" '["plugins"][0]["version"]')"
-
-if ! [[ "${PLUGIN_VERSION}" == "${MARKETPLACE_META_VERSION}" && "${PLUGIN_VERSION}" == "${MARKETPLACE_PLUGIN_VERSION}" ]]; then
+# --- Check 3: version parity (all discovered surfaces; see release_versions.py) ---
+if ! PLUGIN_VERSION="$(python3 "${SCRIPT_DIR}/release_versions.py" check "${REPO_ROOT}")"; then
     echo "preflight.sh: FAIL: version parity violation" >&2
-    echo "  ycc/.claude-plugin/plugin.json .version           = ${PLUGIN_VERSION}" >&2
-    echo "  .claude-plugin/marketplace.json .metadata.version = ${MARKETPLACE_META_VERSION}" >&2
-    echo "  .claude-plugin/marketplace.json .plugins[0].version = ${MARKETPLACE_PLUGIN_VERSION}" >&2
+    echo "  expected every product version field to equal ycc/.claude-plugin/plugin.json .version" >&2
+    echo "  (run ./scripts/sync.sh to refresh generated manifests after a bump)" >&2
     exit 1
 fi
 
