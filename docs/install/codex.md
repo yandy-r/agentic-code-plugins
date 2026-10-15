@@ -97,8 +97,9 @@ reloading Codex:
 ./scripts/sync.sh --only codex
 ```
 
-Repo mode writes a GitHub marketplace entry and lets Codex pull the bundle from
-`yandy-r/claude-plugins@main`:
+Repo mode writes a git-subdir marketplace entry — Codex clones
+`https://github.com/yandy-r/claude-plugins.git` at `main` and pulls the bundle
+from the `./.codex-plugin/ycc` subdirectory:
 
 ```bash
 ./install.sh install --target codex --mode repo

@@ -199,7 +199,9 @@ Options:
                                 yandy-r/claude-plugins as the marketplace
                                 source. claude target adds the github slug
                                 via the CLI; codex target writes a
-                                {source: github, repo: yandy-r/claude-plugins,
+                                {source: git-subdir,
+                                url: https://github.com/yandy-r/claude-plugins.git,
+                                path: ./.codex-plugin/ycc,
                                 ref: main} marketplace entry and skips
                                 local generation/symlink/agents-sync.
                                 cursor, opencode and agents REJECT --mode repo
@@ -402,7 +404,8 @@ Examples:
   $(basename "$0") install --target claude --mode repo             # register yandy-r/claude-plugins
                                                                      # as a github marketplace source
   $(basename "$0") install --target codex  --mode repo             # write the codex marketplace.json
-                                                                     # with {source: github, repo: ...,
+                                                                     # with {source: git-subdir, url: ...,
+                                                                     # path: ./.codex-plugin/ycc,
                                                                      # ref: main}; skip symlink/rsync
   $(basename "$0") install --target all    --mode repo             # claude + codex in repo mode;
                                                                      # cursor/opencode are skipped

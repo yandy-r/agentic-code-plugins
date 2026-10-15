@@ -64,7 +64,49 @@ class CodexMarketplaceTestCase(unittest.TestCase):
         data = json.loads(self.dest.read_text(encoding="utf-8"))
         self.assertEqual(
             data["plugins"][0]["source"],
-            {"source": "github", "repo": "yandy-r/claude-plugins", "ref": "main"},
+            {
+                "source": "git-subdir",
+                "url": "https://github.com/yandy-r/claude-plugins.git",
+                "path": "./.codex-plugin/ycc",
+                "ref": "main",
+            },
+        )
+
+    def test_emitted_source_tags_are_codex_supported(self) -> None:
+        # Source tags accepted by Codex's marketplace parser; see openai/codex
+        # rust-v0.161.0 codex-rs/core-plugins/src/marketplace.rs.
+        codex_supported_tags = {"local", "url", "git-subdir", "npm"}
+        for mode, src in (("local", "./.agents/plugins/ycc"), ("repo", "")):
+            with self.subTest(mode=mode):
+                self.dest.unlink(missing_ok=True)
+                self.merge(mode, src)
+                data = json.loads(self.dest.read_text(encoding="utf-8"))
+                ycc = [p for p in data["plugins"] if p["name"] == "ycc"]
+                self.assertEqual(len(ycc), 1)
+                self.assertIn(ycc[0]["source"]["source"], codex_supported_tags)
+
+    def test_merge_repo_replaces_legacy_github_ycc_entry_idempotently(self) -> None:
+        other = {"name": "other", "source": {"source": "github", "repo": "a/b"}}
+        legacy = {
+            "name": "ycc",
+            "source": {"source": "github", "repo": "yandy-r/claude-plugins", "ref": "main"},
+        }
+        self.dest.write_text(json.dumps({"name": "custom", "plugins": [other, legacy]}), encoding="utf-8")
+        self.merge("repo")
+        first = self.dest.read_bytes()
+        self.merge("repo")
+        self.assertEqual(self.dest.read_bytes(), first)
+        data = json.loads(first.decode("utf-8"))
+        self.assertEqual([p["name"] for p in data["plugins"]], ["other", "ycc"])
+        self.assertEqual(data["plugins"][0], other)
+        self.assertEqual(
+            data["plugins"][1]["source"],
+            {
+                "source": "git-subdir",
+                "url": "https://github.com/yandy-r/claude-plugins.git",
+                "path": "./.codex-plugin/ycc",
+                "ref": "main",
+            },
         )
 
     def test_merge_preserves_and_replaces_in_place(self) -> None:

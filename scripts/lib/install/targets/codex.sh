@@ -162,8 +162,10 @@ uninstall_codex_plugin() {
 #               .agents/plugins/marketplace.json, i.e. $HOME — not against the
 #               JSON file. ~/.agents/plugins/ycc is a symlink to the generated
 #               bundle.
-#   repo  mode: registers yandy-r/claude-plugins@main as a github source.
-#               Codex resolves the bundle from the remote git ref on install.
+#   repo  mode: registers a git-subdir source pointing at
+#               https://github.com/yandy-r/claude-plugins.git subdirectory
+#               ./.codex-plugin/ycc on branch main. Codex clones the repo at
+#               that ref and resolves the bundle from the subdirectory.
 # ---------------------------------------------------------------------------
 merge_codex_marketplace_json() {
     command -v python3 >/dev/null 2>&1 || { err "python3 is required but not found"; exit 1; }
@@ -196,7 +198,8 @@ sync_codex_target() {
     local scripts_dir="${SCRIPT_DIR}/scripts"
 
     # 'base' registers the whole plugin and mirrors the custom agents (repo
-    # mode: the marketplace entry only, as Codex pulls the bundle from github).
+    # mode: the marketplace entry only, as Codex pulls the bundle from the
+    # git-subdir source of https://github.com/yandy-r/claude-plugins.git).
     # The 'skills' / 'agents' slices install standalone entries into
     # ~/.codex/skills/<name> and ~/.codex/agents/<name>.toml — no plugin.
     local do_plugin=0 do_agents=0 do_settings=0 do_rules=0 do_mcp=0
@@ -327,9 +330,10 @@ sync_codex_target() {
     if [[ $do_plugin -eq 1 ]]; then
         step=$((step + 1))
         if [[ "${MODE:-local}" == "repo" ]]; then
-            # Repo mode: Codex resolves the bundle from the github ref on install.
+            # Repo mode: Codex clones https://github.com/yandy-r/claude-plugins.git
+            # at main and resolves the bundle from ./.codex-plugin/ycc on install.
             # Bundle regeneration stays out-of-band via ./scripts/sync.sh --only codex.
-            printf '\n%s[%d/%d] Register github repo as marketplace source (yandy-r/claude-plugins@main)%s\n' "${BOLD}" "$step" "$total" "${NC}"
+            printf '\n%s[%d/%d] Register git-subdir marketplace source (https://github.com/yandy-r/claude-plugins.git ./.codex-plugin/ycc @main)%s\n' "${BOLD}" "$step" "$total" "${NC}"
             merge_codex_marketplace_json "repo"
         else
             printf '\n%s[%d/%d] Register repo as local marketplace source + install ycc%s\n' "${BOLD}" "$step" "$total" "${NC}"
@@ -389,7 +393,7 @@ sync_codex_target() {
     fi
     if [[ $do_plugin -eq 1 ]]; then
         if [[ "${MODE:-local}" == "repo" ]]; then
-            warn "Restart Codex; the 'local-ycc-plugins' marketplace in ~/.agents/plugins/marketplace.json now tracks the github source yandy-r/claude-plugins@main."
+            warn "Restart Codex; the 'local-ycc-plugins' marketplace in ~/.agents/plugins/marketplace.json now tracks the git-subdir source https://github.com/yandy-r/claude-plugins.git at ./.codex-plugin/ycc on main."
             warn "Updates: rerun this step (or use the Codex /plugins UI) to pull the latest published commit. No local symlink, no custom agents install."
             warn "If you also want to iterate on ycc/ source locally, regenerate the bundle with ./scripts/sync.sh --only codex and switch back to --mode local."
         else
