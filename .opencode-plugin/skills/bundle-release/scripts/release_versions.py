@@ -38,7 +38,7 @@ from typing import Any
 PLUGIN_REL = "ycc/.claude-plugin/plugin.json"
 SOURCE_MARKETPLACE_REL = ".claude-plugin/marketplace.json"
 OPTIONAL_MARKETPLACES = (".agents/plugins/marketplace.json", ".cursor-plugin/marketplace.json")
-MANIFEST_SUBDIRS = (".opencode-plugin", ".codex-plugin", ".cursor-plugin")
+MANIFEST_SUBDIRS = (".claude-plugin", ".codex-plugin", ".cursor-plugin")
 EXCLUDED_NAME = "ycc-mods"
 EXCLUDED_SOURCE_PREFIX = "ycc/mods"
 PACKAGE_RUNTIMES = ("claude", "codex", "cursor", "opencode", "agents")
