@@ -6,14 +6,14 @@
     "name": "yandy-r"
   },
   "metadata": {
-    "version": "5.2.1",
+    "version": "5.3.0",
     "repository": "https://github.com/yandy-r/claude-plugins"
   },
   "plugins": [
     {
       "name": "ycc",
       "description": "Yandy's Claude Code plugin bundle: planning, implementation, git workflow, research, docs, orchestration, and project utilities — all under the ycc: namespace.",
-      "version": "5.2.1",
+      "version": "5.3.0",
       "author": {
         "name": "yandy-r"
       },
