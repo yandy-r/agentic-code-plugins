@@ -35,7 +35,12 @@ def build_entry(mode: str, plugin_src: str) -> dict[str, Any]:
             sys.exit(1)
         source_block = {"source": "local", "path": plugin_src}
     elif mode == "repo":
-        source_block = {"source": "github", "repo": "yandy-r/claude-plugins", "ref": "main"}
+        source_block = {
+            "source": "git-subdir",
+            "url": "https://github.com/yandy-r/claude-plugins.git",
+            "path": "./.codex-plugin/ycc",
+            "ref": "main",
+        }
     else:
         sys.stderr.write(f"error: unsupported mode '{mode}'\n")
         sys.exit(1)
