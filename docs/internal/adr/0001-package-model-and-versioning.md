@@ -133,8 +133,8 @@ The gates and feature switches are listed in
 - Unlisted native packages stay out of production catalogs until the v6.0.0 listing flip.
   The shipping `ycc` entry stays visible throughout. The listing PR flips only after the proof
   gates in RELEASING.md pass for every listed package.
-- `listed: false` in a planned `ycc/settings/packages.json` is generator input, not a runtime
-  field. That file does not exist yet.
+- `listed: false` in `ycc/settings/packages.json` is generator input, not a runtime field. The
+  manifest, its schema, and its loader now exist; generator consumption is still pending.
 - Codex hooks stay excluded until verified (YAN-1149).
 - The opencode npm package is published only by the planned CI publish step on the owner-decided
   maintainer tag described under Versioning. It is not published by this PR, and activation is
@@ -162,7 +162,9 @@ The gates and feature switches are listed in
 
 ## Not implemented
 
-Each item below is planned and absent from the tree at the time of this ADR:
+Historical snapshot as of this ADR's authoring on **2026-10-15**, before YAN-1128:
+each item below was planned and absent from the tree then. YAN-1128 implements the manifest,
+schema, loader, and `packages` validator group; generator consumption remains pending.
 
 - `ycc/settings/packages.json` and the package graph (`scripts/build_package_graph.py`).
 - Per-runtime package generators and the `install.sh --package` and `migrate` commands.

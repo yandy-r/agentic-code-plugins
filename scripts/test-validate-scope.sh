@@ -68,6 +68,10 @@ expect_targets "claude rules select practices" "practices" .claude/rules/scripts
 expect_targets "non-md claude rules file selects practices" "practices" .claude/rules/sub/notes.txt
 expect_targets "practices rules module selects practices" "practices" scripts/practices_rules.py
 expect_targets "settings select everything" "${ALL}" ycc/settings/models.json
+expect_targets "packages manifest selects packages" "packages" ycc/settings/packages.json
+expect_targets "packages schema selects packages" "packages" ycc/settings/packages.schema.json
+expect_targets "package model selects packages" "packages" scripts/package_model.py
+expect_targets "package model tests select packages" "packages" scripts/test_package_model.py
 expect_targets "generators select everything" "${ALL}" scripts/generate_codex_skills.py
 expect_targets "validate.sh selects everything" "${ALL}" scripts/validate.sh
 expect_targets "the scope lib selects everything" "${ALL}" scripts/lib/validate-scope.sh

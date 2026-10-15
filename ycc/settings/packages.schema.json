@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "./packages.schema.json",
+  "title": "ycc package-model manifest",
+  "description": "Machine-readable record of the v6 package model from ADR 0001 (docs/internal/adr/0001-package-model-and-versioning.md): every workflow package, per runtime, with catalog-listing state, mechanism, components, dependencies, gates, and evidence. `listed` records production catalog visibility TODAY and is generator input, never a runtime field. `installer-fallback` is an internal modeling key for install.sh-only artifacts, not a public installable package id. Independently versioned items such as status-bar@ycc-mods stay outside this manifest; every entry here is lockstep.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "version_source", "packages"],
+  "properties": {
+    "$schema": {
+      "const": "./packages.schema.json",
+      "description": "Pointer to this schema, kept relative to the manifest."
+    },
+    "schema_version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Manifest format revision; bumped on breaking changes only."
+    },
+    "version_source": {
+      "const": "ycc/.claude-plugin/plugin.json",
+      "description": "The single lockstep version field every workflow package follows."
+    },
+    "packages": {
+      "type": "object",
+      "minProperties": 1,
+      "description": "Package key to package definition. installer-fallback models install.sh-only artifacts and is not a public installable package id.",
+      "propertyNames": {
+        "enum": [
+          "ycc",
+          "ycc-mcp",
+          "ycc-hooks",
+          "ycc-all",
+          "ycc-agents",
+          "ycc-rules",
+          "@yandy-r/ycc-opencode",
+          "installer-fallback"
+        ]
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/Package"
+      }
+    }
+  },
+  "$defs": {
+    "Package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["description", "version_policy", "runtimes"],
+      "properties": {
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "description": "One-line summary of what the package ships."
+        },
+        "version_policy": {
+          "enum": ["lockstep"],
+          "description": "Every entry is lockstep with the product version. Independently versioned items (e.g. status-bar@ycc-mods) are excluded from this manifest by design."
+        },
+        "runtimes": {
+          "type": "object",
+          "minProperties": 1,
+          "description": "Runtime to per-runtime package entry; a runtime appears only where the package exists there.",
+          "propertyNames": {
+            "enum": ["claude", "codex", "cursor", "opencode", "agents"]
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/RuntimePackage"
+          }
+        }
+      }
+    },
+    "RuntimePackage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "listed",
+        "mechanism",
+        "components",
+        "requires",
+        "target_release",
+        "evidence",
+        "gates",
+        "experimental",
+        "opt_in",
+        "notes"
+      ],
+      "properties": {
+        "status": {
+          "enum": ["included", "excluded", "deferred"],
+          "description": "v6.0.0 state: shipped or planned (included), rejected (excluded), or pushed to a later release (deferred)."
+        },
+        "listed": {
+          "type": "boolean",
+          "description": "Production catalog visibility today: true only for the shipping claude ycc entry. Generator input, not a runtime field."
+        },
+        "mechanism": {
+          "enum": ["native", "npm", "file-copy"],
+          "description": "How the package reaches the user: a native plugin manifest, an npm package, or install.sh file copy."
+        },
+        "components": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/Component"
+          },
+          "description": "Components the package carries; empty only for meta packages that only declare requires."
+        },
+        "requires": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/PackageKey"
+          },
+          "description": "Bare-name dependencies; only Claude native packages may declare them."
+        },
+        "target_release": {
+          "enum": ["v6.0.0", "v7.0.0"],
+          "description": "Release a deferred or planned listing targets; deferred entries cannot target v6.0.0."
+        },
+        "experimental": {
+          "type": "boolean",
+          "description": "True when the mechanism or package shape is still experimental."
+        },
+        "opt_in": {
+          "type": "boolean",
+          "description": "True when users must explicitly opt in; never the default install."
+        },
+        "evidence": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Repo-relative spike dossiers or ADR paths backing the row; must exist on disk."
+        },
+        "gates": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Proof gates from RELEASING.md that must pass before the listing flip."
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Row-specific context: version floors, no-go reasons, and installer ownership."
+        }
+      }
+    },
+    "Component": {
+      "enum": [
+        "skills",
+        "agents",
+        "commands",
+        "shared",
+        "mcp",
+        "hooks",
+        "rules",
+        "instructions",
+        "settings",
+        "statusline"
+      ]
+    },
+    "PackageKey": {
+      "enum": [
+        "ycc",
+        "ycc-mcp",
+        "ycc-hooks",
+        "ycc-all",
+        "ycc-agents",
+        "ycc-rules",
+        "@yandy-r/ycc-opencode",
+        "installer-fallback"
+      ]
+    }
+  }
+}

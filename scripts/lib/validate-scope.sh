@@ -8,7 +8,7 @@
 # the unscoped validate.sh, so a rule that is too narrow is caught there.
 
 # shellcheck disable=SC2034  # read by validate.sh and the scope tests.
-VALIDATE_TARGETS=(inventory cursor codex opencode agents json config release mods practices scope)
+VALIDATE_TARGETS=(inventory cursor codex opencode agents json config packages release mods practices scope)
 
 # validate_scope_targets_for_path <path> — print the targets a changed
 # repo-relative path affects: a space-separated list, `all`, or nothing.
@@ -26,6 +26,11 @@ validate_scope_targets_for_path() {
         .gitignore | .gitmessage | .graphifyignore | commitlint.config.cjs) ;;
         .markdownlint.json | .markdownlintignore | mise.toml) ;;
         package-lock.json | pnpm-lock.yaml | pnpm-workspace.yaml) ;;
+
+	# The package manifest and its model are read only by the packages
+	# validators, so they must match before the catch-all settings rule.
+	ycc/settings/packages.json | ycc/settings/packages.schema.json) echo "packages" ;;
+	scripts/package_model.py | scripts/test_package_model.py) echo "packages" ;;
 
         # Plugin source. Settings and the plugin manifest feed the generators,
         # the install tests and the manifest checks, so they select everything.
