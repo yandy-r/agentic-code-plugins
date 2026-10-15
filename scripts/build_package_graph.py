@@ -18,6 +18,9 @@ from package_model import DEFAULT_MANIFEST_PATH, PackageModel, PackageModelError
 
 COMPONENT_OF_KIND = {"skill": "skills", "agent": "agents", "shared": "shared"}
 CLOSURE_EDGE_KINDS = frozenset({"dispatch", "catalog", "shared", "script", "file", "preload", "handoff"})
+# Public packages only: `installer-fallback` (file-copy) is "not a public installable package id"
+# (packages.json). Its overlaps with ycc-hooks@cursor and the opt-in opencode npm package are
+# native-vs-copy dedupe, owned by `install.sh --package` (YAN-1136), not a package-definition error.
 DUPLICATE_MECHANISMS = frozenset({"native", "npm"})
 # AGENTS.md: "The `agents` target is skills-only"; packages.json models installer-fallback@agents the same way.
 RUNTIME_GAPS = frozenset({("agents", "agents")})
