@@ -3,6 +3,7 @@
 set -euo pipefail
 umask 077
 
+# Print CLI usage and exit.
 usage() {
   cat <<'EOF'
 Usage: test-codex-marketplace-spike.sh [--keep] [--output-dir DIR]
@@ -20,6 +21,7 @@ egress is not OS-sandboxed). Every command runs from an empty work directory
 outside the repository.
 EOF
 }
+# Emit a fatal error message to stderr and exit 1.
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 keep=0
 parent=/tmp/opencode
@@ -43,6 +45,7 @@ codex=$(realpath -s "$codex")
 parent=$(realpath "$parent")
 [[ "$parent" == /tmp/opencode || "$parent" == /tmp/opencode/* ]] || die 'output must be under /tmp/opencode'
 root=$(mktemp -d "$parent/codex-marketplace-spike.XXXXXX")
+# EXIT trap: report the transcript path and remove the sandbox unless --keep.
 cleanup() {
   local rc=$?
   if ((keep)); then
@@ -65,6 +68,7 @@ bare=$root/fixture.git
 bare2=$root/claude.git
 url=https://codex-spike.invalid/fixture.git
 url2=https://codex-spike.invalid/claude.git
+# Run a command in an env -i sandbox with isolated HOME, CODEX_HOME, XDG, and file-only Git rewrites.
 clean() {
   mkdir -p "$case_home"/{home,codex,config,data,state,cache,runtime}
   env -i PATH="$safe_path" LANG=C.UTF-8 TERM=dumb NO_COLOR=1 \
@@ -81,7 +85,9 @@ clean() {
 }
 # No exec tee/process-substitution race: each command's sanitized output is
 # appended synchronously, with argv and exit code. Only ephemeral paths exist.
+# Write a status line to stdout and append it to the retained transcript.
 log() { printf '%s\n' "$*" | tee -a "$root/transcript.log"; }
+# Execute a command under timeout, sanitize sandbox paths/ANSI in logs, and record the result.
 run() {
   local label=$1; shift
   local out="$root/logs/$label.stdout" err="$root/logs/$label.stderr"
@@ -103,6 +109,7 @@ PY
     cat "$out"; printf '\nstderr:\n'; cat "$err"; printf '\n'
   } >>"$root/transcript.log"
 }
+# Assert that the most recent run() call returned the expected exit status.
 assert_rc() { [[ "$rc" == "$1" ]] || die "$2: expected rc=$1, got $rc (see $root/transcript.log)"; }
 run version "$codex" --version
 assert_rc 0 version
@@ -151,6 +158,7 @@ for kind, path in (("native", ".codex-plugin/native"), ("claude", "claude-plugin
     "name": "spike-claude", "owner": {"name": "spike"},
     "plugins": [{"name": "claude-plugin", "source": "./claude-plugin-payload"}]}))
 PY
+# Initialize a fixture source tree, create an unsigned commit, and clone it into a bare repo.
 fixture_commit() {
   clean git -C "$1" init -q -b fixture
   clean git -C "$1" add -A
@@ -173,6 +181,7 @@ assert_rc 1 file-url
 grep -q 'invalid marketplace source format' "$root/logs/file-url.stderr" || die 'unexpected file:// failure'
 log 'PASS file:// marketplace URL rejected; HTTPS-shaped alias uses file-only Git transport'
 
+# Run one marketplace discovery/list/install test case and verify the installed cache marker.
 matrix_case() {
   local name=$1 source=$2 ref=$3 market=$4 plugin=$5 expected=$6 marker=$7; shift 7
   case_home=$root/$name
@@ -281,6 +290,7 @@ with open(stderr, "w") as err:
     p = subprocess.Popen([binary, "app-server", "--stdio"], stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE, stderr=err, text=True)
     def request(payload):
+        """Send a JSON-RPC request over stdio and return the matching response."""
         p.stdin.write(json.dumps(payload) + "\n")
         p.stdin.flush()
         while line := p.stdout.readline():
