@@ -7,8 +7,8 @@
 
 ## Executive verdict
 
-1. **User-scope third-party GitHub marketplace, without the Cursor GitHub App: Go.**
-   `agent plugin marketplace add https://github.com/yandy-r/cursor-plugin-spike` registered marketplace `ycc-cursor-spike` at `scope: user`. The fixture repo was created during this spike and the Cursor GitHub App was never installed on it. `agent plugin marketplace update` then re-indexed that same marketplace from Cursor's servers (public git fetch, not the App's auto-refresh path). The marketplace was removed afterwards. The pre-existing `yci` marketplace was not modified; the before/after `marketplace list` matched.
+1. **User-scope third-party GitHub marketplace: Go.** This spike did not install the Cursor GitHub App.
+   `agent plugin marketplace add https://github.com/yandy-r/cursor-plugin-spike` registered marketplace `ycc-cursor-spike` at `scope: user`. The fixture repo was created during this spike, and the spike did not install the Cursor GitHub App. App absence was inferred from the 401 response and the lack of an installation step. `agent plugin marketplace update` then re-indexed that same marketplace from Cursor's servers (public git fetch, not the App's auto-refresh path). The marketplace was removed afterwards. The pre-existing `yci` marketplace was not modified; the before/after `marketplace list` matched.
 2. **Pinning: Go for the marketplace ref. Partial for per-plugin `source`.**
    - `agent plugin marketplace add <url> --git-ref <tag|sha>` resolves the ref and stores the **full commit SHA** as `gitRef`. Tag `pin-v1` stored `2d0f5f2722bec9ee0d70ca87cbc4e5c6ea7cfd10`. SHA `13744f2332fab6c47b82bac3c3fedf41a5679496` stored that same SHA. A missing ref fails closed: `git ls-remote did not return a resolvable commit`.
    - A filesystem path is rejected: `Invalid URL format. Expected: github.com/owner/repo or https://github.example.com/owner/repo`.
