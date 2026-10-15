@@ -1,0 +1,351 @@
+{
+  "$schema": "./packages.schema.json",
+  "schema_version": 1,
+  "version_source": "ycc/.claude-plugin/plugin.json",
+  "packages": {
+    "ycc": {
+      "description": "Main ycc plugin: skills, agents, and shared helpers. status-bar@ycc-mods is versioned independently and stays outside this manifest.",
+      "version_policy": "lockstep",
+      "runtimes": {
+        "claude": {
+          "status": "included",
+          "listed": true,
+          "mechanism": "native",
+          "components": ["skills", "agents", "shared"],
+          "requires": [],
+          "target_release": "v6.0.0",
+          "experimental": false,
+          "opt_in": false,
+          "evidence": [
+            "docs/internal/adr/0001-package-model-and-versioning.md",
+            "docs/internal/spikes/claude-namespace.md"
+          ],
+          "gates": [],
+          "notes": "Shipping entry; stays visible in every catalog throughout the v6 flip."
+        },
+        "codex": {
+          "status": "included",
+          "listed": false,
+          "mechanism": "native",
+          "components": ["skills", "shared"],
+          "requires": [],
+          "target_release": "v6.0.0",
+          "experimental": false,
+          "opt_in": false,
+          "evidence": [
+            "docs/internal/adr/0001-package-model-and-versioning.md",
+            "docs/internal/spikes/codex-marketplace.md"
+          ],
+          "gates": [
+            "v6.0.0 listing PR after rename: package validators, lockstep preflight, per-target migration and dedupe tests, and clean-machine fork installs pass"
+          ],
+          "notes": "Current catalog is local-ycc-plugins with ./plugins/ycc and stays active until the flip; planned listing is .agents/plugins/marketplace.json with a local source at ./.codex-plugin/ycc."
+        },
+        "cursor": {
+          "status": "included",
+          "listed": false,
+          "mechanism": "native",
+          "components": ["skills", "agents", "commands", "shared"],
+          "requires": [],
+          "target_release": "v6.0.0",
+          "experimental": false,
+          "opt_in": false,
+          "evidence": [
+            "docs/internal/adr/0001-package-model-and-versioning.md",
+            "docs/internal/spikes/cursor-plugin.md"
+          ],
+          "gates": [
+            "v6.0.0 listing PR after rename: package validators, lockstep preflight, per-target migration and dedupe tests, and clean-machine fork installs pass",
+            "Interactive installation and installed-plugin runtime verification"
+          ],
+          "notes": "Ships through the GitHub marketplace; no cursor.com submission before post-6.0."
+        }
+      }
+    },
+    "ycc-mcp": {
+      "description": "Native MCP-only plugin per runtime.",
+      "version_policy": "lockstep",
+      "runtimes": {
+        "claude": {
+          "status": "included",
+          "listed": false,
+          "mechanism": "native",
+          "components": ["mcp"],
+          "requires": [],
+          "target_release": "v6.0.0",
+          "experimental": false,
+          "opt_in": false,
+          "evidence": ["docs/internal/adr/0001-package-model-and-versioning.md"],
+          "gates": [
+            "v6.0.0 listing flip: package validators, lockstep preflight, per-target migration and dedupe tests, and clean-machine fork installs pass"
+          ],
+          "notes": "Planned in v6; unspiked."
+        },
+        "codex": {
+          "status": "included",
+          "listed": false,
+          "mechanism": "native",
+          "components": ["mcp"],
+          "requires": [],
+          "target_release": "v6.0.0",
+          "experimental": false,
+          "opt_in": false,
+          "evidence": ["docs/internal/adr/0001-package-model-and-versioning.md"],
+          "gates": [
+            "v6.0.0 listing flip: package validators, lockstep preflight, per-target migration and dedupe tests, and clean-machine fork installs pass"
+          ],
+          "notes": "Planned; unspiked on Codex."
+        },
+        "cursor": {
+          "status": "included",
+          "listed": false,
+          "mechanism": "native",
+          "components": ["mcp"],
+          "requires": [],
+          "target_release": "v6.0.0",
+          "experimental": false,
+          "opt_in": false,
+          "evidence": ["docs/internal/adr/0001-package-model-and-versioning.md"],
+          "gates": [
+            "v6.0.0 listing flip: package validators, lockstep preflight, per-target migration and dedupe tests, and clean-machine fork installs pass",
+            "Interactive installation and installed-plugin runtime verification"
+          ],
+          "notes": "Planned; unspiked."
+        }
+      }
+    },
+    "ycc-hooks": {
+      "description": "Native hooks plugin; no runtime dedupes installer hooks yet.",
+      "version_policy": "lockstep",
+      "runtimes": {
+        "claude": {
+          "status": "included",
+          "listed": false,
+          "mechanism": "native",
+          "components": ["hooks"],
+          "requires": [],
+          "target_release": "v6.0.0",
+          "experimental": false,
+          "opt_in": false,
+          "evidence": [
+            "docs/internal/adr/0001-package-model-and-versioning.md",
+            "docs/internal/spikes/claude-hooks.md"
+          ],
+          "gates": [
+            "Claude Code 2.1.300 or later documented as the minimum",
+            "Tested command-level installer dedupe that preserves user-owned hooks"
+          ],
+          "notes": "Native plugin hooks/hooks.json needs Claude Code 2.1.300 or later; native rollout waits for installer dedupe (hooks floor plus dedupe gate)."
+        },
+        "codex": {
+          "status": "excluded",
+          "listed": false,
+          "mechanism": "native",
+          "components": ["hooks"],
+          "requires": [],
+          "target_release": "v6.0.0",
+          "experimental": false,
+          "opt_in": false,
+          "evidence": [
+            "docs/internal/adr/0001-package-model-and-versioning.md",
+            "docs/internal/spikes/codex-marketplace.md"
+          ],
+          "gates": [
+            "YAN-1149 verifies hook trust and dispatch, or a later spike supersedes the YAN-1123 no-go"
+          ],
+          "notes": "Excluded: NO-GO until verified under YAN-1149 (YAN-1149 gate). Hooks stay out of the Codex bundle."
+        },
+        "cursor": {
+          "status": "included",
+          "listed": false,
+          "mechanism": "native",
+          "components": ["hooks"],
+          "requires": [],
+          "target_release": "v6.0.0",
+          "experimental": false,
+          "opt_in": false,
+          "evidence": [
+            "docs/internal/adr/0001-package-model-and-versioning.md",
+            "docs/internal/spikes/cursor-plugin.md"
+          ],
+          "gates": [
+            "v6.0.0 listing flip: package validators, lockstep preflight, per-target migration and dedupe tests, and clean-machine fork installs pass",
+            "Interactive installation and installed-plugin runtime verification"
+          ],
+          "notes": "sessionStart only; WorktreeCreate stays on install.sh."
+        }
+      }
+    },
+    "ycc-all": {
+      "description": "Claude meta plugin that depends on the other native Claude packages.",
+      "version_policy": "lockstep",
+      "runtimes": {
+        "claude": {
+          "status": "included",
+          "listed": false,
+          "mechanism": "native",
+          "components": [],
+          "requires": ["ycc", "ycc-mcp", "ycc-hooks"],
+          "target_release": "v6.0.0",
+          "experimental": false,
+          "opt_in": false,
+          "evidence": ["docs/internal/adr/0001-package-model-and-versioning.md"],
+          "gates": [
+            "Proof of automatic dependency installation on the candidate baseline and the latest client before listing"
+          ],
+          "notes": "Planned; blocked by the automatic dependency installation proof gate."
+        }
+      }
+    },
+    "ycc-agents": {
+      "description": "Claude agents-only plugin with qualified ycc-agents: references.",
+      "version_policy": "lockstep",
+      "runtimes": {
+        "claude": {
+          "status": "deferred",
+          "listed": false,
+          "mechanism": "native",
+          "components": ["agents"],
+          "requires": [],
+          "target_release": "v7.0.0",
+          "experimental": false,
+          "opt_in": false,
+          "evidence": [
+            "docs/internal/adr/0001-package-model-and-versioning.md",
+            "docs/internal/spikes/claude-namespace.md"
+          ],
+          "gates": [
+            "Production reference validation and live dispatch tests pass, then v7.0.0 ships"
+          ],
+          "notes": "Deferred to v7.0.0 as a breaking change with qualified ycc-agents: references; the v6 namespace spike rejects a shared manifest name."
+        }
+      }
+    },
+    "ycc-rules": {
+      "description": "Cursor-only native rules package; there is no Claude ycc-rules package.",
+      "version_policy": "lockstep",
+      "runtimes": {
+        "cursor": {
+          "status": "included",
+          "listed": false,
+          "mechanism": "native",
+          "components": ["rules"],
+          "requires": [],
+          "target_release": "v6.0.0",
+          "experimental": false,
+          "opt_in": false,
+          "evidence": ["docs/internal/adr/0001-package-model-and-versioning.md"],
+          "gates": [
+            "v6.0.0 listing flip: package validators, lockstep preflight, per-target migration and dedupe tests, and clean-machine fork installs pass",
+            "Interactive installation and installed-plugin runtime verification"
+          ],
+          "notes": "Planned; unspiked. No Claude ycc-rules: Claude rules stay on install.sh (see installer-fallback claude)."
+        }
+      }
+    },
+    "@yandy-r/ycc-opencode": {
+      "description": "Experimental opt-in opencode npm plugin; one V2 plugin registers components through its setup hook. Marked experimental and opt_in; never the default install.",
+      "version_policy": "lockstep",
+      "runtimes": {
+        "opencode": {
+          "status": "included",
+          "listed": false,
+          "mechanism": "npm",
+          "components": ["skills", "agents", "commands", "shared", "mcp", "instructions"],
+          "requires": [],
+          "target_release": "v6.0.0",
+          "experimental": true,
+          "opt_in": true,
+          "evidence": [
+            "docs/internal/adr/0001-package-model-and-versioning.md",
+            "docs/internal/spikes/opencode-config-hook.md"
+          ],
+          "gates": [
+            "CI publishes with provenance on a maintainer-pushed product tag; no publishing workflow exists yet"
+          ],
+          "notes": "Experimental and opt-in in v6. The V2 setup hook registers components and delivers instructions through the context hook; install.sh file copy stays the primary opencode path."
+        }
+      }
+    },
+    "installer-fallback": {
+      "description": "Internal modeling key for install.sh-only artifacts that no native package carries today; not a public installable package id and never catalog-listed.",
+      "version_policy": "lockstep",
+      "runtimes": {
+        "claude": {
+          "status": "included",
+          "listed": false,
+          "mechanism": "file-copy",
+          "components": ["rules", "instructions", "settings", "statusline"],
+          "requires": [],
+          "target_release": "v6.0.0",
+          "experimental": false,
+          "opt_in": false,
+          "evidence": ["docs/internal/adr/0001-package-model-and-versioning.md"],
+          "gates": [],
+          "notes": "install.sh only: Claude rules, CLAUDE.md instructions, settings, and the statusline. No Claude ycc-rules package exists."
+        },
+        "codex": {
+          "status": "included",
+          "listed": false,
+          "mechanism": "file-copy",
+          "components": ["agents", "instructions", "settings"],
+          "requires": [],
+          "target_release": "v6.0.0",
+          "experimental": false,
+          "opt_in": false,
+          "evidence": [
+            "docs/internal/adr/0001-package-model-and-versioning.md",
+            "docs/internal/spikes/codex-marketplace.md"
+          ],
+          "gates": [],
+          "notes": "install.sh only: Codex agent TOML files, AGENTS.md instructions, and config settings; Codex plugins cannot carry these."
+        },
+        "cursor": {
+          "status": "included",
+          "listed": false,
+          "mechanism": "file-copy",
+          "components": ["settings", "hooks"],
+          "requires": [],
+          "target_release": "v6.0.0",
+          "experimental": false,
+          "opt_in": false,
+          "evidence": [
+            "docs/internal/adr/0001-package-model-and-versioning.md",
+            "docs/internal/spikes/cursor-plugin.md"
+          ],
+          "gates": [],
+          "notes": "install.sh only: Cursor settings and hooks, including WorktreeCreate, which stays off the native package."
+        },
+        "opencode": {
+          "status": "included",
+          "listed": false,
+          "mechanism": "file-copy",
+          "components": ["skills", "agents", "commands", "shared", "settings", "instructions"],
+          "requires": [],
+          "target_release": "v6.0.0",
+          "experimental": false,
+          "opt_in": false,
+          "evidence": [
+            "docs/internal/adr/0001-package-model-and-versioning.md",
+            "docs/internal/spikes/opencode-config-hook.md"
+          ],
+          "gates": [],
+          "notes": "Primary and unchanged install.sh path: file copy of skills, agents, commands, shared, opencode.json settings, and AGENTS.md instructions."
+        },
+        "agents": {
+          "status": "included",
+          "listed": false,
+          "mechanism": "file-copy",
+          "components": ["skills", "shared"],
+          "requires": [],
+          "target_release": "v6.0.0",
+          "experimental": false,
+          "opt_in": false,
+          "evidence": ["docs/internal/adr/0001-package-model-and-versioning.md"],
+          "gates": [],
+          "notes": "install.sh only: skills and ycc-shared into ~/.agents. The npx skills path is unspiked."
+        }
+      }
+    }
+  }
+}

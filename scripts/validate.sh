@@ -13,11 +13,13 @@
 # replayed in order. `config` runs last and alone: its install tests regenerate
 # the bundles in this checkout, which the other targets read.
 #
-# Targets: inventory, cursor, codex, opencode, agents, json, config, release, mods, practices, scope
+# Targets: inventory, cursor, codex, opencode, agents, json, config, packages, release, mods, practices, scope
 #   - inventory  validates ycc skill frontmatter, the shared inventory, the formatter bundle and
 #                plan-workflow regressions and per-runtime worktree roots (scripts/test-worktree-roots.sh)
 #   - json       validates .claude-plugin/marketplace.json plus ycc/.claude-plugin/plugin.json
 #   - config     tests the managed-config merge helper and install.sh sync CLI
+#   - packages   validates the package manifest (ycc/settings/packages.json) against its schema
+#                and invariants, and runs the package model unit tests
 #   - release    runs every scripts/test-release-*.sh (release-model state scripts,
 #                RELEASING.md template, signal collector)
 #   - mods       validates the Claude Code mods under ycc/mods and their marketplace
@@ -252,6 +254,12 @@ run_target() {
         config)
             run_group run_config_part helpers install-sync || fail "config"
             ;;
+	packages)
+		echo "== validate: packages manifest schema & invariants =="
+		python3 "${REPO_ROOT}/scripts/package_model.py" --check || fail "package_model.py --check"
+		echo "== validate: package model unit tests =="
+		python3 "${REPO_ROOT}/scripts/test_package_model.py" || fail "test_package_model.py"
+		;;
         release)
             local -a release_tests=("${REPO_ROOT}"/scripts/test-release-*.sh)
             [[ -e "${release_tests[0]}" ]] || fail "no scripts/test-release-*.sh found"
