@@ -202,6 +202,56 @@ class NegativeTests(unittest.TestCase):
     def test_invalid_schema_detected(self) -> None:
         self.assertIn("invalid package schema", validate_package_model(MANIFEST, schema={"type": "bogus"})[0])
 
+    def test_permissive_schema_fails_closed(self) -> None:
+        data = clone()
+        data["packages"]["ycc"] = "not-a-dict"
+        errors = validate_package_model(data, repo_root=REPO_ROOT, schema={"type": "object"})
+        self.assertTrue(errors)
+
+    def test_permissive_schema_malformed_values_return_errors(self) -> None:
+        permissive = {"type": "object"}
+        cases = [
+            {"packages": {"ycc": "not-a-dict"}},
+            {"packages": {"ycc": {"runtimes": {"claude": "not-a-dict"}}}},
+            {"packages": "nope"},
+            {},
+            {
+                "packages": {
+                    "ycc": "not-a-dict",
+                    "ycc-all": {
+                        "runtimes": {
+                            "claude": {
+                                "requires": ["ycc"],
+                                "components": [],
+                                "mechanism": "native",
+                                "listed": False,
+                                "status": "included",
+                                "target_release": "v6.0.0",
+                                "experimental": False,
+                                "opt_in": False,
+                                "evidence": [],
+                                "gates": [],
+                                "notes": "meta",
+                            }
+                        }
+                    },
+                }
+            },
+        ]
+        for data in cases:
+            with self.subTest(data=data):
+                errors = validate_package_model(data, repo_root=REPO_ROOT, schema=permissive)
+                self.assertTrue(errors)
+
+    def test_custom_schema_dropping_required_field_still_rejects_bad_target(self) -> None:
+        schema = copy.deepcopy(SCHEMA)
+        schema["$defs"]["Package"] = {"type": "object"}
+        data = clone()
+        data["packages"]["ycc"] = "not-a-dict"
+        errors = validate_package_model(data, schema=schema)
+        self.assertTrue(errors)
+        self.assertTrue(any("packages.ycc: expected object" in e for e in errors), errors)
+
     def test_deferred_must_not_target_v6(self) -> None:
         data = clone()
         data["packages"]["ycc-agents"]["runtimes"]["claude"]["target_release"] = "v6.0.0"

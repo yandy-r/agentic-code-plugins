@@ -202,9 +202,14 @@ def validate_package_model(
 ) -> list[str]:
     """Return schema and cross-field errors, optionally checking on-disk evidence."""
     try:
-        active_schema = load_package_schema() if schema is None else schema
+        default_schema = load_package_schema()
+        active_schema = default_schema if schema is None else schema
         _check_schema(dict(active_schema), active_schema)
         errors = _schema_errors(data, active_schema, active_schema, "manifest")
+        if schema is not None:
+            for item in _schema_errors(data, default_schema, default_schema, "manifest"):
+                if item not in errors:
+                    errors.append(item)
     except (PackageModelError, KeyError, TypeError, RecursionError) as exc:
         return [f"invalid package schema: {exc}"]
     if errors:
@@ -219,10 +224,16 @@ def validate_package_model(
             if requires and (runtime != "claude" or entry["mechanism"] != "native"):
                 errors.append(f"{where}: requires is only allowed for claude native packages")
             for required in requires:
-                target = packages.get(required, {}).get("runtimes", {}).get("claude", {})
+                package_target = packages.get(required)
+                runtimes = package_target.get("runtimes") if isinstance(package_target, dict) else None
+                target = runtimes.get("claude") if isinstance(runtimes, dict) else None
                 if required == package_key:
                     errors.append(f"{where}: self-dependency is forbidden")
-                if target.get("status") != "included" or target.get("mechanism") != "native":
+                if (
+                    not isinstance(target, dict)
+                    or target.get("status") != "included"
+                    or target.get("mechanism") != "native"
+                ):
                     errors.append(f"{where}: requires {required!r} must exist as an included native claude package")
             if entry["listed"] and (entry["status"] != "included" or entry["mechanism"] != "native"):
                 errors.append(f"{where}: listed=true requires included native package (not excluded/deferred)")
