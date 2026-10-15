@@ -86,7 +86,10 @@ def assert_shared_init(
     check(label + " plugin sources", expected_sources, {str(p.get("source")) for p in named})
     expected_dup = EXPECTED_DUP_SKILL_COUNT.get(version)
     if expected_dup is None:
-        raise SystemExit(f"CHECK FAILED [{label} dup skills]: unsupported version {version!r}")
+        raise SystemExit(
+            f"INCONCLUSIVE [{label} dup skills]: unlisted version {version!r} "
+            f"(add expected duplicate-skill count to EXPECTED_DUP_SKILL_COUNT)"
+        )
     check(label + " dup skill count", expected_dup, skills.count(shared + ":probe"))
     check(label + " agent present", True, shared + ":worker" in agents)
 
@@ -157,7 +160,9 @@ def verify_matrix(results: list[dict[str, Any]], version: str, prefix: str) -> N
         fixture_agents = [a for a in agents if a.startswith(prefix)]
         if label.startswith(("mismatched-", "shared-markets-")):
             assert_shared_init(label, row["init"], shared, set(expected), version)
-            check(label + " exact skills", [shared + ":probe"] * EXPECTED_DUP_SKILL_COUNT[version], fixture_skills)
+            check(
+                label + " exact skills", [shared + ":probe"] * EXPECTED_DUP_SKILL_COUNT.get(version, 0), fixture_skills
+            )
             check(label + " exact agents", [shared + ":worker"], fixture_agents)
         elif label.startswith("distinct-"):
             assert_distinct_init(label, row["init"], caller, worker, next(iter(expected)).split("@", 1)[1])

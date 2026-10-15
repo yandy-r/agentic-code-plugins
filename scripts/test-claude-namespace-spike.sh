@@ -9,6 +9,7 @@ usage() {
 Usage: test-claude-namespace-spike.sh [--keep] [--output-dir DIR] [--versions LIST]
 
 Default versions: 2.1.143,latest (latest is resolved then installed exactly).
+A resolved version without expected-behavior entries exits INCONCLUSIVE (nonzero).
 Requires npm, node, python3, timeout and Linux utilities. npm registry network is
 used only for lab-local pinned installs (no global install/update). Claude uses a
 127.0.0.1 fake Messages API and dummy key; no real credentials are inherited.
