@@ -23,11 +23,13 @@ class Api:
     """Direct HTTP equivalent of `opencode api --server <private URL>`."""
 
     def __init__(self, port: int, directory: Path) -> None:
+        """Bind to the private server port and the resolved scenario location."""
         self.base = f"http://127.0.0.1:{port}"
         self.directory = directory
         self.headers = {"Authorization": "Basic " + base64.b64encode(f"opencode:{PASSWORD}".encode()).decode()}
 
     def request(self, path: str, body: dict[str, Any] | None = None, scoped: bool = False) -> Any:
+        """Fetch JSON or submit a JSON body to the private OpenCode server."""
         query = "?" + urllib.parse.urlencode({"location[directory]": str(self.directory)}) if scoped else ""
         data = json.dumps(body).encode() if body is not None else None
         request = urllib.request.Request(
@@ -41,6 +43,7 @@ class Api:
             raise SystemExit(f"FAIL {path}: HTTP {error.code}: {error.read()[:500]!r}") from error
 
     def items(self, component: str) -> list[dict[str, Any]]:
+        """List one registry from the location-scoped response envelope."""
         response = self.request(f"/api/{component}", scoped=True)
         if response.get("location", {}).get("directory") != str(self.directory):
             raise SystemExit(f"FAIL wrong location: {response.get('location')}")
@@ -50,6 +53,7 @@ class Api:
 
 
 def run_env(lab: Path) -> dict[str, str]:
+    """Return the allowlisted environment for CLI probes and scenario servers."""
     env = {
         "PATH": "/usr/local/bin:/usr/bin:/bin",
         "HOME": str(lab / "home"),
@@ -72,6 +76,7 @@ class Scenario:
     """Fresh process/config/project for each scenario; bounded process group."""
 
     def __init__(self, lab: Path, binary: str, name: str, config: dict[str, Any]) -> None:
+        """Write scenario config files and start its private server process group."""
         self.lab, self.name = lab, name
         self.work = lab / "work" / name
         self.work.mkdir(parents=True)
@@ -105,6 +110,7 @@ class Scenario:
         track(lab, self.process.pid, True)
 
     def ready(self) -> None:
+        """Wait for the scenario's built-in skill config plugin to appear."""
         deadline = time.monotonic() + 35
         while time.monotonic() < deadline:
             if self.process.poll() is not None:
@@ -120,20 +126,24 @@ class Scenario:
         raise SystemExit(f"FAIL {self.name}: runtime did not finish booting")
 
     def close(self) -> None:
+        """Terminate the scenario process group and close its server log."""
         stop(self.lab, self.process)
         self.log.close()
 
     def capture(self) -> dict[str, Any]:
+        """Capture plugin, agent, command, skill, and MCP inventories."""
         data = {key: self.api.items(key) for key in ("plugin", "agent", "command", "skill", "mcp")}
         (self.lab / f"{self.name}.json").write_text(json.dumps(data, indent=2))
         return data
 
 
 def has_marker(data: Any, marker: str) -> bool:
+    """Return whether the encoded payload contains the run's marker."""
     return marker in json.dumps(data)
 
 
 def matrix(lab: Path, binary: str) -> dict[str, Any]:
+    """Execute and verify the V2 registration, skills, and V1 negative scenarios."""
     marker = "yan1125-" + secrets.token_hex(6)
     print(f"marker={marker}")
     fx = fixtures(lab, marker)
@@ -239,6 +249,7 @@ def matrix(lab: Path, binary: str) -> dict[str, Any]:
 
 
 def instructions(lab: Path, binary: str, marker: str, fx: dict[str, Path], loop: Loopback) -> dict[str, Any]:
+    """Verify hook/discovered instructions and absent config instructions via a fake provider."""
     file = lab / "fixtures/instructions.md"
     file.write_text(marker + " config-instruction\n")
     config = {
@@ -312,6 +323,7 @@ def instructions(lab: Path, binary: str, marker: str, fx: dict[str, Path], loop:
 
 
 def main() -> None:
+    """Run all scenarios and verify installed binary and untouched runtime surfaces."""
     lab, binary, home = Path(sys.argv[1]), sys.argv[2], Path(sys.argv[3])
     before = snapshot(home)
     try:

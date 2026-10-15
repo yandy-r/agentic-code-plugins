@@ -26,6 +26,7 @@ def check(label: str, expected: Any, actual: Any) -> None:
 
 
 def free_port() -> int:
+    """Return a loopback TCP port available at bind time."""
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         return int(sock.getsockname()[1])
@@ -50,6 +51,7 @@ def snapshot(home: Path) -> dict[str, Any]:
 
 
 def track(lab: Path, pid: int, add: bool) -> None:
+    """Add or remove a server process-group ID in the lab cleanup registry."""
     path = lab / "process-groups"
     pids = path.read_text().splitlines() if path.exists() else []
     pids = [p for p in pids if p != str(pid)]
@@ -74,6 +76,7 @@ def stop(lab: Path, process: subprocess.Popen[bytes]) -> None:
 
 
 def fixtures(lab: Path, marker: str) -> dict[str, Path]:
+    """Write disposable V2/V1 plugin, skill, catalog, and MCP stub fixtures."""
     root = lab / "fixtures"
     skill = root / "skills/dir-skill/SKILL.md"
     skill.parent.mkdir(parents=True)
@@ -147,13 +150,17 @@ class Loopback(threading.Thread):
     """Catalog GETs and fake OpenAI POSTs, bound only to loopback; no headers logged."""
 
     def __init__(self, catalog: Path) -> None:
+        """Bind an ephemeral loopback server serving the skill catalog and fake OpenAI API."""
         super().__init__(daemon=True)
         self.bodies: list[dict[str, Any]] = []
         self.gets: list[str] = []
         outer = self
 
         class Handler(BaseHTTPRequestHandler):
+            """HTTP handler for skill catalog files and OpenAI chat completions."""
+
             def do_GET(self) -> None:  # noqa: N802
+                """Serve relative skill catalog files from the fixture directory."""
                 outer.gets.append(self.path)
                 path = (catalog / self.path.lstrip("/")).resolve()
                 if not path.is_relative_to(catalog) or not path.is_file():
@@ -164,6 +171,7 @@ class Loopback(threading.Thread):
                 self.wfile.write(path.read_bytes())
 
             def do_POST(self) -> None:  # noqa: N802
+                """Record the JSON request body and return a minimal OpenAI completion."""
                 body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", "0"))))
                 outer.bodies.append(body)
                 self.send_response(200)
@@ -205,15 +213,18 @@ class Loopback(threading.Thread):
                     )
 
             def log_message(self, *_args: Any) -> None:
+                """Suppress standard HTTP access logs to avoid leaking request metadata."""
                 pass
 
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self.url = f"http://127.0.0.1:{self.server.server_port}"
 
     def run(self) -> None:
+        """Serve loopback requests until shut down."""
         self.server.serve_forever(poll_interval=0.1)
 
     def close(self) -> None:
+        """Stop the loopback HTTP server and join its thread."""
         self.server.shutdown()
         self.server.server_close()
         self.join(timeout=2)
