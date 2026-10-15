@@ -1,0 +1,328 @@
+{
+ "recommendation_md": "> **Workflow status:** this design and review step did not fail, and nothing in the repo was changed. All four research inputs reported success. One check was incomplete: the naming step's GitHub name search hit a rate limit after 13 names. I can't see the orchestrator's overall status from this subagent.\n\n# Native granular installs and the rename: decision doc\n\n## 1. Short answer\n\n**Partly.** The goal makes sense, but the guess behind it is half right, and the example install ids put the parts in the wrong order.\n\n- **Is single-file copying obsolete?** No. It is obsolete only for Claude Code. It is mostly obsolete for Cursor. It is partly obsolete for Codex. It is not obsolete for opencode or for the cross-tool `~/.agents/skills` target.\n- **Automatic dependency resolution works natively only on Claude Code.** No other runtime has a dependency field: not Codex, not Cursor, not opencode, not the Agent Plugins spec, and not `npx skills`. Everywhere else, \"skills pulls in agents\" has to come from how we draw package boundaries (each package ships everything it needs) or from `install.sh`.\n- **The id order is reversed.** In `acc@claude-skills`, the part after `@` is the **marketplace**, not the component. The idiomatic form is one marketplace holding several plugins, e.g. `ycc-mcp@ycc`. Names that start with `claude-` or look official are also reserved or flagged by Claude's validator, so `claude-skills` and `claude-agents` should not be used as names.\n- **Rename the repo, not the namespace.** `yandy-r/agentic-code-plugins` is free on GitHub and npm. The `ycc:` prefix should stay: Claude takes it from the plugin's manifest name, it appears about 876 times in 159\u2013197 files under `ycc/`, and it is in every user's `enabledPlugins` key. \"acc\" is not a good identifier either. The unscoped npm name is taken and the acronym is crowded.\n\n**Recommended target: v6.0.0.** Correctness fixes ship first in a 5.2.x patch. Everything else is prepared on `main` without being listed in any marketplace. One rename PR and one package-listing PR then go in just before the 6.0.0 release.\n\n## 2. Critique of the two candidate designs\n\n### Shared problems: unsupported or overstated claims\n\n1. **Existing users will not \"auto-install ycc-agents on next update\".** Claude turns auto-update off by default for third-party marketplaces. Existing `ycc@ycc` users get new dependencies only after `/plugin marketplace update ycc` or after turning auto-update on. Both designs understate this.\n2. **A Claude plugin hook for `WorktreeCreate` is unverified.** Both designs move hooks into a `ycc-hooks` plugin. The dossier shows hooks are a valid plugin component, but it never confirms that the `WorktreeCreate` event (or `statusLine`) works from a plugin. minimal-risk gates this behind a spike; native-first does not.\n3. **Codex discovering the marketplace through a relative path is unverified.** We don't know which file `codex plugin marketplace add owner/repo` reads when the repo has both `.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json`. If it picks the Claude file, it installs the Claude source tree (`./ycc`) into Codex. minimal-risk flags this risk; native-first ignores it.\n4. **\"Skills degrade gracefully when an agent is missing\" is assumed, not shown.** No skill was checked. On Codex, Cursor without bundled agents, and opencode, a missing agent role probably means a failed dispatch, not a fallback.\n\n### native-first\n\n- **It breaks the namespace.** Moving agents into a `ycc-agents` plugin renames every `ycc:<agent>` reference to `ycc-agents:<agent>`. That includes 44 `subagent_type` references in skills, agent-to-agent references in 14 agents, and anything users wrote themselves. The design admits this, but it plans the break before the \"same manifest name\" spike has run.\n- **It creates a dependency cycle that only vendoring can break.** Four agents read skill paths: implementor, planner, pr-comment-fixer, releaser. Skills dispatch agents. Splitting them makes `ycc \u2192 ycc-agents \u2192 ycc` paths. Vendoring the skill files into the agents package breaks the cycle, but it duplicates content that will drift.\n- **Its release process conflicts with RELEASING.md.** It needs version ranges, which need per-plugin `<plugin>--v6.0.0` tags (7+ per release). \"Agents never tag\" and maintainers cut releases. So every release gains a list of tags a human must push. Codex `git-subdir` sources pinned to `ref: v6.0.0` also point at a tag that does not exist yet when the release PR merges, so the Codex install is broken on `main` until the tag lands.\n- **Its speculative mechanisms are presented as the plan.** These include the Codex SessionStart hook that would sync agent TOMLs, the opencode cross-package `register()` calls, Claude rules shipped as passive skills, and moving `status-bar@ycc-mods` to `ycc-mod-status-bar@ycc` with no automatic cross-marketplace rename.\n- **The release surface is very large.** It means 7 Claude plugins, 4\u20135 Codex plugins, 6 Cursor plugins, 6 npm packages and an Agent Plugins root, all in lockstep. A publish that half-succeeds leaves runtimes out of sync.\n\n### minimal-risk\n\n- **It doesn't give the owner granular skills and agents on Claude or Cursor.** It is honest about that, though.\n- **The Codex `ycc` plugin loses `.mcp.json`.** That is a breaking change for users who installed only through the marketplace. It is acceptable in a major release, but it needs a migration note.\n- **Its claim that Cursor already emits `${CURSOR_PLUGIN_ROOT}` paths is only half true.** The generator emits the variable, but the content assumes the file-copy layout under `~/.cursor`. Moving to a real plugin layout needs a generator audit.\n- **Coverage gaps:** Cursor hooks are deferred, opencode is file-copy only, and Claude rules and settings stay on install.sh. All of that is correct, but it should be said plainly to the owner.\n- **What it gets right:** it avoids version ranges (bare-name dependencies inside one relative-path marketplace mean no per-plugin tags), keeps one `v<semver>` tag, and gates unverified features behind spikes. This is the right default for a trunk-only repo.\n\n### What both designs leave uncovered\n\nNeither design has a plan for commands on Cursor and Codex, beyond Codex turning legacy `commands/` into skills. Neither defines how users avoid duplicate loading when a native plugin and the `~/.agents/skills` copies are both present. Neither decides which agents the `orchestrate` and `init` skills can count on, given that they choose from about 20 agents at run time.\n\n## 3. Merged recommendation\n\nThe base is **minimal-risk**, plus three things from native-first: the build-time dependency graph and closure validator, an `install.sh migrate` command, and clear per-runtime native-vs-fallback docs. Any split of agents from skills on Claude waits for the namespace spike.\n\n### Names\n\n| Item                  | Value                                                                                                         |\n| --------------------- | ------------------------------------------------------------------------------------------------------------- |\n| Repo                  | `yandy-r/agentic-code-plugins` (GitHub and Forgejo). Never recreate the old name, so the redirect keeps working. |\n| Marketplace (Claude, Codex, Cursor) | `ycc`                                                                                           |\n| Claude mods marketplace | `ycc-mods` (unchanged)                                                                                      |\n| Namespace             | `ycc:` (unchanged)                                                                                            |\n| Package names         | `ycc`, `ycc-mcp`, `ycc-hooks`, `ycc-rules` (Cursor only), `ycc-all` (Claude meta), and later `ycc-agents`     |\n| npm scope (opencode, experimental) | `@yandy-r/ycc-opencode`                                                                          |\n| \"acc\"                 | Prose and branding only, if wanted. Never an id.                                                              |\n\n### Package matrix\n\n| Runtime                              | Package id                    | Contents                                                       | Mechanism                                                       | Depends on                                              |\n| ------------------------------------ | ----------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------- |\n| Claude                               | `ycc@ycc`                     | 49 skills, 55 agents, `_shared`                                | native (same as today)                                          | none                                                    |\n| Claude                               | `ycc-mcp@ycc`                 | `.mcp.json` (10 servers, secrets as `${ENV}`)                  | native, MCP-only                                                | none                                                    |\n| Claude                               | `ycc-hooks@ycc`               | WorktreeCreate and herdr hooks                                 | native, only if spike S2 passes; otherwise install.sh           | none                                                    |\n| Claude                               | `ycc-all@ycc`                 | meta: name + dependencies                                      | native meta-plugin                                              | ycc, ycc-mcp, (ycc-hooks)                               |\n| Claude                               | `status-bar@ycc-mods`         | status-bar mod                                                 | native (unchanged)                                              | none                                                    |\n| Claude                               | rules, settings, statusLine   | CLAUDE.md, AGENTS.md, settings merge                           | **install.sh fallback** (Claude has no plugin component for these) | none                                                 |\n| Claude (post-6.0, gated by S1)       | `ycc-agents@ycc`              | 55 agents                                                      | native, agents-only                                             | none (`ycc` would then depend on it)                    |\n| Codex                                | `ycc@ycc`                     | 49 skills and `shared/`                                        | native (repo `.agents/plugins/marketplace.json`, relative source) | agents through install.sh (**cannot be declared**)    |\n| Codex                                | `ycc-mcp@ycc`                 | `.mcp.json`                                                    | native                                                          | none                                                    |\n| Codex                                | `ycc-hooks@ycc`               | `hooks/hooks.json`                                             | native if spike S3 passes; the user must trust the hooks        | none                                                    |\n| Codex                                | agents, AGENTS.md, config.toml | 55 `*.toml` roles, rules, profiles                            | **install.sh fallback** (Codex plugins cannot carry these)      | none                                                    |\n| Cursor                               | `ycc@ycc`                     | skills, agents, commands, shared                               | native plugin (Cursor 2.5 or later), self-contained             | none (no dependency field)                              |\n| Cursor                               | `ycc-rules@ycc`               | 38 `.mdc` rules                                                | native                                                          | none                                                    |\n| Cursor                               | `ycc-mcp@ycc`                 | `mcp.json`                                                     | native                                                          | none                                                    |\n| Cursor                               | `ycc-hooks@ycc`               | hooks                                                          | native if spike S4 passes                                       | none                                                    |\n| Cursor                               | `cli-config.json`             | user CLI config                                                | **install.sh fallback**                                         | none                                                    |\n| opencode                             | file copy                     | skills, agents, commands, shared, opencode.json, AGENTS.md     | **install.sh (primary)**                                        | none                                                    |\n| opencode (experimental, gated by S5) | `@yandy-r/ycc-opencode`       | one npm package; its `config` hook registers everything        | npm plugin in the `plugin` key                                  | none (one package, because npm dependencies don't load as plugins) |\n| agents (`~/.agents/skills`)          | file copy                     | 49 skills and `ycc-shared`                                     | **install.sh**; `npx skills` only if spike S6 passes            | none                                                    |\n\n### Native vs fallback, per runtime\n\n- **Claude: TRUE.** Native plugins and native dependencies, which is real automatic resolution. The gaps are user-global rules (CLAUDE.md and `~/.claude/rules`) and settings beyond `agent`/`subagentStatusLine`. Agent frontmatter `hooks`, `mcpServers`, `permissionMode` and `initialPrompt` are ignored inside plugins.\n- **Cursor: TRUE for packaging, FALSE for dependencies.** All six component types can be packaged. There is no dependency field, the marketplace entry has `additionalProperties:false`, and the docs describe no way for users to pin a version. Today's `.cursor-plugin/` is not a real plugin: it has no `plugin.json`, and its directory name collides with Cursor's manifest directory.\n- **Codex: PARTIAL.** Skills, MCP, apps and hooks are plugin components. Agent roles, rules and config are not. There are no dependencies.\n- **opencode: mostly FALSE.** Plugins are npm code modules. Skills, agents, commands and rules can only arrive through a `config` hook at run time, which is not documented. The V2 plugin API is unreleased.\n- **`~/.agents/skills`: FALSE.** It is a directory convention with no package system.\n\n### How dependencies are resolved\n\n1. **A build-time graph** (`scripts/build_package_graph.py`). It records skill\u2192agent edges (resolved by frontmatter name, so `codebase-research-analyst` maps to `code-researcher.md`), skill\u2192`_shared`, skill\u2192skill script paths, agent\u2192skill paths and agent\u2192agent edges. `validate.sh --only packages` fails when a package's closure is not satisfied, or when packages that can be installed together define the same component.\n2. **Claude:** bare-name dependencies in one relative-path marketplace. No version ranges, so no per-plugin tags. `ycc-all` is the meta-plugin.\n3. **Codex, Cursor, opencode, agents:** packages are self-contained by construction. Skills and agents stay together wherever the runtime allows. The edges a runtime cannot express (Codex agents) are filled by `install.sh install --package ycc --target codex`, which expands the closure from `ycc/settings/packages.json`.\n4. **`_shared` and cross-skill script reach-ins** stay inside the `ycc` package, so nothing is vendored in 6.0.\n5. **Catalog skills (`orchestrate`, `init`, `write-docs`)** always ship alongside every agent.\n\n### Releasing (trunk-only, RELEASING.md)\n\n- **Lockstep versions.** Every workflow package uses the product version. `status-bar` keeps its own version in `ycc-mods`, as today.\n- **One `v<semver>` tag per release**, pushed by a maintainer. Agents never tag. No per-plugin tags unless a later release adopts version ranges.\n- **One source of package definitions:** `ycc/settings/packages.json`. Generators emit all three `marketplace.json` files from it. `bump-version.sh` and `preflight.sh` iterate every `plugins[]` entry and every package manifest. Today both are hard-coded to `plugins[0]`, which I verified at lines 97/101 and 105.\n- **Hidden until flipped.** Generated package trees land on `main` but are **not listed** in any marketplace until the flip PR, because listing a package makes it installable. The repo rename is prepared as a dry-run script with an allowlist, then applied in one PR after the owner renames the repo on GitHub and Forgejo.\n- **CI** keeps `validate.yml` as the single gate, with new groups `packages`, `claude-native` (`claude plugin validate`), `cursor-native` (vendored schema) and `codex-native` (source-tag allowlist).\n\n### Migration\n\n- **Claude users:** nothing breaks. `ycc@ycc` keys survive the repo rename, and git fetches follow the redirect. Users who turn on `ycc-hooks` or `ycc-mcp` should run `install.sh migrate --target claude`, which removes the hooks and MCP entries install.sh merged earlier so nothing runs twice.\n- **Codex users:** run `install.sh migrate --target codex`. It removes `ycc@local-ycc-plugins` and its symlinks, adds the repo marketplace, runs `codex plugin add ycc@ycc ycc-mcp@ycc`, and leaves `~/.codex/agents` in place. Or keep the local install.sh mode, which stays supported.\n- **Cursor users:** run `install.sh remove --target cursor --intent skills,agents,rules` before `/add-plugin`. `migrate` prints this step.\n- **opencode and agents users:** no change after the Phase 0 key fix. Re-run `install.sh sync --target opencode --settings` so the goal plugin actually loads.\n\n## 4. Risks\n\n- If spike S1 fails, Claude users never get a non-breaking agents/skills split. The owner then chooses between a 7.0 namespace break and no split.\n- Codex marketplace precedence (S3) could send the Claude tree to Codex. The Codex marketplace must not be listed publicly until S3 passes.\n- Duplicate skills when a native plugin and the `~/.agents/skills` or `~/.cursor` copies are both installed. Detecting this in `install.sh` and documenting it are required.\n- Lockstep releases bump add-on packages even when their content did not change. This is accepted.\n- The minimum Claude Code version for `dependencies` is not documented. Document 2.1.143 or later and test against that floor.\n\n## 5. Decisions the owner must make\n\n1. Confirm the repo name `agentic-code-plugins`, and confirm keeping `ycc` as the namespace and marketplace (recommended), rather than switching to `acc`.\n2. After S1: is a Claude `ycc-agents` split worth a namespace break in 7.0 if the shared-manifest-name approach fails?\n3. Should `ycc-rules` exist on Claude as passive skills (an approximation), or should rules stay on install.sh only (recommended)?\n4. Should 6.0 publish anything to npm, or does opencode stay file-copy until the V2 plugin API ships (recommended)?\n5. Should the Cursor plugin go to cursor.com/marketplace/publish for review, or be distributed only as a GitHub marketplace?",
+ "project_summary": "Rename claude-plugins to agentic-code-plugins, keep the ycc namespace, and add native per-component packages (ycc, ycc-mcp, ycc-hooks, ycc-rules, ycc-all) on Claude, Codex and Cursor. install.sh stays the fallback where a runtime has no native mechanism. Ships as v6.0.0.",
+ "target_release": "v6.0.0",
+ "milestones": [
+  {
+   "name": "M0 Correctness fixes (5.2.x)",
+   "description": "Fix the existing bugs that would make native installs fail without any error (the Codex source tag, the opencode plugin key, a stale capability-matrix note), and stop the release tooling assuming plugins[0]. Each fix ships on its own as a patch."
+  },
+  {
+   "name": "M1 Spikes and decisions",
+   "description": "Live-test the runtime capabilities the dossier could not confirm, then record the naming, package and versioning decisions in an ADR. Nothing user-facing ships in this milestone."
+  },
+  {
+   "name": "M2 Package model and generators (hidden)",
+   "description": "Add packages.json, the dependency graph, per-runtime package generators, install.sh --package and migrate, the validators, and lockstep release tooling. Packages are generated on main but listed in no marketplace."
+  },
+  {
+   "name": "M3 Rename prep (hidden)",
+   "description": "Prepare the repo rename as an allowlisted dry-run script, and write the per-runtime install docs, without switching anything yet."
+  },
+  {
+   "name": "M4 Flip and release v6.0.0",
+   "description": "The owner renames the repo, one PR updates the references, one PR lists the packages in every marketplace, and a maintainer cuts v6.0.0."
+  },
+  {
+   "name": "M5 Post-6.0 granularity",
+   "description": "Optional splits, opened only when a spike passes: a Claude ycc-agents package, the opencode npm package, and Claude rules."
+  }
+ ],
+ "issues": [
+  {
+   "key": "fix-codex-source",
+   "title": "[codex] Emit a valid git-subdir source in repo-mode marketplace entries",
+   "milestone": "M0 Correctness fixes (5.2.x)",
+   "label": "Bug",
+   "priority": 1,
+   "description": "**Problem:** `scripts/codex_marketplace.py:38` writes `{\"source\":\"github\",...}`. Codex does not support that source type, so it skips the entry with only a warning (core-plugins marketplace.rs:597).\n\n**Proposal:** Emit `{source:\"git-subdir\", url:\"https://github.com/yandy-r/claude-plugins.git\", path:\"./.codex-plugin/ycc\", ref:\"main\"}`, or a relative path for the in-repo marketplace.\n\n**Acceptance criteria:**\n- Repo mode installs with `codex plugin add` on codex-cli 0.160.\n- A unit test rejects source tags outside {local, url, git-subdir, npm, plain path}.\n\n**Files:** scripts/codex_marketplace.py, scripts/test_* (new test)"
+  },
+  {
+   "key": "fix-opencode-plugin-key",
+   "title": "[opencode] Emit the v1 `plugin` key and fix the validator",
+   "milestone": "M0 Correctness fixes (5.2.x)",
+   "label": "Bug",
+   "priority": 1,
+   "description": "**Problem:** `generate_opencode_plugin.py:234` writes `plugins` and line 237 writes `agents`. opencode v1.19.0 v2-compat marks `plugins` as UNSUPPORTED, so the goal plugin never loads. `validate-opencode-plugin.sh:28` enforces the wrong key.\n\n**Proposal:** Emit `plugin` (singular) and `agent`. Keep the V2 keys only behind a generator flag.\n\n**Acceptance criteria:**\n- In a live opencode 1.19 session, `@prevalentware/opencode-goal-plugin` loads.\n- The validator checks `plugin`.\n- The sync and validate scripts pass.\n\n**Files:** scripts/generate_opencode_plugin.py, scripts/validate-opencode-plugin.sh, .opencode-plugin/opencode.json (regenerated)"
+  },
+  {
+   "key": "fix-capability-matrix",
+   "title": "[docs] Correct the stale Claude install-path note in target-capability-matrix",
+   "milestone": "M0 Correctness fixes (5.2.x)",
+   "label": "Bug",
+   "priority": 3,
+   "description": "**Problem:** The INSTALL_PATH:claude note mentions a `local-ycc-plugins` file marketplace for Claude, but install.sh uses the `ycc` directory marketplace.\n\n**Proposal:** Rewrite the note. Add native-vs-fallback columns for each runtime, based on the dossier verdicts.\n\n**Acceptance criteria:** The note matches `scripts/lib/install/targets/claude.sh`, and the practices validator passes.\n\n**Files:** ycc/skills/_shared/references/target-capability-matrix.md"
+  },
+  {
+   "key": "release-multi-entry",
+   "title": "[release] Make bump-version and preflight iterate every marketplace entry and manifest",
+   "milestone": "M0 Correctness fixes (5.2.x)",
+   "label": "Improvement",
+   "priority": 2,
+   "description": "**Problem:** `bump-version.sh:97,101` and `preflight.sh:105` hard-code `plugins[0]`. With multiple packages, every other entry would drift away from the release version.\n\n**Proposal:** Iterate every `plugins[]` entry in every marketplace.json the repo generates, plus the package plugin.json and package.json files. Explicitly exclude `ycc-mods`, which is versioned separately.\n\n**Acceptance criteria:**\n- test-release-* covers a fixture marketplace with 3 entries.\n- Preflight fails when any entry's version differs.\n\n**Files:** ycc/skills/bundle-release/scripts/{bump-version,preflight}.sh, scripts/test-release-*.sh"
+  },
+  {
+   "key": "spike-claude-namespace",
+   "title": "[claude] Spike: cross-plugin agent dispatch and a shared manifest name",
+   "milestone": "M1 Spikes and decisions",
+   "label": "Feature",
+   "priority": 1,
+   "description": "**Problem:** A Claude split of skills and agents renames `ycc:<agent>` to `ycc-agents:<agent>`. The docs don't say whether (a) two marketplace entries can share the manifest name `ycc`, (b) a skill in plugin A can dispatch `subagent_type` from plugin B, or (c) an agent's `skills` frontmatter can preload a skill from another plugin.\n\n**Proposal:**\n- Build a throwaway marketplace with entries `t-skills` and `t-agents` that both have manifest name `t`, and record the behaviour.\n- Repeat with different manifest names.\n- Test on the documented floor version (2.1.143) and on the latest version.\n\n**Acceptance criteria:** Findings are recorded in docs/internal/spikes/claude-namespace.md with versions and transcripts, ending in a go/no-go for the post-6.0 ycc-agents split.\n\n**Files:** docs/internal/spikes/ (new)"
+  },
+  {
+   "key": "spike-claude-hooks",
+   "title": "[claude] Spike: WorktreeCreate and herdr hooks as plugin hooks",
+   "milestone": "M1 Spikes and decisions",
+   "label": "Feature",
+   "priority": 2,
+   "description": "**Problem:** Hooks are merged into ~/.claude/settings.json by install.sh. Whether a plugin's hooks/hooks.json can register `WorktreeCreate`, and resolve `${CLAUDE_PLUGIN_ROOT}` scripts, is unverified.\n\n**Proposal:** Build a test plugin with both hooks. Confirm they fire, and check what happens when the settings-merged copies also exist (do they run twice?).\n\n**Acceptance criteria:** A go/no-go is recorded for ycc-hooks on Claude, along with the dedupe rule that migrate needs.\n\n**Files:** docs/internal/spikes/claude-hooks.md"
+  },
+  {
+   "key": "spike-codex-marketplace",
+   "title": "[codex] Spike: marketplace discovery precedence, relative sources and hook parity",
+   "milestone": "M1 Spikes and decisions",
+   "label": "Feature",
+   "priority": 1,
+   "description": "**Problem:** The repo has both .claude-plugin/marketplace.json and .agents/plugins/marketplace.json. Codex reads both, and the order is unknown. If it picks the Claude file, it installs the Claude tree. It is also unverified whether relative sources resolve after `codex plugin marketplace add owner/repo`, and which hook events Codex supports.\n\n**Proposal:** Test on a fork with codex-cli 0.160 or later, with and without `--sparse .agents/plugins`. Map Codex hook events to the two ycc hooks.\n\n**Acceptance criteria:** A recorded decision on the Codex marketplace location and source form, and a go/no-go for Codex ycc-hooks.\n\n**Files:** docs/internal/spikes/codex-marketplace.md"
+  },
+  {
+   "key": "spike-cursor-plugin",
+   "title": "[cursor] Spike: third-party GitHub marketplace, pinning, hooks, duplicates",
+   "milestone": "M1 Spikes and decisions",
+   "label": "Feature",
+   "priority": 2,
+   "description": "**Problem:** These Cursor behaviours are unverified:\n- installing at user scope from a third-party GitHub marketplace without the Cursor GitHub App\n- pinning to a tag or SHA through `source`\n- install from the CLI (`agent`)\n- hook event parity\n- what happens when ~/.cursor/skills copies are also present\n\n**Proposal:** Build a minimal plugin at `.cursor-plugin/marketplace.json` on a fork, then install and refresh it from the IDE and the CLI.\n\n**Acceptance criteria:** Each question is answered, with Cursor version numbers, and the plugin directory layout is chosen.\n\n**Files:** docs/internal/spikes/cursor-plugin.md"
+  },
+  {
+   "key": "spike-opencode-config-hook",
+   "title": "[opencode] Spike: can a v1 config hook register skills, agents, commands and MCP?",
+   "milestone": "M1 Spikes and decisions",
+   "label": "Feature",
+   "priority": 2,
+   "description": "**Problem:** opencode plugins are npm code modules. Shipping skills, agents and commands natively depends on the v1 `config` hook changing `skills.paths`, `agent`, `command`, `mcp` and `instructions` before discovery runs, which is undocumented.\n\n**Proposal:** Write a `file://` plugin against opencode 1.19 that injects one item of each kind. Test the `skills.urls` alternative too.\n\n**Acceptance criteria:**\n- A go/no-go per component type.\n- Notes on V2 API timing.\n- If any type fails, a note on how skill content should reference shared files without baked absolute paths.\n\n**Files:** docs/internal/spikes/opencode-config-hook.md"
+  },
+  {
+   "key": "spike-npx-skills",
+   "title": "[agents-std] Spike: does npx skills install from .agents-plugin/skills?",
+   "milestone": "M1 Spikes and decisions",
+   "label": "Feature",
+   "priority": 4,
+   "description": "**Problem:** The cross-tool target has no plugin system. vercel-labs `npx skills` might replace install.sh for skills, but it would also need the shared helpers.\n\n**Proposal:** Run `npx skills add <fork> -g -s plan` and check discovery of the subdirectory and shared-file resolution.\n\n**Acceptance criteria:** A documented yes or no. If yes, the per-skill vendoring cost is estimated.\n\n**Files:** docs/internal/spikes/npx-skills.md"
+  },
+  {
+   "key": "adr-package-model",
+   "title": "[docs] ADR: name, ids, package boundaries and lockstep versioning",
+   "milestone": "M1 Spikes and decisions",
+   "label": "Feature",
+   "priority": 1,
+   "blocked_by": [
+    "spike-claude-namespace",
+    "spike-claude-hooks",
+    "spike-codex-marketplace",
+    "spike-cursor-plugin",
+    "spike-opencode-config-hook"
+   ],
+   "description": "**Problem:** The owner must decide the repo name, whether to keep the `ycc` namespace and marketplace, the package list per runtime, and the versioning policy.\n\n**Proposal:** Write an ADR that records:\n- repo `agentic-code-plugins`\n- `ycc` namespace and marketplace\n- the package matrix with the spike outcomes\n- bare-name dependencies (no version ranges, no per-plugin tags)\n- lockstep versions with one v-tag\n- feature switches listed in the RELEASING.md Unfinished work section\n\n**Acceptance criteria:** The owner approves the ADR, and RELEASING.md lists the hidden switches.\n\n**Files:** docs/internal/adr/ (new), RELEASING.md"
+  },
+  {
+   "key": "packages-manifest",
+   "title": "[generator] Add ycc/settings/packages.json as the single source of package definitions",
+   "milestone": "M2 Package model and generators (hidden)",
+   "label": "Feature",
+   "priority": 2,
+   "blocked_by": [
+    "adr-package-model"
+   ],
+   "description": "**Problem:** Three marketplaces plus install.sh would each hard-code package lists.\n\n**Proposal:** packages.json maps package \u2192 components \u2192 per-runtime mechanism (native or fallback) \u2192 requires \u2192 `listed: false`. Add a JSON schema and a loader.\n\n**Acceptance criteria:** The schema is validated in validate.sh, with no runtime behaviour change.\n\n**Files:** ycc/settings/packages.json, scripts/package_model.py (typed)"
+  },
+  {
+   "key": "package-graph",
+   "title": "[generator] Build the component dependency graph and validate closures",
+   "milestone": "M2 Package model and generators (hidden)",
+   "label": "Feature",
+   "priority": 2,
+   "blocked_by": [
+    "packages-manifest"
+   ],
+   "description": "**Problem:** Nothing checks that a package carries every agent, `_shared` file or cross-skill script it needs.\n\n**Proposal:** `scripts/build_package_graph.py` extracts:\n- skill\u2192agent edges, resolved by FRONTMATTER name\n- skill\u2192`_shared` edges\n- skill\u2192skill script edges\n- agent\u2192skill and agent\u2192agent edges\n\nIt writes the graph out and fails when a closure is unsatisfied or when packages that can be installed together define the same component.\n\n**Acceptance criteria:**\n- `./scripts/validate.sh --only packages` passes on the current tree.\n- A fixture test catches a missing `codebase-research-analyst`.\n\n**Files:** scripts/build_package_graph.py, scripts/validate.sh, scripts/test_package_graph.py"
+  },
+  {
+   "key": "claude-addon-packages",
+   "title": "[claude] Generate the ycc-mcp, ycc-hooks and ycc-all plugins (unlisted)",
+   "milestone": "M2 Package model and generators (hidden)",
+   "label": "Feature",
+   "priority": 2,
+   "blocked_by": [
+    "packages-manifest",
+    "spike-claude-hooks"
+   ],
+   "description": "**Problem:** On Claude, MCP and hooks can be installed only through install.sh.\n\n**Proposal:**\n- Generate packages/claude/ycc-mcp (.mcp.json from mcp-configs, secrets as ${ENV}).\n- Generate ycc-hooks (hooks/hooks.json plus scripts), only if the spike passed.\n- Generate ycc-all with a name + dependencies manifest.\n- Do not add any of them to .claude-plugin/marketplace.json yet.\n\n**Acceptance criteria:**\n- `claude plugin validate` passes for each package.\n- A local test marketplace installs ycc-all, and its dependencies are installed automatically.\n\n**Files:** scripts/generate_claude_packages.py, packages/claude/*"
+  },
+  {
+   "key": "codex-multi-package",
+   "title": "[codex] Generate the ycc, ycc-mcp and ycc-hooks Codex plugins and the repo marketplace (unlisted)",
+   "milestone": "M2 Package model and generators (hidden)",
+   "label": "Feature",
+   "priority": 2,
+   "blocked_by": [
+    "packages-manifest",
+    "spike-codex-marketplace",
+    "fix-codex-source"
+   ],
+   "description": "**Problem:** Codex ships one ycc plugin with MCP inside it.\n\n**Proposal:**\n- Split out .codex-plugin/ycc-mcp, plus ycc-hooks if the spike passed.\n- Generate the repo marketplace, named `ycc`, at the location the spike chose, behind a not-listed switch.\n- Keep local-ycc-plugins working for install.sh.\n\n**Acceptance criteria:**\n- A fork install of `ycc@ycc` and `ycc-mcp@ycc` works on codex-cli 0.160 or later.\n- The codex validator passes.\n\n**Files:** scripts/generate_codex_plugin.py, scripts/codex_marketplace.py, .codex-plugin/*"
+  },
+  {
+   "key": "cursor-real-plugin",
+   "title": "[cursor] Turn .cursor-plugin into real Cursor plugins plus a marketplace (unlisted)",
+   "milestone": "M2 Package model and generators (hidden)",
+   "label": "Feature",
+   "priority": 2,
+   "blocked_by": [
+    "packages-manifest",
+    "spike-cursor-plugin"
+   ],
+   "description": "**Problem:** .cursor-plugin/ is a loose file tree with no plugin.json, and its name collides with Cursor's manifest directory.\n\n**Proposal:**\n- Generate per-package directories (ycc = skills+agents+commands, ycc-rules, ycc-mcp, ycc-hooks if the spike passed), each with .cursor-plugin/plugin.json, minClientVersions >= 2.5, and audited CURSOR_PLUGIN_ROOT paths.\n- Point the install.sh file-copy path at the new layout.\n- Generate marketplace.json only after the flip.\n\n**Acceptance criteria:**\n- The manifests validate against the vendored cursor/plugins schemas.\n- The file-copy install output is unchanged.\n\n**Files:** scripts/generate_cursor_*.py, scripts/lib/install/targets/cursor.sh, .cursor-plugin/**"
+  },
+  {
+   "key": "install-package-flag",
+   "title": "[install] Add --package with closure expansion and native-aware dedupe",
+   "milestone": "M2 Package model and generators (hidden)",
+   "label": "Feature",
+   "priority": 2,
+   "blocked_by": [
+    "package-graph"
+   ],
+   "description": "**Problem:** Granular installs are by type only (install_slices.py), and runtimes without native packages cannot express dependencies.\n\n**Proposal:** `install.sh install --package ycc --target codex` expands the closure from packages.json: native where it can, file copy for the gaps (e.g. Codex agents). It skips file copies when the native plugin is detected, to avoid duplicates.\n\n**Acceptance criteria:**\n- Tests for each target in scripts/test-*.\n- `--intent` behaviour is unchanged.\n\n**Files:** install.sh, scripts/lib/install/{cli,steps}.sh, scripts/install_slices.py"
+  },
+  {
+   "key": "install-migrate",
+   "title": "[install] Add `install.sh migrate` per target",
+   "milestone": "M2 Package model and generators (hidden)",
+   "label": "Feature",
+   "priority": 2,
+   "blocked_by": [
+    "install-package-flag"
+   ],
+   "description": "**Problem:** Moving from file copies or local marketplaces to native packages risks duplicate skills and hooks.\n\n**Proposal:**\n- **claude:** remove the managed hooks and MCP entries when ycc-hooks or ycc-mcp are enabled.\n- **codex:** remove ycc@local-ycc-plugins and its symlinks, then add the repo marketplace and plugins, keeping ~/.codex/agents.\n- **cursor:** remove the managed ~/.cursor copies and print the /add-plugin step.\n- Support dry-run by default.\n\n**Acceptance criteria:** Each target is tested against a fixture HOME.\n\n**Files:** install.sh, scripts/lib/install/targets/*.sh, scripts/merge_managed_config.py"
+  },
+  {
+   "key": "native-validators",
+   "title": "[ci] Add packages, claude-native, cursor-native and codex-native validate groups",
+   "milestone": "M2 Package model and generators (hidden)",
+   "label": "Improvement",
+   "priority": 2,
+   "blocked_by": [
+    "claude-addon-packages",
+    "codex-multi-package",
+    "cursor-real-plugin"
+   ],
+   "description": "**Problem:** The json group checks only two manifests.\n\n**Proposal:** Add these groups:\n- `claude plugin validate` for each Claude package, skipped with a warning when the CLI is missing\n- a Cursor schema check\n- the Codex marketplace schema plus a source-tag allowlist\n- packages.json \u2194 marketplaces \u2194 trees parity\n\nWire them into validate.yml.\n\n**Acceptance criteria:** CI is green, and each group fails on a deliberately broken fixture.\n\n**Files:** scripts/validate.sh, scripts/validate-*.sh, .github/workflows/validate.yml"
+  },
+  {
+   "key": "lockstep-tooling",
+   "title": "[release] Lockstep bump and preflight across all generated packages",
+   "milestone": "M2 Package model and generators (hidden)",
+   "label": "Improvement",
+   "priority": 2,
+   "blocked_by": [
+    "release-multi-entry",
+    "packages-manifest"
+   ],
+   "description": "**Problem:** New package manifests (Claude add-ons, Codex and Cursor plugin.json) need the product version.\n\n**Proposal:** Generators read the version from ycc/.claude-plugin/plugin.json. bump-version and preflight cover every package from packages.json. Release notes get a template table listing the packages per runtime.\n\n**Acceptance criteria:** A dry-run bump to 6.0.0 on a branch passes preflight with zero mismatches.\n\n**Files:** ycc/skills/bundle-release/scripts/*, scripts/generate_*.py"
+  },
+  {
+   "key": "rename-prep",
+   "title": "[rename] Allowlisted rename script with a dry-run test (not executed)",
+   "milestone": "M3 Rename prep (hidden)",
+   "label": "Improvement",
+   "priority": 2,
+   "blocked_by": [
+    "adr-package-model"
+   ],
+   "description": "**Problem:** 'claude-plugins' appears in about 30 source files, and a bare replace would corrupt the `claude-plugins-official` entries and worktree path names.\n\n**Proposal:** `scripts/rename-repo.sh --from yandy-r/claude-plugins --to yandy-r/agentic-code-plugins --dry-run` replaces only anchored patterns (`yandy-r/claude-plugins`, `/claude-plugins.git`) from an explicit file allowlist, and never touches `ycc:`, `ycc@ycc`, `ycc-mods` or CLAUDE_PLUGIN_ROOT.\n\n**Acceptance criteria:**\n- The dry-run diff is reviewed in the PR.\n- A test asserts the excluded strings are untouched.\n\n**Files:** scripts/rename-repo.sh, scripts/test-rename-repo.sh"
+  },
+  {
+   "key": "install-docs",
+   "title": "[docs] Per-runtime native install guides and native-vs-fallback matrix",
+   "milestone": "M3 Rename prep (hidden)",
+   "label": "Improvement",
+   "priority": 3,
+   "blocked_by": [
+    "adr-package-model"
+   ],
+   "description": "**Problem:** Users need the exact ids and config snippets for each runtime, and an honest list of what still needs install.sh.\n\n**Proposal:** docs/install/{claude,codex,cursor,opencode,agents}.md, plus a README matrix: id grammar `<pkg>@ycc`, enabledPlugins and config.toml snippets, minimum versions, duplicate warnings, migrate steps. Keep the drafts out of README navigation until the flip.\n\n**Acceptance criteria:** markdownlint passes, and every id matches packages.json (checked by a script).\n\n**Files:** docs/install/*.md, README.md"
+  },
+  {
+   "key": "flip-rename",
+   "title": "[rename] Flip: repo renamed on GitHub and Forgejo, references updated in one PR",
+   "milestone": "M4 Flip and release v6.0.0",
+   "label": "Improvement",
+   "priority": 1,
+   "blocked_by": [
+    "rename-prep"
+   ],
+   "description": "**Problem:** The repo name must change atomically, shortly before release.\n\n**Proposal:**\n- The owner renames the repo on GitHub and Forgejo and updates any push mirrors.\n- Run `git remote set-url` for origin and forgejo.\n- Apply rename-repo.sh, regenerate, and update extraKnownMarketplaces in ycc/settings/settings.json.\n\n**Acceptance criteria:**\n- `claude plugin marketplace add yandy-r/agentic-code-plugins` works.\n- The old URL redirects.\n- The full sync and validate run is green.\n\n**Files:** ~30 allowlisted files, both marketplace.json metadata.repository fields"
+  },
+  {
+   "key": "flip-packages",
+   "title": "[release] Flip: list the native packages in every marketplace and bump to 6.0.0",
+   "milestone": "M4 Flip and release v6.0.0",
+   "label": "Feature",
+   "priority": 1,
+   "blocked_by": [
+    "flip-rename",
+    "native-validators",
+    "lockstep-tooling",
+    "install-migrate",
+    "install-docs"
+   ],
+   "description": "**Problem:** The packages are generated but hidden.\n\n**Proposal:** In one PR:\n- set `listed: true` in packages.json\n- regenerate the Claude, Codex and Cursor marketplaces\n- bump to 6.0.0\n- write the CHANGELOG Breaking section (Codex MCP moved to ycc-mcp, Codex marketplace renamed, Cursor native layout)\n- add the install.sh deprecation hints\n\n**Acceptance criteria:**\n- On a clean machine, a fork install of each listed package works per runtime.\n- Preflight passes.\n\n**Files:** ycc/settings/packages.json, .claude-plugin/marketplace.json, Codex and Cursor marketplaces, CHANGELOG"
+  },
+  {
+   "key": "release-v6",
+   "title": "[release] Maintainer release checklist for v6.0.0",
+   "milestone": "M4 Flip and release v6.0.0",
+   "label": "Improvement",
+   "priority": 2,
+   "blocked_by": [
+    "flip-packages"
+   ],
+   "description": "**Problem:** The release involves several runtimes, and only maintainers may tag.\n\n**Proposal:** A checklist in RELEASING.md:\n- run the bundle-release preflight\n- the maintainer pushes `v6.0.0`\n- smoke-test the install on each runtime\n- publish the release notes with the snippets for each runtime\n- remove the feature switches from the Unfinished work list\n\n**Acceptance criteria:** The checklist is merged, and the release is cut by a maintainer.\n\n**Files:** RELEASING.md, docs/internal/release-notes/v6.0.0.md"
+  },
+  {
+   "key": "claude-agents-split",
+   "title": "[claude] Optional ycc-agents package (gated on the namespace spike)",
+   "milestone": "M5 Post-6.0 granularity",
+   "label": "Feature",
+   "priority": 3,
+   "blocked_by": [
+    "spike-claude-namespace",
+    "release-v6"
+   ],
+   "description": "**Problem:** The owner wants agents and skills as separate Claude packages, which changes the `ycc:` prefix unless the shared-manifest-name approach works.\n\n**Proposal:**\n- If the spike passed, add `ycc-agents` with manifest name `ycc` and make `ycc` depend on it, with no breaking change.\n- If it failed, write a 7.0 proposal: rewrite references in the generator, vendor agent\u2192skill files to break the cycle, and use the `renames` map.\n\n**Acceptance criteria:** All 23 dispatching skills resolve their agents in a live test.\n\n**Files:** packages/claude/ycc-agents, ycc/.claude-plugin/plugin.json"
+  },
+  {
+   "key": "opencode-npm",
+   "title": "[opencode] Experimental @yandy-r/ycc-opencode npm plugin (opt-in)",
+   "milestone": "M5 Post-6.0 granularity",
+   "label": "Feature",
+   "priority": 4,
+   "blocked_by": [
+    "spike-opencode-config-hook",
+    "release-v6"
+   ],
+   "description": "**Problem:** opencode has no declarative packaging.\n\n**Proposal:**\n- Publish one package whose config hook registers skills.paths, agent, command and mcp from inside the package, with `engines.opencode`.\n- Publish it from CI on a maintainer-pushed tag, with npm provenance.\n- File copy stays primary.\n\n**Acceptance criteria:**\n- `{\"plugin\":[\"@yandy-r/ycc-opencode@6.x\"]}` loads every component on opencode 1.19 or later.\n- The generator stops baking ~/.config/opencode paths for this variant.\n\n**Files:** packages/opencode/ycc-opencode, scripts/generate_opencode_plugin.py, .github/workflows/release.yml"
+  },
+  {
+   "key": "claude-rules-native",
+   "title": "[claude] Evaluate shipping rules as passive skills (ycc-rules on Claude)",
+   "milestone": "M5 Post-6.0 granularity",
+   "label": "Improvement",
+   "priority": 4,
+   "blocked_by": [
+    "release-v6"
+   ],
+   "description": "**Problem:** Claude plugins have no rules or CLAUDE.md component, so rules need install.sh.\n\n**Proposal:** Prototype one passive skill per rule family (`user-invocable: false`). Compare how often it triggers with the ~/.claude/rules file copy.\n\n**Acceptance criteria:** A recorded decision to ship ycc-rules or keep it on install.sh only.\n\n**Files:** docs/internal/spikes/claude-rules.md"
+  }
+ ]
+}
