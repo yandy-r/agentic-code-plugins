@@ -311,7 +311,7 @@ Target steps:
             base:     generate + validate + format + rsync bundle to ~/.cursor/.
             skills:   generate + install each skill into ~/.cursor/skills/.
             agents:   generate + install each agent into ~/.cursor/agents/.
-            settings: merge .cursor-plugin/config/cli-config.json into
+            settings: merge packages/cursor/installer-fallback/config/cli-config.json into
                       ~/.cursor/cli-config.json (main CLI model preference).
             mcp:      merge mcp-configs/mcp.json mcpServers into
                       <project>/.cursor/mcp.json or ~/.cursor/mcp.json.
@@ -319,7 +319,7 @@ Target steps:
                       File-based user-global provisioning is unsupported/unverified;
                       no ~/.cursor/CLAUDE.md or AGENTS.md links are created.
                       Cursor sub-agent models are set per generated agent file
-                      in .cursor-plugin/agents/, not in cli-config.json.
+                      in packages/cursor/ycc/agents/, not in cli-config.json.
   codex     base | skills | agents | settings | rules | mcp
             base:     generate + validate + format + sync custom agents, then
                       register the repo's .codex-plugin/ycc/ as a local

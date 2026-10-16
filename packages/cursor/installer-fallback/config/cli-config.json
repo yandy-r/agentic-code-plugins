@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "model": {
+    "modelId": "claude-fable-5-1",
+    "displayModelId": "claude-fable-5-1",
+    "displayName": "Claude Fable 5.1",
+    "displayNameShort": "Fable 5.1",
+    "maxMode": false
+  },
+  "hasChangedDefaultModel": true,
+  "editor": {
+    "vimMode": false
+  },
+  "permissions": {
+    "allow": [],
+    "deny": []
+  }
+}

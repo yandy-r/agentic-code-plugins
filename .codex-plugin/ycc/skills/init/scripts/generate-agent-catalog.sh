@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # generate-agent-catalog.sh
-# Scans ~/.cursor/agents/ (Cursor config; synced by install.sh from .cursor-plugin/agents) and outputs a markdown catalog organized by category
+# Scans ~/.cursor/agents/ (Cursor config; synced by install.sh from packages/cursor/ycc/agents) and outputs a markdown catalog organized by category
 # Reads YAML frontmatter from each agent file for metadata
 
 set -euo pipefail

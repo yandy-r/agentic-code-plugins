@@ -7,8 +7,18 @@
 # Sourced by install.sh (never run directly); inherits SCRIPT_DIR and the
 # shared helpers from core.sh / steps.sh / bundle.sh.
 
-CURSOR_PLUGIN_DIR="${SCRIPT_DIR}/.cursor-plugin"
-CURSOR_CLI_CONFIG_SRC="${SCRIPT_DIR}/.cursor-plugin/config/cli-config.json"
+CURSOR_PACKAGES_DIR="${SCRIPT_DIR}/packages/cursor"
+CURSOR_CLI_CONFIG_SRC="${CURSOR_PACKAGES_DIR}/installer-fallback/config/cli-config.json"
+
+# cursor_unit_src_root <unit> — generated package root that ships <unit>; the
+# installed ~/.cursor/<unit>/ layout is unchanged by the native package split.
+cursor_unit_src_root() {
+    case "$1" in
+        skills | agents) echo "${CURSOR_PACKAGES_DIR}/ycc" ;;
+        rules) echo "${CURSOR_PACKAGES_DIR}/ycc-rules" ;;
+        *) err "Unknown Cursor bundle unit: $1"; exit 1 ;;
+    esac
+}
 
 # cursor_valid_steps — comma-separated steps Cursor accepts for --only.
 cursor_valid_steps() { echo "base,skills,agents,settings,rules,mcp"; }
@@ -79,13 +89,14 @@ sync_cursor_target() {
     local step=0
 
     if [[ $do_bundle -eq 1 ]]; then
-        if [[ ! -d "${CURSOR_PLUGIN_DIR}" ]]; then
-            err "Cursor plugin source directory not found: ${CURSOR_PLUGIN_DIR}"
-            exit 1
-        fi
-
-        # Each unit has its own generator + validator: generate-cursor-<unit>.sh.
         local unit
+        for unit in "${units[@]}"; do
+            if [[ ! -d "$(cursor_unit_src_root "${unit}")/${unit}" ]]; then
+                err "Cursor plugin source directory not found: $(cursor_unit_src_root "${unit}")/${unit}"
+                exit 1
+            fi
+        done
+
         for unit in "${units[@]}"; do
             require_scripts "${scripts_dir}/generate-cursor-${unit}.sh" "${scripts_dir}/validate-cursor-${unit}.sh"
         done
@@ -110,7 +121,21 @@ sync_cursor_target() {
         printf '\n%s[%d/%d] Sync bundle to ~/.cursor%s\n' "${BOLD}" "$step" "$total" "${NC}"
         # base mirrors every unit dir; a slice installs just its entries.
         if step_enabled base; then
-            sync_bundle_units "${CURSOR_PLUGIN_DIR}" "${cursor_dir}" "${units[@]}"
+            # Project native-form init resources back to the legacy bytes the
+            # file-copy installer ships: the checked-in package stays
+            # package-local while installed skills remain byte-identical.
+            for unit in "${units[@]}"; do
+                sync_bundle_units "$(cursor_unit_src_root "${unit}")" "${cursor_dir}" "${unit}"
+            done
+            python3 - "${scripts_dir}" "${cursor_dir}" <<'PY'
+import sys
+from pathlib import Path
+
+sys.path.insert(0, sys.argv[1])
+from cursor_native_resources import restore_installer_init
+
+restore_installer_init(Path(sys.argv[2]) / "skills")
+PY
         fi
         local slice
         for slice in $(skills_filter cursor "$(selected_slices skills agents)"); do
@@ -173,7 +198,7 @@ remove_cursor_target() {
         printf '\n%sCursor: remove bundle from ~/.cursor%s\n' "${BOLD}" "${NC}"
         local unit
         for unit in skills agents rules; do
-            remove_mirrored_entries "${CURSOR_PLUGIN_DIR}/${unit}" "${cursor_dir}/${unit}"
+            remove_mirrored_entries "$(cursor_unit_src_root "${unit}")/${unit}" "${cursor_dir}/${unit}"
         done
     fi
     printf '\n%sCursor remove complete.%s\n' "${BOLD}" "${NC}"

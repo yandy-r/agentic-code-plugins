@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Ensure .cursor-plugin/agents matches generator output and has no banned Claude-only residue.
+# Ensure packages/cursor/ycc/agents matches generator output and has no banned Claude-only residue.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-AGENTS_DIR="${REPO_ROOT}/.cursor-plugin/agents"
+AGENTS_DIR="${REPO_ROOT}/packages/cursor/ycc/agents"
 
 echo "== Sync check (generator --check) =="
 python3 "${REPO_ROOT}/scripts/generate_cursor_agents.py" --check
@@ -74,4 +74,4 @@ if errors:
     raise SystemExit(1)
 PY
 
-echo "OK: .cursor-plugin/agents is in sync and passes content policy."
+echo "OK: packages/cursor/ycc/agents is in sync and passes content policy."

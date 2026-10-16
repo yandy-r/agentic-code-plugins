@@ -513,7 +513,7 @@ assert_eq "staging: leaves zero unstaged changes" "" "$(git -C "${FIX}" diff --n
 assert_contains "staging: stages ycc/package.json" "$(git -C "${FIX}" diff --cached --name-only)" "ycc/package.json"
 assert_contains "staging: stages generated packages/" "$(git -C "${FIX}" diff --cached --name-only)" "packages/ycc/package.json"
 # Generated runtime copies must keep the source manifest discovery tuple.
-for bundle in .opencode-plugin/skills .codex-plugin/ycc/skills .cursor-plugin/skills .agents-plugin/skills; do
+for bundle in .opencode-plugin/skills .codex-plugin/ycc/skills packages/cursor/ycc/skills .agents-plugin/skills; do
   assert_contains "generated ${bundle%%/*}: keeps .claude-plugin manifest discovery" \
     "$(grep -F 'MANIFEST_SUBDIRS =' "${REPO_ROOT}/${bundle}/bundle-release/scripts/release_versions.py")" \
     'MANIFEST_SUBDIRS = (".claude-plugin", ".codex-plugin", ".cursor-plugin")'

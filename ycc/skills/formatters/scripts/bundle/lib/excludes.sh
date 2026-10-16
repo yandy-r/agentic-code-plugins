@@ -50,6 +50,7 @@ STYLE_EXCLUDES=(
     # Generated plugin bundles (this repo's source-of-truth pattern; harmless
     # as defaults because these names are specific to ycc).
     .cursor-plugin
+    packages/cursor
     .codex-plugin
     .opencode-plugin
 

@@ -143,7 +143,8 @@ in the later owner-led reference-flip PR (see RELEASING.md).
 - Claude marketplace: `.claude-plugin/marketplace.json` (single entry)
 - Codex generated plugin root: `.codex-plugin/ycc/`
 - Codex generated custom agents: `.codex-plugin/agents/`
-- Cursor generated bundle: `.cursor-plugin/`
+- Cursor generated packages: `packages/cursor/{ycc,ycc-rules,ycc-mcp,ycc-hooks}/` (all unlisted)
+- Cursor file-copy settings input: `packages/cursor/installer-fallback/config/cli-config.json`, generated from `ycc/settings/cursor/cli-config.json`
 - opencode generated bundle: `.opencode-plugin/` (skills, agents, commands, AGENTS.md, opencode.json)
 - Skills go in `ycc/skills/<skill-name>/SKILL.md`
 - Scripts must be executable (`chmod +x`) and use `set -euo pipefail`
@@ -187,8 +188,10 @@ commands a general feature. Manual-only skills still get these commands because
 the user may invoke them. Policy mapping: Cursor keeps `disable-model-invocation`;
 Codex writes `agents/openai.yaml` with `policy.allow_implicit_invocation: false`;
 opencode writes skill metadata `opencode/autoinvoke: 'false'`; the portable
-`agents` bundle omits it (no standard key). Cursor and Codex do not consume commands (Cursor folds
-guidance into rule files; Codex has no command layer). See
+`agents` bundle omits it (no standard key). Cursor's hidden native `ycc` package derives
+command files from user-invocable skills; the file-copy installer still treats the
+`commands` intent as a no-op. Codex has no command layer. Native Cursor interactive
+installation and installed-plugin runtime behavior remain gates. See
 `ycc/skills/_shared/references/target-capability-matrix.md` for the full matrix.
 
 ## Regeneration
@@ -237,6 +240,7 @@ need to target a single surface:
 ./scripts/generate-codex-plugin.sh && ./scripts/validate-codex-plugin.sh
 
 # Cursor
+./scripts/generate-cursor-packages.sh && ./scripts/validate-cursor-packages.sh
 ./scripts/generate-cursor-skills.sh && ./scripts/validate-cursor-skills.sh
 ./scripts/generate-cursor-agents.sh && ./scripts/validate-cursor-agents.sh
 ./scripts/generate-cursor-rules.sh  && ./scripts/validate-cursor-rules.sh

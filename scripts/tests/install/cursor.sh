@@ -33,8 +33,10 @@ echo "== install.sh remove: cursor base =="
 
 home="$(new_home)"
 for unit in skills agents rules; do
+    src="${REPO_ROOT}/packages/cursor/ycc/${unit}"
+    [[ "${unit}" == "rules" ]] && src="${REPO_ROOT}/packages/cursor/ycc-rules/rules"
     mkdir -p "${home}/.cursor/${unit}"
-    cp -R "${REPO_ROOT}/.cursor-plugin/${unit}/." "${home}/.cursor/${unit}/"
+    cp -R "${src}/." "${home}/.cursor/${unit}/"
 done
 mkdir -p "${home}/.cursor/skills/my-own-skill"
 install_must_succeed "${home}" remove --target cursor --intent base
@@ -54,8 +56,10 @@ assert_not_contains "$(cat "${home}/.cursor/skills/init/SKILL.md")" 'disable-mod
 
 home="$(new_home)"
 for unit in skills agents rules; do
+    src="${REPO_ROOT}/packages/cursor/ycc/${unit}"
+    [[ "${unit}" == "rules" ]] && src="${REPO_ROOT}/packages/cursor/ycc-rules/rules"
     mkdir -p "${home}/.cursor/${unit}"
-    cp -R "${REPO_ROOT}/.cursor-plugin/${unit}/." "${home}/.cursor/${unit}/"
+    cp -R "${src}/." "${home}/.cursor/${unit}/"
 done
 mkdir -p "${home}/.cursor/skills/my-own-skill"
 install_must_succeed "${home}" remove --target cursor --intent skills

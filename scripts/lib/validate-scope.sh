@@ -20,17 +20,24 @@ validate_scope_targets_for_path() {
         .codex-plugin/*) echo "codex" ;;
         .opencode-plugin/*) echo "opencode" ;;
         .agents-plugin/*) echo "agents" ;;
+        packages/cursor/installer-fallback/*) echo "cursor config" ;;
+        packages/cursor/*) echo "cursor" ;;
         packages/claude/*) echo "claude" ;;
 
         # The package manifest and its model feed both the packages validators
         # and the Claude generator, so they must match before the catch-all
         # settings rule.
-        ycc/settings/packages.json | ycc/settings/packages.schema.json) echo "claude packages" ;;
-        scripts/package_model.py | scripts/test_package_model.py) echo "claude packages" ;;
+        ycc/settings/packages.json | ycc/settings/packages.schema.json) echo "claude cursor packages" ;;
+        scripts/package_model.py | scripts/test_package_model.py) echo "claude cursor packages" ;;
         scripts/build_package_graph.py | scripts/package_graph_extract.py | scripts/test_package_graph.py) echo "packages" ;;
 
         # Claude package generator, validator and tests.
         scripts/generate_claude_packages.py | scripts/generate-claude-packages.sh | scripts/validate-claude-packages.sh | scripts/test_generate_claude_packages.py | scripts/test-claude-native-packages.sh | scripts/claude_native_smoke.py) echo "claude" ;;
+
+        # Cursor native package generator, validator and tests. The component
+        # generators (skills/agents/rules) stay on the catch-all: install tests
+        # and other targets import or regenerate them.
+        scripts/generate_cursor_packages.py | scripts/cursor_native_resources.py | scripts/generate-cursor-packages.sh | scripts/validate-cursor-packages.sh | scripts/test_generate_cursor_packages.py | scripts/vendor/cursor/*) echo "cursor config" ;;
 
         # Docs and repo meta that no validator reads.
         docs/* | CONTRIBUTING.md | RELEASING.md | LICENSE | .github/*) ;;

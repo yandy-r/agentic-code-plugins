@@ -99,7 +99,7 @@
       }
     },
     "cursor": {
-      "config": ".cursor-plugin/config/cli-config.json",
+      "config": "ycc/settings/cursor/cli-config.json",
       "placeholder": true,
       "main": {
         "model": "claude-fable-5-1",

@@ -66,7 +66,7 @@ if [[ -n "$REPO_ROOT_INPUT" ]]; then
 fi
 if [[ -z "$REPO_ROOT" && -n "${CLAUDE_PLUGIN_ROOT:-}" && -d "${CLAUDE_PLUGIN_ROOT}" ]]; then
   # Normalize trailing slash and accept the value directly as REPO_ROOT-equivalent.
-  # Downstream code references REPO_ROOT for .claude-plugin/, .cursor-plugin/,
+  # Downstream code references REPO_ROOT for .claude-plugin/, packages/cursor/,
   # .codex-plugin/ and ycc/.claude-plugin/ — these all live at the repo root.
   # When CLAUDE_PLUGIN_ROOT points at the installed plugin (e.g. the 'ycc/' dir),
   # walk up once so downstream paths resolve to the repo containing the three bundles.
@@ -147,12 +147,14 @@ PY
 # Cursor checks
 # ---------------------------------------------------------------------------
 run_cursor_checks() {
-  local cdir="${REPO_ROOT}/.cursor-plugin"
-  [[ -d "$cdir" ]] && record "cursor" "CR1" "PASS" "" \
-    || { record "cursor" "CR1" "FAIL" "${cdir} does not exist"; return; }
+  local ycc_dir="${REPO_ROOT}/packages/cursor/ycc"
+  local rules_dir="${REPO_ROOT}/packages/cursor/ycc-rules"
+  [[ -d "$ycc_dir" ]] && record "cursor" "CR1" "PASS" "" \
+    || { record "cursor" "CR1" "FAIL" "${ycc_dir} does not exist"; return; }
 
   local miss=()
-  for s in skills agents rules; do [[ -d "${cdir}/${s}" ]] || miss+=("$s"); done
+  for s in skills agents; do [[ -d "${ycc_dir}/${s}" ]] || miss+=("$s"); done
+  [[ -d "${rules_dir}/rules" ]] || miss+=("rules")
   [[ ${#miss[@]} -eq 0 ]] && record "cursor" "CR2" "PASS" "" \
     || record "cursor" "CR2" "FAIL" "missing: ${miss[*]}"
 
@@ -175,7 +177,7 @@ run_cursor_checks() {
   pr_pattern="${pr_token}_ROOT"
   set +e
   hits=$(grep -rl --include='*.json' --include='*.sh' --include='*.toml' --include='*.yaml' --include='*.yml' \
-    "${cr_excludes[@]}" -- "${pr_pattern}" "${cdir}" 2>/dev/null | head -5)
+    "${cr_excludes[@]}" -- "${pr_pattern}" "${ycc_dir}" "${rules_dir}" 2>/dev/null | head -5)
   set -e
   [[ -z "$hits" ]] && record "cursor" "CR3" "PASS" "" \
     || record "cursor" "CR3" "FAIL" "plugin-root variable residue in code/config: $(printf '%s ' "$hits")"
@@ -190,7 +192,7 @@ run_cursor_checks() {
   cc_label=".${cc_token}/"
   set +e
   hits=$(grep -rl --include='*.json' --include='*.sh' --include='*.toml' --include='*.yaml' --include='*.yml' \
-    "${cr_excludes[@]}" -- "${cc_pattern}" "${cdir}" 2>/dev/null | head -5)
+    "${cr_excludes[@]}" -- "${cc_pattern}" "${ycc_dir}" "${rules_dir}" 2>/dev/null | head -5)
   set -e
   [[ -z "$hits" ]] && record "cursor" "CR4" "PASS" "" \
     || record "cursor" "CR4" "FAIL" "${cc_label} residue in code/config: $(printf '%s ' "$hits")"

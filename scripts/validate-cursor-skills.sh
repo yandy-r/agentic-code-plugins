@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Ensure .cursor-plugin/skills matches generator output and has no banned Claude-only residue.
+# Ensure packages/cursor/ycc/skills matches generator output and has no banned Claude-only residue.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-SKILLS_DIR="${REPO_ROOT}/.cursor-plugin/skills"
+SKILLS_DIR="${REPO_ROOT}/packages/cursor/ycc/skills"
 
 echo "== Sync check (generator --check) =="
 python3 "${REPO_ROOT}/scripts/generate_cursor_skills.py" --check
@@ -57,4 +57,4 @@ if [[ "$BAD" -ne 0 ]]; then
   exit 1
 fi
 
-echo "OK: .cursor-plugin/skills is in sync and passes content policy."
+echo "OK: packages/cursor/ycc/skills is in sync and passes content policy."

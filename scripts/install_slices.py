@@ -51,8 +51,8 @@ LEGACY_COMMANDS_DEST = ".claude/commands"
 SPECS: dict[tuple[str, str], tuple[Unit, ...]] = {
     ("claude", "skills"): (Unit("ycc/skills", ".claude/skills"),),
     ("claude", "agents"): (Unit("ycc/agents", ".claude/agents"),),
-    ("cursor", "skills"): (Unit(".cursor-plugin/skills", ".cursor/skills"),),
-    ("cursor", "agents"): (Unit(".cursor-plugin/agents", ".cursor/agents"),),
+    ("cursor", "skills"): (Unit("packages/cursor/ycc/skills", ".cursor/skills"),),
+    ("cursor", "agents"): (Unit("packages/cursor/ycc/agents", ".cursor/agents"),),
     # Codex keeps shared helpers beside skills/ in the plugin; standalone
     # skills find them at ~/.codex/skills/_shared instead.
     ("codex", "skills"): (
@@ -174,6 +174,18 @@ def transform_tree(root: Path, rewrites: list[tuple[str, str]], pattern: re.Patt
             path.write_text(new, encoding="utf-8")
 
 
+def project_cursor_init(name: str, staged: Path) -> None:
+    """Restore the file-copy init bytes the package replaces with package-local resources."""
+    if name != "init" or not staged.is_dir() or not (staged / "scripts/generate-agent-catalog.sh").is_file():
+        return
+    if "${CURSOR_PLUGIN_ROOT}/resources/mcp/select-mcp.py" not in (staged / "SKILL.md").read_text(encoding="utf-8"):
+        return
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
+    from cursor_native_resources import restore_installer_init
+
+    restore_installer_init(staged.parent)
+
+
 def stage(
     name: str, src: Path, staging: Path, rewrites: list[tuple[str, str]], pattern: re.Pattern[str] | None
 ) -> Path:
@@ -183,6 +195,7 @@ def stage(
     else:
         shutil.copy2(src, staged)
     transform_tree(staged, rewrites, pattern)
+    project_cursor_init(name, staged)
     return staged
 
 

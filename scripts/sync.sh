@@ -70,12 +70,8 @@ run_ycc_target() {
             "${REPO_ROOT}/scripts/generate-inventory.sh"
             ;;
         cursor)
-            echo "== sync: cursor agents =="
-            "${REPO_ROOT}/scripts/generate-cursor-agents.sh"
-            echo "== sync: cursor skills =="
-            "${REPO_ROOT}/scripts/generate-cursor-skills.sh"
-            echo "== sync: cursor rules =="
-            "${REPO_ROOT}/scripts/generate-cursor-rules.sh"
+            echo "== sync: cursor native packages =="
+            "${REPO_ROOT}/scripts/generate-cursor-packages.sh"
             ;;
         codex)
             echo "== sync: codex skills =="
