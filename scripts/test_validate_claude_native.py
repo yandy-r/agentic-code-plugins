@@ -188,6 +188,16 @@ class ClaudeNativeValidationTests(unittest.TestCase):
                 self.add_agent("ycc-agents", reference)
                 self.assert_error("missing agent skill")
 
+    def test_nested_agent_preloads_are_scanned_recursively(self) -> None:
+        self.add_package("ycc-agents", "agents", "skills")
+        self.add_skill("ycc-agents", "plan")
+        self.write_text(
+            self.package_root("ycc-agents") / "agents/team/review/worker.md",
+            "---\nname: worker\nskills: [absent]\n---\nNested agent body.\n",
+        )
+        self.assert_error("agents/team/review/worker.md")
+        self.assert_error("missing agent skill 'absent'")
+
     def test_malformed_preload_yaml_and_types_fail(self) -> None:
         self.add_package("ycc-agents", "agents")
         for value in ("[", "[3]", "{plan: yes}", "true", "['']"):

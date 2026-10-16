@@ -196,7 +196,7 @@ def validate(root: Path, model: PackageModel) -> list[str]:
         closure = _closure(key, runtimes, errors)
         if "agents" not in runtime.components:
             continue
-        for path in sorted((roots[key] / "agents").glob("*.md")):
+        for path in sorted(p for p in (roots[key] / "agents").rglob("*.md") if p.is_file()):
             try:
                 preloads = load_agent_skills(path.read_text(encoding="utf-8"))
             except (OSError, UnicodeError, ValueError) as exc:

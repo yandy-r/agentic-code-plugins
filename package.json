@@ -52,8 +52,8 @@
     "sync:opencode": "./scripts/sync.sh --only opencode",
     "validate": "./scripts/validate.sh",
     "validate:inventory": "./scripts/validate.sh --only inventory",
-    "validate:cursor": "./scripts/validate.sh --only cursor",
-    "validate:codex": "./scripts/validate.sh --only codex",
+    "validate:cursor": "./scripts/validate.sh --only cursor,cursor-native,packages",
+    "validate:codex": "./scripts/validate.sh --only codex,codex-native,packages",
     "validate:opencode": "./scripts/validate.sh --only opencode",
     "validate:json": "./scripts/validate.sh --only json",
     "prepare": "lefthook install || true"
