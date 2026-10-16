@@ -192,7 +192,7 @@ Use `ycc:plan-workflow` to run the full pipeline, or invoke individual stages. `
 
 ## Development Sync
 
-Generated trees live under `packages/cursor/`, `packages/claude/`, `.codex-plugin/`, and `.opencode-plugin/`. The canonical source is the Claude-facing [`ycc/`](ycc/) tree. Do not hand-edit generated files.
+Generated trees live under `packages/cursor/`, `packages/claude/`, `.agents-plugin/`, `.codex-plugin/`, and `.opencode-plugin/`. The canonical source is the Claude-facing [`ycc/`](ycc/) tree. Do not hand-edit generated files.
 
 Regenerate and validate derived artifacts with:
 
@@ -258,6 +258,7 @@ claude-plugins/
 ├── .agents/
 │   └── plugins/
 │       └── marketplace.json # repo-local Codex marketplace source
+├── .agents-plugin/          # generated cross-tool skills and ycc-shared
 ├── .codex-plugin/
 │   ├── agents/              # generated Codex custom agents (.toml)
 │   └── ycc/                 # generated Codex plugin root
