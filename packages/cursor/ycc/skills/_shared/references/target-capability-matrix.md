@@ -58,13 +58,13 @@ from installer-managed artifacts and hidden or gated work in `ycc/settings/packa
 `listed: false` packages are not published catalog entries; generated trees and successful spikes
 alone do not make them shipping user install paths. This does not revise the capability verdicts above.
 
-| target   | native, listed today                                           | install.sh fallback today                                                         | hidden or gated native packages                                                               |
-| -------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Claude   | `ycc@ycc` (skills, agents, `_shared`); `status-bar@ycc-mods`   | Rules, settings, statusline, hooks link, MCP, standalone skills/agents            | `ycc-mcp@ycc`, `ycc-hooks@ycc` (2.1.300+), `ycc-all@ycc`; `ycc-agents@ycc` in v7.0.0          |
-| Cursor   | None                                                           | Skills, agents, commands, rules, settings under `~/.cursor/`; optional hooks      | `packages/cursor/{ycc,ycc-rules,ycc-mcp,ycc-hooks}/`, all unlisted; hooks `sessionStart` only |
-| Codex    | Installer-managed local marketplace; no public `ycc@ycc` entry | Agent TOMLs, `AGENTS.md`, `config.toml`                                           | `ycc@ycc`, `ycc-mcp@ycc` via `.agents/plugins/marketplace.json`; hooks excluded (YAN-1149)    |
-| opencode | None                                                           | Skills, agents, commands, shared, `opencode.json`, `AGENTS.md`                    | `@yandy-r/ycc-opencode` npm plugin: experimental, opt-in, unpublished                         |
-| `agents` | None                                                           | Skills and `ycc-shared` copied into `~/.agents/`                                  | None planned                                                                                  |
+| target   | native, listed today                                           | install.sh fallback today                                                    | hidden or gated native packages                                                               |
+| -------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Claude   | `ycc@ycc` (skills, agents, `_shared`); `status-bar@ycc-mods`   | Rules, settings, statusline, hooks link, MCP, standalone skills/agents       | `ycc-mcp@ycc`, `ycc-hooks@ycc` (2.1.300+), `ycc-all@ycc`; `ycc-agents@ycc` in v7.0.0          |
+| Cursor   | None                                                           | Skills, agents, commands, rules, settings under `~/.cursor/`; optional hooks | `packages/cursor/{ycc,ycc-rules,ycc-mcp,ycc-hooks}/`, all unlisted; hooks `sessionStart` only |
+| Codex    | Installer-managed local marketplace; no public `ycc@ycc` entry | Agent TOMLs, `AGENTS.md`, `config.toml`                                      | `ycc@ycc`, `ycc-mcp@ycc` via `.agents/plugins/marketplace.json`; hooks excluded (YAN-1149)    |
+| opencode | None                                                           | Skills, agents, commands, shared, `opencode.json`, `AGENTS.md`               | `@yandy-r/ycc-opencode` npm plugin: experimental, opt-in, unpublished                         |
+| `agents` | None                                                           | Skills and `ycc-shared` copied into `~/.agents/`                             | None planned                                                                                  |
 
 Native dependency resolution is a Claude platform feature, not a cross-runtime guarantee.
 The hidden `ycc-all` meta plugin still awaits automatic-install proof; Cursor and Codex have no
