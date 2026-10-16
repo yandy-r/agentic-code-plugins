@@ -161,6 +161,26 @@ class NativeExportTests(unittest.TestCase):
         self.assertIn("missing", result.stderr)
         self.assertFalse(missing.exists())
 
+    def test_native_check_detects_owner_executable_drift_without_mutation(self) -> None:
+        generator.generate_native_tree(self.dest)
+        helper = self.dest / SKILLS_ROOT / "shared/scripts/release-state.sh"
+        original_mode = helper.stat().st_mode
+        self.assertTrue(original_mode & 0o100)
+        helper.chmod(original_mode & ~0o111)
+        changed_mode = helper.stat().st_mode
+        before = self.snapshot(self.dest)
+        result = self.cli(self.dest, "--check")
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("executable-bit drift: .codex-plugin/ycc/shared/scripts/release-state.sh", result.stderr)
+        self.assertEqual(helper.stat().st_mode, changed_mode)
+        self.assertEqual(self.snapshot(self.dest), before)
+        generator.generate_native_tree(self.dest)
+        self.assertEqual(helper.stat().st_mode & 0o100, original_mode & 0o100)
+        # Git tracks the owner's executable bit, not group/other permissions.
+        helper.chmod(helper.stat().st_mode ^ 0o011)
+        result = self.cli(self.dest, "--check")
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_dry_run_creates_nothing_and_modes_are_exclusive(self) -> None:
         result = self.cli(self.dest, "--dry-run")
         self.assertEqual(result.returncode, 0, result.stderr)

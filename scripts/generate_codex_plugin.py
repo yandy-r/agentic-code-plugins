@@ -9,6 +9,7 @@ import argparse
 import json
 import os
 import shutil
+import stat
 import sys
 import tempfile
 from collections.abc import Iterable
@@ -341,7 +342,9 @@ def write_all(dest_root: Path, dry_run: bool) -> set[Path]:
     return files
 
 
-def compare_files(generated_root: Path, repo_root: Path, files: set[Path]) -> list[str]:
+def compare_files(
+    generated_root: Path, repo_root: Path, files: set[Path], *, compare_executable: bool = False
+) -> list[str]:
     diffs: list[str] = []
     for rel in sorted(files):
         generated = generated_root / rel
@@ -351,7 +354,14 @@ def compare_files(generated_root: Path, repo_root: Path, files: set[Path]) -> li
             continue
         if generated.read_bytes() != repo.read_bytes():
             diffs.append(f"drift: {rel}")
+        elif compare_executable and is_owner_executable(generated) != is_owner_executable(repo):
+            diffs.append(f"executable-bit drift: {rel}")
     return diffs
+
+
+def is_owner_executable(path: Path) -> bool:
+    """Match Git's tracked executable bit rather than full permission bits."""
+    return bool(path.stat().st_mode & stat.S_IXUSR)
 
 
 def run_check(repo_root: Path | None = None) -> int:
@@ -382,7 +392,7 @@ def run_native_check(dest_root: Path) -> int:
     with tempfile.TemporaryDirectory() as tmp:
         temp_root = Path(tmp)
         files = generate_native_tree(temp_root)
-        diffs = compare_files(temp_root, dest_root, files)
+        diffs = compare_files(temp_root, dest_root, files, compare_executable=True)
         diffs.extend(f"extra in output: {rel}" for rel in sorted(native_extras(dest_root, files, roots)))
     if diffs:
         print("Codex native output is out of date:", file=sys.stderr)
