@@ -47,7 +47,7 @@ the Cursor and Codex spikes establish no minimum at all.
 | Marketplace | `ycc` for Claude, Codex, and Cursor. The Codex catalog renames from `local-ycc-plugins` at the flip. | Current for Claude; Codex rename planned.         |
 | Namespace   | `ycc:` stays for skills and agents in v6.                                                            | Current.                                          |
 | Claude mods | `ycc-mods` unchanged (`status-bar@ycc-mods`).                                                        | Current.                                          |
-| npm scope   | `@yandy-r/ycc-opencode` for the experimental opencode package.                                       | Planned; not published.                           |
+| npm scope   | `@yandy-r/ycc-opencode` for the experimental opencode package.                                       | `@yandy-r` owned; package not published.          |
 | "acc"       | Prose or branding only. Never an identifier.                                                         | Policy.                                           |
 
 Package ids use the component as the name and `ycc` as the marketplace: `ycc-mcp@ycc`,
@@ -133,13 +133,23 @@ findings are pinned to opencode v2.0.29; other versions are unverified. The `plu
   SHA, that commit is an ancestor of freshly fetched `origin/main`, and the tag, canonical
   `ycc/.claude-plugin/plugin.json`, generated `package.json`, and every lockstep surface agree.
   The job then runs the scoped `opencode,packages` validators and the release-bundle
-  regression, packs, and publishes the packed artifact. Maintainer prerequisites: the
-  `@yandy-r` npm scope, a publish-scoped `NPM_TOKEN` in the `release` GitHub environment,
-  and restricted `v*` tag creation. Nothing is published until a maintainer pushes a tag;
-  the package stays unlisted and activation stays opt-in. The package `engines.opencode`
-  floor is `>=2.0.30`, the version its package smoke targets; the registration spike ran on
-  2.0.29. The `plugins` array is the V2 key; a plugin and the file copy installed together
-  register components twice.
+  regression, packs, and publishes the packed artifact. The `release` environment must have
+  maintainer approval, and publishing authenticates with npm trusted publishing (OIDC): the
+  job runs on a GitHub-hosted runner with Node 24 and a pinned `npm@11.21.1`
+  (`--ignore-scripts`; npm trusted publishing requires Node >= 22.14.0 and npm >= 11.5.1 —
+  see [npm trusted publishing docs](https://docs.npmjs.com/trusted-publishers)),
+  publishes with `npm publish --provenance --access public`, and uses
+  the workflow's `id-token: write` permission for registry authentication and provenance —
+  no npm token is stored or mapped in the repository. Maintainer prerequisite: register this
+  exact trusted publisher on npmjs.com for `@yandy-r/ycc-opencode` — repository owner
+  `yandy-r`, repository `claude-plugins`, workflow filename `release.yml`, GitHub
+  environment `release` — allowing `npm publish`. The `@yandy-r` npm scope is already
+  owned; no token setup is required. Also restrict `v*` tag creation. These package-specific
+  trusted publisher settings have not been verified here, and no publish was attempted.
+  Nothing is published until a maintainer pushes a tag; the package stays unlisted and
+  activation stays opt-in. The package `engines.opencode` floor is `>=2.0.30`, the version
+  its package smoke targets; the registration spike ran on 2.0.29. The `plugins` array is
+  the V2 key; a plugin and the file copy installed together register components twice.
 
 ### Gates
 
