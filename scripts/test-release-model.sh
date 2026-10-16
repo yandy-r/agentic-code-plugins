@@ -590,7 +590,7 @@ test_template() {
 test_generated_copies() {
   local copy repo out rc
   for copy in \
-    "${REPO_ROOT}/.cursor-plugin/skills/_shared/scripts/release-state.sh" \
+    "${REPO_ROOT}/packages/cursor/ycc/skills/_shared/scripts/release-state.sh" \
     "${REPO_ROOT}/.codex-plugin/ycc/shared/scripts/release-state.sh" \
     "${REPO_ROOT}/.opencode-plugin/shared/scripts/release-state.sh"; do
     if [[ ! -f "$copy" ]]; then

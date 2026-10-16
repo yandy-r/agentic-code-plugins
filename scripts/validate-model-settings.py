@@ -58,7 +58,7 @@ expect(
 )
 
 # Cursor main CLI config (subagents are generator-validated separately)
-cursor = json.loads((REPO_ROOT / ".cursor-plugin/config/cli-config.json").read_text(encoding="utf-8"))
+cursor = json.loads((REPO_ROOT / MODELS["cursor"]["config"]).read_text(encoding="utf-8"))
 expect(cursor.get("model", {}).get("modelId"), MODELS["cursor"]["main"]["model"], "Cursor main model")
 
 # OpenCode generated config

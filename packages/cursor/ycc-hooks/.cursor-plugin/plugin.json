@@ -1,0 +1,12 @@
+{
+  "name": "ycc-hooks",
+  "displayName": "ycc-hooks",
+  "version": "5.3.0",
+  "description": "Native hooks plugin; no runtime dedupes installer hooks yet.",
+  "author": {
+    "name": "yandy-r"
+  },
+  "minClientVersions": {
+    "cursor": "3.24.12"
+  }
+}

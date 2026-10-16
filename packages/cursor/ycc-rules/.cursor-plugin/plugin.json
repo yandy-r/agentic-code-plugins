@@ -1,0 +1,12 @@
+{
+  "name": "ycc-rules",
+  "displayName": "ycc-rules",
+  "version": "5.3.0",
+  "description": "Cursor-only native rules package; there is no Claude ycc-rules package.",
+  "author": {
+    "name": "yandy-r"
+  },
+  "minClientVersions": {
+    "cursor": "3.24.12"
+  }
+}

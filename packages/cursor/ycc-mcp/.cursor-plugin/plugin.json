@@ -1,0 +1,24 @@
+{
+  "name": "ycc-mcp",
+  "displayName": "ycc-mcp",
+  "version": "5.3.0",
+  "description": "Native MCP-only plugin per runtime.",
+  "author": {
+    "name": "yandy-r"
+  },
+  "minClientVersions": {
+    "cursor": "3.24.12"
+  },
+  "variables": {
+    "type": "object",
+    "properties": {
+      "XERO_CLIENT_ID": {
+        "type": "string"
+      },
+      "XERO_CLIENT_SECRET": {
+        "type": "string"
+      }
+    }
+  },
+  "mcpServers": "./mcp.json"
+}

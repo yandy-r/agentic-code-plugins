@@ -59,7 +59,17 @@ expect_targets "a generated bundle selects its own target" "codex" .codex-plugin
 expect_targets "generated Claude MCP selects claude" "claude" packages/claude/ycc-mcp/.mcp.json
 expect_targets "generated Claude hook selects claude" "claude" packages/claude/ycc-hooks/hooks/worktree-create.sh
 expect_targets "generated Claude aggregate selects claude" "claude" packages/claude/ycc-all/.claude-plugin/plugin.json
-expect_targets "unrelated package output still selects everything" "${ALL}" packages/cursor/ycc-mcp/.mcp.json
+expect_targets "generated Cursor package selects cursor" "cursor" packages/cursor/ycc-mcp/mcp.json
+expect_targets "generated Cursor skills select cursor" "cursor" packages/cursor/ycc/skills/init/SKILL.md
+expect_targets "Cursor installer fallback config selects cursor and config" "cursor config" packages/cursor/installer-fallback/config/cli-config.json
+expect_targets "unrelated package output still selects everything" "${ALL}" packages/other/ycc-mcp/mcp.json
+expect_targets "Cursor native generator selects cursor and config" "cursor config" scripts/generate_cursor_packages.py
+expect_targets "Cursor native resources select cursor and config" "cursor config" scripts/cursor_native_resources.py
+expect_targets "Cursor native wrapper selects cursor and config" "cursor config" scripts/generate-cursor-packages.sh
+expect_targets "Cursor native validator selects cursor and config" "cursor config" scripts/validate-cursor-packages.sh
+expect_targets "Cursor native tests select cursor and config" "cursor config" scripts/test_generate_cursor_packages.py
+expect_targets "vendored Cursor schemas select cursor and config" "cursor config" scripts/vendor/cursor/plugin.schema.json
+expect_targets "Cursor hook source selects everything" "${ALL}" ycc/settings/cursor/herdr-session-start.sh
 expect_targets "Claude generator selects claude" "claude" scripts/generate_claude_packages.py
 expect_targets "Claude generator wrapper selects claude" "claude" scripts/generate-claude-packages.sh
 expect_targets "Claude validator selects claude" "claude" scripts/validate-claude-packages.sh
@@ -82,10 +92,6 @@ expect_targets "claude rules select practices" "practices" .claude/rules/scripts
 expect_targets "non-md claude rules file selects practices" "practices" .claude/rules/sub/notes.txt
 expect_targets "practices rules module selects practices" "practices" scripts/practices_rules.py
 expect_targets "settings select everything" "${ALL}" ycc/settings/models.json
-expect_targets "packages manifest selects claude and packages" "claude packages" ycc/settings/packages.json
-expect_targets "packages schema selects claude and packages" "claude packages" ycc/settings/packages.schema.json
-expect_targets "package model selects claude and packages" "claude packages" scripts/package_model.py
-expect_targets "package model tests select claude and packages" "claude packages" scripts/test_package_model.py
 expect_targets "package graph builder selects packages" "packages" scripts/build_package_graph.py
 expect_targets "package graph extractor selects packages" "packages" scripts/package_graph_extract.py
 expect_targets "package graph tests select packages" "packages" scripts/test_package_graph.py

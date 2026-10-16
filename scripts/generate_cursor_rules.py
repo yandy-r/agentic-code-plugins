@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate Cursor-native rules under .cursor-plugin/rules from ycc/rules.
+Generate Cursor-native rules under packages/cursor/ycc-rules/rules from ycc/rules.
 
 Converts nested ycc/rules/**/*.md to **/*.mdc with frontmatter, mirrors tree exactly.
 Source of truth: ycc/rules/
@@ -25,7 +25,7 @@ from generate_cursor_skills import apply_skills_text_transforms  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SRC_DIR = REPO_ROOT / "ycc" / "rules"
-DST_DIR = REPO_ROOT / ".cursor-plugin" / "rules"
+DST_DIR = REPO_ROOT / "packages/cursor/ycc-rules/rules"
 
 
 def fix_markdown_links_md_to_mdc(body: str) -> str:
@@ -351,7 +351,7 @@ def main() -> None:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Exit 1 if .cursor-plugin/rules differs from generator output",
+        help="Exit 1 if packages/cursor/ycc-rules/rules differs from generator output",
     )
     parser.add_argument(
         "--dry-run",
@@ -361,7 +361,7 @@ def main() -> None:
     parser.add_argument(
         "--lint",
         action="store_true",
-        help="Validate frontmatter on existing .cursor-plugin/rules (no generation)",
+        help="Validate frontmatter on existing packages/cursor/ycc-rules/rules (no generation)",
     )
     args = parser.parse_args()
 

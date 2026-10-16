@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate Cursor-native skills under .cursor-plugin/skills from ycc/skills.
+Generate Cursor-native skills under packages/cursor/ycc/skills from ycc/skills.
 
 Transforms are deterministic and idempotent. Source of truth: ycc/skills/
 """
@@ -14,6 +14,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from cursor_native_resources import INIT_FILES, native_text
 from generate_codex_common import (
     model_invocation_disabled,
     parse_frontmatter,
@@ -23,7 +24,7 @@ from generate_codex_common import (
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SRC_DIR = REPO_ROOT / "ycc" / "skills"
-DST_DIR = REPO_ROOT / ".cursor-plugin" / "skills"
+DST_DIR = REPO_ROOT / "packages/cursor/ycc/skills"
 
 # Extensions we treat as UTF-8 text and apply transforms to.
 TEXT_SUFFIXES = frozenset(
@@ -280,7 +281,11 @@ def write_tree(dest: Path, dry_run: bool) -> set[Path]:
                 dst_file.write_bytes(data)
                 copy_mode(src_file, dst_file)
                 continue
-            dst_file.write_text(transform_text_content(text, rel), encoding="utf-8")
+            content = transform_text_content(text, rel)
+
+            if rel in INIT_FILES:
+                content = native_text(content, rel)
+            dst_file.write_text(content, encoding="utf-8")
         else:
             dst_file.write_bytes(src_file.read_bytes())
 
@@ -371,7 +376,7 @@ def main() -> None:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Exit 1 if .cursor-plugin/skills differs from generator output",
+        help="Exit 1 if packages/cursor/ycc/skills differs from generator output",
     )
     parser.add_argument(
         "--dry-run",

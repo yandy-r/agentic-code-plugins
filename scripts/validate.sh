@@ -219,6 +219,10 @@ run_target() {
             echo "== test: cursor rules generator =="
             (cd "${REPO_ROOT}/scripts" && python3 test_generate_cursor_rules.py) \
                 || fail "test_generate_cursor_rules.py"
+            echo "== validate: cursor native packages =="
+            "${REPO_ROOT}/scripts/validate-cursor-packages.sh" || fail "validate-cursor-packages.sh"
+            python3 "${REPO_ROOT}/scripts/test_generate_cursor_packages.py" || fail "test_generate_cursor_packages.py"
+            python3 "${REPO_ROOT}/scripts/test_generate_cursor_skills.py" || fail "test_generate_cursor_skills.py"
             ;;
         codex)
             echo "== validate: codex skills =="

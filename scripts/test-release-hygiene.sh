@@ -131,7 +131,7 @@ get_key() {
 
 test_pointer_targets() {
   local target
-  for target in .codex-plugin/ycc/skills .opencode-plugin/skills .agents-plugin/skills .cursor-plugin/skills; do
+  for target in .codex-plugin/ycc/skills .opencode-plugin/skills .agents-plugin/skills packages/cursor/ycc/skills; do
     if cmp -s "$POINTER_TARGETS" "$REPO_ROOT/$target/release-model/scripts/pointer-targets.sh"; then
       ok "pointer-targets: $target preserves cross-runtime filenames verbatim"
     else
@@ -633,7 +633,7 @@ PYFAULT
 
 test_init_generated_mirrors() {
   local mirror repo out
-  for mirror in .cursor-plugin/skills .codex-plugin/ycc/skills .opencode-plugin/skills .agents-plugin/skills; do
+  for mirror in packages/cursor/ycc/skills .codex-plugin/ycc/skills .opencode-plugin/skills .agents-plugin/skills; do
     local scripts="${REPO_ROOT}/${mirror}/init/scripts"
     local f
     for f in migrate-rules.sh migrate-rules.py rules_file_lib.py render-template.sh render-template.py profile-project.sh rules-report.sh count-source-files.sh; do
@@ -1177,9 +1177,9 @@ test_shared_pointer_helper() {
   fi
   # Cross-target closure: every generated bundle has the shared helper and working wrappers.
   local mirror shared_dir
-  for mirror in .cursor-plugin/skills .codex-plugin/ycc/skills .opencode-plugin/skills .agents-plugin/skills; do
+  for mirror in packages/cursor/ycc/skills .codex-plugin/ycc/skills .opencode-plugin/skills .agents-plugin/skills; do
     case "$mirror" in
-      .cursor-plugin/*) shared_dir="${REPO_ROOT}/.cursor-plugin/skills/_shared/scripts" ;;
+      packages/cursor/*) shared_dir="${REPO_ROOT}/packages/cursor/ycc/skills/_shared/scripts" ;;
       .codex-plugin/*)  shared_dir="${REPO_ROOT}/.codex-plugin/ycc/shared/scripts" ;;
       .opencode-plugin/*) shared_dir="${REPO_ROOT}/.opencode-plugin/shared/scripts" ;;
       .agents-plugin/*) shared_dir="${REPO_ROOT}/.agents-plugin/ycc-shared/scripts" ;;

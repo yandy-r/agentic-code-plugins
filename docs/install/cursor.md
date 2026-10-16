@@ -30,14 +30,14 @@ The step-flag `install` form is equivalent:
 
 Step behavior:
 
-| Step       | Effect                                                                                                                        |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `base`     | Generates and validates `.cursor-plugin/{skills,agents,rules}/`, then rsyncs them into `~/.cursor/`.                          |
-| `skills`   | Generates the skills and installs each into `~/.cursor/skills/<name>`, leaving your own skills alone.                         |
-| `agents`   | Generates the agents and installs each into `~/.cursor/agents/<name>.md`.                                                     |
-| `settings` | Merges `.cursor-plugin/config/cli-config.json` into `~/.cursor/cli-config.json`.                                              |
-| `rules`    | Links nothing: Cursor User Rules are set in Settings → Rules, not a file. Prints how to paste `ycc/settings/rules/CLAUDE.md`. |
-| `mcp`      | Merges `mcp-configs/mcp.json` into `<project>/.cursor/mcp.json` (or `~/.cursor/mcp.json` with `--global`).                    |
+| Step       | Effect                                                                                                                                                                                                           |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `base`     | Generates and validates `packages/cursor/ycc/{skills,agents}` and `packages/cursor/ycc-rules/rules`, then rsyncs them into `~/.cursor/`.                                                                         |
+| `skills`   | Generates the skills and installs each into `~/.cursor/skills/<name>`, leaving your own skills alone.                                                                                                            |
+| `agents`   | Generates the agents and installs each into `~/.cursor/agents/<name>.md`.                                                                                                                                        |
+| `settings` | Merges `packages/cursor/installer-fallback/config/cli-config.json` into `~/.cursor/cli-config.json`. This file is generated from `ycc/settings/cursor/cli-config.json`; edit the source, not the generated copy. |
+| `rules`    | Links nothing: Cursor User Rules are set in Settings → Rules, not a file. Prints how to paste `ycc/settings/rules/CLAUDE.md`.                                                                                    |
+| `mcp`      | Merges `mcp-configs/mcp.json` into `<project>/.cursor/mcp.json` (or `~/.cursor/mcp.json` with `--global`).                                                                                                       |
 
 Cursor has no `commands`, `hooks` or `plugins` step; those intents are reported
 as no-ops. The generated `rules/` bundle unit ships with `base` only.
@@ -108,3 +108,8 @@ through the unified sync script:
 ./scripts/sync.sh --only cursor
 ./scripts/validate.sh --only cursor
 ```
+
+Generated hidden native packages also live under `packages/cursor/` (`ycc-rules`,
+`ycc-mcp`, and `ycc-hooks` alongside `ycc`). They are all unlisted, there is no
+root marketplace, and native listing/install is not yet available; the installer
+above remains the user-facing path.

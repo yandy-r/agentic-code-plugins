@@ -597,7 +597,7 @@ class MergeHelperTestCase(MergeBase):
         self.assertEqual(json.loads(destination.read_text()), {"tui": "fullscreen"})
 
     def test_cursor_fresh_install_writes_required_permission_keys(self) -> None:
-        source = REPO_ROOT / ".cursor-plugin" / "config" / "cli-config.json"
+        source = REPO_ROOT / "packages/cursor/installer-fallback/config/cli-config.json"
         destination = self.tmp / "cli-config.json"
 
         self.run_merge("cursor-cli", source, destination, "settings")

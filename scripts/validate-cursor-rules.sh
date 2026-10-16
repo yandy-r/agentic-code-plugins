@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Ensure .cursor-plugin/rules matches generator output and passes policy + frontmatter lint.
+# Ensure packages/cursor/ycc-rules/rules matches generator output and passes policy + frontmatter lint.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-RULES_DIR="${REPO_ROOT}/.cursor-plugin/rules"
+RULES_DIR="${REPO_ROOT}/packages/cursor/ycc-rules/rules"
 
 echo "== Sync check (generator --check) =="
 python3 "${REPO_ROOT}/scripts/generate_cursor_rules.py" --check
@@ -43,4 +43,4 @@ if [[ "$BAD" -ne 0 ]]; then
   exit 1
 fi
 
-echo "OK: .cursor-plugin/rules is in sync and passes lint + content policy."
+echo "OK: packages/cursor/ycc-rules/rules is in sync and passes lint + content policy."

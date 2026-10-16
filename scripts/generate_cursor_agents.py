@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate Cursor-native agent definitions in .cursor-plugin/agents from ycc/agents.
+Generate Cursor-native agent definitions in packages/cursor/ycc/agents from ycc/agents.
 
 Transforms are deterministic and idempotent. Source of truth: ycc/agents/*.md
 """
@@ -16,7 +16,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SRC_DIR = REPO_ROOT / "ycc" / "agents"
-DST_DIR = REPO_ROOT / ".cursor-plugin" / "agents"
+DST_DIR = REPO_ROOT / "packages/cursor/ycc/agents"
 FAST_ALLOWLIST_PATH = REPO_ROOT / "scripts" / "cursor_fast_agents.json"
 MODEL_SETTINGS_PATH = REPO_ROOT / "ycc" / "settings" / "models.json"
 
@@ -277,7 +277,7 @@ def main() -> None:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Exit 1 if .cursor-plugin/agents differs from generator output",
+        help="Exit 1 if packages/cursor/ycc/agents differs from generator output",
     )
     parser.add_argument(
         "--dry-run",

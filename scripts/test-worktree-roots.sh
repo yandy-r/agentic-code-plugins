@@ -53,7 +53,7 @@ assert_eq() {
 declare -A BUNDLES=(
   [claude]="${REPO_ROOT}/ycc/skills/_shared/scripts"
   [codex]="${REPO_ROOT}/.codex-plugin/ycc/shared/scripts"
-  [cursor]="${REPO_ROOT}/.cursor-plugin/skills/_shared/scripts"
+  [cursor]="${REPO_ROOT}/packages/cursor/ycc/skills/_shared/scripts"
   [opencode]="${REPO_ROOT}/.opencode-plugin/shared/scripts"
   [agents]="${REPO_ROOT}/.agents-plugin/ycc-shared/scripts"
 )
@@ -150,11 +150,11 @@ if grep -rqF '~''/.config/opencode/' "${REPO_ROOT}/.opencode-plugin/skills" 2>/d
 else
   fail "opencode ~/.config/opencode/ home rewrite lost"
 fi
-if grep -rqF '~''/.cursor/' "${REPO_ROOT}/.cursor-plugin/skills" 2>/dev/null; then pass "cursor ~/.cursor/ home rewrite preserved"; else fail "cursor home rewrite lost"; fi
+if grep -rqF '~''/.cursor/' "${REPO_ROOT}/packages/cursor/ycc/skills" 2>/dev/null; then pass "cursor ~/.cursor/ home rewrite preserved"; else fail "cursor home rewrite lost"; fi
 if grep -rqF '~''/.codex/' "${REPO_ROOT}/.codex-plugin/ycc/skills" 2>/dev/null; then pass "codex ~/.codex/ home rewrite preserved"; else fail "codex home rewrite lost"; fi
 
 # No generated bundle may contain the retired opencode root as a live default.
-if grep -rn 'config/opencode/worktrees' "${REPO_ROOT}/.opencode-plugin" "${REPO_ROOT}/.codex-plugin" "${REPO_ROOT}/.cursor-plugin" "${REPO_ROOT}/.agents-plugin" \
+if grep -rn 'config/opencode/worktrees' "${REPO_ROOT}/.opencode-plugin" "${REPO_ROOT}/.codex-plugin" "${REPO_ROOT}/packages/cursor" "${REPO_ROOT}/.agents-plugin" \
   | grep -v 'worktree-strategy.md' | grep -q .; then
   fail "retired .config/opencode/worktrees default still present in a bundle"
 else
@@ -224,7 +224,7 @@ assert_eq "hook reuses existing worktree" \
 # worktree-strategy.md: outside the protected evidence block, target rewrites apply.
 for strat in \
   "${REPO_ROOT}/.codex-plugin/ycc/shared/references/worktree-strategy.md" \
-  "${REPO_ROOT}/.cursor-plugin/skills/_shared/references/worktree-strategy.md" \
+  "${REPO_ROOT}/packages/cursor/ycc/skills/_shared/references/worktree-strategy.md" \
   "${REPO_ROOT}/.opencode-plugin/shared/references/worktree-strategy.md" \
   "${REPO_ROOT}/.agents-plugin/ycc-shared/references/worktree-strategy.md"; do
   if grep -qE 'ycc:|ycc/skills/|Agent\(isolation|<!-- ycc:verbatim-block' "$strat"; then
@@ -240,7 +240,7 @@ for f in \
   "${REPO_ROOT}/.gitignore" \
   "${REPO_ROOT}/ycc/skills/init/templates/git/gitignore.tmpl" \
   "${REPO_ROOT}/.codex-plugin/ycc/skills/init/templates/git/gitignore.tmpl" \
-  "${REPO_ROOT}/.cursor-plugin/skills/init/templates/git/gitignore.tmpl" \
+  "${REPO_ROOT}/packages/cursor/ycc/skills/init/templates/git/gitignore.tmpl" \
   "${REPO_ROOT}/.opencode-plugin/skills/init/templates/git/gitignore.tmpl" \
   "${REPO_ROOT}/.agents-plugin/skills/init/templates/git/gitignore.tmpl"; do
   for r in "${ROOTS[@]}"; do
