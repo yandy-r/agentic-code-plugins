@@ -126,6 +126,17 @@ shipped in the single `ycc` plugin (not excluded from generated targets):
 `bundle-release` backs the release flow in RELEASING.md, and the other two
 stay for single-plugin parity rather than because scripts import them.
 
+### Repository rename tooling
+
+`scripts/rename-repo.sh` prepares the planned v6 repository rename: run it with
+`--from <owner>/<repo> --to <owner>/<repo> --dry-run` to print the full diff of
+anchored remote references it would change; rerun without `--dry-run` to apply
+those edits. It touches only the 12 hand-maintained source files listed in
+`docs/plans/rename-repo/feature-spec.md` — never generated bundles, local
+filesystem paths, worktrees, or plugin identities — and it does not rename the
+hosting repos, update remotes, or run sync. The rename itself is applied only
+in the later owner-led reference-flip PR (see RELEASING.md).
+
 ## Structure Requirements
 
 - Claude source plugin manifest: `ycc/.claude-plugin/plugin.json`
