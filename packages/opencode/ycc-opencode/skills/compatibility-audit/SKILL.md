@@ -73,6 +73,10 @@ would be invoked for each target (Phases 2–5), and the output format
 
 ### Phase 2: Bundle drift detection (per target)
 
+The reporter requires a source checkout containing `ycc/skills` and
+`scripts/generate_*.py`, not an installed bundle. It discovers the checkout or
+accepts `--repo-root=/path/to/checkout`.
+
 For each target `<t>` in the resolved list, invoke:
 
 ```

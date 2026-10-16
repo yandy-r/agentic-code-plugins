@@ -28,17 +28,21 @@ Usage: build-hook-config.sh --language=<lang>
                              [--target=claude|cursor|codex]
                              [--event=PreToolUse|PostToolUse|Stop|all]
                              [--out=<path>]
+                             [--repo-root=<path>]
                              [--dry-run]
                              [--force]
                              [--help]
 
 Produces a target-appropriate hook configuration from ycc/rules/<language>/hooks.md
-(and ycc/rules/common/hooks.md). Templates in references/templates/ must exist.
+(and ycc/rules/common/hooks.md). Requires a ycc/claude-plugins source checkout
+containing canonical ycc/rules/*/hooks.md, the capability matrix, and the
+hooks-workflow templates (installed Cursor .mdc rules are not hook inputs).
 
   --language=<lang>    Required. Language under ycc/rules/. Use "common" for common only.
   --target=<t>         Output target: claude (default), cursor, or codex.
   --event=<e>          Hook event: PreToolUse, PostToolUse, Stop, or all (default).
   --out=<path>         Write output to this path (atomic). Prints to stdout if absent.
+  --repo-root=<path>   Source checkout (or subdirectory) to search; authoritative if given.
   --dry-run            Print to stdout; never write even if --out is set.
   --force              Required when --target=codex and writing to disk (not dry-run).
   --help               Show this message and exit 0.
@@ -57,6 +61,7 @@ EVENT="all"
 OUT_PATH=""
 DRY_RUN=false
 FORCE=false
+REPO_ROOT_INPUT=""
 
 for arg in "$@"; do
   case "$arg" in
@@ -64,6 +69,7 @@ for arg in "$@"; do
     --target=*)    TARGET="${arg#--target=}" ;;
     --event=*)     EVENT="${arg#--event=}" ;;
     --out=*)       OUT_PATH="${arg#--out=}" ;;
+    --repo-root=*) REPO_ROOT_INPUT="${arg#--repo-root=}" ;;
     --dry-run)     DRY_RUN=true ;;
     --force)       FORCE=true ;;
     --help|-h)     usage; exit 0 ;;
@@ -100,42 +106,68 @@ case "$EVENT" in
 esac
 
 # ---------------------------------------------------------------------------
-# Resolve REPO_ROOT
+# Resolve REPO_ROOT — must be a ycc source checkout with canonical hook rules,
+# the capability matrix, and the hooks-workflow templates. Order:
+#   1. explicit --repo-root=PATH (authoritative: no fallthrough if unsuitable)
+#   2. CURSOR_PLUGIN_ROOT and its ancestors (when set)
+#   3. the script's own directory and its ancestors
+#   4. PWD and its ancestors
 # ---------------------------------------------------------------------------
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO_ROOT=""
 
-# Prefer runtime-injected CURSOR_PLUGIN_ROOT (installed plugin). The plugin root
-# typically points at the "ycc/" dir; walk up once to reach the repo root that
-# contains .cursor-plugin/marketplace.json.
-if [[ -n "${CURSOR_PLUGIN_ROOT:-}" && -d "${CURSOR_PLUGIN_ROOT}" ]]; then
-  cand="${CURSOR_PLUGIN_ROOT%/}"
-  while [[ "$cand" != "/" && -z "$REPO_ROOT" ]]; do
-    if [[ -f "$cand/.cursor-plugin/marketplace.json" ]]; then
-      REPO_ROOT="$cand"
-    fi
-    cand="$(dirname "$cand")"
-  done
-fi
+is_source_root() {
+  local dir="$1"
+  [[ -f "${dir}/ycc/rules/common/hooks.md" && \
+     -f "${dir}/ycc/skills/_shared/references/target-capability-matrix.md" && \
+     -d "${dir}/ycc/skills/hooks-workflow/references/templates" ]]
+}
 
-# Fallback: walk up from SCRIPT_DIR.
-if [[ -z "$REPO_ROOT" ]]; then
-  candidate="$SCRIPT_DIR"
+resolve_repo_root_from() {
+  local candidate="${1%/}"
+  [[ -z "$candidate" ]] && candidate="/"
   while [[ "$candidate" != "/" ]]; do
-    if [[ -f "$candidate/.cursor-plugin/marketplace.json" ]]; then
+    if is_source_root "$candidate"; then
       REPO_ROOT="$candidate"
-      break
+      return 0
     fi
     candidate="$(dirname "$candidate")"
   done
+  is_source_root "/" && REPO_ROOT="/"
+}
+
+die_no_source_root() {
+  echo "build-hook-config.sh: no ycc/claude-plugins source checkout found${1:+ (searched from $1)}." >&2
+  echo "This helper needs canonical ycc/rules/*/hooks.md, ycc/skills/_shared/references/target-capability-matrix.md," >&2
+  echo "and ycc/skills/hooks-workflow/references/templates/ (installed Cursor .mdc rules are not hook inputs)." >&2
+  echo "Run it from a source checkout or pass --repo-root=/path/to/checkout." >&2
+  exit 2
+}
+
+if [[ -n "$REPO_ROOT_INPUT" ]]; then
+  if [[ ! -d "$REPO_ROOT_INPUT" ]]; then
+    echo "build-hook-config.sh: --repo-root path is not a directory: $REPO_ROOT_INPUT" >&2
+    exit 2
+  fi
+  resolve_repo_root_from "$(cd "$REPO_ROOT_INPUT" && pwd)" || die_no_source_root "$REPO_ROOT_INPUT"
+fi
+
+if [[ -z "$REPO_ROOT" && -n "${CURSOR_PLUGIN_ROOT:-}" && -d "${CURSOR_PLUGIN_ROOT}" ]]; then
+  resolve_repo_root_from "$(cd "$CURSOR_PLUGIN_ROOT" && pwd)" || true
 fi
 
 if [[ -z "$REPO_ROOT" ]]; then
-  echo "build-hook-config.sh: cannot locate repo root (no .cursor-plugin/marketplace.json above $SCRIPT_DIR or under CURSOR_PLUGIN_ROOT)" >&2
-  exit 2
+  resolve_repo_root_from "$SCRIPT_DIR" || true
 fi
 
+if [[ -z "$REPO_ROOT" ]]; then
+  resolve_repo_root_from "$PWD" || true
+fi
+
+if [[ -z "$REPO_ROOT" ]]; then
+  die_no_source_root "$SCRIPT_DIR"
+fi
 echo "build-hook-config.sh: repo root is $REPO_ROOT" >&2
 
 RULES_DIR="${REPO_ROOT}/ycc/rules"
