@@ -39,9 +39,8 @@ Discovery rules are implemented in `bundle-release/scripts/release_versions.py`
   Codex uses `.codex-plugin/<key>/.codex-plugin/plugin.json`, and Cursor uses
   `packages/cursor/<key>/.cursor-plugin/plugin.json`. Generated manifests are check-only.
 - Included opencode npm packages use `packages/opencode/<unscoped-key>/package.json`
-  and are check-only when present. Missing npm manifests are temporarily tolerated
-  until the opencode npm generator lands; the package is experimental, opt-in, and
-  not yet published.
+  and are required to exist at the lockstep version (check-only). The package is
+  experimental, opt-in, and not yet published.
 - `deferred` and `excluded` entries require no manifest and suppress their modeled
   paths from the bounded backstop. `file-copy` entries are skipped entirely.
 - `ycc/mods/**` is excluded entirely — `ycc-mods` keeps its own version. Marketplace

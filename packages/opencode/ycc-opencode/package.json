@@ -1,0 +1,37 @@
+{
+  "name": "@yandy-r/ycc-opencode",
+  "version": "5.3.0",
+  "description": "Experimental opt-in OpenCode V2 plugin registering the ycc bundle (skills, agents, commands, MCP servers, and session instructions) through its setup hook. Unlisted; the file-copy install remains the primary path.",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "files": [
+    "index.js",
+    "registration.json",
+    "skills/",
+    "shared/",
+    "agents/",
+    "AGENTS.md",
+    "README.md"
+  ],
+  "keywords": [
+    "opencode-plugin",
+    "opencode",
+    "experimental",
+    "ycc"
+  ],
+  "author": {
+    "name": "yandy-r"
+  },
+  "license": "MIT",
+  "engines": {
+    "opencode": ">=2.0.30"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yandy-r/claude-plugins.git",
+    "directory": "packages/opencode/ycc-opencode"
+  }
+}

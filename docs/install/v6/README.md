@@ -2,10 +2,11 @@
 
 > **DRAFT — unwired for v6.** These pages describe the planned native-package
 > install surface targeted at v6.0.0. The hidden native packages under
-> `packages/` are **not installable from any production catalog today**:
-> nothing new is listed in a marketplace (Claude `ycc@ycc` stays the only
-> listed, shipping entry), the opencode npm package is unpublished, and the
-> commands shown in these drafts (`install.sh migrate`, `install.sh --package`)
+> `packages/` remain **unlisted in production catalogs**: Claude `ycc@ycc`
+> stays the only listed, shipping entry. The experimental opencode npm package
+> is generated and its tag-triggered publishing workflow is implemented;
+> neither fact establishes that a version has actually been published to npm.
+> The commands shown in these drafts (`install.sh migrate`, `install.sh --package`)
 > are planned v6 commands, not implemented today. The live, working install
 > commands are the `install.sh` file-copy path documented in `docs/install/` —
 > they are unchanged and remain the supported route. The repository name is
@@ -37,13 +38,13 @@ these are the current, runnable commands, documented fully in `docs/install/`:
 ./install.sh sync --target <t> --intent <intents>
 ```
 
-| Runtime  | Native in v6 (hidden until the listing flip)                                                                                                                   | Fallback today (live `install.sh`)                                                                                                                                                                                                                         | Not installable                                                                                                                    |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Claude   | `ycc@ycc` (listed, shipping today), `ycc-hooks@ycc`, `ycc-mcp@ycc`, `ycc-all@ycc` (meta, depends on the others; hidden)                                        | `install.sh --target claude`: plugin registration plus file-copy rules, `CLAUDE.md` instructions, settings, and statusline — no Claude `ycc-rules` exists                                                                                                  | Claude `ycc-agents` (agents-only package) deferred to v7.0.0; qualified references would be a breaking namespace change            |
-| Codex    | `ycc@ycc` (skills + shared), `ycc-mcp@ycc` (both hidden; current catalog is `ycc@local-ycc-plugins`)                                                           | `install.sh --target codex`: agents TOML, `AGENTS.md` instructions, config settings (Codex plugins cannot carry these)                                                                                                                                     | Codex `ycc-hooks` excluded: no-go until verified (YAN-1149); hooks stay out of the Codex bundle                                    |
-| Cursor   | `ycc@ycc` (skills, agents, commands, shared), `ycc-rules@ycc`, `ycc-mcp@ycc`, `ycc-hooks@ycc` (`sessionStart` only); all hidden                                | `install.sh --target cursor`: base bundle (skills, agents, rules) with opt-in settings and MCP merges; **no hooks** — the `hooks` intent is a no-op and `WorktreeCreate` is not implemented for Cursor (the fallback `cli-config.json` registers no hooks) | — (all four modeled Cursor packages stay unlisted with no root marketplace until the flip)                                         |
-| opencode | `@yandy-r/ycc-opencode` (one npm V2 plugin that would register skills, agents, commands, shared, MCP, instructions — modeled from the v2.0.29 spike mechanism) | `install.sh --target opencode`: file copy of skills, agents, commands, shared, `opencode.json` settings, `AGENTS.md` instructions — **primary and unchanged**                                                                                              | — (the npm package is experimental and opt-in; the file copy is never replaced as the default)                                     |
-| agents   | none — file copy only                                                                                                                                          | `install.sh --target agents`: skills + `ycc-shared` into `~/.agents/`                                                                                                                                                                                      | The `npx skills` path cannot replace the file copy (spike: shared helpers not delivered; bare-repo discovery finds the wrong tree) |
+| Runtime  | Native in v6 (hidden until the listing flip)                                                                                                                  | Fallback today (live `install.sh`)                                                                                                                                                                                                                         | Not installable                                                                                                                    |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Claude   | `ycc@ycc` (listed, shipping today), `ycc-hooks@ycc`, `ycc-mcp@ycc`, `ycc-all@ycc` (meta, depends on the others; hidden)                                       | `install.sh --target claude`: plugin registration plus file-copy rules, `CLAUDE.md` instructions, settings, and statusline — no Claude `ycc-rules` exists                                                                                                  | Claude `ycc-agents` (agents-only package) deferred to v7.0.0; qualified references would be a breaking namespace change            |
+| Codex    | `ycc@ycc` (skills + shared), `ycc-mcp@ycc` (both hidden; current catalog is `ycc@local-ycc-plugins`)                                                          | `install.sh --target codex`: agents TOML, `AGENTS.md` instructions, config settings (Codex plugins cannot carry these)                                                                                                                                     | Codex `ycc-hooks` excluded: no-go until verified (YAN-1149); hooks stay out of the Codex bundle                                    |
+| Cursor   | `ycc@ycc` (skills, agents, commands, shared), `ycc-rules@ycc`, `ycc-mcp@ycc`, `ycc-hooks@ycc` (`sessionStart` only); all hidden                               | `install.sh --target cursor`: base bundle (skills, agents, rules) with opt-in settings and MCP merges; **no hooks** — the `hooks` intent is a no-op and `WorktreeCreate` is not implemented for Cursor (the fallback `cli-config.json` registers no hooks) | — (all four modeled Cursor packages stay unlisted with no root marketplace until the flip)                                         |
+| opencode | `@yandy-r/ycc-opencode` (generated npm V2 plugin registering skills, agents, namespaced commands, shared helpers, MCP, instructions; experimental and opt-in) | `install.sh --target opencode`: file copy of skills, agents, commands, shared, `opencode.json` settings, `AGENTS.md` instructions — **primary and unchanged**                                                                                              | — (the npm package is unlisted and opt-in; registry publication is separate from generation and the implemented publish workflow)  |
+| agents   | none — file copy only                                                                                                                                         | `install.sh --target agents`: skills + `ycc-shared` into `~/.agents/`                                                                                                                                                                                      | The `npx skills` path cannot replace the file copy (spike: shared helpers not delivered; bare-repo discovery finds the wrong tree) |
 
 ### Duplicates and what migration must delete
 
@@ -59,8 +60,11 @@ these are the current, runnable commands, documented fully in `docs/install/`:
   copies while preserving user-owned files. No ownership-aware migration is
   implemented today; live bundle removal deletes by name, not ownership. See
   [cursor.md](cursor.md) for the hazard and manual inventory/backup procedure.
-- **opencode / agents:** file copies are the whole story today; see
-  [opencode.md](opencode.md) and [agents.md](agents.md).
+- **opencode:** the file copy stays primary. The generated npm alternative is
+  opt-in; existing same-ID file-copy definitions can override package content,
+  while namespaced package commands coexist with bare file-copy commands. See
+  [opencode.md](opencode.md) before opting in.
+- **agents:** file copy only; see [agents.md](agents.md).
 
 ## Planned installer surface (not runnable today)
 
@@ -73,8 +77,12 @@ tree.
 
 Version claims below are data points from spike harnesses, not minimum
 supported versions, except where explicitly established (Claude hooks need
-Claude Code 2.1.300+; Cursor manifests declare the tested floor 3.24.12).
+Claude Code 2.1.300+; Cursor manifests declare the tested floor 3.24.12;
+the generated opencode npm manifest declares `engines.opencode: >=2.0.30`).
 
 - Package model: `docs/internal/adr/0001-package-model-and-versioning.md`
 - Spikes: `docs/internal/spikes/{claude-namespace,claude-hooks,codex-marketplace,cursor-plugin,opencode-config-hook,npx-skills,codex-public-fork-install}.md`
 - Native package layouts: `docs/internal/{claude-native-packages,cursor-native-packages}.md`
+- opencode npm implementation: `scripts/generate_opencode_package.py`,
+  `packages/opencode/ycc-opencode/{package.json,index.js,registration.json}`,
+  `.github/workflows/release.yml`, and `scripts/opencode_npm_release.py`

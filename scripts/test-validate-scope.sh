@@ -111,7 +111,7 @@ expect_targets "install doc indexes select packages" "packages" docs/install/REA
 expect_targets "install ID validator selects packages" "packages" scripts/validate_install_doc_ids.py
 expect_targets "install ID tests select packages" "packages" scripts/test_validate_install_doc_ids.py
 expect_targets "settings select everything" "${ALL}" ycc/settings/models.json
-expect_targets "package model selects content, native, generators and parity" "cursor codex claude claude-native cursor-native codex-native packages" scripts/package_model.py
+expect_targets "package model selects content, native, generators and parity" "cursor codex opencode claude claude-native cursor-native codex-native packages" scripts/package_model.py
 expect_targets "package graph builder selects packages" "packages" scripts/build_package_graph.py
 expect_targets "package graph extractor selects packages" "packages" scripts/package_graph_extract.py
 expect_targets "package graph tests select packages" "packages" scripts/test_package_graph.py

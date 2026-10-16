@@ -24,12 +24,13 @@ validate_scope_targets_for_path() {
         packages/cursor/installer-fallback/*) echo "cursor cursor-native config" ;;
         packages/cursor/*) echo "cursor cursor-native packages" ;;
         packages/claude/*) echo "claude claude-native packages" ;;
+        packages/opencode/*) echo "opencode release packages" ;;
 
-        # The package manifest and its model feed both the packages validators
-        # and the Claude generator, so they must match before the catch-all
-        # settings rule.
-        ycc/settings/packages.json | ycc/settings/packages.schema.json) echo "cursor codex claude claude-native cursor-native codex-native packages" ;;
-        scripts/package_model.py | scripts/test_package_model.py) echo "cursor codex claude claude-native cursor-native codex-native packages" ;;
+        # The package manifest and its model feed the packages validators and
+        # per-runtime package generators, so they must match before the
+        # catch-all settings rule.
+        ycc/settings/packages.json | ycc/settings/packages.schema.json) echo "cursor codex opencode claude claude-native cursor-native codex-native packages" ;;
+        scripts/package_model.py | scripts/test_package_model.py) echo "cursor codex opencode claude claude-native cursor-native codex-native packages" ;;
         scripts/build_package_graph.py | scripts/package_graph_extract.py | scripts/test_package_graph.py) echo "packages" ;;
         scripts/validate_packages.py | scripts/test_validate_packages.py) echo "packages" ;;
         scripts/validate_install_doc_ids.py | scripts/test_validate_install_doc_ids.py) echo "packages" ;;
@@ -43,6 +44,8 @@ validate_scope_targets_for_path() {
 
         # Install docs contain model-validated public package identifiers.
         docs/install/*) echo "packages" ;;
+        # Experimental OpenCode npm package source and boundary tests.
+        scripts/generate_opencode_package.py | scripts/generate-opencode-package.sh | scripts/opencode_package* | scripts/test_generate_opencode_package.py | scripts/test-opencode-npm-package.sh | scripts/opencode_npm_release.py | scripts/test_opencode_npm_release.py) echo "opencode release" ;;
 
         # Docs and repo meta that no validator reads.
         docs/* | CONTRIBUTING.md | RELEASING.md | LICENSE | .github/*) ;;
