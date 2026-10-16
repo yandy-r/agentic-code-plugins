@@ -12,9 +12,10 @@ from pathlib import Path
 BUILTIN_AGENTS = frozenset({"explore", "general", "general-purpose", "generalPurpose", "shell"})
 CATALOG_SKILLS = frozenset({"orchestrate", "init", "write-docs"})
 NAME = re.compile(r"^[a-z][a-z0-9-]*$")
-DISPATCH = re.compile(r"\bsubagent_type`?\s*(?:[:=]|\|)\s*`?[\"']?(?:ycc:)?([a-zA-Z][a-zA-Z0-9-]*)")
+# Pipe-separated dispatch values are code spans; bare cells are Markdown table headings.
+DISPATCH = re.compile(r"\bsubagent_type`?\s*(?:[:=]\s*`?[\"']?|\|\s*`)([^\s\"'`,)|]+)")
 BOLD_DISPATCH = re.compile(r"\*\*Subagent Type\*\*:\s*`([^`]+)`")
-TABLE_DISPATCH = re.compile(r"\|\s*Subagent Type\s*\|\s*`(?:ycc:)?([a-zA-Z][a-zA-Z0-9-]*)`\s*\|")
+TABLE_DISPATCH = re.compile(r"\|\s*Subagent Type\s*\|\s*`([^`]+)`\s*\|")
 MENTION = re.compile(r"(?<![\w/-])(/?)ycc:([a-z][a-z0-9-]*)(?![a-z0-9-]|:)")
 PLUGIN_FILE = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT(?:%/)?\}/skills/([^\s\"'`)]+)")
 RELATIVE_SHARED = re.compile(r"\.\./\.\./_shared/(scripts/[^\s\"'`)]+)")
@@ -202,13 +203,7 @@ class _Extractor:
             dispatches = sorted(found, key=lambda m: m.start())
             for match in dispatches:
                 name = match[1].removeprefix("ycc:")
-                if (
-                    match.re is BOLD_DISPATCH
-                    and name not in BUILTIN_AGENTS
-                    and not NAME.fullmatch(name)
-                    and "<" not in name
-                    and "{{" not in name
-                ):
+                if name not in BUILTIN_AGENTS and not NAME.fullmatch(name) and "<" not in name and "{{" not in name:
                     self.errors.append(f"{evidence}: invalid agent reference {name!r}")
                     continue
                 dst = self.resolve(name, "agent", evidence)
@@ -240,6 +235,7 @@ class _Extractor:
         for skill in sorted(CATALOG_SKILLS):
             src = f"skill:{skill}"
             if src not in self.graph.nodes:
+                self.errors.append(f"missing catalog skill: {skill!r}")
                 continue
             for dst in sorted(self.graph.nodes):
                 if dst.startswith("agent:"):
