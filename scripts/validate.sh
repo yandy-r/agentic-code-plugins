@@ -13,15 +13,18 @@
 # replayed in order. `config` runs last and alone: its install tests regenerate
 # the bundles in this checkout, which the other targets read.
 #
-# Targets: inventory, cursor, codex, opencode, agents, claude, json, config, packages, release, mods, practices, scope
+# Targets: inventory, cursor, codex, opencode, agents, claude, claude-native,
+#          cursor-native, codex-native, json, config, packages, release, mods, practices, scope
 #   - inventory  validates ycc skill frontmatter, the shared inventory, the formatter bundle and
 #                plan-workflow regressions and per-runtime worktree roots (scripts/test-worktree-roots.sh)
 #   - json       validates .claude-plugin/marketplace.json plus ycc/.claude-plugin/plugin.json
-#   - claude     validates the generated hidden Claude packages (packages/claude) with the
-#                generator drift check, its unit tests and optional `claude plugin validate`
+#   - claude     tests the generated hidden Claude package generator
+#   - *-native   checks generated native package drift, runtime policies and fixtures;
+#                Claude additionally runs optional `claude plugin validate`, while Codex
+#                checks both the legacy checkout profile and a disposable native export
 #   - config     tests the managed-config merge helper and install.sh sync CLI
 #   - packages   validates the package manifest (ycc/settings/packages.json) against its schema
-#                and invariants, package graph closures, and their unit tests
+#                and invariants, package graph closures, manifest/tree/catalog parity, and tests
 #   - release    runs every scripts/test-release-*.sh (release-model state scripts,
 #                RELEASING.md template, signal collector)
 #   - mods       validates the Claude Code mods under ycc/mods and their marketplace
@@ -193,6 +196,16 @@ run_config_part() {
     esac
 }
 
+# Exercise the split native catalog too, without changing the in-repo legacy
+# profile. The temporary export is complete and checked before policy validation.
+run_codex_native_export() (
+    local export_root
+    export_root="$(mktemp -d)" || exit 1
+    trap 'rm -rf "${export_root}"' EXIT
+    python3 "${REPO_ROOT}/scripts/generate_codex_plugin.py" --native-output "${export_root}" || exit 1
+    "${REPO_ROOT}/scripts/validate-codex-plugin.sh" --native-output "${export_root}" || exit 1
+)
+
 run_target() {
     case "$1" in
         inventory)
@@ -219,9 +232,6 @@ run_target() {
             echo "== test: cursor rules generator =="
             (cd "${REPO_ROOT}/scripts" && python3 test_generate_cursor_rules.py) \
                 || fail "test_generate_cursor_rules.py"
-            echo "== validate: cursor native packages =="
-            "${REPO_ROOT}/scripts/validate-cursor-packages.sh" || fail "validate-cursor-packages.sh"
-            python3 "${REPO_ROOT}/scripts/test_generate_cursor_packages.py" || fail "test_generate_cursor_packages.py"
             python3 "${REPO_ROOT}/scripts/test_generate_cursor_skills.py" || fail "test_generate_cursor_skills.py"
             ;;
         codex)
@@ -230,10 +240,6 @@ run_target() {
             echo "== validate: codex agents =="
             "${REPO_ROOT}/scripts/validate-codex-agents.sh" || fail "validate-codex-agents.sh"
             python3 "${REPO_ROOT}/scripts/test_generate_codex_agents.py" || fail "test_generate_codex_agents.py"
-            echo "== validate: codex plugin =="
-            "${REPO_ROOT}/scripts/validate-codex-plugin.sh" || fail "validate-codex-plugin.sh"
-            echo "== test: codex plugin generator =="
-            python3 "${REPO_ROOT}/scripts/test_generate_codex_plugin.py" || fail "test_generate_codex_plugin.py"
             echo "== test: codex skills generator =="
             python3 "${REPO_ROOT}/scripts/test_generate_codex_skills.py" || fail "test_generate_codex_skills.py"
             ;;
@@ -262,10 +268,26 @@ run_target() {
             "${REPO_ROOT}/scripts/validate-agents-install-coverage.sh" || fail "validate-agents-install-coverage.sh"
             ;;
         claude)
-            echo "== validate: claude packages =="
-            "${REPO_ROOT}/scripts/validate-claude-packages.sh" || fail "validate-claude-packages.sh"
             echo "== test: claude packages generator =="
             python3 "${REPO_ROOT}/scripts/test_generate_claude_packages.py" || fail "test_generate_claude_packages.py"
+            ;;
+        claude-native)
+            echo "== validate: claude native packages =="
+            "${REPO_ROOT}/scripts/validate-claude-packages.sh" || fail "validate-claude-packages.sh"
+            python3 "${REPO_ROOT}/scripts/test_validate_claude_native.py" || fail "test_validate_claude_native.py"
+            ;;
+        cursor-native)
+            echo "== validate: cursor native packages =="
+            "${REPO_ROOT}/scripts/validate-cursor-packages.sh" || fail "validate-cursor-packages.sh"
+            python3 "${REPO_ROOT}/scripts/test_generate_cursor_packages.py" || fail "test_generate_cursor_packages.py"
+            python3 "${REPO_ROOT}/scripts/test_validate_cursor_native.py" || fail "test_validate_cursor_native.py"
+            ;;
+        codex-native)
+            echo "== validate: codex native packages =="
+            "${REPO_ROOT}/scripts/validate-codex-plugin.sh" || fail "validate-codex-plugin.sh"
+            python3 "${REPO_ROOT}/scripts/test_generate_codex_plugin.py" || fail "test_generate_codex_plugin.py"
+            python3 "${REPO_ROOT}/scripts/test_validate_codex_native.py" || fail "test_validate_codex_native.py"
+            run_codex_native_export || fail "Codex native export"
             ;;
         config)
             run_group run_config_part helpers install-sync || fail "config"
@@ -278,6 +300,9 @@ run_target() {
 		echo "== validate: package component graph & closures =="
 		python3 "${REPO_ROOT}/scripts/build_package_graph.py" --check || fail "build_package_graph.py --check"
 		python3 "${REPO_ROOT}/scripts/test_package_graph.py" || fail "test_package_graph.py"
+		echo "== validate: package manifest/tree/catalog parity =="
+		python3 "${REPO_ROOT}/scripts/validate_packages.py" || fail "validate_packages.py"
+		python3 "${REPO_ROOT}/scripts/test_validate_packages.py" || fail "test_validate_packages.py"
 		;;
         release)
             local -a release_tests=("${REPO_ROOT}"/scripts/test-release-*.sh)
