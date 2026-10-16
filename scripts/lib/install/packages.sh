@@ -1,4 +1,4 @@
-# shellcheck shell=bash
+# shellcheck shell=bash disable=SC2034  # Globals are read by sourcing installer/target files.
 # packages.sh — package planning ('install --package'): expands the package
 # model closure into per-target installer steps and drives the existing
 # per-target sync functions through the exclusive-steps machinery.
@@ -54,7 +54,6 @@ package_validate_steps() {
 # package_configure_steps <csv> — map one target's plan onto ONLY_STEPS.
 package_configure_steps() {
     IFS=',' read -r -a ONLY_STEPS <<< "$1"
-    # shellcheck disable=SC2034  # Read by step_enabled in the sourcing steps.sh.
     EXCLUSIVE_STEPS=1
 }
 
