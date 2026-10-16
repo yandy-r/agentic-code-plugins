@@ -110,6 +110,7 @@ Pointers for the `rust-v0.161.0` source ranges:
 1. **Hook trust transition & runtime command dispatch are unverified offline:**
    - This harness uses `hooks/list` only for read-only metadata inspection. It does not exercise any CLI or JSON-RPC mechanism to mark an `"untrusted"` plugin hook as `"trusted"`, trigger `SessionStart`, or compare trusted vs. untrusted dispatch. This is a boundary of the harness, not evidence that no such mechanism exists.
    - Because live inference, login, and real `ycc` / `herdr` socket execution are out of bounds for this hermetic harness, runtime dispatch of trusted vs. untrusted plugin hooks remains unverified and is treated as a **No-Go** for shipping `ycc` hooks in Codex.
+   - **Follow-up (YAN-1149):** the trust grant and trusted/untrusted/modified dispatch gap above was exercised separately with a recording-only plugin and a loopback no-inference stub; see [`codex-hook-trust.md`](codex-hook-trust.md). The conclusions here for shipping `ycc` / `herdr` hooks and `WorktreeCreate` are unchanged.
 2. **Direct `file://` marketplace URLs are rejected by CLI parsing:**
    - The installed CLI's help advertises local paths, `owner/repo[@ref]`, HTTPS Git URLs, and SSH Git URLs. The live negative control verifies rejection of a direct `file://` marketplace argument; the successful Git marketplace cases use an `.invalid` HTTPS URL rewritten to `file://` via isolated `GIT_CONFIG_*` environment variables with `GIT_ALLOW_PROTOCOL=file`.
 3. **Public GitHub transport was not tested:**
