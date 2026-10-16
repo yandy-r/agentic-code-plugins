@@ -8,7 +8,7 @@ Generate independently installable Codex workflow and MCP packages from the cano
 
 ### APIs and Services
 
-Codex CLI 0.161.0 is installed; issue acceptance requires 0.160 or later. Native catalog discovery prefers `.agents/plugins/marketplace.json`; source paths are root-relative local paths. No new library dependency.
+Codex CLI 0.161.0 was tested, satisfying the requested run on “0.160 or later”; this does not establish 0.160.0 as the minimum compatible version. YAN-1163 tracks baseline execution and public transport proof before listing. Native catalog discovery prefers `.agents/plugins/marketplace.json`; source paths are root-relative local paths. No new library dependency.
 
 - [Plugin loader](https://github.com/openai/codex/blob/rust-v0.161.0/codex-rs/core-plugins/src/loader.rs): default `.mcp.json` is discovered even without a manifest declaration.
 - [MCP parser](https://github.com/openai/codex/blob/rust-v0.161.0/codex-rs/codex-mcp/src/plugin_config.rs): `mcpServers` wrapper accepts Codex server fields.
@@ -31,7 +31,7 @@ As a maintainer, I want to generate and install the complete future Codex distri
 
 ### Success Criteria
 
-- A Git-fork fixture installs both package IDs on Codex 0.161.0, with complete independent cache payloads and usable helper paths under clean HOME.
+- A Git-fork fixture installs both package IDs on Codex 0.161.0, satisfying the requested “0.160 or later” run, with complete independent cache payloads and usable helper paths under clean HOME. Minimum-version compatibility and public transport remain YAN-1163 pre-listing gates.
 - Codex validator passes.
 - Default behavior remains unchanged; no hooks are generated.
 

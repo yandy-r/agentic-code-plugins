@@ -92,7 +92,7 @@ Keep the change in the existing modules. Do not add a new framework.
 4. **`scripts/sync.sh`:** no new target and no new wrapper. `generate-codex-plugin.sh` keeps producing the default outputs, now including the unlisted `.codex-plugin/ycc-mcp`. Only the harness and tests invoke `--native-output`.
 5. **`validate-codex-plugin.sh`:** extend it in place (see section 7).
 
-Native MCP shape: legacy uses `.mcp.json` copied from `mcp-configs/mcp.json` and referenced by `mcpServers: "./.mcp.json"`. The installer path translates the same source to `{"mcp_servers": …}` for TOML merging (`generate_codex_mcp.py:80–98`). For `ycc-mcp`, reuse the format the legacy plugin already uses unless API research shows that Codex plugins need a different shape. Do not repurpose the TOML merge artifact. Keep `${ENV}` references unresolved, and never read secrets from the developer environment.
+Native MCP shape: legacy `.mcp.json` remains copied from `mcp-configs/mcp.json`. Native `ycc-mcp` reuses the existing translator and reviewed Codex overrides as `{"mcpServers": build_codex_mcp_config()["mcp_servers"]}`. Same-name credential references become symbolic `env_vars`; never read developer secrets or expand them at generation time. Do not ship the installer's top-level `mcp_servers` wrapper.
 
 ### 5. Catalog membership and future routing for `listed: true`
 
@@ -222,7 +222,7 @@ Out of scope: `install.sh --package`, `migrate`, new global validator groups, ho
 2. **Export catalog membership:** list every generated package regardless of production `listed` (recommended, with a routing-equivalence test), versus feeding the export a copied model with flipped flags.
 3. **Emit `.codex-plugin/ycc-mcp` by default before the flip?** Recommended yes. It keeps the version in lockstep and is validated continuously, at the cost of documented temporary MCP duplication. The alternative is to emit it only under `--native-output`, which leaves nothing in the repository but loses default-tree validation of `ycc-mcp`.
 4. **Automatic routing on `ycc.codex.listed=true`:** recommended yes, deterministic regeneration, with a hard error for partial listing. Confirm that the listing PR, not this one, owns migration readiness.
-5. **Native MCP shape:** reuse the legacy `.mcp.json` format unless API research shows otherwise.
+5. **Native MCP shape:** settled: translated Codex server entries under `mcpServers`, including `env_vars`; legacy raw MCP remains unchanged.
 6. **Evidence scope:** the hermetic Git fixture on the locally installed Codex, recorded version `0.161.0`, satisfies the "≥0.160" acceptance for this PR. Public transport, MCP runtime, and a literal `0.160.0` run are explicitly not claimed.
 
 Already settled and not reopened: package names, lockstep versioning, root-relative `local` sources, the `.agents/plugins` location, the hooks exclusion, installer ownership of agents/config/rules, and no public docs flip or rename.

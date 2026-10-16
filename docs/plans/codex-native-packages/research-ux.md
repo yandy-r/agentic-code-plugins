@@ -60,7 +60,7 @@ as a bug for file slices (`targets/codex.sh:391`).]
 **Recommendation in one line:** keep the in-repo catalog and legacy `.codex-plugin/ycc`
 byte-stable while Codex `ycc`/`ycc-mcp` are `listed: false`; generate the future
 `ycc@ycc` / `ycc-mcp@ycc` tree only via an explicit `--native-output <DIR>` into a
-non-repo root, from `ycc/` source via the existing `write_all(dest)` machinery,
+non-repo root, from `ycc/` source via `generate_codex_skills.write_tree(dest_root, dry_run, native_paths=True)`,
 and prove fork installs + split + dedupe there.
 
 ---
@@ -267,7 +267,7 @@ Recommend **`--native-output <DIR>`** over `--output-dir` and `--preview-native`
   `generate-codex-plugin.sh` — keep that actionable template per profile.]
 - **Do not mint a second skill-copy pipeline.** `--native-output` re-generates
   skills from `ycc/` into `<DIR>/.codex-plugin/ycc/skills` through the existing
-  skills `write_all(dest)`; copying the checked-in `.codex-plugin/ycc` tree would
+  `generate_codex_skills.write_tree(dest_root, dry_run, native_paths=True)`; copying the checked-in `.codex-plugin/ycc` tree would
   ship whatever stale tree is on disk (including its `.mcp.json`) and defeat the
   split — regenerate, then assert `ycc` manifest has no `mcpServers` key and no
   `.mcp.json` file exists under `ycc/`, while `ycc-mcp/` has manifest + `.mcp.json`.
@@ -447,16 +447,13 @@ hello`); Codex CLI gets none — which is _why_ `interface.*` metadata matters
    installs are the proof.]
 2. **(Correctness-before-copy) Fix the split at generation:** `ycc` manifest with
    no `mcpServers`, no copied `.mcp.json`, skills generated **from `ycc/` source**
-   into the native tree using existing `write_all(dest)`; `ycc-mcp` manifest +
+   into the native tree using `generate_codex_skills.write_tree(dest_root, dry_run, native_paths=True)`; `ycc-mcp` manifest +
    `.mcp.json` only. Then extend `validate-codex-plugin.sh`’s _profile-aware_
-   negative assertions (§ Error Handling) to the native tree. Before v6 public
-   wording, decide: `.mcp.json` for `ycc-mcp` ships Claude-shaped `type`/`${…}`
-   placeholders (`mcp-configs/mcp.json`) — the exact bytes accepted by Codex
-   0.161 in this probe — while the TOML install path uses translated
-   `env_vars`/Codex overrides (incl. `bearer_token_env_var`, per-tool
-   `approval_mode`, `generate_codex_mcp.py:5–15`). Choosing which bytes the
-   native plugin ships is a functional divergence, not UX sugar: whichever is
-   chosen, `codex mcp get xero` must be shown in the harness transcript.
+   negative assertions (§ Error Handling) to the native tree. The native MCP
+   representation is settled: `{"mcpServers": build_codex_mcp_config()["mcp_servers"]}`,
+   reusing translated `env_vars` and Codex overrides. Legacy raw `.mcp.json`
+   stays unchanged. Installation proof does not establish authenticated server
+   startup or unset-variable behavior; report those boundaries separately.
 3. **(Naming) Ship exactly:** marketplace `ycc` (displayName “YCC”), entries
    `ycc` → `./.codex-plugin/ycc`, `ycc-mcp` → `./.codex-plugin/ycc-mcp`;
    manifests `name` identical to entries; split-disclosing shortDescriptions;
@@ -506,14 +503,12 @@ hello`); Codex CLI gets none — which is _why_ `interface.*` metadata matters
 
 ## Open Questions
 
-1. **Does Codex expand `${VAR}` inside plugin `.mcp.json` `env` values at spawn
-   time?** Probe shows the value is stored and masked (`*****`) while JSON
-   round-trips it literally; only a live session probe spawning the `xero`
-   stdio server (with vars set vs. unset) distinguishes (a) env replaced by
-   value, (b) literal `${XERO_CLIENT_ID}` passed to the server, (c) empty
-   string. If not (a), `ycc-mcp` needs Codex-shaped bytes (`env_vars` equivalent)
-   — decide before listing; this blocks honest wording about “missing XERO vars.”
-   Related: do unset-env stdio servers block session start or degrade silently?
+1. **Native credential representation — settled.** Native `ycc-mcp` uses
+   translated Codex server fields under `mcpServers`, including symbolic
+   `env_vars`, rather than relying on `${VAR}` expansion in raw Claude env
+   values. The historical masking/round-trip observations above remain valid
+   for that probe, but no longer determine the generated native representation.
+   Authenticated startup and unset-env behavior remain separate runtime questions.
 2. **Desktop picker behaviour with an unchosen repo catalog.** When a user opens
    this repo in Codex Desktop today, does the plugins directory show
    `local-ycc-plugins`/`ycc` (and its broken path) by default? Docs say repo
