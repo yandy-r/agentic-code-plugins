@@ -824,6 +824,263 @@ class MergeHelperTestCase(MergeBase):
         self.assertFalse(destination.exists())
 
 
+class HookCommandPruneTestCase(MergeBase):
+    COMMAND = {"type": "command", "command": "repo-hook", "timeout": 30}
+    OTHER = {"type": "command", "command": "user-hook"}
+    GROUP = {"matcher": "Bash", "hooks": [COMMAND]}
+
+    def seed(self, groups: list | None = None) -> tuple[Path, Path]:
+        source = self.write_json(self.tmp / "src.json", {"hooks": {"PreToolUse": groups or [self.GROUP]}})
+        destination = self.write_json(self.tmp / "dest.json", {"keep": True})
+        self.run_merge("claude-settings", source, destination, "hooks")
+        return source, destination
+
+    def prune(self, source: Path, destination: Path, *extra: str) -> subprocess.CompletedProcess[str]:
+        return self.run_merge(
+            "claude-settings", source, destination, "hooks", extra=("--remove", "--prune-hook-commands", *extra)
+        )
+
+    def test_legacy_atomic_event_state_prunes_only_exact_commands(self) -> None:
+        source, destination = self.seed()
+        # The existing engine writes only the event hash, not command hashes.
+        state_key = f"claude-settings:{destination}"
+        ownership = json.loads(self.state.read_text())[state_key]
+        self.assertEqual(set(ownership), {"/hooks/PreToolUse"})
+        self.assertEqual(set(ownership["/hooks/PreToolUse"]), {"last_applied_sha256"})
+        user_group = {"matcher": "Write", "hooks": [self.OTHER], "description": "mine"}
+        self.write_json(
+            destination,
+            {
+                "keep": True,
+                "hooks": {
+                    "PreToolUse": [{**self.GROUP, "hooks": [self.COMMAND, self.OTHER]}, user_group],
+                    "Stop": [{"hooks": [self.OTHER]}],
+                },
+            },
+        )
+
+        self.prune(source, destination)
+
+        self.assertEqual(
+            json.loads(destination.read_text()),
+            {
+                "keep": True,
+                "hooks": {
+                    "PreToolUse": [{**self.GROUP, "hooks": [self.OTHER]}, user_group],
+                    "Stop": [{"hooks": [self.OTHER]}],
+                },
+            },
+        )
+        self.assertNotIn(state_key, json.loads(self.state.read_text()))
+        before = destination.read_bytes(), self.state.read_bytes()
+        self.prune(source, destination)
+        self.assertEqual(before, (destination.read_bytes(), self.state.read_bytes()))
+
+    def test_prune_retains_extra_wrapper_metadata_even_when_empty(self) -> None:
+        source, destination = self.seed()
+        self.write_json(destination, {"hooks": {"PreToolUse": [{**self.GROUP, "description": "mine"}]}})
+
+        self.prune(source, destination)
+
+        self.assertEqual(
+            json.loads(destination.read_text()),
+            {
+                "hooks": {"PreToolUse": [{"matcher": "Bash", "description": "mine", "hooks": []}]},
+            },
+        )
+
+    def test_prune_drops_only_emptied_matching_groups_and_event(self) -> None:
+        source, destination = self.seed()
+        self.prune(source, destination)
+        self.assertEqual(json.loads(destination.read_text()), {"keep": True})
+        self.assertNotIn(f"claude-settings:{destination}", json.loads(self.state.read_text()))
+
+    def test_prune_edited_command_is_kept_with_conflict_and_state(self) -> None:
+        for change in ({"command": "repo-hook --local"}, {"timeout": 60}):
+            with self.subTest(change=change):
+                source, destination = self.seed()
+                self.write_json(
+                    destination,
+                    {
+                        "hooks": {
+                            "PreToolUse": [
+                                {
+                                    **self.GROUP,
+                                    "hooks": [{**self.COMMAND, **change}, self.OTHER],
+                                }
+                            ]
+                        }
+                    },
+                )
+                before = destination.read_bytes(), self.state.read_bytes()
+
+                result = self.prune(source, destination)
+
+                self.assertIn("kept uncertain or locally modified hook commands at /hooks/PreToolUse", result.stdout)
+                self.assertEqual(before, (destination.read_bytes(), self.state.read_bytes()))
+
+    def test_prune_keeps_edited_wrapper_and_exact_command_under_it(self) -> None:
+        source, destination = self.seed()
+        self.write_json(destination, {"hooks": {"PreToolUse": [{**self.GROUP, "matcher": "Write"}]}})
+        before = destination.read_bytes(), self.state.read_bytes()
+
+        result = self.prune(source, destination)
+
+        self.assertIn("kept uncertain", result.stdout)
+        self.assertEqual(before, (destination.read_bytes(), self.state.read_bytes()))
+
+    def test_prune_removes_exact_sibling_while_retaining_modified_hook(self) -> None:
+        second = {"type": "command", "command": "repo-second"}
+        source, destination = self.seed([{**self.GROUP, "hooks": [self.COMMAND, second]}])
+        edited = {**second, "command": "repo-second --local"}
+        self.write_json(
+            destination,
+            {
+                "hooks": {
+                    "PreToolUse": [
+                        {
+                            **self.GROUP,
+                            "hooks": [self.COMMAND, edited, self.OTHER],
+                        }
+                    ]
+                }
+            },
+        )
+
+        result = self.prune(source, destination)
+
+        self.assertIn("kept uncertain", result.stdout)
+        self.assertEqual(
+            json.loads(destination.read_text()),
+            {
+                "hooks": {"PreToolUse": [{**self.GROUP, "hooks": [edited, self.OTHER]}]},
+            },
+        )
+        self.assertNotIn(f"claude-settings:{destination}", json.loads(self.state.read_text()))
+        before = destination.read_bytes(), self.state.read_bytes()
+        self.prune(source, destination)
+        self.assertEqual(before, (destination.read_bytes(), self.state.read_bytes()))
+
+    def test_prune_duplicate_commands_in_same_wrapper_retains_one_across_repeats(self) -> None:
+        source, destination = self.seed()
+        self.write_json(
+            destination,
+            {
+                "hooks": {
+                    "PreToolUse": [
+                        {
+                            **self.GROUP,
+                            "hooks": [self.COMMAND, self.COMMAND],
+                        }
+                    ]
+                }
+            },
+        )
+        before = destination.read_bytes(), self.state.read_bytes()
+
+        preview = self.prune(source, destination, "--dry-run")
+        self.assertIn("would remove /hooks/PreToolUse", preview.stdout)
+        self.assertIn("kept uncertain", preview.stdout)
+        self.assertEqual(before, (destination.read_bytes(), self.state.read_bytes()))
+
+        result = self.prune(source, destination)
+
+        self.assertIn("kept uncertain", result.stdout)
+        self.assertEqual(json.loads(destination.read_text()), {"hooks": {"PreToolUse": [self.GROUP]}})
+        self.assertNotIn(f"claude-settings:{destination}", json.loads(self.state.read_text()))
+        before = destination.read_bytes(), self.state.read_bytes()
+        repeat = self.prune(source, destination)
+        self.assertIn("kept uncertain", repeat.stdout)
+        self.assertEqual(before, (destination.read_bytes(), self.state.read_bytes()))
+
+    def test_prune_duplicate_wrappers_retains_one_across_repeats(self) -> None:
+        source, destination = self.seed()
+        self.write_json(destination, {"hooks": {"PreToolUse": [self.GROUP, self.GROUP]}})
+
+        result = self.prune(source, destination)
+
+        self.assertIn("kept uncertain", result.stdout)
+        self.assertEqual(json.loads(destination.read_text()), {"hooks": {"PreToolUse": [self.GROUP]}})
+        self.assertNotIn(f"claude-settings:{destination}", json.loads(self.state.read_text()))
+        before = destination.read_bytes(), self.state.read_bytes()
+        repeat = self.prune(source, destination)
+        self.assertIn("kept uncertain", repeat.stdout)
+        self.assertEqual(before, (destination.read_bytes(), self.state.read_bytes()))
+
+    def test_prune_without_state_does_not_adopt_matching_source(self) -> None:
+        source, destination = self.seed()
+        self.state.unlink()
+        before = destination.read_bytes()
+
+        result = self.prune(source, destination)
+
+        self.assertIn("kept uncertain", result.stdout)
+        self.assertEqual(destination.read_bytes(), before)
+        self.assertFalse(self.state.exists())
+
+    def test_prune_changed_source_cannot_reconstruct_historical_commands(self) -> None:
+        source, destination = self.seed()
+        self.write_json(source, {"hooks": {"PreToolUse": [{**self.GROUP, "hooks": [self.OTHER]}]}})
+        before = destination.read_bytes(), self.state.read_bytes()
+
+        result = self.prune(source, destination)
+
+        self.assertIn("kept uncertain", result.stdout)
+        self.assertEqual(before, (destination.read_bytes(), self.state.read_bytes()))
+
+    def test_prune_preview_preserves_state_destination_and_symlink_target(self) -> None:
+        source, destination = self.seed()
+        target = destination.with_name("target.json")
+        target.write_bytes(destination.read_bytes())
+        destination.unlink()
+        destination.symlink_to(target)
+        before = target.read_bytes(), self.state.read_bytes()
+
+        result = self.prune(source, destination, "--dry-run")
+
+        self.assertIn("would remove /hooks/PreToolUse", result.stdout)
+        self.assertTrue(destination.is_symlink())
+        self.assertEqual(before, (target.read_bytes(), self.state.read_bytes()))
+
+    def test_prune_rejects_wrong_mode_groups_profile_or_force_before_writes(self) -> None:
+        source, destination = self.seed()
+        before = destination.read_bytes(), self.state.read_bytes()
+        cases = [
+            ("claude-settings", "hooks", ("--prune-hook-commands",)),
+            ("claude-settings", "settings", ("--remove", "--prune-hook-commands")),
+            ("claude-settings", "hooks,settings", ("--remove", "--prune-hook-commands")),
+            ("claude-mcp", "mcp", ("--remove", "--prune-hook-commands")),
+            ("claude-settings", "hooks", ("--remove", "--prune-hook-commands", "--force")),
+        ]
+        for profile, groups, extra in cases:
+            with self.subTest(profile=profile, groups=groups, extra=extra):
+                result = self.run_merge(profile, source, destination, groups, extra=extra, expect_success=False)
+                self.assertEqual(result.returncode, 1)
+                self.assertIn("--prune-hook-commands requires", result.stderr)
+                self.assertEqual(before, (destination.read_bytes(), self.state.read_bytes()))
+
+    def test_plain_remove_retains_whole_event_after_user_adds_command(self) -> None:
+        source, destination = self.seed()
+        self.write_json(
+            destination,
+            {
+                "hooks": {
+                    "PreToolUse": [
+                        {
+                            **self.GROUP,
+                            "hooks": [self.COMMAND, self.OTHER],
+                        }
+                    ]
+                }
+            },
+        )
+        before = destination.read_bytes(), self.state.read_bytes()
+
+        self.run_merge("claude-settings", source, destination, "hooks", extra=("--remove",))
+
+        self.assertEqual(before, (destination.read_bytes(), self.state.read_bytes()))
+
+
 class GithubMcpMigrationTestCase(MergeBase):
     NATIVE = {"command": "github-mcp-server", "args": ["stdio"]}
     BRIDGE = json.loads((REPO_ROOT / "mcp-configs" / "mcp.json").read_text())["mcpServers"]["github"]

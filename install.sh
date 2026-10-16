@@ -19,6 +19,8 @@ source "${SCRIPT_DIR}/scripts/lib/install/steps.sh"
 source "${SCRIPT_DIR}/scripts/lib/install/bundle.sh"
 # shellcheck source=scripts/lib/install/cli.sh
 source "${SCRIPT_DIR}/scripts/lib/install/cli.sh"
+# shellcheck source=scripts/lib/install/migrate.sh
+source "${SCRIPT_DIR}/scripts/lib/install/migrate.sh"
 # Each target implements the contract described in its targets/<t>.sh header.
 for _target in "${ALL_TARGETS[@]}"; do
     # shellcheck source=/dev/null
@@ -37,6 +39,10 @@ Commands:
               $(basename "$0") sync --target <targets> --intent <intents> [--mcps <servers>] [--mode <mode>] [--project|--global] [--force]
   remove      Strip installer-managed config.
               $(basename "$0") remove --target <targets> (--only <steps> | --intent <intents>) [--mcps <servers>] [--project|--global] [--force]
+  migrate     Preview a global native-package migration (no writes by default).
+              $(basename "$0") migrate --target claude|codex|cursor|all [--apply] [--marketplace-source <dir>]
+              all resolves only claude,codex,cursor. --marketplace-source is Codex-only
+              and must contain an eligible native ycc catalog (not a gate bypass).
   cli         Put this installer on PATH as '${CLI_NAME}'.
               $(basename "$0") cli [--dir <dir>] [--force]
   completion  Print or install shell completion.
@@ -454,6 +460,7 @@ MCP_SERVERS=()
 SCOPE=""
 
 case "${1:-}" in
+    migrate) shift; run_migrate_command "$@"; exit $? ;;
     cli|completion|list-mcps)
         for arg in "$@"; do
             if [[ "${arg}" == "--package" || "${arg}" == --package=* ]]; then
@@ -474,7 +481,7 @@ case "${1:-}" in
     --help|-h) usage; exit 0 ;;
     "") usage; exit 1 ;;
     *)
-        err "missing or unknown command '$1' (expected: install, sync, remove, cli, completion, list-mcps)"
+        err "missing or unknown command '$1' (expected: install, sync, remove, migrate, cli, completion, list-mcps)"
         err "  e.g. $(basename "$0") install $*"
         exit 1
         ;;

@@ -35,6 +35,7 @@ _ycc() {
             'install:initial setup (base + opt-in steps)'
             'sync:sync intents to targets'
             'remove:remove installer-managed config'
+            'migrate:preview or apply native package migration'
             'cli:link install.sh onto PATH as ycc'
             'completion:print or install shell completion'
             'list-mcps:list the managed MCP servers'
@@ -48,6 +49,11 @@ _ycc() {
     shift words
     (( CURRENT-- ))
     case "${sub}" in
+        migrate)
+            _arguments '--target[migration targets]:targets:_values -s , target claude codex cursor all' \
+                '--apply[apply the migration (default: dry-run)]' \
+                '--marketplace-source[eligible native Codex marketplace]:directory:_directories' '--help[show help]'
+            ;;
         cli)
             _arguments '--dir[install directory]:directory:_directories' '--force[replace existing]' '--help[show help]'
             ;;

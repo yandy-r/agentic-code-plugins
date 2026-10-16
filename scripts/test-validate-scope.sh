@@ -90,6 +90,8 @@ expect_targets "Claude live harness selects generator and native" "claude claude
 expect_targets "Claude marketplace selects native, JSON and parity" "claude-native json packages" .claude-plugin/marketplace.json
 expect_targets "install.sh selects config" "config" install.sh
 expect_targets "install tests select config" "config" scripts/tests/install/codex.sh
+expect_targets "migration helper selects config" "config" scripts/install_migrate.py
+expect_targets "migration fixture suite selects config" "config" scripts/tests/install/migrate.sh
 expect_targets "install target libs also select the coverage validators" "opencode agents config" \
     scripts/lib/install/targets/agents.sh
 expect_targets "mods select mods and the install tests" "config mods" ycc/mods/README.md

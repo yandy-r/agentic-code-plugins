@@ -16,7 +16,7 @@ every target's installer behavior.
 ## Installer Model
 
 Use `install.sh` from the repository root (or `ycc` once it is on `PATH`). Every
-invocation starts with a command — `install`, `sync`, `remove`, `cli`, or
+invocation starts with a command — `install`, `sync`, `remove`, `migrate`, `cli`, or
 `completion`; a bare `./install.sh --target ...` is rejected. `install` is the
 first-time setup (base step plus opt-in `--settings`/`--rules`/`--mcp`/`--hooks`
 or `--only`); `sync` is the recommended entry point after that:
@@ -39,6 +39,58 @@ cannot do.
 `mcp` defaults to project scope on every target; see
 [Project Vs Global Scope](#project-vs-global-scope). To undo any of it, see
 [Removing Installed Config](#removing-installed-config).
+
+### Migrating To Native Packages
+
+`migrate` moves an existing file-copy/managed-config install toward the
+native packages for one runtime. It is **dry-run by default**: it reports what
+it would change and writes no config, state, build output, or CLI state.
+Pass `--apply` to make the reported changes:
+
+```bash
+./install.sh migrate --target claude           # dry-run
+./install.sh migrate --target claude --apply
+./install.sh migrate --target codex            # dry-run
+./install.sh migrate --target codex --apply
+./install.sh migrate --target cursor           # dry-run
+./install.sh migrate --target cursor --apply
+```
+
+- `--target` accepts `claude`, `codex`, or `cursor`; `--target all` resolves
+  to exactly those three. `opencode` and `agents` have no migration and are
+  rejected when named explicitly — their file-copy installs stay as they are.
+- Migration preserves user edits and data. It removes only entries it can
+  prove are installer-owned (managed-config ownership, byte-identical copies,
+  or symlinks pointing at this checkout), reports anything uncertain as a
+  conflict instead of deleting it, and is safe to run repeatedly. `--force`
+  is rejected for `migrate` and never widens what migration deletes.
+  Symlinked configuration files are retained with a notice rather than
+  replaced, preserving dotfiles links.
+- **Claude:** settings hooks are pruned only when `ycc-hooks@ycc` is
+  explicitly enabled, and managed MCP entries only when `ycc-mcp@ycc` is
+  explicitly enabled; enabling `ycc-all@ycc` alone proves neither. User hooks
+  in the same event groups are preserved, link cleanup removes only owned
+  symlinks, and only global config files are touched.
+- **Codex:** production apply fails closed before any cleanup or CLI call
+  while this checkout's catalog is still the legacy `local-ycc-plugins`
+  catalog (the native listing gate is YAN-1140); dry-run explains that gate
+  and retains the legacy install. `--marketplace-source <dir>` (Codex only)
+  points migration at a staged directory carrying an eligible native `ycc`
+  catalog and payloads, validated by the same checks — it is not a bypass.
+  On apply, the marketplace is registered and each package is installed and
+  verified installed and enabled **before** any legacy entry is retired,
+  including exact installer matches in the standalone `~/.codex/skills/`
+  slice. Edited skills stay, and shared helpers stay while any skills remain.
+  Everything under `~/.codex/agents/` is preserved.
+- **Cursor:** only copies that match the canonical source byte-for-byte, or
+  owned symlinks pointing exactly at it, are removed — across skills, agents,
+  rules, and shared helpers as actually installed. Edited or foreign entries
+  stay, along with shared helpers while any skills remain. Migration prints
+  the interactive `/add-plugin` step; it does not install the Cursor plugin itself.
+
+The runtime guides above remain the supported install documentation.
+Migration does not list hidden native packages in production catalogs or
+establish runtime installation, session, or hook-dispatch verification.
 
 ### `ycc` Command On PATH
 

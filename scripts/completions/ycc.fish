@@ -18,7 +18,7 @@ function __ycc_mcps
     __ycc_csv (string join ' ' -- ($words[1] list-mcps --target $targets 2>/dev/null))
 end
 
-set -l subs install sync remove cli completion list-mcps
+set -l subs install sync remove migrate cli completion list-mcps
 set -l none "not __fish_seen_subcommand_from $subs"
 set -l isr "__fish_seen_subcommand_from install sync remove"
 set -l is "__fish_seen_subcommand_from install sync"
@@ -30,6 +30,7 @@ complete -c ycc -f
 complete -c ycc -n $none -a install -d 'Initial setup (base + opt-in steps)'
 complete -c ycc -n $none -a sync -d 'Sync intents to targets'
 complete -c ycc -n $none -a remove -d 'Remove installer-managed config'
+complete -c ycc -n $none -a migrate -d 'Preview or apply native package migration'
 complete -c ycc -n $none -a cli -d 'Link install.sh onto PATH as ycc'
 complete -c ycc -n $none -a completion -d 'Print or install shell completion'
 complete -c ycc -n $none -a list-mcps -d 'List the managed MCP servers'
@@ -48,10 +49,13 @@ complete -c ycc -n $inst -l mcp -d 'Also merge MCP servers'
 complete -c ycc -n $inst -l hooks -d 'Also link hooks'
 complete -c ycc -n $isr -l project -d 'Write into the current project'
 complete -c ycc -n $isr -l global -d 'Write into user-global config'
+complete -c ycc -n '__fish_seen_subcommand_from migrate' -l target -x -a '(__ycc_csv "claude codex cursor all")' -d Targets
+complete -c ycc -n '__fish_seen_subcommand_from migrate' -l apply -d 'Apply migration (default: dry-run)'
+complete -c ycc -n '__fish_seen_subcommand_from migrate' -l marketplace-source -x -a '(__fish_complete_directories)' -d 'Eligible native Codex marketplace'
 
 complete -c ycc -n '__fish_seen_subcommand_from cli' -l dir -x -a '(__fish_complete_directories)' -d 'Install directory'
 complete -c ycc -n '__fish_seen_subcommand_from completion' -l shell -x -a 'bash zsh fish' -d Shell
 complete -c ycc -n '__fish_seen_subcommand_from completion' -l install -d 'Install for the shell'
 
-complete -c ycc -n "__fish_seen_subcommand_from $subs" -l force -d 'Replace existing / repo values win'
+complete -c ycc -n '__fish_seen_subcommand_from install sync remove cli completion list-mcps' -l force -d 'Replace existing / repo values win'
 complete -c ycc -l help -d 'Show help'
