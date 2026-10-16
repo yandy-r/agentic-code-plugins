@@ -20,7 +20,7 @@ jobs:
     environment: release
     permissions:
       contents: read
-      id-token: write # npm provenance attestation; not registry authentication.
+      id-token: write # OIDC authentication for npm trusted publishing and provenance attestation.
     steps:
       - uses: actions/checkout@v4
         with:
@@ -44,8 +44,13 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
           registry-url: https://registry.npmjs.org
+
+      - name: Install pinned npm toolchain for trusted publishing
+        run: |
+          npm install --global npm@11.21.1 --ignore-scripts
+          test "$(npm --version)" = "11.21.1"
 
       - name: Validate generated package and package model
         run: ./scripts/validate.sh --only opencode,packages
@@ -60,10 +65,7 @@ jobs:
           npm pack --ignore-scripts --pack-destination "${RUNNER_TEMP}/opencode-npm"
 
       - name: Publish exact packed artifact with provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          test -n "${NODE_AUTH_TOKEN}" || { echo 'release environment NPM_TOKEN is required' >&2; exit 1; }
           artifact="${RUNNER_TEMP}/opencode-npm/yandy-r-ycc-opencode-${GITHUB_REF_NAME#v}.tgz"
           test -f "${artifact}"
           npm publish "${artifact}" --ignore-scripts --provenance --access public
