@@ -54,6 +54,7 @@ package_validate_steps() {
 # package_configure_steps <csv> — map one target's plan onto ONLY_STEPS.
 package_configure_steps() {
     IFS=',' read -r -a ONLY_STEPS <<< "$1"
+    # shellcheck disable=SC2034  # Read by step_enabled in the sourcing steps.sh.
     EXCLUSIVE_STEPS=1
 }
 
