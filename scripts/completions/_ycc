@@ -27,6 +27,7 @@ _ycc() {
     local intent='--intent[what to sync]:intents:_values -s , intent base skills agents commands settings rules mcp hooks plugins mods'
     local mcps='--mcps[only these managed MCP servers]:servers:_ycc_mcps'
     local only='--only[run only these steps]:steps:_values -s , step base skills agents commands settings rules mcp hooks mods'
+    local package='--package[install package closures]:packages:_values -s , package ycc ycc-mcp ycc-hooks ycc-rules'
 
     if (( CURRENT == 2 )); then
         local -a subcommands
@@ -57,7 +58,7 @@ _ycc() {
             _arguments '--shell[shell]:shell:(bash zsh fish)' '--install[install for the shell]' '--force[replace existing]' '--help[show help]'
             ;;
         install)
-            _arguments "${common[@]}" "${mode}" "${only}" "${mcps}" \
+            _arguments "${common[@]}" "${mode}" "${package}" "${only}" "${mcps}" \
                 '--settings[also merge settings]' '--rules[also link rules]' \
                 '--mcp[also merge MCP servers]' '--hooks[also link hooks]'
             ;;

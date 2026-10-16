@@ -12,6 +12,9 @@
 # shellcheck disable=SC2034  # VALID_INTENTS is read by install.sh's arg validation.
 VALID_INTENTS=(base skills agents commands settings rules mcp hooks plugins mods)
 
+# shellcheck source=scripts/lib/install/packages.sh
+source "${SCRIPT_DIR}/scripts/lib/install/packages.sh"
+
 # ---------------------------------------------------------------------------
 # Step selection
 # ---------------------------------------------------------------------------
@@ -159,6 +162,17 @@ config_groups_for_target() {
     is_known_target "${target}" || return 0
     local defaults
     defaults="$("${target}_config_groups")"
+    if [[ -n "${PACKAGE:-}" ]]; then
+        # Registration owns enablement; settings-only must not enable an
+        # unregistered or foreign plugin. The Codex legacy-cache path writes
+        # exactly the local ycc enablement leaf itself (see codex.sh).
+        if [[ "${target}" == "claude" ]] && step_enabled hooks; then
+            echo "settings,hooks"
+        else
+            echo "settings"
+        fi
+        return 0
+    fi
     if [[ ${#INTENTS[@]} -eq 0 ]]; then
         echo "${defaults}"
         return 0
@@ -181,7 +195,9 @@ config_groups_for_target() {
 run_target() {
     local target="$1"
     local fn="$2"
-    if [[ ${#INTENTS[@]} -gt 0 ]]; then
+    if [[ -n "${PACKAGE:-}" ]]; then
+        package_configure_steps "$(package_steps_csv "${target}")"
+    elif [[ ${#INTENTS[@]} -gt 0 ]]; then
         configure_intents_for_target "${target}"
     fi
     "${fn}"
@@ -302,10 +318,25 @@ skills_filter() {
 
 # target_has_native_skills <target> — true when the run installs ycc skills
 # into <target>'s own dir (base ships them for codex/opencode/cursor too).
-# Subshell: intent mapping rewrites ONLY_STEPS.
+# Subshell: intent/package mapping rewrites ONLY_STEPS. Package mode must stay
+# closure-aware: a package whose cursor units exclude skills (ycc-rules,
+# ycc-mcp) never installs native skills, so it cannot trigger the
+# skills-consolidation flow or auto-add the agents target.
 target_has_native_skills() {
+    if [[ -n "${PACKAGE:-}" && "$1" == "cursor" ]]; then
+        [[ " ${PACKAGE_CURSOR_UNITS:-} " == *" skills "* ]]
+        return $?
+    fi
+    if [[ -n "${PACKAGE:-}" && "$1" == "codex" ]]; then
+        # A positively detected enabled foreign native ycc already supplies the
+        # skills, and base will not register; consolidation would only duplicate.
+        codex_native_plugin_detected || true
+        [[ -z "${PACKAGE_CODEX_FOREIGN_MARKETPLACE:-}" ]] || return 1
+    fi
     (
-        if [[ ${#INTENTS[@]} -gt 0 ]]; then
+        if [[ -n "${PACKAGE:-}" ]]; then
+            package_configure_steps "$(package_steps_csv "$1")"
+        elif [[ ${#INTENTS[@]} -gt 0 ]]; then
             configure_intents_for_target "$1" >/dev/null
         fi
         step_enabled base || step_enabled skills
@@ -389,7 +420,10 @@ preflight_targets() {
             err "  use --mode local (default), or --target all to skip it automatically."
             exit 1
         fi
-        if [[ ${#INTENTS[@]} -gt 0 ]]; then
+        if [[ -n "${PACKAGE:-}" ]]; then
+            package_configure_steps "$(package_steps_csv "${target}")"
+            validate_only_steps "${target}" quiet
+        elif [[ ${#INTENTS[@]} -gt 0 ]]; then
             # Warnings for unsupported intents are printed when the target runs.
             configure_intents_for_target "${target}" >/dev/null
         else
@@ -405,7 +439,9 @@ preflight_targets() {
 mcp_step_selected() {
     [[ ",$(valid_steps_for_target "$1")," == *",mcp,"* ]] || return 1
     (
-        if [[ ${#INTENTS[@]} -gt 0 ]]; then
+        if [[ -n "${PACKAGE:-}" ]]; then
+            package_configure_steps "$(package_steps_csv "$1")"
+        elif [[ ${#INTENTS[@]} -gt 0 ]]; then
             configure_intents_for_target "$1" >/dev/null
         fi
         step_enabled mcp

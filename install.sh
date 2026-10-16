@@ -32,7 +32,7 @@ Usage: $(basename "$0") <command> [options]
 
 Commands:
   install     Initial setup: base step plus opt-in steps (flags below).
-              $(basename "$0") install --target <targets> [--mode <mode>] [--settings] [--rules] [--mcp] [--hooks] [--only <steps>] [--mcps <servers>] [--project|--global] [--force]
+              $(basename "$0") install --target <targets> [--mode <mode>] [--settings] [--rules] [--mcp] [--hooks] [--only <steps>] [--package <ids>] [--mcps <servers>] [--project|--global] [--force]
   sync        Sync what you name, nothing else.
               $(basename "$0") sync --target <targets> --intent <intents> [--mcps <servers>] [--mode <mode>] [--project|--global] [--force]
   remove      Strip installer-managed config.
@@ -265,6 +265,21 @@ Options:
   --intent <intents>  'sync' / 'remove' subcommands only. Comma-separated intents (see
                       above). Cannot be combined with --only or the additive
                       --settings/--rules/--mcp/--hooks flags.
+  --package <ids>     'install' only. Comma-separated ids from the package model:
+                      ycc, ycc-mcp, ycc-hooks (Claude only), ycc-rules (Cursor only).
+                      Expands dependency and installer-fallback components into
+                      existing installer steps. Only the already-listed Claude
+                      and Codex ycc entries use native registration; unlisted
+                      packages use file/config delivery, never new catalog entries.
+                      Codex agents are always copied (including --mode repo).
+                      A foreign Codex ycc is skipped only when enabled AND its
+                      installed payload is valid; stale config or caches do not
+                      suppress registration. Cursor copies only the units a
+                      package names (ycc-rules never copies skills/agents).
+                      A package whose own components cannot all be delivered
+                      (Cursor ycc: commands; ycc-hooks: hooks) fails before any
+                      writes; --target all warns and skips that target.
+                      Cannot combine with --intent, --only or additive flags.
   --help              Show this help message
 
 install semantics:
@@ -274,6 +289,9 @@ install semantics:
       passed.
   With --only <steps>:
     - Run exactly the listed steps. Nothing else.
+  With --package <ids>:
+    - Run the validated closure's deliverable steps for each selected target.
+    - Example: $(basename "$0") install --package ycc,ycc-mcp --target claude
 
   Transport semantics:
     - --settings (copy)   dest absent: cp; dest is a symlink: warn + rm + cp;
@@ -430,13 +448,25 @@ FORCE=0
 EXCLUSIVE_STEPS=0
 ONLY_STEPS=()
 INTENTS=()
+PACKAGE=""
+PACKAGE_CONFLICT_FLAG=0
 MCP_SERVERS=()
 SCOPE=""
 
 case "${1:-}" in
-    cli)        shift; run_cli_command "$@"; exit 0 ;;
-    completion) shift; run_completion_command "$@"; exit 0 ;;
-    list-mcps)  shift; run_list_mcps_command "$@"; exit 0 ;;
+    cli|completion|list-mcps)
+        for arg in "$@"; do
+            if [[ "${arg}" == "--package" || "${arg}" == --package=* ]]; then
+                err "--package is only supported by the 'install' subcommand"
+                exit 1
+            fi
+        done
+        case "$1" in
+            cli)        shift; run_cli_command "$@"; exit 0 ;;
+            completion) shift; run_completion_command "$@"; exit 0 ;;
+            list-mcps)  shift; run_list_mcps_command "$@"; exit 0 ;;
+        esac
+        ;;
 esac
 
 case "${1:-}" in
@@ -467,7 +497,19 @@ while [[ $# -gt 0 ]]; do
             fi
             shift 2
             ;;
+        --package)
+            if [[ "${COMMAND}" != "install" ]]; then
+                err "--package is only supported by the 'install' subcommand"
+                exit 1
+            fi
+            [[ $# -lt 2 ]] && { err "--package requires an argument (a comma-separated list of package ids)"; exit 1; }
+            [[ "$2" == --* ]] && { err "--package requires an argument (a comma-separated list of package ids)"; exit 1; }
+            [[ -n "$2" ]] || { err "--package contains an empty value"; exit 1; }
+            PACKAGE="$2"
+            shift 2
+            ;;
         --only)
+            PACKAGE_CONFLICT_FLAG=1
             [[ $# -lt 2 ]] && { err "--only requires a comma-separated list of steps"; exit 1; }
             IFS=',' read -r -a ONLY_STEPS <<< "$2"
             if [[ ${#ONLY_STEPS[@]} -eq 0 ]]; then
@@ -486,6 +528,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --intent)
+            PACKAGE_CONFLICT_FLAG=1
             [[ $# -lt 2 ]] && { err "--intent requires a comma-separated list of intents"; exit 1; }
             IFS=',' read -r -a INTENTS <<< "$2"
             shift 2
@@ -557,6 +600,17 @@ if [[ "${COMMAND}" == "remove" ]]; then
     fi
 fi
 
+if [[ -n "${PACKAGE}" ]]; then
+    if [[ "${COMMAND}" != "install" ]]; then
+        err "--package is only supported by the 'install' subcommand"
+        exit 1
+    fi
+    if [[ "${PACKAGE_CONFLICT_FLAG}" == 1 || "${SETTINGS}" == "1" || "${RULES}" == "1" || "${MCP}" == "1" || "${HOOKS}" == "1" ]]; then
+        err "--package cannot be combined with --intent, --only, --settings, --rules, --mcp, or --hooks"
+        exit 1
+    fi
+fi
+
 if [[ ${#INTENTS[@]} -gt 0 && "${COMMAND}" != "install" ]]; then
     if [[ ${#ONLY_STEPS[@]} -gt 0 || "${SETTINGS}" == "1" || "${RULES}" == "1" || "${MCP}" == "1" || "${HOOKS}" == "1" ]]; then
         err "${COMMAND} --intent cannot be combined with --only, --settings, --rules, --mcp, or --hooks"
@@ -609,10 +663,17 @@ if [[ ${#ONLY_STEPS[@]} -gt 0 ]]; then
 fi
 
 resolve_targets "${TARGET}"
-resolve_skills_home
-preflight_targets
-action="sync"
-[[ "${COMMAND}" == "remove" ]] && action="remove"
-for target in "${TARGETS[@]}"; do
-    run_target "${target}" "${action}_${target}_target"
-done
+if [[ -n "${PACKAGE}" ]]; then
+    [[ "${TARGET}" == "all" ]] && PACKAGE_ALL_TARGETS_REQUESTED=1
+    package_preflight_targets
+    resolve_skills_home
+    run_package_targets
+else
+    resolve_skills_home
+    preflight_targets
+    action="sync"
+    [[ "${COMMAND}" == "remove" ]] && action="remove"
+    for target in "${TARGETS[@]}"; do
+        run_target "${target}" "${action}_${target}_target"
+    done
+fi
