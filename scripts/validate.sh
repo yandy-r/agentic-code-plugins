@@ -226,6 +226,10 @@ run_target() {
             python3 "${REPO_ROOT}/scripts/test_generate_codex_agents.py" || fail "test_generate_codex_agents.py"
             echo "== validate: codex plugin =="
             "${REPO_ROOT}/scripts/validate-codex-plugin.sh" || fail "validate-codex-plugin.sh"
+            echo "== test: codex plugin generator =="
+            python3 "${REPO_ROOT}/scripts/test_generate_codex_plugin.py" || fail "test_generate_codex_plugin.py"
+            echo "== test: codex skills generator =="
+            python3 "${REPO_ROOT}/scripts/test_generate_codex_skills.py" || fail "test_generate_codex_skills.py"
             ;;
         opencode)
             echo "== validate: opencode skills =="

@@ -70,7 +70,7 @@ planned on documentation alone and must be tested before it is listed.
 | Claude   | `ycc-agents@ycc`                                                   | Native agents-only plugin                       | **Deferred to v7.0.0**, with qualified `ycc-agents:` references.                                                                                                                                                                                             | claude-namespace (shared name No-Go)                  |
 | Claude   | Rules, `CLAUDE.md`, settings                                       | `install.sh` only                               | Stays on `install.sh`. No Claude `ycc-rules`.                                                                                                                                                                                                                | Plugin manifests have no rules component.             |
 | Codex    | `ycc@ycc` (skills and `shared/`)                                   | Native plugin, relative `local` source          | Current catalog is `local-ycc-plugins` with `./plugins/ycc`. Planned listing at the flip: `.agents/plugins/marketplace.json` with `{"source":"local","path":"./.codex-plugin/ycc"}`. Sparse installs must include `.agents/plugins` and `.codex-plugin/ycc`. | codex-marketplace                                     |
-| Codex    | `ycc-mcp@ycc`                                                      | Native MCP                                      | Planned; unspiked on Codex.                                                                                                                                                                                                                                  | none                                                  |
+| Codex    | `ycc-mcp@ycc`                                                      | Native MCP                                      | Generated hidden. Dormant `.codex-plugin/ycc-mcp` is uncataloged; native MCP uses Codex `env_vars`. YAN-1131 installed it on codex-cli 0.161.0 from a local Git fixture.                                                                                     | YAN-1131 fixture smoke                                |
 | Codex    | `ycc-hooks@ycc`                                                    | Native hooks                                    | **Excluded.** NO-GO until verified under YAN-1149.                                                                                                                                                                                                           | codex-marketplace                                     |
 | Codex    | Agents (`*.toml`), `AGENTS.md`, config                             | `install.sh` only                               | Stays on `install.sh`; Codex plugins cannot carry these.                                                                                                                                                                                                     | codex-marketplace (no plugin layer)                   |
 | Cursor   | `ycc@ycc` (skills, agents, commands, `shared`)                     | Native plugin in a GitHub marketplace           | Ships through the GitHub marketplace. No cursor.com submission before post-6.0.                                                                                                                                                                              | cursor-plugin (registration only)                     |
@@ -135,7 +135,9 @@ The gates and feature switches are listed in
   The shipping `ycc` entry stays visible throughout. The listing PR flips only after the proof
   gates in RELEASING.md pass for every listed package.
 - `listed: false` in `ycc/settings/packages.json` is generator input, not a runtime field. The
-  manifest, its schema, and its loader now exist; generator consumption is still pending.
+  Codex metadata generator consumes it. The checked-in catalog remains legacy until the flip;
+  `generate-codex-plugin.sh --native-output DIR` exports the complete unlisted split outside
+  the checkout for verification.
 - Codex hooks stay excluded until verified (YAN-1149).
 - The opencode npm package is published only by the planned CI publish step on the owner-decided
   maintainer tag described under Versioning. It is not published by this PR, and activation is
@@ -175,6 +177,12 @@ closure validator; generator consumption remains pending.
   `@yandy-r/ycc-opencode` (the package itself is a v6.0.0 deliverable per owner decision;
   CI would publish it with provenance on the maintainer-pushed product tag).
 - The Codex catalog rename and the Cursor native plugin layout.
+
+YAN-1131 later implemented the Codex generator split and explicit external native export. It did
+not rename the checked-in Codex catalog, list any package, or change installer migration.
+Its harness (`scripts/test-codex-native-packages.sh`) installed `ycc@ycc` and `ycc-mcp@ycc`
+on codex-cli 0.161.0 from full and sparse local Git fixtures and ran a cache-resolved bundled
+helper. It did not exercise public GitHub transport or codex-cli 0.160.
 
 The original M0 proposal to emit singular `plugin` and `agent` keys is obsolete. Opencode V1
 support was dropped (YAN-1118 is canceled), so the V2-only target keeps the `plugins` array

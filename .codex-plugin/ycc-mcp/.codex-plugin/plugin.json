@@ -1,0 +1,30 @@
+{
+  "name": "ycc-mcp",
+  "version": "5.3.0",
+  "description": "YCC MCP server connections for Codex.",
+  "author": {
+    "name": "yandy-r"
+  },
+  "repository": "https://github.com/yandy-r/claude-plugins",
+  "homepage": "https://github.com/yandy-r/claude-plugins",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "mcp",
+    "integrations"
+  ],
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "YCC MCP",
+    "shortDescription": "MCP server connections for Codex.",
+    "longDescription": "YCC's independently installable MCP server connections for Codex.",
+    "developerName": "yandy-r",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/yandy-r/claude-plugins",
+    "brandColor": "#0F766E"
+  }
+}
