@@ -4,6 +4,7 @@
 
 - Parser Grammar
 - Capability Matrix
+- Native vs install.sh Fallback
 - Notes
 - How to Update This Document
 
@@ -17,13 +18,16 @@ before editing the table.
 
 ## Parser Grammar
 
-The table below is parsed by `ycc/skills/compatibility-audit/scripts/audit-target-features.sh`.
+The first table below (Capability Matrix) is parsed by `ycc/skills/compatibility-audit/scripts/audit-target-features.sh`.
 Follow these rules exactly or the parser will misread cells:
 
 - **Column order**: `capability, claude, cursor, codex, opencode` — do not reorder.
 - **Cell vocabulary**: exactly one of `supported`, `partial`, or `unsupported` — no other tokens,
   no trailing punctuation, no parenthetical notes inside the cell.
 - **Notes** belong in the Notes section below the table, keyed as `capability:target`.
+- The Native vs install.sh Fallback table comes after the parsed table and is descriptive only.
+  The audit parser stops at the first non-table line after the Capability Matrix, so keep a
+  heading or prose line between the two tables and never add columns to the first one.
 - Do not change column order or cell vocabulary without updating the parser in
   `ycc/skills/compatibility-audit/scripts/audit-target-features.sh`.
 
@@ -44,6 +48,44 @@ Follow these rules exactly or the parser will misread cells:
 | DANGEROUS_MODE    | supported | unsupported | unsupported | unsupported |
 | WORKTREE          | supported | partial     | partial     | partial     |
 | MODS              | supported | unsupported | unsupported | unsupported |
+
+---
+
+## Native vs install.sh Fallback
+
+Packaging status as of 2026-10-16. This descriptive companion separates shipping native packages
+from installer-managed artifacts and hidden or gated work in `ycc/settings/packages.json`.
+`listed: false` packages are not published catalog entries; generated trees and successful spikes
+alone do not make them shipping user install paths. This does not revise the capability verdicts above.
+
+| target   | native, listed today                                           | install.sh fallback today                                              | hidden or gated native packages                                                            |
+| -------- | -------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Claude   | `ycc@ycc` (skills, agents, `_shared`); `status-bar@ycc-mods`   | Rules, settings, statusline, hooks link, MCP, standalone skills/agents | `ycc-mcp@ycc`, `ycc-hooks@ycc` (2.1.300+), `ycc-all@ycc`; `ycc-agents@ycc` in v7.0.0       |
+| Cursor   | None                                                           | Skills, agents, rules, settings, hooks copied under `~/.cursor/`       | `ycc@ycc`, `ycc-rules@ycc`, `ycc-mcp@ycc`, `ycc-hooks@ycc` (`sessionStart` only)           |
+| Codex    | Installer-managed local marketplace; no public `ycc@ycc` entry | Agent TOMLs, `AGENTS.md`, `config.toml`                                | `ycc@ycc`, `ycc-mcp@ycc` via `.agents/plugins/marketplace.json`; hooks excluded (YAN-1149) |
+| opencode | None                                                           | Skills, agents, commands, shared, `opencode.json`, `AGENTS.md`         | `@yandy-r/ycc-opencode` npm plugin: experimental, opt-in, unpublished                      |
+| `agents` | None                                                           | Skills and `ycc-shared` copied into `~/.agents/`                       | None planned                                                                               |
+
+Native dependency resolution is a Claude platform feature, not a cross-runtime guarantee.
+The hidden `ycc-all` meta plugin still awaits automatic-install proof; Cursor and Codex have no
+dependency field, and the `agents` target is a directory convention, not a package system.
+Claude rules, settings, and statusline stay on `install.sh`.
+
+The recommendation in `docs/research/agentic-code-plugins/recommendation.md` is qualified by
+`ycc/settings/packages.json` and the later verdicts in `docs/internal/spikes/`:
+
+- `claude-hooks.md`: plugin `WorktreeCreate` was observed on 2.1.300, not 2.1.143. The hidden
+  hooks package requires a documented 2.1.300 minimum and tested command-level migration dedupe
+  that preserves user-owned hooks. `claude-namespace.md` rejects a shared-name agents split;
+  the qualified `ycc-agents:` namespace is deferred to v7.0.0.
+- `codex-marketplace.md`: native catalog discovery is verified on 0.161.0, but `WorktreeCreate`
+  is dropped and trusted plugin hook dispatch is unverified. Hooks remain excluded.
+- `cursor-plugin.md`: user-scope GitHub marketplace registration is verified; interactive
+  install and installed-plugin runtime behavior remain gates. Planned native hooks are limited
+  to `sessionStart`; do not infer `WorktreeCreate` or other Claude hook parity.
+- `opencode-config-hook.md`: V2 registrations and context-hook instructions were verified on
+  v2.0.29, not the V1 config-hook approach. The experimental npm path still needs CI publishing;
+  `install.sh` file copy remains primary.
 
 ---
 
@@ -112,14 +154,22 @@ Cursor.
 No equivalent to Claude Code's dangerous mode exists in the Codex runtime.
 
 **INSTALL_PATH:claude**
-Two supported install paths. (1) GitHub marketplace install managed by Claude Code
-at `~/.claude/plugins/ycc/`, or the workspace `.claude-plugin/` directory. (2)
-`install.sh install --target claude` additionally registers the repo's
-`.claude-plugin/marketplace.json` absolute path as a local marketplace
-(`local-ycc-plugins`, `source: "file"`) in `~/.claude/settings.local.json`
-(user-private, auto-gitignored) — edits in `ycc/` are live on the next plugin
-reload with no rsync. The two marketplaces coexist; enable either `ycc@ycc` or
-`ycc@local-ycc-plugins` to pick which copy is active.
+`install.sh install --target claude` registers the `ycc` marketplace through the `claude` CLI, then
+runs `claude plugin install ycc@ycc --scope user`. Directory mode (default) runs
+`claude plugin marketplace add <absolute-repo-root> --scope user`, so the marketplace
+points at the repo checkout (`.claude-plugin/marketplace.json`, name `ycc`) and edits in `ycc/`
+apply on `/reload-plugins` with no rsync or cache clear; rerun `--only base` if the repo moves.
+Repo mode runs `claude plugin marketplace add yandy-r/claude-plugins --scope user`, a GitHub
+source; update with `claude plugin install ycc@ycc --scope user` or the `/plugins` UI. The CLI
+writes to `~/.claude/settings.json`. The installer first replaces a symlink there with a real
+file so the committed `ycc/settings/settings.json` is not modified, and the `settings` step
+later merges repo-managed keys while preserving the CLI-written marketplace entry. It also
+removes legacy `local-ycc-plugins` marketplace and `ycc@local-ycc-plugins` entries from
+`~/.claude.json` and `~/.claude/settings.local.json`, deleting `settings.local.json` if that
+leaves it empty. Other steps: `rules` links `~/.claude/CLAUDE.md`, `hooks` links
+`~/.claude/hooks`, `mods` registers the `ycc-mods` directory marketplace, and `skills`/`agents`
+install standalone copies into `~/.claude/` (warning about duplicate names if `ycc@ycc` is also
+installed). `remove --target claude` uninstalls `ycc@ycc` and the `ycc` marketplace.
 
 **INSTALL_PATH:cursor**
 Generated bundle lives at `.cursor-plugin/`; consumed by Cursor from the repo root.
