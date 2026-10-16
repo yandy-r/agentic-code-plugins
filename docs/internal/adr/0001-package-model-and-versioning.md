@@ -195,6 +195,12 @@ not rename the checked-in Codex catalog, list any package, or change installer m
 Its harness (`scripts/test-codex-native-packages.sh`) installed `ycc@ycc` and `ycc-mcp@ycc`
 on codex-cli 0.161.0 from full and sparse local Git fixtures and ran a cache-resolved bundled
 helper. It did not exercise public GitHub transport or codex-cli 0.160.
+YAN-1163 subsequently verified anonymous public GitHub HTTPS full and sparse installation
+on exact codex-cli 0.160.0 with independently installed `ycc@ycc` and `ycc-mcp@ycc`,
+cache-relative helper execution, and MCP metadata assertions. The fixture payload version
+was 5.3.0, not the target v6.0.0. See the [public fork install evidence](../spikes/codex-public-fork-install.md)
+for pinned fixture/binary provenance, replay commands, and boundaries. Production listing
+(YAN-1140) and migration/dedupe (YAN-1139) remain closed; catalogs stay hidden.
 
 YAN-1132 later generated the hidden native Cursor packages under `packages/cursor/` from
 `ycc/settings/packages.json`: `ycc` (skills, agents, shared, and thin command files derived
