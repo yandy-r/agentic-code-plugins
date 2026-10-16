@@ -6,6 +6,8 @@ Generate Codex-native plugin skills under plugins/ycc/skills from ycc/skills.
 from __future__ import annotations
 
 import argparse
+import os
+import re
 import shutil
 import stat
 import sys
@@ -71,7 +73,101 @@ def rewrite_plugin_paths(text: str) -> str:
     return __import__("re").sub(pattern, replace, text)
 
 
-def transform_skill_markdown(raw: str, aliases: dict[str, str]) -> str:
+NATIVE_SHELL_SUFFIXES = frozenset({".sh", ".bash"})
+_RESOURCE_TAIL = r"([^\s\"'`()<>]+)"
+NATIVE_PROMPT_FILES = frozenset(
+    {
+        "skills/git-workflow/templates/agent-prompts.md",
+        "skills/plan-workflow/references/planning-agents.md",
+    }
+)
+NATIVE_PLUGIN_PLACEHOLDER = "<installed ycc plugin root>"
+
+
+def rewrite_native_paths(text: str, output_path: Path) -> str:
+    """Make bundled resources relative to the emitted file instead of the installer symlink.
+
+    Shell code gets ``${SCRIPT_DIR}``-anchored paths so helpers never depend on cwd;
+    every caller defines SCRIPT_DIR. Comments and documents get plain relative paths.
+    """
+    is_shell = output_path.suffix in NATIVE_SHELL_SUFFIXES
+
+    def relative_resource(path: str, executable: bool) -> str:
+        if "{{" in path:
+            # Scaffold payloads describe the future authored skill, not this template.
+            return "${CLAUDE_PLUGIN_ROOT}/" + path
+        if path.startswith("skills/_shared/"):
+            path = "shared/" + path[len("skills/_shared/") :]
+        if output_path.as_posix() in NATIVE_PROMPT_FILES:
+            return NATIVE_PLUGIN_PLACEHOLDER + "/" + path
+        relative = Path(os.path.relpath(path, output_path.parent)).as_posix()
+        if path.endswith("/"):
+            relative += "/"
+        return "${SCRIPT_DIR}/" + relative if executable else relative
+
+    def rewrite(segment: str, executable: bool) -> str:
+        segment = re.sub(
+            re.escape(HOME_INSTALL_PLUGIN_ROOT) + "/" + _RESOURCE_TAIL,
+            lambda match: relative_resource(match.group(1), executable),
+            segment,
+        )
+
+        def home_skill(match: re.Match[str]) -> str:
+            # Only bundled skills move into the plugin; other user skills stay home-relative.
+            if not (SRC_SKILLS_DIR / match.group(1).split("/", 1)[0]).is_dir():
+                return match.group(0)
+            return relative_resource("skills/" + match.group(1), executable)
+
+        segment = re.sub(r"~/\.codex/skills/" + _RESOURCE_TAIL, home_skill, segment)
+        if is_shell:
+            return segment
+        # Authored Markdown links can use the source-tree sibling `_shared/` directory.
+        return re.sub(
+            r"(?:\.\./)+_shared/" + _RESOURCE_TAIL,
+            lambda match: relative_resource("shared/" + match.group(1), executable),
+            segment,
+        )
+
+    if not is_shell:
+        rendered = rewrite(text, executable=False)
+        if output_path.as_posix() in NATIVE_PROMPT_FILES:
+            root = Path(os.path.relpath(".", output_path.parent)).as_posix()
+            rendered = (
+                "## Native prompt substitution\n\nBefore forwarding any prompt, replace every `"
+                + NATIVE_PLUGIN_PLACEHOLDER
+                + "` with the absolute installed ycc plugin root (resolve `"
+                + root
+                + "` from this document's directory). Forward only absolute resource paths; "
+                "keep the user's project as cwd.\n\n" + rendered
+            )
+        if output_path.as_posix() in {
+            "skills/git-workflow/SKILL.md",
+            "skills/git-workflow/references/commit-phases.md",
+        }:
+            instruction = (
+                " Before Step 14 dispatch, expand every `<installed ycc plugin root>` in "
+                "the agent prompt to the absolute plugin root derived from this installed "
+                "SKILL.md; send absolute helper/reference paths and retain the project cwd."
+            )
+            rendered = re.sub(
+                r"(?m)^.*(?:Step 14|Step 6.*Step 8.*Step 14).*$",
+                lambda match: match.group(0) + instruction,
+                rendered,
+                count=1,
+            )
+        return rendered
+    return "".join(
+        rewrite(line, executable=not line.lstrip().startswith("#")) for line in text.splitlines(keepends=True)
+    )
+
+
+def transform_skill_markdown(
+    raw: str,
+    aliases: dict[str, str],
+    *,
+    native_paths: bool = False,
+    output_path: Path | None = None,
+) -> str:
     frontmatter, body = parse_frontmatter(raw)
     name = str(frontmatter.get("name") or "skill")
     model_invocation_disabled(frontmatter, name)
@@ -80,11 +176,23 @@ def transform_skill_markdown(raw: str, aliases: dict[str, str]) -> str:
         rewrite_plugin_paths(description),
         aliases,
     ).strip()
+    if native_paths:
+        if output_path is None:
+            raise ValueError("native skill rendering requires its output path")
+        transformed_description = rewrite_native_paths(transformed_description, output_path)
     transformed_description = compress_skill_description(transformed_description)
     transformed_body = apply_codex_text_transforms(
         rewrite_plugin_paths(body),
         aliases,
     )
+    if native_paths:
+        transformed_body = rewrite_native_paths(transformed_body, output_path)
+        transformed_body = (
+            "\nBundled paths are relative to this SKILL.md's directory (the installed location "
+            "shown by Codex); in reference documents, use that document's directory. Resolve "
+            "them to absolute paths and run helpers by absolute path while keeping the user's "
+            "project as cwd.\n\n" + transformed_body.lstrip("\n")
+        )
     payload = {
         "name": name,
         "description": transformed_description,
@@ -140,7 +248,7 @@ def prune_orphans(dest_root: Path, expected_files: set[Path]) -> None:
             path.rmdir()
 
 
-def write_tree(dest_root: Path, dry_run: bool) -> set[Path]:
+def write_tree(dest_root: Path, dry_run: bool, *, native_paths: bool = False) -> set[Path]:
     aliases = load_agent_aliases()
     written: set[Path] = set()
     manual_skills: list[Path] = []
@@ -197,12 +305,19 @@ def write_tree(dest_root: Path, dry_run: bool) -> set[Path]:
                         # Version claims name the real product, not the target runtime.
                         text = text.replace("Claude Code", "\x00INIT_CLAUDE_CODE\x00")
                 if src.name == "SKILL.md":
-                    transformed = transform_skill_markdown(text, aliases)
+                    transformed = transform_skill_markdown(
+                        text,
+                        aliases,
+                        native_paths=native_paths,
+                        output_path=out.relative_to(dest_root),
+                    )
                 else:
                     transformed = apply_codex_text_transforms(
                         rewrite_plugin_paths(text),
                         aliases,
                     )
+                    if native_paths:
+                        transformed = rewrite_native_paths(transformed, out.relative_to(dest_root))
                 if rel.parts and rel.parts[0] == "bundle-release":
                     transformed = restore_bundle_release_source_paths(transformed)
                 transformed = transformed.replace("\x00RELEASE_MODEL_CLAUDE_FILE\x00", "CLAUDE.md")

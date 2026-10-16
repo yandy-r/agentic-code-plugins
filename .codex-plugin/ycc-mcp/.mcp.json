@@ -1,0 +1,99 @@
+{
+  "mcpServers": {
+    "github": {
+      "command": "github-mcp-server",
+      "args": [
+        "stdio"
+      ],
+      "tools": {
+        "create_pull_request": {
+          "approval_mode": "approve"
+        },
+        "pull_request_review_write": {
+          "approval_mode": "approve"
+        },
+        "issue_write": {
+          "approval_mode": "approve"
+        },
+        "update_pull_request": {
+          "approval_mode": "approve"
+        },
+        "add_issue_comment": {
+          "approval_mode": "approve"
+        },
+        "sub_issue_write": {
+          "approval_mode": "approve"
+        },
+        "merge_pull_request": {
+          "approval_mode": "approve"
+        },
+        "add_comment_to_pending_review": {
+          "approval_mode": "approve"
+        }
+      }
+    },
+    "context7": {
+      "url": "https://mcp.context7.com/mcp"
+    },
+    "stripe": {
+      "url": "https://mcp.stripe.com"
+    },
+    "xero": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@xeroapi/xero-mcp-server@latest"
+      ],
+      "env_vars": [
+        "XERO_CLIENT_ID",
+        "XERO_CLIENT_SECRET"
+      ]
+    },
+    "linear": {
+      "url": "https://mcp.linear.app/mcp"
+    },
+    "linear-personal": {
+      "url": "https://mcp.linear.app/mcp"
+    },
+    "vercel": {
+      "url": "https://mcp.vercel.com"
+    },
+    "railway": {
+      "url": "https://mcp.railway.com"
+    },
+    "playwright": {
+      "args": [
+        "@playwright/mcp@latest"
+      ],
+      "command": "npx",
+      "tools": {
+        "browser_navigate": {
+          "approval_mode": "approve"
+        },
+        "browser_evaluate": {
+          "approval_mode": "approve"
+        },
+        "browser_click": {
+          "approval_mode": "approve"
+        },
+        "browser_resize": {
+          "approval_mode": "approve"
+        },
+        "browser_press_key": {
+          "approval_mode": "approve"
+        }
+      }
+    },
+    "openaiDeveloperDocs": {
+      "url": "https://developers.openai.com/mcp",
+      "tools": {
+        "search_openai_docs": {
+          "approval_mode": "approve"
+        },
+        "fetch_openai_doc": {
+          "approval_mode": "approve"
+        }
+      }
+    }
+  }
+}
