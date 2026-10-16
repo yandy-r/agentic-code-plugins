@@ -24,9 +24,11 @@ today.**
    generated skill references `~/.agents/ycc-shared/...`; that directory is never created,
    so all four direct shared references in `plan` are missing after install. Its five
    direct `references/` files exist, but nested references are not all resolvable.
-4. **The literal issue command fails.** `add <repo> -g -s plan -y` defaults to all agents
-   and aborts with `Eve does not support global skill installation` (exit 1). Passing an
-   agent (`-a codex`) installs successfully.
+4. **The literal issue command partially installs, then fails.** In the empty test home,
+   `add <repo> -g -s plan -y` targets all agents and returns exit 1 for
+   `Eve does not support global skill installation`. It is **not a rollback**: the skill,
+   lock entry, and links under dozens of other agent directories remain. Passing an
+   explicit agent (`-a codex`) installs successfully without that all-agent fan-out.
 
 Per-skill vendoring is one possible remedy (partial cost below), not a proven requirement.
 A separate shared-unit install or different bundle layout was not evaluated. No generator
