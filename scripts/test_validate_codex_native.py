@@ -96,6 +96,39 @@ class CodexMarketplaceSchemaTests(unittest.TestCase):
                 {"source": "npm", "package": "plugin", "registry": "http://registry.example.invalid"},
                 "registry must be an HTTPS URL",
             ),
+            (
+                {"source": "npm", "package": "plugin", "registry": "https://registry.example.invalid?next=1"},
+                "registry must be an HTTPS URL",
+            ),
+            (
+                {"source": "npm", "package": "plugin", "registry": "https://registry.example.invalid#readme"},
+                "registry must be an HTTPS URL",
+            ),
+            ({"source": "npm", "package": "plugin", "registry": "https://registry.example.invalid?"}, "registry"),
+            ({"source": "npm", "package": "plugin", "registry": "https://registry.example.invalid#"}, "registry"),
+            (
+                {"source": "npm", "package": "plugin", "registry": "https://host:notaport"},
+                "registry port must be a valid port number",
+            ),
+            (
+                {"source": "npm", "package": "plugin", "registry": "https://registry.example.invalid:99999"},
+                "registry port must be a valid port number",
+            ),
+            (
+                {"source": "npm", "package": "plugin", "registry": "https://registry.example .invalid"},
+                "registry must name a valid host",
+            ),
+            (
+                {"source": "npm", "package": "plugin", "registry": "https://host:notaport/99999/space"},
+                "registry port must be a valid port number",
+            ),
+            ({"source": "url", "url": "owner/.git"}, "supported git source"),
+            ({"source": "url", "url": "owner/"}, "supported git source"),
+            ({"source": "git-subdir", "url": "owner/.git", "path": "plugin"}, "supported git source"),
+            (
+                {"source": "npm", "package": "plugin", "registry": "https://registry.example%20.invalid"},
+                "registry must name a valid host",
+            ),
         )
         for source, message in cases:
             with self.subTest(source=source):

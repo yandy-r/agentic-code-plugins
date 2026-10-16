@@ -17,7 +17,7 @@ import json
 import sys
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 MARKETPLACE_NAME = "local-ycc-plugins"
 INTERFACE = {"displayName": "Local YCC Plugins"}
@@ -68,8 +68,12 @@ def _validate_git_shape(tag: str, source: dict[str, Any]) -> None:
     if relative and ".." in url.replace("\\", "/").split("/"):
         raise _fail(f"{tag}: relative url must stay within the marketplace root")
     shorthand = url.split("/")
-    github = len(shorthand) == 2 and all(
-        segment and all(ch.isascii() and (ch.isalnum() or ch in "-_.") for ch in segment) for segment in shorthand
+    github = (
+        len(shorthand) == 2
+        and all(
+            segment and all(ch.isascii() and (ch.isalnum() or ch in "-_.") for ch in segment) for segment in shorthand
+        )
+        and bool(shorthand[1].removesuffix(".git"))
     )
     prefixes = ("http://", "https://", "./", ".\\", "file://", "/", "ssh://")
     if not (url.startswith(prefixes) or (url.startswith("git@") and ":" in url) or github):
@@ -99,16 +103,24 @@ def _validate_npm_shape(source: dict[str, Any]) -> None:
         if version in {".", ".."} or any(ch in version for ch in "/\\:"):
             raise _fail("npm: version must use the registry")
     if source.get("registry") is not None:
-        registry = urlsplit(_string_field(source, "npm", "registry").strip())
-        if (
-            registry.scheme != "https"
-            or not registry.hostname
-            or registry.username
-            or registry.password
-            or registry.query
-            or registry.fragment
-        ):
+        raw_registry = _string_field(source, "npm", "registry").strip()
+        if "?" in raw_registry or "#" in raw_registry:
             raise _fail("npm: registry must be an HTTPS URL without credentials, query or fragment")
+        registry = urlsplit(raw_registry)
+        authority = raw_registry.partition("//")[2].split("/", 1)[0]
+        if any(ch.isspace() or ord(ch) < 32 or ord(ch) == 127 for ch in authority):
+            raise _fail("npm: registry must name a valid host")
+        host = unquote(registry.hostname or "")
+        if any(ch.isspace() or ord(ch) < 32 or ch in " #%/<>?@\\^|" for ch in host):
+            raise _fail("npm: registry must name a valid host")
+        if registry.scheme != "https" or not registry.hostname or registry.username or registry.password:
+            raise _fail("npm: registry must be an HTTPS URL without credentials, query or fragment")
+        try:
+            _ = registry.port
+        except ValueError:
+            # urlsplit only raises when the authority is inspected: reject the
+            # unparseable ports (``notaport``) and out-of-range ports (``99999``).
+            raise _fail("npm: registry port must be a valid port number") from None
 
 
 def validate_marketplace_source(source: object, *, plugin_name: str = "<unknown>") -> dict[str, Any]:
