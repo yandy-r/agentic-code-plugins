@@ -17,6 +17,8 @@ from package_graph_extract import Graph, extract_graph  # noqa: E402
 from package_model import DEFAULT_MANIFEST_PATH, PackageModel, PackageModelError, load_package_model  # noqa: E402
 
 COMPONENT_OF_KIND = {"skill": "skills", "agent": "agents", "shared": "shared"}
+# `mention` edges record prose/navigational `ycc:` cross-references, not runtime dispatch or
+# file reach-ins; keep them out of closure so docs mentions do not force the v7 `ycc-agents` split.
 CLOSURE_EDGE_KINDS = frozenset({"dispatch", "catalog", "shared", "script", "file", "preload", "handoff"})
 # Public packages only: `installer-fallback` (file-copy) is "not a public installable package id"
 # (packages.json). Its overlaps with ycc-hooks@cursor and the opt-in opencode npm package are
