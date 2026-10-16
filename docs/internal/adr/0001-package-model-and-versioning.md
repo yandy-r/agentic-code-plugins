@@ -30,8 +30,9 @@ Five spikes tested the runtime questions on pinned versions. Each has a go/no-go
 | Cursor   | [cursor-plugin](../spikes/cursor-plugin.md)               | YAN-1124 / [#292](https://github.com/yandy-r/claude-plugins/issues/292) | IDE 3.24.12, agent 2026.10.14-941492e | User-scope GitHub marketplace **Go**; `sessionStart` **Go**; `WorktreeCreate` **No-Go**; no non-interactive install              |
 | opencode | [opencode-config-hook](../spikes/opencode-config-hook.md) | YAN-1125 / [#290](https://github.com/yandy-r/claude-plugins/issues/290) | opencode v2.0.29                      | V2 plugin registers agents, commands, skills, MCP, and a context hook **Go**; config `instructions` and V1 config hook **No-Go** |
 
-No spike ran the `npx skills` path (its spike file is not in the tree), so the cross-tool
-`agents` target stays file copy.
+The [npx skills spike](../spikes/npx-skills.md) found that `npx skills` installs one
+selected skill directory and does not install `~/.agents/ycc-shared`. The cross-tool
+`agents` target stays an `install.sh` file copy.
 
 Test versions are data points, not minimum supported versions. The hook spike shows
 2.1.143 failing and 2.1.300 passing. It does not establish any version between them, and
@@ -78,7 +79,7 @@ planned on documentation alone and must be tested before it is listed.
 | Cursor   | `ycc-hooks@ycc`                                                    | Native hooks package under `packages/cursor/ycc-hooks/` | Hidden and unlisted; `sessionStart` only, from `ycc/settings/cursor/{hooks.json,herdr-session-start.sh}`. No `WorktreeCreate` mapping; installer hooks intent remains a no-op.                                                                               | cursor-plugin                                         |
 | opencode | File copy (skills, agents, commands, `opencode.json`, `AGENTS.md`) | `install.sh`                                            | **Primary and unchanged.**                                                                                                                                                                                                                                   | opencode-config-hook (fallback)                       |
 | opencode | `@yandy-r/ycc-opencode`                                            | One npm plugin; V2 `setup` registers components         | Experimental and **opt-in** in v6; owner-decided CI publication with provenance on a maintainer-pushed product tag (workflow not implemented).                                                                                                               | opencode-config-hook                                  |
-| agents   | Skills and `ycc-shared`                                            | File copy into `~/.agents/skills`                       | `install.sh` only. `npx skills` unspiked.                                                                                                                                                                                                                    | none                                                  |
+| agents   | Skills and `ycc-shared`                                            | File copy into `~/.agents/skills`                       | `install.sh` only. The npx skills spike does not replace that install.                                                                                                                                                                                       | [npx-skills](../spikes/npx-skills.md)                 |
 
 The opencode spike verified **GO** for the V2 `plugins` array, whose default-exported
 `{ id, setup }` plugin registered agents, commands, skills, and MCP through the V2
@@ -175,12 +176,17 @@ The gates and feature switches are listed in
   Plugin-delivered instructions can use the verified context hook. Discovered global and
   ancestor `AGENTS.md` files remain supported.
 
-## Not implemented
+## Still absent
 
-Historical snapshot as of this ADR's authoring on **2026-10-15**, before YAN-1128:
-each item below was planned and absent from the tree then. YAN-1128 implements the manifest,
-schema, loader, and `packages` validator group; YAN-1129 implements the package graph and
-closure validator; generator consumption remains pending.
+`install.sh` has no `--package` or `migrate` command. No workflow publishes
+`@yandy-r/ycc-opencode`. The checked-in Codex catalog is still named `local-ycc-plugins`.
+
+### Snapshot from 2026-10-15
+
+These items were absent before YAN-1128. YAN-1128 added the manifest, schema, loader,
+and `packages` validator group. YAN-1129 added the package graph and closure validator.
+Claude, Codex, and Cursor generators now read that manifest and keep new native packages
+unlisted. The paragraphs after the bullets record those landings.
 
 - `ycc/settings/packages.json` and the package graph (`scripts/build_package_graph.py`).
 - Per-runtime package generators and the `install.sh --package` and `migrate` commands.
@@ -233,7 +239,7 @@ This ADR changes no generated bundle, marketplace, or manifest.
 
 - Spike dossiers: [claude-namespace](../spikes/claude-namespace.md), [claude-hooks](../spikes/claude-hooks.md),
   [codex-marketplace](../spikes/codex-marketplace.md), [cursor-plugin](../spikes/cursor-plugin.md),
-  [opencode-config-hook](../spikes/opencode-config-hook.md).
+  [opencode-config-hook](../spikes/opencode-config-hook.md), [npx-skills](../spikes/npx-skills.md).
 - Decision inputs: [recommendation](../../research/agentic-code-plugins/recommendation.md)
   (owner decisions of 2026-10-14 in section 0) and [roadmap](../../research/agentic-code-plugins/roadmap.json).
 - Release rules and switches: [RELEASING.md](../../../RELEASING.md).
