@@ -6,13 +6,13 @@
 #   ./scripts/sync.sh --only inventory           # single target
 #   ./scripts/sync.sh --only cursor,codex        # comma-separated subset
 #
-# Targets: inventory, cursor, codex, opencode, agents
+# Targets: inventory, cursor, codex, opencode, agents, claude
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-VALID_TARGETS=(inventory cursor codex opencode agents)
+VALID_TARGETS=(inventory cursor codex opencode agents claude)
 TARGETS=("${VALID_TARGETS[@]}")
 
 usage() {
@@ -98,6 +98,10 @@ run_ycc_target() {
         agents)
             echo "== sync: agents skills =="
             "${REPO_ROOT}/scripts/generate-agents-skills.sh"
+            ;;
+        claude)
+            echo "== sync: claude packages =="
+            "${REPO_ROOT}/scripts/generate-claude-packages.sh"
             ;;
     esac
 }
