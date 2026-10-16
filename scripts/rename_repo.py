@@ -226,6 +226,7 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.write(f"dry run: {total} replacement(s) in {len(plans)} file(s); nothing written\n")
         return EXIT_OK
 
+    written: list[str] = []
     for rel, path, st, _before, after, _count in plans:
         try:
             if not _same_file(st, os.lstat(path)):
@@ -233,7 +234,10 @@ def main(argv: list[str] | None = None) -> int:
             _atomic_write(path, after, stat.S_IMODE(st.st_mode))
         except OSError as exc:
             sys.stderr.write(f"error: failed writing {rel}: {exc.strerror or exc}\n")
+            if written:
+                sys.stderr.write(f"error: partial rename; already written: {', '.join(written)}\n")
             return EXIT_WRITE
+        written.append(rel)
     sys.stdout.write(f"renamed {old} -> {new}: {total} replacement(s) in {len(plans)} file(s)\n")
     return EXIT_OK
 

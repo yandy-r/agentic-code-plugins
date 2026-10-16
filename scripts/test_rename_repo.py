@@ -592,8 +592,12 @@ class RealCheckoutTests(RenameRepoTestCase):
         modes = {
             rel: stat.S_IMODE(os.stat(SCRIPTS_DIR.parent / rel, follow_symlinks=False).st_mode) for rel in ALLOWLIST
         }
+        # Before the flip the checkout carries OLD; after YAN-1138 applies the rename it carries
+        # NEW. Preview the transformation that is still possible so coverage survives the flip.
+        pre_flip = any(OLD.encode() in data for data in before.values())
+        source, target = (OLD, NEW) if pre_flip else (NEW, OLD)
         result = subprocess.run(
-            [str(WRAPPER_SRC), "--from", OLD, "--to", NEW, "--dry-run"],
+            [str(WRAPPER_SRC), "--from", source, "--to", target, "--dry-run"],
             capture_output=True,
             text=True,
             errors="replace",
