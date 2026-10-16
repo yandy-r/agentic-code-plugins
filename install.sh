@@ -563,6 +563,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --force)
+            # shellcheck disable=SC2034  # read by core.sh, cli.sh, and bundle.sh
             FORCE=1
             shift
             ;;

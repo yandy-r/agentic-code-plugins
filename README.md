@@ -101,7 +101,7 @@ The plugin bundles **55** specialized agents covering codebase analysis, languag
 <!-- END:GENERATED-AGENTS -->
 
 - **Claude Code:** reference any of them via `subagent_type: "ycc:{agent-name}"`. Canonical source lives in [`ycc/agents/`](ycc/agents/).
-- **Cursor:** generated, Cursor-native copies live in [`.cursor-plugin/agents/`](.cursor-plugin/agents/) (produced from `ycc/agents/` — see the [Cursor install guide](docs/install/cursor.md)).
+- **Cursor:** generated copies live in [`packages/cursor/ycc/agents/`](packages/cursor/ycc/agents/), produced from `ycc/agents/`. See the [Cursor install guide](docs/install/cursor.md).
 - **Codex:** generated, Codex-native custom-agent TOMLs live in [`.codex-plugin/agents/`](.codex-plugin/agents/) (produced from `ycc/agents/` — see the [Codex install guide](docs/install/codex.md)).
 - **opencode:** generated, opencode-native agent markdown files live in [`.opencode-plugin/agents/`](.opencode-plugin/agents/) (produced from `ycc/agents/` — see the [opencode install guide](docs/install/opencode.md)). Invoke via `@agent-name` or the native v2 `subagent` tool.
 
@@ -192,9 +192,7 @@ Use `ycc:plan-workflow` to run the full pipeline, or invoke individual stages. `
 
 ## Development Sync
 
-This repository maintains generated compatibility trees under **`.cursor-plugin/`**,
-**`.codex-plugin/`**, and **`.opencode-plugin/`**. The canonical source of truth
-is the Claude-facing [`ycc/`](ycc/) tree.
+Generated trees live under `packages/cursor/`, `packages/claude/`, `.agents-plugin/`, `.codex-plugin/`, and `.opencode-plugin/`. The canonical source is the Claude-facing [`ycc/`](ycc/) tree. Do not hand-edit generated files.
 
 Regenerate and validate derived artifacts with:
 
@@ -203,21 +201,36 @@ Regenerate and validate derived artifacts with:
 ./scripts/validate.sh    # run every validator; CI runs this on push and PR
 ```
 
-Both accept `--only <targets>` with comma-separated values. Valid targets:
+Both accept `--only <targets>` with comma-separated values.
 
-- `inventory` — `docs/inventory.json` and the `GENERATED-*` regions of `README.md`
-- `cursor` — `.cursor-plugin/` agents, skills, and rules
-- `codex` — `.codex-plugin/` skills, agents, and plugin metadata
-- `opencode` — `.opencode-plugin/` skills, agents, commands, and plugin metadata (opencode.json + AGENTS.md)
-- `agents` — `.agents-plugin/` cross-tool skills for `~/.agents/skills` (+ `ycc-shared/`)
-- `json` — JSON-lint `.claude-plugin/marketplace.json` and `ycc/.claude-plugin/plugin.json` (validate only)
+`sync.sh` targets are `inventory`, `cursor`, `codex`, `opencode`, `agents`, and `claude`.
+
+- `inventory` updates `docs/inventory.json` and the `GENERATED-*` regions of `README.md`.
+- `cursor` writes native packages under `packages/cursor/`.
+- `codex` writes `.codex-plugin/` skills, agents, and plugin metadata.
+- `opencode` writes `.opencode-plugin/` skills, agents, commands, `opencode.json`, and `AGENTS.md`.
+- `agents` writes `.agents-plugin/` cross-tool skills for `~/.agents/skills`, plus `ycc-shared/`.
+- `claude` writes the hidden packages under `packages/claude/` (`ycc-mcp`, `ycc-hooks`, and `ycc-all`).
+
+`validate.sh` accepts those names and also `claude-native`, `cursor-native`, `codex-native`, `json`, `config`, `packages`, `release`, `mods`, `practices`, and `scope`.
+
+- `claude-native`, `cursor-native`, and `codex-native` check generated native package drift, runtime policy, and fixtures.
+- `json` checks `.claude-plugin/marketplace.json` and `ycc/.claude-plugin/plugin.json`.
+- `packages` checks `ycc/settings/packages.json`, dependency closures, and catalog parity.
+- `config` tests managed-config merge and the `install.sh` sync CLI.
+- `release` runs `scripts/test-release-*.sh`.
+- `mods` checks the Claude Code mods under `ycc/mods`.
+- `practices` checks the authoring ratchet in `scripts/practices-baseline.json`.
+- `scope` checks the changed-path mapping behind `--changed`.
 
 Examples:
 
 ```bash
 ./scripts/sync.sh --only inventory
-./scripts/validate.sh --only cursor,codex,opencode
-./scripts/sync.sh --only opencode
+./scripts/sync.sh --only claude
+./scripts/sync.sh --only cursor
+./scripts/validate.sh --only cursor,cursor-native,packages
+./scripts/validate.sh --only claude,claude-native,packages
 ```
 
 `validate.sh` runs its targets concurrently (`--serial` streams them one at a time). `--changed` limits a run to the targets affected by files changed since the branch's push destination; the `pre-push` hook uses it.
@@ -245,6 +258,7 @@ claude-plugins/
 ├── .agents/
 │   └── plugins/
 │       └── marketplace.json # repo-local Codex marketplace source
+├── .agents-plugin/          # generated cross-tool skills and ycc-shared
 ├── .codex-plugin/
 │   ├── agents/              # generated Codex custom agents (.toml)
 │   └── ycc/                 # generated Codex plugin root
@@ -253,10 +267,9 @@ claude-plugins/
 │       ├── .mcp.json
 │       ├── shared/
 │       └── skills/
-├── .cursor-plugin/            # Cursor IDE bundle (synced by install.sh install --target cursor)
-│   ├── agents/                # generated from ycc/agents (run scripts/generate-cursor-agents.sh)
-│   ├── rules/                 # generated from ycc/rules (run scripts/generate-cursor-rules.sh)
-│   └── skills/                # generated from ycc/skills (run scripts/generate-cursor-skills.sh)
+├── packages/                  # generated native packages; do not hand-edit
+│   ├── claude/                # ycc-mcp, ycc-hooks, ycc-all; all unlisted
+│   └── cursor/                # ycc, ycc-rules, ycc-mcp, ycc-hooks, installer-fallback
 ├── .opencode-plugin/          # opencode bundle (synced by install.sh install --target opencode)
 │   ├── agents/                # generated from ycc/agents
 │   ├── commands/              # generated from public ycc/skills (thin, skill-tool dispatch)
@@ -278,13 +291,17 @@ claude-plugins/
 │   ├── generate_codex_plugin.py    # plugin manifest + repo-local marketplace metadata
 │   ├── validate-codex-plugin.sh    # JSON + sync check
 │   ├── generate-cursor-agents.sh   # wrapper → generate_cursor_agents.py
-│   ├── generate_cursor_agents.py   # ycc/agents → .cursor-plugin/agents
+│   ├── generate_cursor_agents.py   # ycc/agents to packages/cursor/ycc/agents
 │   ├── validate-cursor-agents.sh   # sync check + content policy
 │   ├── generate-cursor-skills.sh   # wrapper → generate_cursor_skills.py
-│   ├── generate_cursor_skills.py   # ycc/skills → .cursor-plugin/skills
+│   ├── generate_cursor_skills.py   # ycc/skills to packages/cursor/ycc/skills
 │   ├── validate-cursor-skills.sh   # sync check + content policy
 │   ├── generate-cursor-rules.sh    # wrapper → generate_cursor_rules.py
-│   ├── generate_cursor_rules.py    # ycc/rules → .cursor-plugin/rules (.md → .mdc)
+│   ├── generate_cursor_rules.py    # ycc/rules to packages/cursor/ycc-rules/rules (.mdc)
+│   ├── generate-cursor-packages.sh # wrapper for generate_cursor_packages.py (sync --only cursor)
+│   ├── generate_cursor_packages.py # writes packages/cursor/
+│   ├── generate-claude-packages.sh # wrapper for generate_claude_packages.py (sync --only claude)
+│   ├── generate_claude_packages.py # writes packages/claude/
 │   ├── validate-cursor-rules.sh    # sync + frontmatter lint + content policy
 │   ├── generate-opencode-skills.sh    # wrapper → generate_opencode_skills.py
 │   ├── generate_opencode_skills.py    # ycc/skills → .opencode-plugin/skills

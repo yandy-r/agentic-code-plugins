@@ -16,6 +16,7 @@ Claude-only notes, and path-specific Claude rules live under
 | Path                           | Purpose                                                                          |
 | ------------------------------ | -------------------------------------------------------------------------------- |
 | `install/`                     | Runtime-specific install guides for Claude, Cursor, Codex, and opencode.         |
+| `internal/`                    | Architecture notes, native-package records, and spike dossiers.                  |
 | `plans/`                       | Multi-phase implementation plans — see below.                                    |
 | `releases/`                    | One file per tagged release, drafted by `ycc:bundle-release`.                    |
 | `prps/`                        | Product Requirements / Plans / Reviews — PRP-workflow artifacts.                 |
@@ -54,13 +55,11 @@ template in
 
 Latest entries:
 
-- [`releases/2.5.0.md`](releases/2.5.0.md) — `ycc:git-cleanup` skill,
-  `--hooks` install flag, `--worktree` task isolation, skill↔command
-  pairing policy.
-- [`releases/2.4.0.md`](releases/2.4.0.md)
-- [`releases/2.3.2.md`](releases/2.3.2.md) · [`2.3.1`](releases/2.3.1.md) · [`2.3.0`](releases/2.3.0.md)
-- [`releases/2.2.0.md`](releases/2.2.0.md)
-- [`releases/2.1.0.md`](releases/2.1.0.md)
+- [`releases/5.3.0.md`](releases/5.3.0.md) covers per-runtime worktree roots, `AGENTS.md` from `ycc:init`, and retired command wrappers.
+- [`releases/5.2.1.md`](releases/5.2.1.md) covers selectable MCP servers and the cross-tool agents install target.
+- [`releases/5.2.0.md`](releases/5.2.0.md) covers standalone skills, agents, and commands, plus installer config removal.
+
+Older notes stay in [`releases/`](releases/).
 
 ## PRP artifacts
 
