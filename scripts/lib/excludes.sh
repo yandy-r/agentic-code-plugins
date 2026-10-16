@@ -53,6 +53,7 @@ STYLE_EXCLUDES=(
     packages/cursor
     .codex-plugin
     .opencode-plugin
+    packages/opencode
 
     # Managed formatter bundle assets copied into downstream repos. Keep these
     # as exact file paths so user-authored files under scripts/templates/ still lint.

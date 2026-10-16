@@ -1,0 +1,69 @@
+name: Publish experimental opencode package
+
+# Only a maintainer-pushed product tag can publish; never branches, PRs, or a manual run.
+# Protect v* tag creation and the release environment with maintainer-only approval.
+on:
+  push:
+    tags: ['v*']
+
+permissions: {}
+
+concurrency:
+  group: opencode-npm-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish-opencode:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: release
+    permissions:
+      contents: read
+      id-token: write # npm provenance attestation; not registry authentication.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fetch current main and pushed tag for ancestry guard
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          git fetch --no-tags origin "+refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check product tag, main ancestry, and required lockstep versions
+        run: python3 scripts/opencode_npm_release.py
+      - name: Install validator dependencies
+        run: python3 -m pip install pyyaml==6.0.3 jsonschema==4.19.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: https://registry.npmjs.org
+
+      - name: Validate generated package and package model
+        run: ./scripts/validate.sh --only opencode,packages
+
+      - name: Exercise release lockstep regressions
+        run: bash scripts/test-release-bundle.sh
+
+      - name: Pack validated package without lifecycle scripts
+        working-directory: packages/opencode/ycc-opencode
+        run: |
+          mkdir -p "${RUNNER_TEMP}/opencode-npm"
+          npm pack --ignore-scripts --pack-destination "${RUNNER_TEMP}/opencode-npm"
+
+      - name: Publish exact packed artifact with provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          test -n "${NODE_AUTH_TOKEN}" || { echo 'release environment NPM_TOKEN is required' >&2; exit 1; }
+          artifact="${RUNNER_TEMP}/opencode-npm/yandy-r-ycc-opencode-${GITHUB_REF_NAME#v}.tgz"
+          test -f "${artifact}"
+          npm publish "${artifact}" --ignore-scripts --provenance --access public

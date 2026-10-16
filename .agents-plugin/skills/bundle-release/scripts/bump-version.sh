@@ -14,8 +14,7 @@
 # required included native manifests; a missing or malformed model fails before any
 # writes. Included native manifests must exist and carry a version; deferred/excluded
 # paths are suppressed and file-copy entries are skipped. Included opencode npm
-# manifests are check-only when present (temporarily tolerated when absent until the
-# opencode npm generator lands).
+# manifests are required to exist at the lockstep version (check-only).
 # Never touches ycc/mods (versioned separately) or generated bundles
 # (packages/, .agents/plugins/, .cursor-plugin/, .codex-plugin/, .opencode-plugin/) —
 # refresh those with ./scripts/sync.sh after the bump; preflight.sh enforces their parity.

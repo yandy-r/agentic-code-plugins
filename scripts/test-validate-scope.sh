@@ -106,7 +106,7 @@ expect_targets "practices rules module selects practices" "practices" scripts/pr
 expect_targets "package parity validator selects packages" "packages" scripts/validate_packages.py
 expect_targets "package parity tests select packages" "packages" scripts/test_validate_packages.py
 expect_targets "settings select everything" "${ALL}" ycc/settings/models.json
-expect_targets "package model selects content, native, generators and parity" "cursor codex claude claude-native cursor-native codex-native packages" scripts/package_model.py
+expect_targets "package model selects content, native, generators and parity" "cursor codex opencode claude claude-native cursor-native codex-native packages" scripts/package_model.py
 expect_targets "package graph builder selects packages" "packages" scripts/build_package_graph.py
 expect_targets "package graph extractor selects packages" "packages" scripts/package_graph_extract.py
 expect_targets "package graph tests select packages" "packages" scripts/test_package_graph.py

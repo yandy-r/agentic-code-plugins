@@ -193,8 +193,6 @@ def _model_manifests(root: Path) -> list[tuple[str, str, bool, bool]]:
                 if name in {".", ".."} or not name:
                     raise ReleaseError(f"{MODEL_REL}: {label}: invalid npm package key")
                 rel = f"packages/{runtime}/{name}/package.json"
-                # Remove this absent-file tolerance when the opencode npm generator lands.
-                required = False
             else:
                 raise ReleaseError(f"{MODEL_REL}: {label}: unsupported {mechanism} manifest")
             manifests.append((label, rel, status == "included", required))

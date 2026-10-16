@@ -1,0 +1,4383 @@
+{
+  "assets": [
+    "agents",
+    "shared",
+    "skills"
+  ],
+  "skills": [
+    {
+      "id": "backport",
+      "name": "backport",
+      "description": "Backports merged trunk PRs to maintenance branches. Use when backporting a fix, opening backport PRs, or auditing pending backports.",
+      "path": "skills/backport/SKILL.md",
+      "autoinvoke": false
+    },
+    {
+      "id": "blueprint",
+      "name": "blueprint",
+      "description": "Creates whole-project blueprints and bootstraps new software. Use when defining a project charter, choosing system architecture, or scaffolding an idea.",
+      "path": "skills/blueprint/SKILL.md",
+      "autoinvoke": false
+    },
+    {
+      "id": "bundle-author",
+      "name": "bundle-author",
+      "description": "Scaffolds ycc skills and agents for ycc maintainers only. Use when adding a ycc skill, adding a ycc agent, or extending bundle source.",
+      "path": "skills/bundle-author/SKILL.md",
+      "autoinvoke": false
+    },
+    {
+      "id": "bundle-release",
+      "name": "bundle-release",
+      "description": "Prepares ycc bundle releases for ycc maintainers only. Use when bumping ycc version, regenerating release bundles, or drafting ycc release notes.",
+      "path": "skills/bundle-release/SKILL.md",
+      "autoinvoke": false
+    },
+    {
+      "id": "clean",
+      "name": "clean",
+      "description": "Removes unnecessary project-directory files with approval. Use when deleting build artifacts, finding unused files, or clearing temporary files.",
+      "path": "skills/clean/SKILL.md",
+      "autoinvoke": false
+    },
+    {
+      "id": "code-report",
+      "name": "code-report",
+      "description": "Generates implementation reports from executed parallel plans. Use when documenting completed work, listing changed files, or recording test guidance.",
+      "path": "skills/code-report/SKILL.md"
+    },
+    {
+      "id": "code-review",
+      "name": "code-review",
+      "description": "Reviews local changes or GitHub PRs and saves actionable findings. Use when reviewing a PR, requesting a full local review, or creating a review-fix artifact.",
+      "path": "skills/code-review/SKILL.md"
+    },
+    {
+      "id": "compatibility-audit",
+      "name": "compatibility-audit",
+      "description": "Audits ycc compatibility for ycc maintainers only. Use when checking generated bundle drift, verifying install assumptions, or comparing target feature gaps.",
+      "path": "skills/compatibility-audit/SKILL.md",
+      "autoinvoke": false
+    },
+    {
+      "id": "deep-research",
+      "name": "deep-research",
+      "description": "Conducts multi-perspective strategic research. Use when investigating complex topics, comparing competitors, or gathering strategic intelligence.",
+      "path": "skills/deep-research/SKILL.md"
+    },
+    {
+      "id": "feature-research",
+      "name": "feature-research",
+      "description": "Researches features with seven specialists and consolidates a feature spec. Use when investigating APIs, assessing feature risks, or researching UX before planning.",
+      "path": "skills/feature-research/SKILL.md"
+    },
+    {
+      "id": "formatters",
+      "name": "formatters",
+      "description": "Bootstraps project linting and formatting tools. Use when installing formatters, adding lint scripts, or wiring lint CI and pre-commit hooks.",
+      "path": "skills/formatters/SKILL.md"
+    },
+    {
+      "id": "frontend-design",
+      "name": "frontend-design",
+      "description": "Builds frontend interfaces with intentional visual direction. Use when designing a landing page, upgrading a bland UI, or choosing typography and color.",
+      "path": "skills/frontend-design/SKILL.md"
+    },
+    {
+      "id": "frontend-patterns",
+      "name": "frontend-patterns",
+      "description": "Guides React and Next.js component architecture and performance. Use when composing components, managing React state, or optimizing rendering and accessibility.",
+      "path": "skills/frontend-patterns/SKILL.md"
+    },
+    {
+      "id": "git-cleanup",
+      "name": "git-cleanup",
+      "description": "Audits stale Git resources and cleans them with approval. Use when pruning branches, removing abandoned worktrees, or closing stale PRs and issues.",
+      "path": "skills/git-cleanup/SKILL.md",
+      "autoinvoke": false
+    },
+    {
+      "id": "git-workflow",
+      "name": "git-workflow",
+      "description": "Orchestrates commits, documentation updates, pushes, and PRs. Use when finishing a feature with docs, coordinating multiple commits, or shipping changes through a full Git workflow.",
+      "path": "skills/git-workflow/SKILL.md"
+    },
+    {
+      "id": "go-patterns",
+      "name": "go-patterns",
+      "description": "Use when structuring Go packages or service layers, handling wrapped errors, or managing goroutines and context cancellation. Guides idiomatic Go package layout.",
+      "path": "skills/go-patterns/SKILL.md"
+    },
+    {
+      "id": "go-testing",
+      "name": "go-testing",
+      "description": "Guides Go testing with TDD, table-driven tests, and fuzzing. Use when adding Go test coverage, writing benchmarks, or fuzzing input validation.",
+      "path": "skills/go-testing/SKILL.md"
+    },
+    {
+      "id": "hooks-workflow",
+      "name": "hooks-workflow",
+      "description": "Generates hook configuration from language rules. Use when configuring Claude hooks, translating rule hook guidance, or verifying existing hook config.",
+      "path": "skills/hooks-workflow/SKILL.md",
+      "autoinvoke": false
+    },
+    {
+      "id": "implement-plan",
+      "name": "implement-plan",
+      "description": "Executes parallel-plan.md with dependency-aware implementor batches. Use when implementing a planned feature, running parallel-plan tasks, or resuming a batched implementation.",
+      "path": "skills/implement-plan/SKILL.md"
+    },
+    {
+      "id": "init",
+      "name": "init",
+      "description": "Initializes project AI-agent docs and workspace conventions. Use when generating agent rules docs, adding GitHub templates, or bootstrapping project rules.",
+      "path": "skills/init/SKILL.md"
+    },
+    {
+      "id": "orchestrate",
+      "name": "orchestrate",
+      "description": "Coordinates specialized agents in dependency-resolved batches. Use when delegating a complex task, splitting independent implementation work, or coordinating multiple specialists.",
+      "path": "skills/orchestrate/SKILL.md"
+    },
+    {
+      "id": "parallel-plan",
+      "name": "parallel-plan",
+      "description": "Creates parallel-plan.md from existing shared.md through plan-workflow. Use when planning from shared context, organizing dependency batches, or validating parallel implementation tasks.",
+      "path": "skills/parallel-plan/SKILL.md"
+    },
+    {
+      "id": "plan",
+      "name": "plan",
+      "description": "Use when comparing two implementation options or walking through tradeoffs before committing to one, breaking a change into steps, or planning conversationally for approval.",
+      "path": "skills/plan/SKILL.md"
+    },
+    {
+      "id": "plan-workflow",
+      "name": "plan-workflow",
+      "description": "Use when validating existing research docs before planning, running a research-to-plan workflow, or producing shared.md and parallel-plan.md. Researches and validates plans with checkpoints.",
+      "path": "skills/plan-workflow/SKILL.md"
+    },
+    {
+      "id": "pr-autofix",
+      "name": "pr-autofix",
+      "description": "Applies GitHub PR comments and resolves review threads. Use when fixing reviewer feedback, processing bot comments, or driving comment fixes through CI.",
+      "path": "skills/pr-autofix/SKILL.md"
+    },
+    {
+      "id": "prp-commit",
+      "name": "prp-commit",
+      "description": "Stages selected changes and creates one Conventional Commit. Use when committing staged files, committing a file glob, or committing one topic without documentation orchestration.",
+      "path": "skills/prp-commit/SKILL.md"
+    },
+    {
+      "id": "prp-implement",
+      "name": "prp-implement",
+      "description": "Executes PRP plan files with validation loops, reports, and archiving. Use when implementing a .plan.md file, executing a PRP plan, or running parallel PRP tasks.",
+      "path": "skills/prp-implement/SKILL.md"
+    },
+    {
+      "id": "prp-plan",
+      "name": "prp-plan",
+      "description": "Creates self-contained PRP plans with codebase patterns. Use when planning from a PRD, writing a .plan.md artifact, or capturing patterns for prp-implement.",
+      "path": "skills/prp-plan/SKILL.md"
+    },
+    {
+      "id": "prp-pr",
+      "name": "prp-pr",
+      "description": "Creates GitHub PRs from already-committed branches without commit orchestration. Use when opening a PR for current commits, drafting a template-based PR, or linking PRP artifacts in a PR.",
+      "path": "skills/prp-pr/SKILL.md"
+    },
+    {
+      "id": "prp-prd",
+      "name": "prp-prd",
+      "description": "Develops problem-first PRDs through interactive discovery. Use when writing a feature PRD, clarifying product requirements, or testing a product hypothesis.",
+      "path": "skills/prp-prd/SKILL.md"
+    },
+    {
+      "id": "prp-spec",
+      "name": "prp-spec",
+      "description": "Writes lightweight single-pass PRP feature specs. Use when specifying a well-defined feature, drafting a quick technical spec, or preparing a spec for prp-plan.",
+      "path": "skills/prp-spec/SKILL.md"
+    },
+    {
+      "id": "python-patterns",
+      "name": "python-patterns",
+      "description": "Guides idiomatic Python design and resource handling. Use when refactoring Python modules, adding type hints, or choosing a concurrency model.",
+      "path": "skills/python-patterns/SKILL.md"
+    },
+    {
+      "id": "python-testing",
+      "name": "python-testing",
+      "description": "Guides pytest testing with TDD, fixtures, and mocks. Use when adding Python test coverage, parametrizing pytest cases, or isolating async tests.",
+      "path": "skills/python-testing/SKILL.md"
+    },
+    {
+      "id": "quick-fix",
+      "name": "quick-fix",
+      "description": "Applies inline Quick Review findings without review artifacts. Use when choosing Apply fixes after quick-review, fixing pasted Quick Review findings, or making artifact-free review fixes.",
+      "path": "skills/quick-fix/SKILL.md"
+    },
+    {
+      "id": "quick-review",
+      "name": "quick-review",
+      "description": "Reviews uncommitted changes inline without saving by default. Use when requesting a quick review, checking a small local diff, or reviewing without a saved artifact.",
+      "path": "skills/quick-review/SKILL.md"
+    },
+    {
+      "id": "release-model",
+      "name": "release-model",
+      "description": "Creates, upgrades, or audits RELEASING.md branching policy. Use when defining a release process, adding maintenance branches, or checking release-model drift.",
+      "path": "skills/release-model/SKILL.md"
+    },
+    {
+      "id": "releaser",
+      "name": "releaser",
+      "description": "Prepares external-project releases, notes, and release CI. Use when cutting an application release, planning platform artifacts, or auditing a GitHub Actions release workflow.",
+      "path": "skills/releaser/SKILL.md",
+      "autoinvoke": false
+    },
+    {
+      "id": "research-to-issues",
+      "name": "research-to-issues",
+      "description": "Converts research and planning documents into structured tracking issues. Use when turning research into issues, splitting a feature spec into tasks, or creating issues from a PRP plan.",
+      "path": "skills/research-to-issues/SKILL.md"
+    },
+    {
+      "id": "resume-session",
+      "name": "resume-session",
+      "description": "Loads saved session context and briefs the next step without starting work. Use when resuming a previous session, loading a dated session file, or restoring context after a reset.",
+      "path": "skills/resume-session/SKILL.md"
+    },
+    {
+      "id": "review-fix",
+      "name": "review-fix",
+      "description": "Applies saved code-review findings and updates artifact status. Use when fixing a review file, applying severity-filtered findings, or tracking review fixes as Fixed or Failed.",
+      "path": "skills/review-fix/SKILL.md"
+    },
+    {
+      "id": "rust-patterns",
+      "name": "rust-patterns",
+      "description": "Guides idiomatic Rust ownership, errors, and concurrency. Use when resolving borrow or lifetime design, structuring crates, or choosing traits and error types.",
+      "path": "skills/rust-patterns/SKILL.md"
+    },
+    {
+      "id": "rust-testing",
+      "name": "rust-testing",
+      "description": "Guides Rust testing with TDD and property checks. Use when adding Rust test coverage, testing async code, or writing proptest cases and benchmarks.",
+      "path": "skills/rust-testing/SKILL.md"
+    },
+    {
+      "id": "save-session",
+      "name": "save-session",
+      "description": "Saves session progress, failures, and next steps for later resumption. Use when ending a work session, preserving context before limits, or handing off unfinished work.",
+      "path": "skills/save-session/SKILL.md"
+    },
+    {
+      "id": "shared-context",
+      "name": "shared-context",
+      "description": "Creates verified shared.md research context through plan-workflow. Use when gathering codebase context, preparing shared context for parallel-plan, or researching without generating a plan.",
+      "path": "skills/shared-context/SKILL.md"
+    },
+    {
+      "id": "ts-patterns",
+      "name": "ts-patterns",
+      "description": "Guides framework-agnostic TypeScript types, modules, and async code. Use when designing typed APIs, configuring strict tsconfig, or publishing ESM and CJS libraries.",
+      "path": "skills/ts-patterns/SKILL.md"
+    },
+    {
+      "id": "ts-testing",
+      "name": "ts-testing",
+      "description": "Guides TypeScript testing with Vitest and TDD. Use when adding TypeScript test coverage, mocking async behavior, or writing property and type-level tests.",
+      "path": "skills/ts-testing/SKILL.md"
+    },
+    {
+      "id": "visual-plan",
+      "name": "visual-plan",
+      "description": "Renders existing plans as interactive visual documents. Use when visualizing a text plan, creating a plan wireframe, or reviewing planned architecture visually.",
+      "path": "skills/visual-plan/SKILL.md"
+    },
+    {
+      "id": "visual-recap",
+      "name": "visual-recap",
+      "description": "Builds local-only visual recaps from Git diffs. Use when recapping a finished branch, visualizing a commit range, or reviewing working-tree changes visually.",
+      "path": "skills/visual-recap/SKILL.md"
+    },
+    {
+      "id": "write-docs",
+      "name": "write-docs",
+      "description": "Coordinates parallel documentation agents to audit and improve project docs. Use when generating codebase documentation, filling documentation gaps, or updating existing docs.",
+      "path": "skills/write-docs/SKILL.md"
+    }
+  ],
+  "agents": [
+    {
+      "id": "ansible-automation-expert",
+      "name": "ansible-automation-expert",
+      "description": "Expert Ansible automation assistance including playbook development, role creation, inventory management, network automation, IaC implementation, and troubleshooting configurations.",
+      "mode": "subagent",
+      "prompt": "agents/ansible-automation-expert.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#8B5CF6"
+    },
+    {
+      "id": "api-docs-expert",
+      "name": "api-docs-expert",
+      "description": "Create, review, and improve API documentation, design RESTful endpoints, write OpenAPI/Swagger specs, create Postman collections, and ensure API docs follow best practices.",
+      "mode": "subagent",
+      "prompt": "agents/api-docs-expert.md",
+      "model": "openai/gpt-5.6-terra",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#EC4899"
+    },
+    {
+      "id": "api-documenter",
+      "name": "api-documenter",
+      "description": "Generate comprehensive API documentation from code, including endpoint specs, parameter descriptions, response schemas, and usage examples.",
+      "mode": "subagent",
+      "prompt": "agents/api-documenter.md",
+      "model": "openai/gpt-5.6-terra",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "ls *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "find *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "tree *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "wc *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "test *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "mkdir *",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#06B6D4"
+    },
+    {
+      "id": "architect",
+      "name": "architect",
+      "description": "Software architecture specialist for system design, scalability, and technical decision-making. Use when planning new features, refactoring large systems, or making architectural decisions.",
+      "mode": "subagent",
+      "prompt": "agents/architect.md",
+      "model": "openai/gpt-6-astra",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ]
+    },
+    {
+      "id": "architecture-analyst",
+      "name": "architecture-analyst",
+      "description": "Analyze codebase architecture and create documentation in docs/architecture/ with system overviews, component maps, and Mermaid data flow diagrams.",
+      "mode": "subagent",
+      "prompt": "agents/architecture-analyst.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "ls *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "find *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "tree *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "wc *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "test *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "mkdir *",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#3B82F6"
+    },
+    {
+      "id": "backport-conflict-resolver",
+      "name": "backport-conflict-resolver",
+      "description": "Resolve the conflicts of ONE in-progress cherry-pick in a backport worktree, dispatched by backport --resolve. Minimal resolution: keep the release branch's surrounding code and apply only the fix's intent. Never commits, never pushes, never continues the cherry-pick, never touches files outside the conflicted set.",
+      "mode": "subagent",
+      "prompt": "agents/backport-conflict-resolver.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git show *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git diff *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git log *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git status *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git ls-files *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git rev-parse *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git merge-base *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git blame *",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#F97316"
+    },
+    {
+      "id": "cloudflare-architect",
+      "name": "cloudflare-architect",
+      "description": "Expert guidance on Cloudflare services, architecture, security (WAF, DDoS, Zero Trust), Workers, CDN configuration, performance optimization, and deployment strategies.",
+      "mode": "subagent",
+      "prompt": "agents/cloudflare-architect.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#EAB308"
+    },
+    {
+      "id": "cloudflare-developer",
+      "name": "cloudflare-developer",
+      "description": "Implement Cloudflare Workers, Pages, D1, R2, KV, Durable Objects, and wrangler.toml configurations. Writes Worker code, creates configs, and verifies deployments.",
+      "mode": "subagent",
+      "prompt": "agents/cloudflare-developer.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#22C55E"
+    },
+    {
+      "id": "code-architect",
+      "name": "code-architect",
+      "description": "Designs feature architectures by analyzing existing codebase patterns and conventions, then providing implementation blueprints with concrete files, interfaces, data flow, and build order.",
+      "mode": "subagent",
+      "prompt": "agents/code-architect.md",
+      "model": "openai/gpt-6-astra",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ]
+    },
+    {
+      "id": "code-documenter",
+      "name": "code-documenter",
+      "description": "Generate and maintain code documentation including inline comments, module-level docs, and architectural documentation.",
+      "mode": "subagent",
+      "prompt": "agents/code-documenter.md",
+      "model": "openai/gpt-5.6-terra",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "ls *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "find *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "wc *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "test *",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#EAB308"
+    },
+    {
+      "id": "code-explorer",
+      "name": "code-explorer",
+      "description": "Deeply analyze codebase features by tracing execution paths, mapping architecture layers, and documenting dependencies to inform new development.",
+      "mode": "subagent",
+      "prompt": "agents/code-explorer.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ]
+    },
+    {
+      "id": "code-finder",
+      "name": "code-finder",
+      "description": "Quickly locate specific code files, functions, classes, or patterns within a codebase. Find implementations, search syntax patterns, and discover related code across files.",
+      "mode": "subagent",
+      "prompt": "agents/code-finder.md",
+      "model": "openai/gpt-5.6-terra",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#EAB308"
+    },
+    {
+      "id": "code-researcher",
+      "name": "code-researcher",
+      "description": "Comprehensive analysis of a codebase's architecture, patterns, and implementation details to inform feature development or architectural decisions.",
+      "mode": "subagent",
+      "prompt": "agents/code-researcher.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "context7_resolve-library-id",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "context7_query-docs",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#3B82F6"
+    },
+    {
+      "id": "code-reviewer",
+      "name": "code-reviewer",
+      "description": "Expert code reviewer for quality, security, and maintainability. Use proactively after writing or modifying code.",
+      "mode": "subagent",
+      "prompt": "agents/code-reviewer.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ]
+    },
+    {
+      "id": "code-simplifier",
+      "name": "code-simplifier",
+      "description": "Simplifies and refines code for clarity, consistency, and maintainability while preserving behavior. Focus on recently modified code unless instructed otherwise.",
+      "mode": "subagent",
+      "prompt": "agents/code-simplifier.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ]
+    },
+    {
+      "id": "codebase-advisor",
+      "name": "codebase-advisor",
+      "description": "Read-only codebase advisor that answers questions about code structure, architecture, and implementation without making changes. Use for impact analysis and explanations.",
+      "mode": "subagent",
+      "prompt": "agents/codebase-advisor.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#06B6D4"
+    },
+    {
+      "id": "db-modifier",
+      "name": "db-modifier",
+      "description": "Make database schema changes, data migrations, or modifications to the production Supabase/PostgreSQL database including tables, RLS policies, RPC functions, storage buckets, and data updates.",
+      "mode": "subagent",
+      "prompt": "agents/db-modifier.md",
+      "model": "openai/gpt-6-astra",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "psql *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "supabase *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "ls *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "test *",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#EF4444"
+    },
+    {
+      "id": "docs-git-committer",
+      "name": "docs-git-committer",
+      "description": "Update documentation after code changes (feature docs, AGENTS.md files) and commit all changes to git.",
+      "mode": "subagent",
+      "prompt": "agents/docs-git-committer.md",
+      "model": "openai/gpt-5.6-terra",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#06B6D4"
+    },
+    {
+      "id": "documentation-writer",
+      "name": "documentation-writer",
+      "description": "Create or update documentation for specific files, features, CLI commands, or other project components by analyzing code and writing proper docs.",
+      "mode": "subagent",
+      "prompt": "agents/documentation-writer.md",
+      "model": "openai/gpt-5.6-terra",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#22C55E"
+    },
+    {
+      "id": "feature-researcher",
+      "name": "feature-researcher",
+      "description": "Targeted codebase research for feature planning — analyzes existing implementations, identifies reusable patterns, assesses risks, and produces concise planning documents.",
+      "mode": "subagent",
+      "prompt": "agents/feature-researcher.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "context7_resolve-library-id",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "context7_query-docs",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#3B82F6"
+    },
+    {
+      "id": "feature-writer",
+      "name": "feature-writer",
+      "description": "Create and maintain user-facing feature documentation with clear guides, examples, and troubleshooting.",
+      "mode": "subagent",
+      "prompt": "agents/feature-writer.md",
+      "model": "openai/gpt-5.6-terra",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "ls *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "find *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "tree *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "wc *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "test *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "mkdir *",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#22C55E"
+    },
+    {
+      "id": "frontend-ui-developer",
+      "name": "frontend-ui-developer",
+      "description": "Create, modify, or enhance frontend React components, UI elements, pages, and styling including Tailwind CSS and shadcn/ui. Analyzes existing patterns before implementation.",
+      "mode": "subagent",
+      "prompt": "agents/frontend-ui-developer.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#8B5CF6"
+    },
+    {
+      "id": "git-cleanup",
+      "name": "git-cleanup",
+      "description": "Read-only git cleanup auditor. Collects git state (branches, worktrees, remote-tracking refs, stashes, tags) and remote state from GitHub/GitLab (PRs, issues), runs an active-code analysis pass to separate stale from load-bearing resources, and returns a structured report inline. Does NOT delete anything and writes no files. Invoked by the git-cleanup skill for large-repo audits or when the orchestrator wants a clean read-only pass before the decision gate.",
+      "mode": "subagent",
+      "prompt": "agents/git-cleanup.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "gh *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "glab *",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ]
+    },
+    {
+      "id": "go-api-architect",
+      "name": "go-api-architect",
+      "description": "Design, develop, review, and improve Go/Golang REST APIs including microservices, authentication, performance optimization, testing strategies, and architectural decisions.",
+      "mode": "subagent",
+      "prompt": "agents/go-api-architect.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#3B82F6"
+    },
+    {
+      "id": "go-expert-architect",
+      "name": "go-expert-architect",
+      "description": "Expert Go development assistance including concurrent systems, microservices, performance optimization, design patterns, project structure, testing strategies, and architectural decisions.",
+      "mode": "subagent",
+      "prompt": "agents/go-expert-architect.md",
+      "model": "openai/gpt-6-astra",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#06B6D4"
+    },
+    {
+      "id": "implementor",
+      "name": "implementor",
+      "description": "Implement specific software engineering tasks assigned from a master plan with planning documentation context. Receives a single task and executes it.",
+      "mode": "subagent",
+      "prompt": "agents/implementor.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#EF4444"
+    },
+    {
+      "id": "library-docs-writer",
+      "name": "library-docs-writer",
+      "description": "Fetch and compress external library documentation into concise local reference files from web sources and context7. Creates quick-reference docs for external dependencies.",
+      "mode": "subagent",
+      "prompt": "agents/library-docs-writer.md",
+      "model": "openai/gpt-5.6-terra",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "context7_resolve-library-id",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "context7_query-docs",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#EC4899"
+    },
+    {
+      "id": "nextjs-ux-ui-expert",
+      "name": "nextjs-ux-ui-expert",
+      "description": "Expert Next.js UX/UI guidance including component architecture, SSR/SSG optimization, accessibility, responsive design, state management, animations, theme systems, and design system integration.",
+      "mode": "subagent",
+      "prompt": "agents/nextjs-ux-ui-expert.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#3B82F6"
+    },
+    {
+      "id": "nodejs-backend-architect",
+      "name": "nodejs-backend-architect",
+      "description": "Expert guidance on Node.js/TypeScript backend development including microservices architecture, performance optimization, async/concurrency, API design, auth systems, and database optimization.",
+      "mode": "subagent",
+      "prompt": "agents/nodejs-backend-architect.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#22C55E"
+    },
+    {
+      "id": "nodejs-backend-developer",
+      "name": "nodejs-backend-developer",
+      "description": "Implement Node.js/TypeScript backend services including Express/Fastify/Hono routes, Prisma/Drizzle setup, auth flows, Docker configs, structured logging, and test suites.",
+      "mode": "subagent",
+      "prompt": "agents/nodejs-backend-developer.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#06B6D4"
+    },
+    {
+      "id": "planner",
+      "name": "planner",
+      "description": "Software architect agent for designing implementation plans. Returns step-by-step plans with specific file paths, dependencies, risks, testing strategy, and success criteria. Waits for user confirmation.",
+      "mode": "subagent",
+      "prompt": "agents/planner.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#3B82F6"
+    },
+    {
+      "id": "pr-comment-fixer",
+      "name": "pr-comment-fixer",
+      "description": "Implement the fix for a SINGLE GitHub PR review comment (or same-file group of comments) dispatched by pr-autofix. Applies the smallest safe change that addresses the reviewer's concern — scope-disciplined, never executes reviewer-provided shell commands, never modifies files outside the comment's anchored path.",
+      "mode": "subagent",
+      "prompt": "agents/pr-comment-fixer.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "npm *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "pnpm *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "yarn *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "bun *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "npx *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "cargo *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "go *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "pytest *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "python *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "python3 *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "make *",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#EAB308"
+    },
+    {
+      "id": "practices-researcher",
+      "name": "practices-researcher",
+      "description": "Evaluate code quality, modularity, reuse, and KISS compliance. Discover existing reusable code, assess build-vs-depend decisions, and review code structure for engineering best practices.",
+      "mode": "subagent",
+      "prompt": "agents/practices-researcher.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ]
+    },
+    {
+      "id": "project-file-cleaner",
+      "name": "project-file-cleaner",
+      "description": "Clean up unnecessary files from a project directory including old code, compiled binaries, unused assets, outdated docs, and temporary files.",
+      "mode": "subagent",
+      "prompt": "agents/project-file-cleaner.md",
+      "model": "openai/gpt-5.6-terra",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#EAB308"
+    },
+    {
+      "id": "prp-researcher",
+      "name": "prp-researcher",
+      "description": "Dual-mode research for PRP workflows: codebase exploration (similar features, naming, error handling, test patterns, dependencies) and external market/technical research (competitors, docs, best practices).",
+      "mode": "subagent",
+      "prompt": "agents/prp-researcher.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "ls *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "cat *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "test *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git *",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#06B6D4"
+    },
+    {
+      "id": "python-developer",
+      "name": "python-developer",
+      "description": "Implement Python code from specs including FastAPI/Flask/Django services, CLI tools, data pipelines, async apps, pytest suites, pyproject.toml configs, and Dockerfiles.",
+      "mode": "subagent",
+      "prompt": "agents/python-developer.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "skill",
+          "resource": "python-patterns",
+          "effect": "allow"
+        },
+        {
+          "action": "skill",
+          "resource": "python-testing",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#D946EF"
+    },
+    {
+      "id": "python-expert-architect",
+      "name": "python-expert-architect",
+      "description": "Expert Python architecture guidance including package design, async systems, framework selection (FastAPI/Flask/Django), data pipelines, CLI tools, packaging (hatch/poetry/uv), and testing strategies.",
+      "mode": "subagent",
+      "prompt": "agents/python-expert-architect.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "skill",
+          "resource": "python-patterns",
+          "effect": "allow"
+        },
+        {
+          "action": "skill",
+          "resource": "python-testing",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#EAB308"
+    },
+    {
+      "id": "readme-generator",
+      "name": "readme-generator",
+      "description": "Generate comprehensive README files for projects with proper structure, badges, installation instructions, and usage examples.",
+      "mode": "subagent",
+      "prompt": "agents/readme-generator.md",
+      "model": "openai/gpt-5.6-terra",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "ls *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "find *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "tree *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "wc *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "test *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "mkdir *",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#D946EF"
+    },
+    {
+      "id": "release-fix-applier",
+      "name": "release-fix-applier",
+      "description": "Implement the fix for a SINGLE failed release-CI workflow step dispatched by releaser Phase 8.5. Applies the smallest safe change to make the failed step pass on the next run — scope-disciplined, never executes log-provided shell commands, never modifies files outside the failed step's implicated paths, never touches release notes or version manifests.",
+      "mode": "subagent",
+      "prompt": "agents/release-fix-applier.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "ls *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "cat *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "test *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "npm *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "pnpm *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "yarn *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "bun *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "npx *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "cargo *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "go *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "pytest *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "python *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "python3 *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "make *",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#EAB308"
+    },
+    {
+      "id": "releaser",
+      "name": "releaser",
+      "description": "Audit an existing GitHub Actions release workflow against the releaser checklist — triggers, permissions, action pinning, caching, build matrix, artifact provenance, release-notes sourcing, error handling, documentation, and observability. Read-only. Invoked by releaser in --ci-config=audit mode; do NOT invoke directly from a command.",
+      "mode": "subagent",
+      "prompt": "agents/releaser.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ]
+    },
+    {
+      "id": "research-specialist",
+      "name": "research-specialist",
+      "description": "Comprehensive research on non-code topics with fact-checking, current information gathering, and authoritative sources with citations.",
+      "mode": "subagent",
+      "prompt": "agents/research-specialist.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#3B82F6"
+    },
+    {
+      "id": "reverse-proxy-architect",
+      "name": "reverse-proxy-architect",
+      "description": "Configure, troubleshoot, and optimize reverse proxy setups (nginx, HAProxy, Traefik) including load balancing, SSL/TLS, routing, caching, rate limiting, WebSocket proxying, and K8s/Docker integration.",
+      "mode": "subagent",
+      "prompt": "agents/reverse-proxy-architect.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#8B5CF6"
+    },
+    {
+      "id": "review-fixer",
+      "name": "review-fixer",
+      "description": "Implement a SINGLE code-review finding (or same-file group) from a review artifact. Applies the exact fix specified — nothing more. Scope-disciplined: fixes only what the finding specifies.",
+      "mode": "subagent",
+      "prompt": "agents/review-fixer.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "ls *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "cat *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "test *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "npm *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "pnpm *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "yarn *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "bun *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "npx *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "cargo *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "go *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "pytest *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "python *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "python3 *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "make *",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#EAB308"
+    },
+    {
+      "id": "root-cause-analyzer",
+      "name": "root-cause-analyzer",
+      "description": "Diagnose why a bug is occurring without fixing it. Systematic investigation with multiple hypotheses and supporting evidence. Use when understanding the 'why' is crucial before attempting a fix.",
+      "mode": "subagent",
+      "prompt": "agents/root-cause-analyzer.md",
+      "model": "openai/gpt-6-astra",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#06B6D4"
+    },
+    {
+      "id": "rust-build-resolver",
+      "name": "rust-build-resolver",
+      "description": "Rust build, compilation, and dependency error resolution specialist. Fixes cargo build errors, borrow checker issues, and Cargo.toml problems with minimal changes.",
+      "mode": "subagent",
+      "prompt": "agents/rust-build-resolver.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "skill",
+          "resource": "rust-patterns",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ]
+    },
+    {
+      "id": "rust-expert-architect",
+      "name": "rust-expert-architect",
+      "description": "Expert Rust development assistance including async systems (tokio), ownership/lifetime design, trait/generic APIs, CLI/systems/embedded/WASM apps, performance optimization, crate selection, and architectural decisions.",
+      "mode": "subagent",
+      "prompt": "agents/rust-expert-architect.md",
+      "model": "openai/gpt-6-astra",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#EF4444"
+    },
+    {
+      "id": "rust-reviewer",
+      "name": "rust-reviewer",
+      "description": "Expert Rust reviewer for ownership, lifetimes, error handling, unsafe usage, and idiomatic patterns. Use proactively after Rust code changes.",
+      "mode": "subagent",
+      "prompt": "agents/rust-reviewer.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "skill",
+          "resource": "rust-patterns",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ]
+    },
+    {
+      "id": "sql-database-developer",
+      "name": "sql-database-developer",
+      "description": "Implement database code for Turso/libSQL/SQLite including SQL migrations, schemas, typed query modules, Drizzle/SQLAlchemy ORM setup, seed scripts, and connection configs. For Supabase/PostgreSQL, use db-modifier.",
+      "mode": "subagent",
+      "prompt": "agents/sql-database-developer.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#06B6D4"
+    },
+    {
+      "id": "systems-engineering-expert",
+      "name": "systems-engineering-expert",
+      "description": "Expert guidance on software engineering best practices, system administration, and optimization for macOS/Linux including security hardening, performance tuning, DevOps, shell scripting, and cross-platform development.",
+      "mode": "subagent",
+      "prompt": "agents/systems-engineering-expert.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#3B82F6"
+    },
+    {
+      "id": "terraform-architect",
+      "name": "terraform-architect",
+      "description": "Expert Terraform IaC assistance including cloud-native architecture design, module development, multi-cloud strategies, deployment debugging, and configuration review.",
+      "mode": "subagent",
+      "prompt": "agents/terraform-architect.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#3B82F6"
+    },
+    {
+      "id": "terraform-developer",
+      "name": "terraform-developer",
+      "description": "Implement Terraform infrastructure code including .tf modules, variables/outputs, provider/backend configs, terragrunt.hcl, resource lifecycle rules, and module structures.",
+      "mode": "subagent",
+      "prompt": "agents/terraform-developer.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#22C55E"
+    },
+    {
+      "id": "test-strategy-planner",
+      "name": "test-strategy-planner",
+      "description": "Analyze codebases and create comprehensive testing strategies including unit, integration, e2e, performance, and security tests with detailed roadmaps and implementation plans.",
+      "mode": "subagent",
+      "prompt": "agents/test-strategy-planner.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#EAB308"
+    },
+    {
+      "id": "turso-database-architect",
+      "name": "turso-database-architect",
+      "description": "Expert database design, architecture, and optimization for Turso/libSQL/SQLite including schema design, query optimization, migration strategies, performance tuning, and index strategies.",
+      "mode": "subagent",
+      "prompt": "agents/turso-database-architect.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#F97316"
+    },
+    {
+      "id": "typescript-developer",
+      "name": "typescript-developer",
+      "description": "Implement TypeScript/JavaScript code including libraries, tsconfig hierarchies, package.json exports, monorepo workspaces, bundler pipelines (vite/tsup/esbuild), ESM/CJS dual builds, and Vitest configs.",
+      "mode": "subagent",
+      "prompt": "agents/typescript-developer.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "skill",
+          "resource": "ts-patterns",
+          "effect": "allow"
+        },
+        {
+          "action": "skill",
+          "resource": "ts-testing",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#22C55E"
+    },
+    {
+      "id": "typescript-expert-architect",
+      "name": "typescript-expert-architect",
+      "description": "Expert TypeScript/JavaScript assistance at the language, type-system, and tooling level including generic APIs, .d.ts authoring, tsconfig tuning, conditional/mapped types, npm libraries, monorepos, cross-runtime, and bundler optimization.",
+      "mode": "subagent",
+      "prompt": "agents/typescript-expert-architect.md",
+      "model": "openai/gpt-5.6-sol",
+      "permissions": [
+        {
+          "action": "*",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "webfetch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "websearch",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "ask"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.example",
+          "effect": "allow"
+        }
+      ],
+      "color": "#EAB308"
+    }
+  ],
+  "agentModels": {
+    "explore": "openai/gpt-5.6-sol",
+    "general": "openai/gpt-5.6-sol"
+  },
+  "commands": [
+    {
+      "name": "ycc:backport",
+      "description": "Backports merged trunk PRs to maintenance branches. Use when backporting a fix, opening backport PRs, or auditing pending backports.",
+      "template": "Use the skill tool to load the `backport` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:blueprint",
+      "description": "Creates whole-project blueprints and bootstraps new software. Use when defining a project charter, choosing system architecture, or scaffolding an idea.",
+      "template": "Use the skill tool to load the `blueprint` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:bundle-author",
+      "description": "Scaffolds ycc skills and agents for ycc maintainers only. Use when adding a ycc skill, adding a ycc agent, or extending bundle source.",
+      "template": "Use the skill tool to load the `bundle-author` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:bundle-release",
+      "description": "Prepares ycc bundle releases for ycc maintainers only. Use when bumping ycc version, regenerating release bundles, or drafting ycc release notes.",
+      "template": "Use the skill tool to load the `bundle-release` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:clean",
+      "description": "Removes unnecessary project-directory files with approval. Use when deleting build artifacts, finding unused files, or clearing temporary files.",
+      "template": "Use the skill tool to load the `clean` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:code-report",
+      "description": "Generates implementation reports from executed parallel plans. Use when documenting completed work, listing changed files, or recording test guidance.",
+      "template": "Use the skill tool to load the `code-report` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:code-review",
+      "description": "Reviews local changes or GitHub PRs and saves actionable findings. Use when reviewing a PR, requesting a full local review, or creating a review-fix artifact.",
+      "template": "Use the skill tool to load the `code-review` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:compatibility-audit",
+      "description": "Audits ycc compatibility for ycc maintainers only. Use when checking generated bundle drift, verifying install assumptions, or comparing target feature gaps.",
+      "template": "Use the skill tool to load the `compatibility-audit` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:deep-research",
+      "description": "Conducts multi-perspective strategic research. Use when investigating complex topics, comparing competitors, or gathering strategic intelligence.",
+      "template": "Use the skill tool to load the `deep-research` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:feature-research",
+      "description": "Researches features with seven specialists and consolidates a feature spec. Use when investigating APIs, assessing feature risks, or researching UX before planning.",
+      "template": "Use the skill tool to load the `feature-research` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:formatters",
+      "description": "Bootstraps project linting and formatting tools. Use when installing formatters, adding lint scripts, or wiring lint CI and pre-commit hooks.",
+      "template": "Use the skill tool to load the `formatters` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:frontend-design",
+      "description": "Builds frontend interfaces with intentional visual direction. Use when designing a landing page, upgrading a bland UI, or choosing typography and color.",
+      "template": "Use the skill tool to load the `frontend-design` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:frontend-patterns",
+      "description": "Guides React and Next.js component architecture and performance. Use when composing components, managing React state, or optimizing rendering and accessibility.",
+      "template": "Use the skill tool to load the `frontend-patterns` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:git-cleanup",
+      "description": "Audits stale Git resources and cleans them with approval. Use when pruning branches, removing abandoned worktrees, or closing stale PRs and issues.",
+      "template": "Use the skill tool to load the `git-cleanup` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:git-workflow",
+      "description": "Orchestrates commits, documentation updates, pushes, and PRs. Use when finishing a feature with docs, coordinating multiple commits, or shipping changes through a full Git workflow.",
+      "template": "Use the skill tool to load the `git-workflow` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:go-patterns",
+      "description": "Use when structuring Go packages or service layers, handling wrapped errors, or managing goroutines and context cancellation. Guides idiomatic Go package layout.",
+      "template": "Use the skill tool to load the `go-patterns` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:go-testing",
+      "description": "Guides Go testing with TDD, table-driven tests, and fuzzing. Use when adding Go test coverage, writing benchmarks, or fuzzing input validation.",
+      "template": "Use the skill tool to load the `go-testing` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:hooks-workflow",
+      "description": "Generates hook configuration from language rules. Use when configuring Claude hooks, translating rule hook guidance, or verifying existing hook config.",
+      "template": "Use the skill tool to load the `hooks-workflow` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:implement-plan",
+      "description": "Executes parallel-plan.md with dependency-aware implementor batches. Use when implementing a planned feature, running parallel-plan tasks, or resuming a batched implementation.",
+      "template": "Use the skill tool to load the `implement-plan` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:init",
+      "description": "Initializes project AI-agent docs and workspace conventions. Use when generating agent rules docs, adding GitHub templates, or bootstrapping project rules.",
+      "template": "Use the skill tool to load the `init` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:orchestrate",
+      "description": "Coordinates specialized agents in dependency-resolved batches. Use when delegating a complex task, splitting independent implementation work, or coordinating multiple specialists.",
+      "template": "Use the skill tool to load the `orchestrate` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:parallel-plan",
+      "description": "Creates parallel-plan.md from existing shared.md through plan-workflow. Use when planning from shared context, organizing dependency batches, or validating parallel implementation tasks.",
+      "template": "Use the skill tool to load the `parallel-plan` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:plan",
+      "description": "Use when comparing two implementation options or walking through tradeoffs before committing to one, breaking a change into steps, or planning conversationally for approval.",
+      "template": "Use the skill tool to load the `plan` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:plan-workflow",
+      "description": "Use when validating existing research docs before planning, running a research-to-plan workflow, or producing shared.md and parallel-plan.md. Researches and validates plans with checkpoints.",
+      "template": "Use the skill tool to load the `plan-workflow` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:pr-autofix",
+      "description": "Applies GitHub PR comments and resolves review threads. Use when fixing reviewer feedback, processing bot comments, or driving comment fixes through CI.",
+      "template": "Use the skill tool to load the `pr-autofix` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:prp-commit",
+      "description": "Stages selected changes and creates one Conventional Commit. Use when committing staged files, committing a file glob, or committing one topic without documentation orchestration.",
+      "template": "Use the skill tool to load the `prp-commit` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:prp-implement",
+      "description": "Executes PRP plan files with validation loops, reports, and archiving. Use when implementing a .plan.md file, executing a PRP plan, or running parallel PRP tasks.",
+      "template": "Use the skill tool to load the `prp-implement` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:prp-plan",
+      "description": "Creates self-contained PRP plans with codebase patterns. Use when planning from a PRD, writing a .plan.md artifact, or capturing patterns for prp-implement.",
+      "template": "Use the skill tool to load the `prp-plan` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:prp-pr",
+      "description": "Creates GitHub PRs from already-committed branches without commit orchestration. Use when opening a PR for current commits, drafting a template-based PR, or linking PRP artifacts in a PR.",
+      "template": "Use the skill tool to load the `prp-pr` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:prp-prd",
+      "description": "Develops problem-first PRDs through interactive discovery. Use when writing a feature PRD, clarifying product requirements, or testing a product hypothesis.",
+      "template": "Use the skill tool to load the `prp-prd` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:prp-spec",
+      "description": "Writes lightweight single-pass PRP feature specs. Use when specifying a well-defined feature, drafting a quick technical spec, or preparing a spec for prp-plan.",
+      "template": "Use the skill tool to load the `prp-spec` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:python-patterns",
+      "description": "Guides idiomatic Python design and resource handling. Use when refactoring Python modules, adding type hints, or choosing a concurrency model.",
+      "template": "Use the skill tool to load the `python-patterns` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:python-testing",
+      "description": "Guides pytest testing with TDD, fixtures, and mocks. Use when adding Python test coverage, parametrizing pytest cases, or isolating async tests.",
+      "template": "Use the skill tool to load the `python-testing` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:quick-fix",
+      "description": "Applies inline Quick Review findings without review artifacts. Use when choosing Apply fixes after quick-review, fixing pasted Quick Review findings, or making artifact-free review fixes.",
+      "template": "Use the skill tool to load the `quick-fix` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:quick-review",
+      "description": "Reviews uncommitted changes inline without saving by default. Use when requesting a quick review, checking a small local diff, or reviewing without a saved artifact.",
+      "template": "Use the skill tool to load the `quick-review` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:release-model",
+      "description": "Creates, upgrades, or audits RELEASING.md branching policy. Use when defining a release process, adding maintenance branches, or checking release-model drift.",
+      "template": "Use the skill tool to load the `release-model` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:releaser",
+      "description": "Prepares external-project releases, notes, and release CI. Use when cutting an application release, planning platform artifacts, or auditing a GitHub Actions release workflow.",
+      "template": "Use the skill tool to load the `releaser` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:research-to-issues",
+      "description": "Converts research and planning documents into structured tracking issues. Use when turning research into issues, splitting a feature spec into tasks, or creating issues from a PRP plan.",
+      "template": "Use the skill tool to load the `research-to-issues` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:resume-session",
+      "description": "Loads saved session context and briefs the next step without starting work. Use when resuming a previous session, loading a dated session file, or restoring context after a reset.",
+      "template": "Use the skill tool to load the `resume-session` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:review-fix",
+      "description": "Applies saved code-review findings and updates artifact status. Use when fixing a review file, applying severity-filtered findings, or tracking review fixes as Fixed or Failed.",
+      "template": "Use the skill tool to load the `review-fix` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:rust-patterns",
+      "description": "Guides idiomatic Rust ownership, errors, and concurrency. Use when resolving borrow or lifetime design, structuring crates, or choosing traits and error types.",
+      "template": "Use the skill tool to load the `rust-patterns` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:rust-testing",
+      "description": "Guides Rust testing with TDD and property checks. Use when adding Rust test coverage, testing async code, or writing proptest cases and benchmarks.",
+      "template": "Use the skill tool to load the `rust-testing` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:save-session",
+      "description": "Saves session progress, failures, and next steps for later resumption. Use when ending a work session, preserving context before limits, or handing off unfinished work.",
+      "template": "Use the skill tool to load the `save-session` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:shared-context",
+      "description": "Creates verified shared.md research context through plan-workflow. Use when gathering codebase context, preparing shared context for parallel-plan, or researching without generating a plan.",
+      "template": "Use the skill tool to load the `shared-context` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:ts-patterns",
+      "description": "Guides framework-agnostic TypeScript types, modules, and async code. Use when designing typed APIs, configuring strict tsconfig, or publishing ESM and CJS libraries.",
+      "template": "Use the skill tool to load the `ts-patterns` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:ts-testing",
+      "description": "Guides TypeScript testing with Vitest and TDD. Use when adding TypeScript test coverage, mocking async behavior, or writing property and type-level tests.",
+      "template": "Use the skill tool to load the `ts-testing` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:visual-plan",
+      "description": "Renders existing plans as interactive visual documents. Use when visualizing a text plan, creating a plan wireframe, or reviewing planned architecture visually.",
+      "template": "Use the skill tool to load the `visual-plan` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:visual-recap",
+      "description": "Builds local-only visual recaps from Git diffs. Use when recapping a finished branch, visualizing a commit range, or reviewing working-tree changes visually.",
+      "template": "Use the skill tool to load the `visual-recap` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    },
+    {
+      "name": "ycc:write-docs",
+      "description": "Coordinates parallel documentation agents to audit and improve project docs. Use when generating codebase documentation, filling documentation gaps, or updating existing docs.",
+      "template": "Use the skill tool to load the `write-docs` skill, then follow its instructions with these arguments:\n\n$ARGUMENTS"
+    }
+  ],
+  "mcp": {
+    "github": {
+      "type": "local",
+      "command": [
+        "github-mcp-server",
+        "stdio"
+      ]
+    },
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp"
+    },
+    "stripe": {
+      "type": "remote",
+      "url": "https://mcp.stripe.com"
+    },
+    "xero": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@xeroapi/xero-mcp-server@latest"
+      ],
+      "environment": {
+        "XERO_CLIENT_ID": "{env:XERO_CLIENT_ID}",
+        "XERO_CLIENT_SECRET": "{env:XERO_CLIENT_SECRET}"
+      }
+    },
+    "linear": {
+      "type": "remote",
+      "url": "https://mcp.linear.app/mcp"
+    },
+    "linear-personal": {
+      "type": "remote",
+      "url": "https://mcp.linear.app/mcp"
+    },
+    "vercel": {
+      "type": "remote",
+      "url": "https://mcp.vercel.com"
+    },
+    "railway": {
+      "type": "remote",
+      "url": "https://mcp.railway.com"
+    },
+    "playwright": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@playwright/mcp@latest"
+      ]
+    },
+    "openaiDeveloperDocs": {
+      "type": "remote",
+      "url": "https://developers.openai.com/mcp"
+    }
+  },
+  "context": "AGENTS.md"
+}

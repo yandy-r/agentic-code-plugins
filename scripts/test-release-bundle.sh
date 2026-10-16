@@ -541,8 +541,24 @@ cp "${REPO_ROOT}/ycc/settings/packages.json" "${FIX}/ycc/settings/packages.json"
 for manifest in "${MODEL_GENERATED[@]}"; do
   wf "${manifest}" <<<'{"name":"fixture","version":"5.3.0"}'
 done
+NPM="packages/opencode/ycc-opencode/package.json"
+wf "${NPM}" <<<'{"name":"@yandy-r/ycc-opencode","version":"5.3.0"}'
 commit_fix "full model fixture"
-if run_pf "${FIX}"; then ok "model: included manifests and absent opencode npm pass"; else not_ok "model: included manifests pass" "${OUT}"; fi
+if run_pf "${FIX}"; then ok "model: included native and npm manifests pass"; else not_ok "model: included manifests pass" "${OUT}"; fi
+rm "${FIX}/${NPM}"
+commit_fix "missing included npm manifest"
+SOURCE_HASHES="$(sha "ycc/.claude-plugin/plugin.json");$(sha ".claude-plugin/marketplace.json")"
+if run_pf "${FIX}"; then not_ok "model: missing npm manifest fails preflight"; else
+  assert_contains "model: preflight names missing npm runtime" "${OUT}" "packages.@yandy-r/ycc-opencode.runtimes.opencode"
+  assert_contains "model: preflight names missing npm manifest" "${OUT}" "${NPM}: file not found"
+fi
+assert_eq "model: missing npm preflight preserves source" "${SOURCE_HASHES}" "$(sha "ycc/.claude-plugin/plugin.json");$(sha ".claude-plugin/marketplace.json")"
+if run_bump "${FIX}" "6.0.0"; then not_ok "model: missing npm manifest fails bump"; else
+  assert_contains "model: bump names missing npm runtime" "${OUT}" "packages.@yandy-r/ycc-opencode.runtimes.opencode"
+  assert_eq "model: missing npm bump preserves source" "${SOURCE_HASHES}" "$(sha "ycc/.claude-plugin/plugin.json");$(sha ".claude-plugin/marketplace.json")"
+fi
+wf "${NPM}" <<<'{"name":"@yandy-r/ycc-opencode","version":"5.3.0"}'
+commit_fix "restore included npm manifest"
 MISSING="packages/claude/ycc-hooks/.claude-plugin/plugin.json"
 rm "${FIX}/${MISSING}"
 commit_fix "missing included manifest"
@@ -567,7 +583,7 @@ wf "packages/claude/ycc-agents/.claude-plugin/plugin.json" <<<'{"name":"ycc-agen
 wf ".codex-plugin/ycc-hooks/.codex-plugin/plugin.json" <<<'{"name":"ycc-hooks","version":"0.1.0"}'
 commit_fix "deferred and excluded decoys"
 if run_pf "${FIX}"; then ok "model: deferred and excluded stale manifests ignored"; else not_ok "model: ignores inactive paths" "${OUT}"; fi
-NPM="packages/opencode/ycc-opencode/package.json"
+# Existing npm manifests must agree with the canonical product version.
 wf "${NPM}" <<<'{"name":"@yandy-r/ycc-opencode","version":"0.1.0"}'
 commit_fix "stale npm"
 if run_pf "${FIX}"; then not_ok "model: stale opencode npm fails"; else

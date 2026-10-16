@@ -90,6 +90,8 @@ run_ycc_target() {
             "${REPO_ROOT}/scripts/generate-opencode-commands.sh"
             echo "== sync: opencode plugin =="
             "${REPO_ROOT}/scripts/generate-opencode-plugin.sh"
+            echo "== sync: opencode npm package =="
+            "${REPO_ROOT}/scripts/generate-opencode-package.sh"
             ;;
         agents)
             echo "== sync: agents skills =="

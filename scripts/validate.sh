@@ -260,6 +260,13 @@ run_target() {
             echo "== validate: opencode V2 agent permission generation =="
             (cd "${REPO_ROOT}/scripts" && python3 test_generate_opencode_agents.py) \
                 || fail "test_generate_opencode_agents.py"
+            echo "== validate: experimental opencode npm package =="
+            python3 "${REPO_ROOT}/scripts/generate_opencode_package.py" --check \
+                || fail "generate_opencode_package.py --check"
+            python3 "${REPO_ROOT}/scripts/test_generate_opencode_package.py" \
+                || fail "test_generate_opencode_package.py"
+            python3 "${REPO_ROOT}/scripts/test_opencode_npm_release.py" \
+                || fail "test_opencode_npm_release.py"
             ;;
         agents)
             echo "== validate: agents skills =="
