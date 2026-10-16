@@ -17,4 +17,7 @@ echo "== JSON validity =="
 python3 -m json.tool "${INVENTORY_JSON}" > /dev/null
 echo "OK: docs/inventory.json is valid JSON."
 
+echo "== rename-repo regressions =="
+"${REPO_ROOT}/scripts/test-rename-repo.sh"
+
 echo "OK: inventory is in sync with source tree."
