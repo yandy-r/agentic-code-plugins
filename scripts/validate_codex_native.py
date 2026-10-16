@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import generate_codex_plugin as generator
+from codex_marketplace import validate_marketplace_catalog
 from generate_codex_mcp import build_codex_mcp_config
 from package_model import Package, load_package_model
 
@@ -34,6 +35,14 @@ def load_json(path: Path) -> dict[str, Any]:
 def check_fields(payload: dict[str, Any], path: Path) -> None:
     leaked = FORBIDDEN_FIELDS.intersection(payload)
     require(not leaked, path, f"forbidden runtime/listing fields: {sorted(leaked)}")
+
+
+def check_catalog_structure(catalog: dict[str, Any], path: Path) -> None:
+    """Reject malformed Codex marketplace structure before exact generated-value gates."""
+    try:
+        validate_marketplace_catalog(catalog)
+    except ValueError as exc:
+        raise ValueError(f"{path}: {exc}") from exc
 
 
 def check_startup_mcp(path: Path, payload: dict[str, Any]) -> None:
@@ -85,6 +94,7 @@ def check_package(root: Path, package: Package, version: str) -> None:
 def check_catalog(root: Path, packages: tuple[Package, ...]) -> None:
     path = root / generator.NATIVE_MARKETPLACE
     catalog = load_json(path)
+    check_catalog_structure(catalog, path)
     require(catalog.get("name") == "ycc", path, "native catalog must be named 'ycc'")
     check_fields(catalog, path)
     entries = catalog.get("plugins")
@@ -146,8 +156,10 @@ def validate(root: Path, native: bool) -> None:
         legacy_mcp = root / ".codex-plugin/ycc/.mcp.json"
         check_startup_mcp(legacy_mcp, load_json(legacy_mcp))
         catalog_path = root / generator.NATIVE_MARKETPLACE
+        legacy_catalog = load_json(catalog_path)
+        check_catalog_structure(legacy_catalog, catalog_path)
         require(
-            load_json(catalog_path) == generator.build_repo_marketplace(),
+            legacy_catalog == generator.build_repo_marketplace(),
             catalog_path,
             "legacy discovered catalog changed",
         )

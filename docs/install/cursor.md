@@ -106,7 +106,7 @@ through the unified sync script:
 
 ```bash
 ./scripts/sync.sh --only cursor
-./scripts/validate.sh --only cursor
+./scripts/validate.sh --only cursor,cursor-native,packages
 ```
 
 Generated hidden native packages also live under `packages/cursor/` (`ycc-rules`,

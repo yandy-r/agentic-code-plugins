@@ -15,6 +15,7 @@ import tempfile
 from collections.abc import Iterable
 from pathlib import Path
 
+from codex_marketplace import validate_marketplace_catalog
 from generate_codex_common import (
     CODEX_PLUGIN_CONTAINER,
     PLUGIN_MANIFEST_PATH,
@@ -78,7 +79,7 @@ def build_plugin_manifest() -> dict:
 
 
 def build_repo_marketplace() -> dict:
-    return {
+    catalog = {
         "name": "local-ycc-plugins",
         "interface": {
             "displayName": "Local YCC Plugins",
@@ -98,6 +99,7 @@ def build_repo_marketplace() -> dict:
             }
         ],
     }
+    return validate_marketplace_catalog(catalog)
 
 
 def native_package_roots(packages: Iterable[Package]) -> tuple[Path, ...]:
@@ -142,7 +144,9 @@ def build_native_marketplace(packages: Iterable[Package], *, include_unlisted: b
                 "category": "Productivity",
             }
         )
-    return {"name": "ycc", "interface": {"displayName": "YCC"}, "plugins": entries}
+    catalog = {"name": "ycc", "interface": {"displayName": "YCC"}, "plugins": entries}
+    validate_marketplace_catalog(catalog)
+    return catalog
 
 
 def native_version(model: PackageModel) -> str:
