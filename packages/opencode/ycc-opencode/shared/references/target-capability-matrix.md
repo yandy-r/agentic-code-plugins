@@ -61,7 +61,7 @@ alone do not make them shipping user install paths. This does not revise the cap
 | target   | native, listed today                                           | install.sh fallback today                                                         | hidden or gated native packages                                                               |
 | -------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | Claude   | `ycc@ycc` (skills, agents, `_shared`); `status-bar@ycc-mods`   | Rules, settings, statusline, hooks link, MCP, standalone skills/agents            | `ycc-mcp@ycc`, `ycc-hooks@ycc` (2.1.300+), `ycc-all@ycc`; `ycc-agents@ycc` in v7.0.0          |
-| Cursor   | None                                                           | Skills, agents, rules, settings copied under `~/.cursor/` from `packages/cursor/` | `packages/cursor/{ycc,ycc-rules,ycc-mcp,ycc-hooks}/`, all unlisted; hooks `sessionStart` only |
+| Cursor   | None                                                           | Skills, agents, commands, rules, settings under `~/.cursor/`; optional hooks      | `packages/cursor/{ycc,ycc-rules,ycc-mcp,ycc-hooks}/`, all unlisted; hooks `sessionStart` only |
 | Codex    | Installer-managed local marketplace; no public `ycc@ycc` entry | Agent TOMLs, `AGENTS.md`, `config.toml`                                           | `ycc@ycc`, `ycc-mcp@ycc` via `.agents/plugins/marketplace.json`; hooks excluded (YAN-1149)    |
 | opencode | None                                                           | Skills, agents, commands, shared, `opencode.json`, `AGENTS.md`                    | `@yandy-r/ycc-opencode` npm plugin: experimental, opt-in, unpublished                         |
 | `agents` | None                                                           | Skills and `ycc-shared` copied into `~/.agents/`                                  | None planned                                                                                  |
@@ -109,8 +109,11 @@ target has no portable key, so it omits the flag and keeps the description.
 **COMMANDS:cursor**
 The hidden native `packages/cursor/ycc/commands/` contains thin commands derived from
 user-invocable skills in `ycc/skills/`; each loads its package-local skill. This is not
-an installed-plugin dispatch proof. The file-copy installer's `commands` intent remains
-a no-op, and interactive installation and installed-plugin runtime verification remain gates.
+an installed-plugin dispatch proof. The file-copy installer's `commands` intent installs
+owned wrappers into `~/.cursor/commands/` that reference the installed skills, and its
+`hooks` intent is an optional explicit carrier that registers `sessionStart` only.
+Native plugin activation, interactive installation, and installed-plugin runtime
+verification remain gates.
 
 **COMMANDS:codex**
 The Codex customization platform does not support a slash-command layer. Skills are exposed
@@ -178,9 +181,12 @@ Sources under `ycc/` generate `packages/cursor/ycc/{skills,agents,commands}/`,
 `packages/cursor/ycc-rules/rules/`, `packages/cursor/ycc-mcp/mcp.json`, and
 `packages/cursor/ycc-hooks/hooks/`. Canonical `ycc/settings/cursor/cli-config.json`
 is copied byte-for-byte to `packages/cursor/installer-fallback/config/cli-config.json`.
-The unchanged file-copy installer copies skills, agents, and rules into `~/.cursor/`
-and merges the config there. All four native packages remain unlisted; no root
-`.cursor-plugin/marketplace.json` is generated. See `docs/internal/cursor-native-packages.md`.
+The file-copy installer copies skills, agents, and rules into `~/.cursor/`, installs
+owned `commands` wrappers into `~/.cursor/commands/`, and merges the config there. The
+`hooks` step is an optional explicit carrier that installs the `sessionStart` hook only
+(no `WorktreeCreate`) and is not inherited by other selections. All four native packages
+remain unlisted; no root `.cursor-plugin/marketplace.json` is generated, and native
+plugin activation remains gated. See `docs/internal/cursor-native-packages.md`.
 
 **INSTALL_PATH:codex**
 `install.sh install --target codex` symlinks `~/.codex/plugins/ycc/` to the repo's

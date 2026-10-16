@@ -189,9 +189,11 @@ the user may invoke them. Policy mapping: Cursor keeps `disable-model-invocation
 Codex writes `agents/openai.yaml` with `policy.allow_implicit_invocation: false`;
 opencode writes skill metadata `opencode/autoinvoke: 'false'`; the portable
 `agents` bundle omits it (no standard key). Cursor's hidden native `ycc` package derives
-command files from user-invocable skills; the file-copy installer still treats the
-`commands` intent as a no-op. Codex has no command layer. Native Cursor interactive
-installation and installed-plugin runtime behavior remain gates. See
+command files from user-invocable skills; the file-copy installer's `commands` intent
+installs owned wrappers into `~/.cursor/commands/`, and its optional `hooks` intent
+installs the `sessionStart` hook only. Native plugin activation remains gated. Codex
+has no command layer. Native Cursor interactive installation and installed-plugin
+runtime behavior remain gates. See
 `ycc/skills/_shared/references/target-capability-matrix.md` for the full matrix.
 
 ## Regeneration
