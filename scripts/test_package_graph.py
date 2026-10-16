@@ -192,7 +192,12 @@ class SyntheticTreeTests(unittest.TestCase):
 
 
 class StrictDispatchTests(unittest.TestCase):
-    BAD_NAMES = ("Codebase-Research-Analyst", "codebaseResearchAnalyst")
+    BAD_NAMES = (
+        "Codebase-Research-Analyst",
+        "codebaseResearchAnalyst",
+        "real-agent_extra",
+        "generalPurpose_extra",
+    )
 
     @staticmethod
     def syntaxes(name: str) -> dict[str, str]:
@@ -207,7 +212,7 @@ class StrictDispatchTests(unittest.TestCase):
             "table ycc namespace": f"| Subagent Type | `ycc:{name}` |",
         }
 
-    def test_uppercase_concrete_dispatch_errors_in_every_syntax(self) -> None:
+    def test_invalid_concrete_dispatch_errors_in_every_syntax(self) -> None:
         for bad in self.BAD_NAMES:
             for label, line in self.syntaxes(bad).items():
                 with self.subTest(name=bad, syntax=label), tempfile.TemporaryDirectory() as tmpdir:
@@ -238,9 +243,14 @@ class StrictDispatchTests(unittest.TestCase):
             "| Subagent Type | `generalPurpose` |",
             'subagent_type="<type>"',
             "subagent_type = <subagent-type>",
+            'subagent_type="{{agent}}"',
+            "subagent_type: {{agent}}",
             "**Subagent Type**: `<agent-type>`",
             "**Subagent Type**: `{{agent}}`",
             "| Subagent Type | `<type>` |",
+            "| Subagent Type | `{{agent}}` |",
+            "| subagent_type | `<type>` |",
+            "| subagent_type | `{{agent}}` |",
         )
         with tempfile.TemporaryDirectory() as tmpdir:
             graph, errors = extract_graph(build_tree(Path(tmpdir), "\n".join(lines) + "\n"))

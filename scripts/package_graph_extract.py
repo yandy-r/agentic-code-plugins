@@ -13,9 +13,9 @@ BUILTIN_AGENTS = frozenset({"explore", "general", "general-purpose", "generalPur
 CATALOG_SKILLS = frozenset({"orchestrate", "init", "write-docs"})
 NAME = re.compile(r"^[a-z][a-z0-9-]*$")
 # Pipe-separated dispatch values are code spans; bare cells are Markdown table headings.
-DISPATCH = re.compile(r"\bsubagent_type`?\s*(?:[:=]\s*`?[\"']?|\|\s*`)(?:ycc:)?([a-zA-Z][a-zA-Z0-9-]*)")
+DISPATCH = re.compile(r"\bsubagent_type`?\s*(?:[:=]\s*`?[\"']?|\|\s*`)([^\s\"'`,)|]+)")
 BOLD_DISPATCH = re.compile(r"\*\*Subagent Type\*\*:\s*`([^`]+)`")
-TABLE_DISPATCH = re.compile(r"\|\s*Subagent Type\s*\|\s*`(?:ycc:)?([a-zA-Z][a-zA-Z0-9-]*)`\s*\|")
+TABLE_DISPATCH = re.compile(r"\|\s*Subagent Type\s*\|\s*`([^`]+)`\s*\|")
 MENTION = re.compile(r"(?<![\w/-])(/?)ycc:([a-z][a-z0-9-]*)(?![a-z0-9-]|:)")
 PLUGIN_FILE = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT(?:%/)?\}/skills/([^\s\"'`)]+)")
 RELATIVE_SHARED = re.compile(r"\.\./\.\./_shared/(scripts/[^\s\"'`)]+)")
