@@ -24,7 +24,7 @@
 #                checks both the legacy checkout profile and a disposable native export
 #   - config     tests the managed-config merge helper and install.sh sync CLI
 #   - packages   validates the package manifest (ycc/settings/packages.json) against its schema
-#                and invariants, package graph closures, manifest/tree/catalog parity, and tests
+#                and invariants, package graph closures, manifest/tree/catalog parity, install doc IDs, and tests
 #   - release    runs every scripts/test-release-*.sh (release-model state scripts,
 #                RELEASING.md template, signal collector)
 #   - mods       validates the Claude Code mods under ycc/mods and their marketplace
@@ -260,6 +260,13 @@ run_target() {
             echo "== validate: opencode V2 agent permission generation =="
             (cd "${REPO_ROOT}/scripts" && python3 test_generate_opencode_agents.py) \
                 || fail "test_generate_opencode_agents.py"
+            echo "== validate: experimental opencode npm package =="
+            python3 "${REPO_ROOT}/scripts/generate_opencode_package.py" --check \
+                || fail "generate_opencode_package.py --check"
+            python3 "${REPO_ROOT}/scripts/test_generate_opencode_package.py" \
+                || fail "test_generate_opencode_package.py"
+            python3 "${REPO_ROOT}/scripts/test_opencode_npm_release.py" \
+                || fail "test_opencode_npm_release.py"
             ;;
         agents)
             echo "== validate: agents skills =="
@@ -303,6 +310,9 @@ run_target() {
 		echo "== validate: package manifest/tree/catalog parity =="
 		python3 "${REPO_ROOT}/scripts/validate_packages.py" || fail "validate_packages.py"
 		python3 "${REPO_ROOT}/scripts/test_validate_packages.py" || fail "test_validate_packages.py"
+		echo "== validate: install document package IDs =="
+		python3 "${REPO_ROOT}/scripts/validate_install_doc_ids.py" || fail "validate_install_doc_ids.py"
+		python3 "${REPO_ROOT}/scripts/test_validate_install_doc_ids.py" || fail "test_validate_install_doc_ids.py"
 		;;
         release)
             local -a release_tests=("${REPO_ROOT}"/scripts/test-release-*.sh)

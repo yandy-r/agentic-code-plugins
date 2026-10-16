@@ -24,7 +24,7 @@ The completed checklist for each release is saved to `docs/releases/<version>.md
 - [ ] Working tree is clean (no uncommitted changes). `git status --porcelain` must return empty output.
 - [ ] Currently on `main` branch (or a dedicated release branch with intent).
 - [ ] Version fields are in parity: `ycc/settings/packages.json` is valid, every participating marketplace `plugins[]` entry and versioned package manifest agrees with `ycc/.claude-plugin/plugin.json` (`ycc-mods` excluded), and every included native manifest exists with a version regardless of `listed` (Claude `ycc` canonical, other Claude packages under `packages/claude/<key>/`, Codex under `.codex-plugin/<key>/`, Cursor under `packages/cursor/<key>/`).
-- [ ] Deferred/excluded paths are suppressed from the bounded backstop, file-copy entries are skipped, and a present opencode npm manifest (`packages/opencode/<unscoped-key>/package.json`) is in parity. A missing opencode npm manifest is temporarily tolerated until its generator lands; unmodeled manifests remain covered by the bounded scan.
+- [ ] Deferred/excluded paths are suppressed from the bounded backstop, file-copy entries are skipped, and the included opencode npm manifest (`packages/opencode/<unscoped-key>/package.json`) exists and is in parity; unmodeled manifests remain covered by the bounded scan.
 - [ ] `./scripts/validate.sh` passes on the pre-release tree.
 
 Run: `ycc/skills/bundle-release/scripts/preflight.sh`

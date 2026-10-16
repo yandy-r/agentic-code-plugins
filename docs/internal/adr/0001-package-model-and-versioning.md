@@ -48,7 +48,7 @@ the Cursor and Codex spikes establish no minimum at all.
 | Marketplace | `ycc` for Claude, Codex, and Cursor. The Codex catalog renames from `local-ycc-plugins` at the flip. | Current for Claude; Codex rename planned.         |
 | Namespace   | `ycc:` stays for skills and agents in v6.                                                            | Current.                                          |
 | Claude mods | `ycc-mods` unchanged (`status-bar@ycc-mods`).                                                        | Current.                                          |
-| npm scope   | `@yandy-r/ycc-opencode` for the experimental opencode package.                                       | Planned; not published.                           |
+| npm scope   | `@yandy-r/ycc-opencode` for the experimental opencode package.                                       | `@yandy-r` owned; package not published.          |
 | "acc"       | Prose or branding only. Never an identifier.                                                         | Policy.                                           |
 
 Package ids use the component as the name and `ycc` as the marketplace: `ycc-mcp@ycc`,
@@ -62,24 +62,24 @@ name silently splits resolution between skills and agents.
 "Spiked" means a dossier above tested the mechanism. "Unspiked" means the mechanism is
 planned on documentation alone and must be tested before it is listed.
 
-| Runtime  | Package / artifact                                                 | Mechanism                                               | v6.0.0 status                                                                                                                                                                                                                                                | Evidence                                              |
-| -------- | ------------------------------------------------------------------ | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
-| Claude   | `ycc@ycc`                                                          | Native plugin: 49 skills, 55 agents, `_shared`          | Ships. Skills and agents stay in `ycc`.                                                                                                                                                                                                                      | claude-namespace (distinct names, qualified refs: Go) |
-| Claude   | `ycc-mcp@ycc`                                                      | Native MCP-only plugin                                  | Planned in v6; unspiked.                                                                                                                                                                                                                                     | none                                                  |
-| Claude   | `ycc-hooks@ycc`                                                    | Native plugin `hooks/hooks.json`                        | Ships, documented as needing Claude Code **2.1.300** or later. Native rollout waits for installer dedupe.                                                                                                                                                    | claude-hooks                                          |
-| Claude   | `ycc-all@ycc`                                                      | Meta plugin with `dependencies`                         | Planned; blocked by the dependency test below.                                                                                                                                                                                                               | none                                                  |
-| Claude   | `ycc-agents@ycc`                                                   | Native agents-only plugin                               | **Deferred to v7.0.0**, with qualified `ycc-agents:` references.                                                                                                                                                                                             | claude-namespace (shared name No-Go)                  |
-| Claude   | Rules, `CLAUDE.md`, settings                                       | `install.sh` only                                       | Stays on `install.sh`. No Claude `ycc-rules`.                                                                                                                                                                                                                | Plugin manifests have no rules component.             |
-| Codex    | `ycc@ycc` (skills and `shared/`)                                   | Native plugin, relative `local` source                  | Current catalog is `local-ycc-plugins` with `./plugins/ycc`. Planned listing at the flip: `.agents/plugins/marketplace.json` with `{"source":"local","path":"./.codex-plugin/ycc"}`. Sparse installs must include `.agents/plugins` and `.codex-plugin/ycc`. | codex-marketplace                                     |
-| Codex    | `ycc-mcp@ycc`                                                      | Native MCP                                              | Generated hidden. Dormant `.codex-plugin/ycc-mcp` is uncataloged; native MCP uses Codex `env_vars`. YAN-1131 installed it on codex-cli 0.161.0 from a local Git fixture.                                                                                     | YAN-1131 fixture smoke                                |
-| Codex    | `ycc-hooks@ycc`                                                    | Native hooks                                            | **Excluded.** NO-GO until verified under YAN-1149.                                                                                                                                                                                                           | codex-marketplace                                     |
-| Codex    | Agents (`*.toml`), `AGENTS.md`, config                             | `install.sh` only                                       | Stays on `install.sh`; Codex plugins cannot carry these.                                                                                                                                                                                                     | codex-marketplace (no plugin layer)                   |
-| Cursor   | `ycc@ycc` (skills, agents, commands, `shared`)                     | Native plugin package under `packages/cursor/ycc/`      | Hidden and unlisted; no root marketplace. Interactive installed-plugin runtime remains a gate before listing. File-copy installer remains user-facing.                                                                                                       | cursor-plugin (registration only)                     |
-| Cursor   | `ycc-rules@ycc`, `ycc-mcp@ycc`                                     | Native plugin packages under `packages/cursor/`         | Hidden and unlisted; no root marketplace. Native listing/install is not available. `ycc-mcp` declares `${VAR}` placeholders under manifest `variables`; secret literals are rejected by the generator.                                                       | none                                                  |
-| Cursor   | `ycc-hooks@ycc`                                                    | Native hooks package under `packages/cursor/ycc-hooks/` | Hidden and unlisted; `sessionStart` only, from `ycc/settings/cursor/{hooks.json,herdr-session-start.sh}`. No `WorktreeCreate` mapping; installer hooks intent remains a no-op.                                                                               | cursor-plugin                                         |
-| opencode | File copy (skills, agents, commands, `opencode.json`, `AGENTS.md`) | `install.sh`                                            | **Primary and unchanged.**                                                                                                                                                                                                                                   | opencode-config-hook (fallback)                       |
-| opencode | `@yandy-r/ycc-opencode`                                            | One npm plugin; V2 `setup` registers components         | Experimental and **opt-in** in v6; owner-decided CI publication with provenance on a maintainer-pushed product tag (workflow not implemented).                                                                                                               | opencode-config-hook                                  |
-| agents   | Skills and `ycc-shared`                                            | File copy into `~/.agents/skills`                       | `install.sh` only. The npx skills spike does not replace that install.                                                                                                                                                                                       | [npx-skills](../spikes/npx-skills.md)                 |
+| Runtime  | Package / artifact                                                 | Mechanism                                                    | v6.0.0 status                                                                                                                                                                                                                                                | Evidence                                              |
+| -------- | ------------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| Claude   | `ycc@ycc`                                                          | Native plugin: 49 skills, 55 agents, `_shared`               | Ships. Skills and agents stay in `ycc`.                                                                                                                                                                                                                      | claude-namespace (distinct names, qualified refs: Go) |
+| Claude   | `ycc-mcp@ycc`                                                      | Native MCP-only plugin                                       | Planned in v6; unspiked.                                                                                                                                                                                                                                     | none                                                  |
+| Claude   | `ycc-hooks@ycc`                                                    | Native plugin `hooks/hooks.json`                             | Ships, documented as needing Claude Code **2.1.300** or later. Native rollout waits for installer dedupe.                                                                                                                                                    | claude-hooks                                          |
+| Claude   | `ycc-all@ycc`                                                      | Meta plugin with `dependencies`                              | Planned; blocked by the dependency test below.                                                                                                                                                                                                               | none                                                  |
+| Claude   | `ycc-agents@ycc`                                                   | Native agents-only plugin                                    | **Deferred to v7.0.0**, with qualified `ycc-agents:` references.                                                                                                                                                                                             | claude-namespace (shared name No-Go)                  |
+| Claude   | Rules, `CLAUDE.md`, settings                                       | `install.sh` only                                            | Stays on `install.sh`. No Claude `ycc-rules`.                                                                                                                                                                                                                | Plugin manifests have no rules component.             |
+| Codex    | `ycc@ycc` (skills and `shared/`)                                   | Native plugin, relative `local` source                       | Current catalog is `local-ycc-plugins` with `./plugins/ycc`. Planned listing at the flip: `.agents/plugins/marketplace.json` with `{"source":"local","path":"./.codex-plugin/ycc"}`. Sparse installs must include `.agents/plugins` and `.codex-plugin/ycc`. | codex-marketplace                                     |
+| Codex    | `ycc-mcp@ycc`                                                      | Native MCP                                                   | Generated hidden. Dormant `.codex-plugin/ycc-mcp` is uncataloged; native MCP uses Codex `env_vars`. YAN-1131 installed it on codex-cli 0.161.0 from a local Git fixture.                                                                                     | YAN-1131 fixture smoke                                |
+| Codex    | `ycc-hooks@ycc`                                                    | Native hooks                                                 | **Excluded.** NO-GO until verified under YAN-1149.                                                                                                                                                                                                           | codex-marketplace                                     |
+| Codex    | Agents (`*.toml`), `AGENTS.md`, config                             | `install.sh` only                                            | Stays on `install.sh`; Codex plugins cannot carry these.                                                                                                                                                                                                     | codex-marketplace (no plugin layer)                   |
+| Cursor   | `ycc@ycc` (skills, agents, commands, `shared`)                     | Native plugin package under `packages/cursor/ycc/`           | Hidden and unlisted; no root marketplace. Interactive installed-plugin runtime remains a gate before listing. File-copy installer remains user-facing.                                                                                                       | cursor-plugin (registration only)                     |
+| Cursor   | `ycc-rules@ycc`, `ycc-mcp@ycc`                                     | Native plugin packages under `packages/cursor/`              | Hidden and unlisted; no root marketplace. Native listing/install is not available. `ycc-mcp` declares `${VAR}` placeholders under manifest `variables`; secret literals are rejected by the generator.                                                       | none                                                  |
+| Cursor   | `ycc-hooks@ycc`                                                    | Native hooks package under `packages/cursor/ycc-hooks/`      | Hidden and unlisted; `sessionStart` only, from `ycc/settings/cursor/{hooks.json,herdr-session-start.sh}`. No `WorktreeCreate` mapping; installer hooks intent remains a no-op.                                                                               | cursor-plugin                                         |
+| opencode | File copy (skills, agents, commands, `opencode.json`, `AGENTS.md`) | `install.sh`                                                 | **Primary and unchanged.**                                                                                                                                                                                                                                   | opencode-config-hook (fallback)                       |
+| opencode | `@yandy-r/ycc-opencode`                                            | One npm plugin; V2 `setup` registers components              | Experimental, **opt-in**, unlisted. Published by `.github/workflows/release.yml` with provenance on a maintainer-pushed `vX.Y.Z` tag on `main`; `engines.opencode` floor `>=2.0.30` (spike ran on 2.0.29).                                                   | opencode-config-hook                                  |
+| agents   | Skills and `ycc-shared`                                            | File copy into `~/.agents/skills` and `~/.agents/ycc-shared` | `install.sh` only. The npx skills spike does not replace that install.                                                                                                                                                                                       | [npx-skills](../spikes/npx-skills.md)                 |
 
 The opencode spike verified **GO** for the V2 `plugins` array, whose default-exported
 `{ id, setup }` plugin registered agents, commands, skills, and MCP through the V2
@@ -120,16 +120,37 @@ findings are pinned to opencode v2.0.29; other versions are unverified. The `plu
   discovered versioned marketplace entry and package manifest, excluding `ycc/mods`. Discovery
   reads `ycc/settings/packages.json` directly: each included native entry must have an existing
   versioned manifest (check-only; Claude `ycc` is canonical), deferred and excluded entries are
-  suppressed, and file-copy entries are skipped. An included opencode npm package is checked
-  when present (`packages/opencode/<unscoped-key>/package.json`), tolerated when absent only
-  until the generator lands. A bounded scan still covers unmodeled manifests, and a missing or
-  malformed model fails the bump without writes.
+  suppressed, and file-copy entries are skipped. An included opencode npm package must have
+  `packages/opencode/<unscoped-key>/package.json` at the lockstep version; a missing manifest
+  fails preflight and the bump without writes. A bounded scan still covers unmodeled manifests,
+  and a missing or malformed model fails the bump without writes.
 - **Codex pinning.** The Codex catalog uses a relative `local` source, not a version-pinned
   `git-subdir`, so no tag has to exist before the release PR merges.
-- **npm publication (owner decision for v6.0.0, not implemented).** CI publishes the
-  experimental, opt-in `@yandy-r/ycc-opencode` npm package with provenance on a
-  maintainer-pushed product tag. No publishing workflow exists today. This documentation PR
-  neither publishes the package nor implements that workflow.
+- **npm publication.** `.github/workflows/release.yml` publishes the experimental, opt-in
+  `@yandy-r/ycc-opencode` package with `npm publish --provenance --access public` on a
+  maintainer-pushed product tag. It runs only on tag pushes (never branches, PRs, or manual
+  runs) with `contents: read` and `id-token: write`. `scripts/opencode_npm_release.py` fails
+  closed unless the tag is strict `vX.Y.Z`, the checked-out commit equals the tag and event
+  SHA, that commit is an ancestor of freshly fetched `origin/main`, and the tag, canonical
+  `ycc/.claude-plugin/plugin.json`, generated `package.json`, and every lockstep surface agree.
+  The job then runs the scoped `opencode,packages` validators and the release-bundle
+  regression, packs, and publishes the packed artifact. The `release` environment must have
+  maintainer approval, and publishing authenticates with npm trusted publishing (OIDC): the
+  job runs on a GitHub-hosted runner with Node 24 and a pinned `npm@11.21.1`
+  (`--ignore-scripts`; npm trusted publishing requires Node >= 22.14.0 and npm >= 11.5.1 —
+  see [npm trusted publishing docs](https://docs.npmjs.com/trusted-publishers)),
+  publishes with `npm publish --provenance --access public`, and uses
+  the workflow's `id-token: write` permission for registry authentication and provenance —
+  no npm token is stored or mapped in the repository. Maintainer prerequisite: register this
+  exact trusted publisher on npmjs.com for `@yandy-r/ycc-opencode` — repository owner
+  `yandy-r`, repository `claude-plugins`, workflow filename `release.yml`, GitHub
+  environment `release` — allowing `npm publish`. The `@yandy-r` npm scope is already
+  owned; no token setup is required. Also restrict `v*` tag creation. These package-specific
+  trusted publisher settings have not been verified here, and no publish was attempted.
+  Nothing is published until a maintainer pushes a tag; the package stays unlisted and
+  activation stays opt-in. The package `engines.opencode` floor is `>=2.0.30`, the version
+  its package smoke targets; the registration spike ran on 2.0.29. The `plugins` array is
+  the V2 key; a plugin and the file copy installed together register components twice.
 
 ### Gates
 
@@ -147,9 +168,8 @@ The gates and feature switches are listed in
   They stay under `packages/cursor/` with no root marketplace. Interactive installation
   and installed-plugin runtime proof remain gates; file-copy install behavior is unchanged.
 - Codex hooks stay excluded until verified (YAN-1149).
-- The opencode npm package is published only by the planned CI publish step on the owner-decided
-  maintainer tag described under Versioning. It is not published by this PR, and activation is
-  always opt-in.
+- The opencode npm package is published only by the tag-triggered workflow described under
+  Versioning, and activation is always opt-in.
 
 ## Consequences
 
@@ -178,8 +198,10 @@ The gates and feature switches are listed in
 
 ## Still absent
 
-`install.sh` has no `--package` or `migrate` command. No workflow publishes
-`@yandy-r/ycc-opencode`. The checked-in Codex catalog is still named `local-ycc-plugins`.
+`install.sh` has no `migrate` command. `--package` selects package ids on `install`.
+`.github/workflows/release.yml` publishes `@yandy-r/ycc-opencode` only on a
+maintainer-pushed product tag; no tag has been pushed and nothing has been published.
+The checked-in Codex catalog is still named `local-ycc-plugins`.
 
 ### Snapshot from 2026-10-15
 
@@ -191,9 +213,9 @@ unlisted. The paragraphs after the bullets record those landings.
 - `ycc/settings/packages.json` and the package graph (`scripts/build_package_graph.py`).
 - Per-runtime package generators and the `install.sh --package` and `migrate` commands.
 - The `packages`, `claude-native`, `cursor-native`, and `codex-native` validator groups.
-- The repo-rename dry-run script and the npm publishing workflow for
-  `@yandy-r/ycc-opencode` (the package itself is a v6.0.0 deliverable per owner decision;
-  CI would publish it with provenance on the maintainer-pushed product tag).
+- The repo-rename dry-run script and the npm publishing workflow for `@yandy-r/ycc-opencode`
+  (the workflow later landed as `.github/workflows/release.yml`; no tag has been pushed and
+  nothing has been published).
 - The Codex catalog rename and the Cursor native plugin layout.
 
 YAN-1131 later implemented the Codex generator split and explicit external native export. It did

@@ -18,6 +18,7 @@ _ycc() {
         --target) values="claude cursor codex opencode agents all" ;;
         --skills-home) mapfile -t COMPREPLY < <(compgen -W "agents native" -- "${cur}"); return ;;
         --intent) values="base skills agents commands settings rules mcp hooks plugins mods" ;;
+        --package) [[ "${sub}" == "install" ]] && values="ycc ycc-mcp ycc-hooks ycc-rules" ;;
         --mcps)   values="$(_ycc_mcps)" ;;
         --only)   values="base skills agents commands settings rules mcp hooks mods" ;;
         --mode)   mapfile -t COMPREPLY < <(compgen -W "local repo" -- "${cur}"); return ;;
@@ -45,7 +46,7 @@ _ycc() {
             cli)        words="--dir --force --help" ;;
             completion) words="--shell --install --force --help" ;;
             list-mcps)  words="--target --help" ;;
-            install)    words="--target --only --mode --skills-home --settings --rules --mcp --mcps --hooks --project --global --force --help" ;;
+            install)    words="--target --package --only --mode --skills-home --settings --rules --mcp --mcps --hooks --project --global --force --help" ;;
             sync)       words="--target --intent --mcps --mode --skills-home --project --global --force --help" ;;
             remove)     words="--target --only --intent --mcps --project --global --force --help" ;;
             *)          words="" ;;

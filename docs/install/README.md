@@ -180,21 +180,25 @@ rejected before anything runs: the error is about `settings`, not `mcp`. Drop
 
 ### GitHub MCP prerequisite
 
-Install the official released [`github-mcp-server` binary](https://github.com/github/github-mcp-server/releases)
-and put it on the runtime's `PATH` before enabling GitHub MCP. ycc configures
-`github-mcp-server stdio`; it does not install the binary or require Docker.
-Official release binaries include the OAuth app credentials. On first use the
-server opens a browser automatically and listens on a random loopback port;
-the OAuth token stays in memory only (a new server process may need login again).
-See [OAuth login](https://github.com/github/github-mcp-server/blob/main/docs/oauth-login.md).
-A PAT environment variable overrides OAuth, so remove inherited PATs if you want
-OAuth rather than PAT authentication. No PAT mapping is shipped by ycc.
+Install [GitHub CLI](https://cli.github.com/) and sign in with `gh auth login`
+before enabling GitHub MCP. The runtime's `PATH` must also provide a POSIX `sh`
+and [Node.js/npm](https://nodejs.org/) with `npx`.
 
-Normal `ycc sync --intent mcp` migrates recognized legacy `npx
-@modelcontextprotocol/server-github` and `https://api.githubcopilot.com/mcp`
-entries even without ownership state. Obsolete transport/auth fields are removed;
-unrelated settings, servers and tools remain. Custom GitHub connections stay
-untouched unless `--force` is explicit. `--mcps` selection and `--dry-run` apply
+ycc launches `mcp-remote` through `npx` to bridge the runtime's stdio connection
+to GitHub's remote endpoint, `https://api.githubcopilot.com/mcp/`. No
+`github-mcp-server` binary or Docker installation is needed. At each server
+startup, `gh auth token` supplies the token; a failed authentication lookup stops
+startup before launching the bridge. The token is passed through the bridge's
+environment-variable header substitution, not written into managed config or
+included in process arguments. Restart the MCP server after changing GitHub
+accounts or credentials.
+
+Normal `ycc sync --intent mcp` migrates recognized legacy
+`github-mcp-server stdio`, `npx @modelcontextprotocol/server-github`, and
+`https://api.githubcopilot.com/mcp` entries even without ownership state.
+Obsolete transport/auth fields are removed; unrelated settings, servers and tools
+remain. Custom GitHub connections stay untouched unless `--force` is explicit.
+`--mcps` selection and `--dry-run` apply
 to migration too.
 
 By default the `mcp` step merges every server the repo manages for a target.

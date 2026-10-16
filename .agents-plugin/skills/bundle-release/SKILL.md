@@ -48,8 +48,8 @@ Checks owned by `preflight.sh`:
   `ycc/settings/packages.json` directly: every included native entry must have an
   existing versioned manifest regardless of `listed`; deferred/excluded paths are
   suppressed from the bounded scan, and file-copy entries are skipped. Included
-  opencode npm manifests are check-only when present, with temporary missing-file
-  tolerance until their generator lands. `ycc-mods` is excluded. The bounded scan
+  opencode npm manifests are required to exist at the lockstep version
+  (check-only). `ycc-mods` is excluded. The bounded scan
   remains a backstop for unmodeled manifests; versionless marketplace entries and
   unmodeled optional manifests stay versionless. See `references/version-policy.md`
   for the exact runtime paths.
@@ -84,7 +84,7 @@ If `--dry-run` was passed, print the full release plan:
 - Source files that will be modified: `ycc/.claude-plugin/plugin.json`,
   `.claude-plugin/marketplace.json`, and `ycc/package.json` when it carries a version.
   The package model is validated, not bumped; generated `packages/**` and runtime
-  manifests are check-only (including opencode npm when present).
+  manifests are check-only (including the required opencode npm manifest).
 - Derived bundles that will be regenerated (`.cursor-plugin/`, `.codex-plugin/`, `.opencode-plugin/`).
 - All commands that would be executed, in order.
 
