@@ -26,7 +26,7 @@ The opt-in smoke harness isolates HOME/config/XDG/temp paths, builds a directory
 
 On Claude Code **2.1.301**, each actual generated package passed `claude plugin validate`. Installing only ycc-all automatically installed ycc, ycc-mcp and ycc-hooks. The contained copied-script worktree smoke passed. The harness also passed with relative `VERIFY_TEMP_DIR=.` after review corrected temporary-path normalization.
 
-Fifteen generator boundary tests and 46 changed-path scoping checks passed. The generator/MCP sentinel checks preserve literal `${ENV}` references. Modified-source Markdown/Prettier, Ruff/Black and ShellCheck checks passed.
+Sixteen generator boundary tests and 46 changed-path scoping checks passed. The generator/MCP sentinel checks preserve literal `${ENV}` references. Modified-source Markdown/Prettier, Ruff/Black and ShellCheck checks passed.
 
 ## Compatibility and rollout limits
 

@@ -18,11 +18,17 @@ graph: `ycc` (included, listed, native, `[skills, agents, shared]`), `ycc-mcp`
 `[hooks]`), `ycc-all` (included, unlisted, native, `[]`,
 `requires: [ycc, ycc-mcp, ycc-hooks]`), all `target_release: v6.0.0`. Version is
 lockstep `5.3.0` from `ycc/.claude-plugin/plugin.json` via `version_source`; the
-generator must never hardcode it. Two corrections to prior notes: the official
-manifest dependency key is **`dependencies`** (bare strings), not
-`pluginDependencies`; and the `ycc-hooks` payload should register **both**
-`WorktreeCreate` (settings-sourced) and `SessionStart` with the `session` argv
-(spike-sourced) — copying the herdr script alone registers nothing.
+generator must never hardcode it. The official manifest dependency key is
+**`dependencies`** (bare strings), not `pluginDependencies`. Hook registrations
+come only from committed settings: currently `WorktreeCreate`, not `SessionStart`.
+
+> **Coordinator resolution:** The research originally proposed copying both hook
+> scripts and adding spike-backed herdr `SessionStart` activation. That proposal
+> was rejected by `feature-spec.md` and the implementation plan: the spike proves
+> capability, not registration policy. Only the settings-registered WorktreeCreate
+> script is copied and activated; herdr is neither copied nor activated. The
+> recommendations below reflect that resolution; spike observations remain
+> historical evidence.
 
 ## Architecture Design
 
@@ -41,8 +47,8 @@ ycc/settings/packages.json ──load_package_model()──► PackageModel (fro
   select claude/native/included/unlisted, key != ycc ──► packages/claude/<key>/
         │
         ├─ mcp-configs/mcp.json ──byte copy──► ycc-mcp/.mcp.json
-        ├─ ycc/settings/hooks/*.sh ──byte copy──► ycc-hooks/hooks/
-        │                + generated hooks/hooks.json (WorktreeCreate, SessionStart)
+        ├─ settings-registered hook script ──byte copy──► ycc-hooks/hooks/
+        │                + generated hooks/hooks.json (WorktreeCreate only)
         └─ model requires ──► ycc-all/.claude-plugin/plugin.json (dependencies)
 ```
 
@@ -69,11 +75,11 @@ Pipeline invariants, copied from the Codex implementation:
 
 ### Output layout (safe defaults)
 
-| Package     | Files                                                                                                      | Source                                                                                                                |
-| ----------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `ycc-mcp`   | `.claude-plugin/plugin.json`, `.mcp.json`                                                                  | manifest generated; `.mcp.json` byte-copied from `mcp-configs/mcp.json` (10 servers, `${XERO_*}` preserved literally) |
-| `ycc-hooks` | `.claude-plugin/plugin.json`, `hooks/hooks.json`, `hooks/worktree-create.sh`, `hooks/herdr-agent-state.sh` | manifest + `hooks.json` generated; scripts byte-copied from `ycc/settings/hooks/` with executable bits preserved      |
-| `ycc-all`   | `.claude-plugin/plugin.json` only                                                                          | generated; `dependencies` from model `requires`, in model order                                                       |
+| Package     | Files                                                                        | Source                                                                                                                              |
+| ----------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `ycc-mcp`   | `.claude-plugin/plugin.json`, `.mcp.json`                                    | manifest generated; `.mcp.json` byte-copied from `mcp-configs/mcp.json` (10 servers, `${XERO_*}` preserved literally)               |
+| `ycc-hooks` | `.claude-plugin/plugin.json`, `hooks/hooks.json`, `hooks/worktree-create.sh` | manifest + `hooks.json` generated; only the registered script byte-copied from `ycc/settings/hooks/` with executable bits preserved |
+| `ycc-all`   | `.claude-plugin/plugin.json` only                                            | generated; `dependencies` from model `requires`, in model order                                                                     |
 
 Manifest fields follow `build_plugin_manifest` (lines 41–75) minus Codex-specific
 `interface`: `name` = package key, `version` = lockstep source version,
@@ -92,11 +98,9 @@ Generated `hooks/hooks.json` registrations:
   `bash ~/.claude/hooks/worktree-create.sh`) → plugin-root-relative
   `bash "${CLAUDE_PLUGIN_ROOT}/hooks/worktree-create.sh"`, `${CLAUDE_PLUGIN_ROOT}`
   kept literal until runtime, path quoted.
-- `SessionStart` with `matcher: "*"` → `sh
-"${CLAUDE_PLUGIN_ROOT}/hooks/herdr-agent-state.sh" session` (provenance: the
-  YAN-1122 spike's herdr-style argv; `settings.json` declares no `SessionStart`,
-  so this registration is spike-sourced by explicit decision, not inferred from
-  the file copy — copying the script alone registers nothing).
+- No `SessionStart` registration or herdr script copy. The YAN-1122 spike's
+  `herdr-agent-state.sh session` contract is evidence only; committed settings
+  declare no `SessionStart` event.
 
 ### Ownership, determinism, drift
 
@@ -116,8 +120,8 @@ Generated `hooks/hooks.json` registrations:
   `missing file`, `drift`, `executable-bit drift`, `extra in output`. The Claude
   check **must** compare executable bits (`compare_executable=True`, as in
   `run_native_check`, line 395, using Git's owner-bit model `is_owner_executable`,
-  lines 362–364): both hook scripts ship `+x`, and a lost bit silently breaks
-  dispatch while byte comparison stays green. Exit codes follow `main()` (lines
+  lines 362–364): the copied hook script ships `+x`, and a lost bit silently
+  breaks dispatch while byte comparison stays green. Exit codes follow `main()` (lines
   405–436): `0` clean, `1` drift, `2` tool error.
 
 ### CLI contract (mirroring Codex in-repo mode)
@@ -235,17 +239,14 @@ so generated manifests are covered automatically once they exist.
    package, marketplace entry, manifest name, version source, and graph key
    (ADR `0001-package-model-and-versioning.md:42-57`). Renaming changes the
    installed plugin identity and forces a migration — explicitly out of scope.
-2. **Copy both hook scripts; register two events with labeled provenance.**
+2. **Copy and register only settings-declared hooks.**
    `worktree-create.sh` is authored here and settings-registered
-   (`WorktreeCreate`, `settings.json:14-25`, checked by `validate-hooks.sh`);
+   (`WorktreeCreate`, `settings.json:14-25`, checked by `validate-hooks.sh`).
    `herdr-agent-state.sh` is foreign-managed (header lines 2–6: "installed by
-   herdr… overwrites this file") and env-gated (`HERDR_ENV`/`HERDR_SOCKET_PATH`/
-   `HERDR_PANE_ID`, lines 20–22), dormant otherwise. Safe default: copy both
-   verbatim (assignment names `ycc/settings/hooks` as the payload source) and
-   generate exactly the `WorktreeCreate` registration plus the spike-backed
-   `SessionStart`/`"*"` → `…herdr-agent-state.sh session` registration. Do not
-   invent further handlers; do not silently drop the herdr copy (that needs an
-   explicit scope decision).
+   herdr… overwrites this file") and unregistered. The coordinator rejected the
+   earlier proposal to copy it and activate spike-backed `SessionStart`:
+   neither is part of this package. Fail closed on unsupported registered
+   commands instead of inventing handlers or silently dropping registrations.
 3. **Empty `components` is first-class, not an edge case**
    (`package_model.py:222`). Never synthesize payload for meta packages; never
    special-case `ycc-all` by name — `components == () and requires` covers future

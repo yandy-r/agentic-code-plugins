@@ -22,7 +22,7 @@ Add a claude sync target and a focused claude validation target, generation wrap
 2. Isolated temporary HOME/config marketplace containing canonical ycc and all three generated packages; install only ycc-all and assert all dependencies appear enabled. No inference or MCP/hook activation is needed for installation proof.
 3. Generator/check behavior, credential sentinel, ownership/symlink protection and executable drift tests.
 4. Exercise copied WorktreeCreate script in a disposable Git repo; observe actual returned worktree path. Never run production hooks against this checkout.
-5. Focused lint/type checks and relevant validation targets; no full local suite for scripts-only change.
+5. Focused lint/type checks and relevant validation targets; use `./scripts/sync.sh --only claude` and `./scripts/validate.sh --only claude` during iteration. Before declaring done, run the required final checks `./scripts/sync.sh` and `./scripts/validate.sh`; scoped iteration does not replace them. Do not run unrelated local suites beyond these required gates.
 
 ## Compatibility and remaining gates
 
