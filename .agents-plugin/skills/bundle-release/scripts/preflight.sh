@@ -4,7 +4,13 @@
 # parity with ycc/.claude-plugin/plugin.json (all marketplace plugins[] entries
 # and package manifests; ycc/mods is excluded), warns if not on the main
 # branch, and scans hand-edited docs for stale semver literals that don't
-# match the current version.
+# match the current version. Version discovery reads ycc/settings/packages.json
+# directly: included native manifests are required to exist with a version
+# (regardless of listed), deferred/excluded paths are suppressed, file-copy
+# entries are skipped, and included opencode npm manifests are check-only when
+# present (temporarily tolerated when absent until their generator lands); a
+# bounded scan backstops unmodeled manifests. A missing or malformed model
+# fails the check.
 #
 # Usage:
 #   preflight.sh
@@ -56,7 +62,10 @@ Usage: preflight.sh
 Gate checks before a ycc release:
   1. git working tree is clean
   2. version parity across ycc/.claude-plugin/plugin.json, every
-     marketplace plugins[] entry, and package manifests (ycc/mods excluded)
+     marketplace plugins[] entry, and package manifests (ycc/mods excluded),
+     driven by ycc/settings/packages.json (included native manifests required;
+     deferred/excluded suppressed; opencode npm check-only when present) plus a
+     bounded scan for unmodeled manifests
   3. warn if not on main branch
   4. no stale version literals (version: X.Y.Z or "version": "X.Y.Z")
      in hand-edited docs where the semver does not match the current

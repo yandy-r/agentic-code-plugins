@@ -108,6 +108,15 @@ class NativeExportTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unsupported.*ycc-hooks"):
             generator.build_native_marketplace((unsupported,))
 
+    def test_legacy_manifest_rejects_missing_or_empty_canonical_version(self) -> None:
+        source = self.tmp / "plugin.json"
+        for payload in ({"name": "ycc"}, {"version": ""}, {"version": " \t"}, {"version": None}):
+            with self.subTest(payload=payload):
+                source.write_text(json.dumps(payload), encoding="utf-8")
+                with patch.object(generator, "SOURCE_PLUGIN_PATH", source):
+                    with self.assertRaisesRegex(ValueError, "missing nonempty version"):
+                        generator.build_plugin_manifest()
+
     def test_missing_native_version_fails_before_writes(self) -> None:
         source = self.tmp / "version.json"
         source.write_text('{"name": "ycc"}\n', encoding="utf-8")

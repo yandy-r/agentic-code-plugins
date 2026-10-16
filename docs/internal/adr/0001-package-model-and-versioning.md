@@ -116,9 +116,13 @@ findings are pinned to opencode v2.0.29; other versions are unverified. The `plu
   `ycc/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` (`metadata.version` and
   each existing `plugins[].version`), and `ycc/package.json` when it already has a version. It
   does not edit generated bundles. `preflight.sh` checks version parity across every
-  discovered versioned marketplace entry and bounded package and plugin manifests (`packages/`,
-  `.codex-plugin/`, `.cursor-plugin/`), excluding `ycc/mods`. Discovery driven by
-  `packages.json` remains planned.
+  discovered versioned marketplace entry and package manifest, excluding `ycc/mods`. Discovery
+  reads `ycc/settings/packages.json` directly: each included native entry must have an existing
+  versioned manifest (check-only; Claude `ycc` is canonical), deferred and excluded entries are
+  suppressed, and file-copy entries are skipped. An included opencode npm package is checked
+  when present (`packages/opencode/<unscoped-key>/package.json`), tolerated when absent only
+  until the generator lands. A bounded scan still covers unmodeled manifests, and a missing or
+  malformed model fails the bump without writes.
 - **Codex pinning.** The Codex catalog uses a relative `local` source, not a version-pinned
   `git-subdir`, so no tag has to exist before the release PR merges.
 - **npm publication (owner decision for v6.0.0, not implemented).** CI publishes the
