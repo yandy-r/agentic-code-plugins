@@ -6,27 +6,48 @@ umask 077
 usage() {
   cat <<'EOF'
 Usage: test-codex-native-packages.sh [--keep]
+       test-codex-native-packages.sh --public URL --ref SHA [--keep]
 
 Requires Codex >=0.160.0 (CODEX_BIN overrides PATH), git, python3 with the
 repository's generator dependencies, timeout, and standard Linux utilities.
-Generates a complete native export, commits only a temporary Git fixture, and
-installs both packages using full and sparse immutable Git checkouts.
---keep retains the sandbox and command transcript; default removes both.
+Installs both packages using full and sparse immutable Git checkouts.
+--keep retains the sandbox and sanitized command transcript; default removes both.
 
-HTTPS-shaped .invalid URLs use an isolated file:// Git rewrite and
-GIT_ALLOW_PROTOCOL=file. This is NOT OS-level network isolation. No public
-GitHub transport, credentialed MCP execution, or model inference is tested.
+Default: generate a temporary fixture; rewrite its HTTPS-shaped .invalid URL
+to file:// with GIT_ALLOW_PROTOCOL=file. This is NOT OS network isolation.
+--public: explicitly opt into real GitHub HTTPS transport, requiring an exact
+https://github.com/OWNER/REPO.git URL, full 40-hex commit SHA, and Codex 0.160.0.
+The already-published fixture must match a fresh native export. No publishing,
+URL rewrites, credentials, prompts, model inference, login, hooks, or MCP server
+execution. This networked profile is opt-in, not part of CI.
 EOF
 }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 keep=0
+public=0
+public_url=
+public_ref=
 while (($#)); do
   case "$1" in
     --keep) keep=1; shift ;;
+    --public)
+      [[ $# -ge 2 && -n "$2" && "$public" == 0 ]] || die '--public requires one URL'
+      public=1; public_url=$2; shift 2 ;;
+    --ref)
+      [[ $# -ge 2 && -n "$2" && -z "$public_ref" ]] || die '--ref requires one full commit SHA'
+      public_ref=$2; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) die "unknown argument: $1" ;;
   esac
 done
+if ((public)); then
+  [[ "$public_url" =~ ^https://github\.com/[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?/[A-Za-z0-9_][A-Za-z0-9_.-]*\.git$ ]] ||
+    die '--public requires https://github.com/OWNER/REPO.git (no credentials, query, or fragment)'
+  [[ "$public_ref" =~ ^[[:xdigit:]]{40}$ ]] || die '--ref requires a full 40-hex commit SHA'
+  public_ref=${public_ref,,}
+else
+  [[ -z "$public_ref" ]] || die '--ref requires --public URL'
+fi
 for tool in git python3 timeout mktemp realpath; do
   command -v "$tool" >/dev/null || die "missing prerequisite: $tool"
 done
@@ -59,8 +80,19 @@ umask 022
 cd "$root/work"
 bare=$root/fixture.git
 url=https://codex-native.invalid/fixture.git
+if ((public)); then url=$public_url; fi
 case_home=$root/bootstrap
 clean() {
+  local -a transport
+  if ((public)); then
+    # Only HTTPS is permitted, with no URL rewrite or inherited auth mechanism.
+    transport=(GIT_ALLOW_PROTOCOL=https GIT_CONFIG_COUNT=1
+      GIT_CONFIG_KEY_0=credential.helper GIT_CONFIG_VALUE_0=)
+  else
+    transport=(GIT_ALLOW_PROTOCOL=file GIT_CONFIG_COUNT=2
+      GIT_CONFIG_KEY_0=credential.helper GIT_CONFIG_VALUE_0=
+      GIT_CONFIG_KEY_1="url.file://$bare.insteadOf" GIT_CONFIG_VALUE_1="$url")
+  fi
   mkdir -p "$case_home"/{home,codex,config,data,state,cache,runtime}
   env -i PATH="$safe_path" LANG=C.UTF-8 TERM=dumb NO_COLOR=1 \
     HOME="$case_home/home" CODEX_HOME="$case_home/codex" \
@@ -68,10 +100,7 @@ clean() {
     XDG_STATE_HOME="$case_home/state" XDG_CACHE_HOME="$case_home/cache" \
     XDG_RUNTIME_DIR="$case_home/runtime" TMPDIR="$root/tmp" \
     GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_TERMINAL_PROMPT=0 \
-    GIT_ALLOW_PROTOCOL=file GIT_CONFIG_COUNT=2 \
-    GIT_CONFIG_KEY_0=credential.helper GIT_CONFIG_VALUE_0= \
-    GIT_CONFIG_KEY_1="url.file://$bare.insteadOf" GIT_CONFIG_VALUE_1="$url" \
-    "$@"
+    GIT_ASKPASS=/bin/false SSH_ASKPASS=/bin/false "${transport[@]}" "$@"
 }
 log() { printf '%s\n' "$*" | tee -a "$root/transcript.log"; }
 # Keep raw stdout/stderr for machine assertions; all inputs are disposable or
@@ -109,39 +138,66 @@ expected_rc() {
 }
 run version "$codex" --version
 version=$(<"$root/logs/version.stdout")
-run version-check "$python" "$checks" version "$version"
-log "YAN-1131 | $version | local immutable Git fixture (not OS network isolation)"
+if ((public)); then
+  run version-check "$python" "$checks" version "$version" 0.160.0
+  log "YAN-1163 | $version | public GitHub HTTPS (no URL rewrites)"
+  log "Public fixture URL: $url"
+  log "Pinned fixture SHA: $public_ref"
+  log 'Auth: env -i; fresh HOME/CODEX_HOME/XDG; no inherited Git config; empty credential.helper; prompts/askpass disabled; HTTPS only'
+else
+  run version-check "$python" "$checks" version "$version"
+  log "YAN-1131 | $version | local immutable Git fixture (not OS network isolation)"
+fi
 run export "$python" "$repo/scripts/generate_codex_plugin.py" --native-output "$root/source"
-# Fixture-only sentinel outside every sparse selection; it is never exported.
-mkdir -p "$root/source/outside-sparse"
-printf '%s\n' 'outside sparse selection' >"$root/source/outside-sparse/sentinel"
-run init git -C "$root/source" init -q -b fixture
-run stage git -C "$root/source" add -A
-run commit git -C "$root/source" -c user.name=native-smoke -c user.email=native-smoke@localhost \
-  -c commit.gpgsign=false commit -qm 'immutable generated native fixture'
-run sha git -C "$root/source" rev-parse HEAD
-commit=$(<"$root/logs/sha.stdout")
-run fork git clone -q --bare "$root/source" "$bare"
-log "Pinned fixture SHA: $commit"
+if ((public)); then
+  # Fetch and verify remote bytes before asking Codex to install anything. Neither
+  # the current branch nor a stale but self-consistent fixture can satisfy this.
+  commit=$public_ref
+  run fixture-init git init -q "$root/published"
+  run fixture-fetch git -C "$root/published" fetch --no-tags --depth=1 "$url" "$commit"
+  run fixture-checkout git -C "$root/published" -c advice.detachedHead=false checkout -q --detach FETCH_HEAD
+  run fixture-sha git -C "$root/published" rev-parse HEAD
+  [[ "$(<"$root/logs/fixture-sha.stdout")" == "$commit" ]] || die 'fetched fixture SHA mismatch'
+  run fixture-proof "$python" "$checks" fixture "$root/source" "$root/published"
+  source_root=$root/published
+else
+  # Fixture-only sentinel outside every sparse selection; it is never exported.
+  mkdir -p "$root/source/outside-sparse"
+  printf '%s\n' 'outside sparse selection' >"$root/source/outside-sparse/sentinel"
+  run init git -C "$root/source" init -q -b fixture
+  run stage git -C "$root/source" add -A
+  run commit git -C "$root/source" -c user.name=native-smoke -c user.email=native-smoke@localhost \
+    -c commit.gpgsign=false commit -qm 'immutable generated native fixture'
+  run sha git -C "$root/source" rev-parse HEAD
+  commit=$(<"$root/logs/sha.stdout")
+  run fork git clone -q --bare "$root/source" "$bare"
+  log "Pinned fixture SHA: $commit"
+  source_root=$root/source
+fi
 
 matrix_case() {
   local name=$1 first=$2 second=$3; shift 3
   case_home=$root/$name
   run "$name-register" "$codex" plugin marketplace add "$url" --ref "$commit" "$@" --json
-  run "$name-staging" "$python" "$checks" staging "$root/logs/$name-register.stdout" "$name"
+  if ((public)); then
+    run "$name-checkout" "$python" "$checks" checkout "$root/logs/$name-register.stdout" "$commit" "$name"
+    run "$name-staging" "$python" "$checks" staging "$root/logs/$name-register.stdout" "$name" "$source_root"
+  else
+    run "$name-staging" "$python" "$checks" staging "$root/logs/$name-register.stdout" "$name"
+  fi
   run "$name-available" "$codex" plugin list --available --json
   run "$name-catalog" "$python" "$checks" catalog "$root/logs/$name-register.stdout" "$root/logs/$name-available.stdout"
   run "$name-first-install" "$codex" plugin add "$first@ycc" --json
   run "$name-first-list" "$codex" plugin list --json
   run "$name-first-mcp" "$codex" mcp list --json
-  run "$name-first-proof" "$python" "$checks" installed "$root/source" "$case_home/codex" \
+  run "$name-first-proof" "$python" "$checks" installed "$source_root" "$case_home/codex" \
     "$root/logs/$name-first-list.stdout" "$root/logs/$name-first-mcp.stdout" "$first"
   run "$name-second-install" "$codex" plugin add "$second@ycc" --json
   run "$name-both-list" "$codex" plugin list --json
   # metadata `mcp list` should not launch servers/model sessions; if Codex
   # appears to start them, stop and report rather than adding broader tests.
   run "$name-both-mcp" "$codex" mcp list --json
-  run "$name-both-proof" "$python" "$checks" installed "$root/source" "$case_home/codex" \
+  run "$name-both-proof" "$python" "$checks" installed "$source_root" "$case_home/codex" \
     "$root/logs/$name-both-list.stdout" "$root/logs/$name-both-mcp.stdout" ycc ycc-mcp
   mkdir -p "$case_home/user-project"
   run "$name-project" git -C "$case_home/user-project" init -q -b user-work
@@ -174,5 +230,5 @@ catalog_only_case() {
   run catalog-only-proof "$python" "$checks" failed-install "$case_home/codex" "$root/logs/catalog-only-install.stderr"
   log 'PASS catalog-only: catalog visible without payload roots; install=1; no cache'
 }
-catalog_only_case
-log 'PASS native packages: full + sparse catalog/both payloads + catalog-only negative; no inference or credentialed server execution requested'
+if ((!public)); then catalog_only_case; fi
+log 'PASS native packages: full + sparse catalog/both payloads; no inference, hooks, login, or MCP server execution requested'

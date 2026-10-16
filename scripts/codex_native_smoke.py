@@ -22,9 +22,13 @@ def canonical_version() -> str:
     return version
 
 
-def check_version(version_text: str) -> None:
+def check_version(version_text: str, exact: str | None = None) -> None:
     match = re.fullmatch(r"codex-cli (\d+)\.(\d+)\.(\d+)\s*", version_text)
-    if not match or tuple(map(int, match.groups())) < (0, 160, 0):
+    actual = tuple(map(int, match.groups())) if match else None
+    if exact is not None:
+        if actual != tuple(map(int, exact.split("."))):
+            raise ValueError(f"Codex {exact} required, got {version_text!r}")
+    elif actual is None or actual < (0, 160, 0):
         raise ValueError(f"Codex >=0.160.0 required, got {version_text!r}")
 
 
@@ -63,6 +67,23 @@ def file_inventory(root: Path) -> dict[Path, tuple[bytes, bool]]:
             bool(mode & stat.S_IXUSR),
         )
     return items
+
+
+def check_fixture(fresh_export: Path, remote_root: Path) -> None:
+    # Compare the entire owned distribution, not only files common to both trees.
+    # Fixture documentation outside these roots is not an installable payload.
+    problems: list[str] = []
+    for rel in (Path(".agents/plugins"), Path(".codex-plugin")):
+        expected = file_inventory(fresh_export / rel)
+        actual = file_inventory(remote_root / rel)
+        missing = sorted(map(str, set(expected) - set(actual)))
+        extra = sorted(map(str, set(actual) - set(expected)))
+        changed = sorted(str(p) for p in set(expected) & set(actual) if expected[p] != actual[p])
+        if missing or extra or changed:
+            problems.append(f"{rel}: missing={missing} extra={extra} changed={changed}")
+    if problems:
+        raise ValueError(f"public fixture drift (bytes/exec bits): {problems}")
+    print("PASS public fixture catalog/payload bytes and executable bits match fresh native export")
 
 
 def check_mcp_list(mcp_path: Path, expected_packages: set[str]) -> None:
@@ -157,22 +178,71 @@ def check_installed(
     check_mcp_list(mcp_list_path, expected_packages)
 
 
-def check_staging(add_path: Path, profile: str) -> None:
+def check_checkout(add_path: Path, expected_ref: str, profile: str) -> None:
+    if not re.fullmatch(r"[0-9a-f]{40}", expected_ref):
+        raise ValueError(f"expected full lowercase commit SHA, got {expected_ref!r}")
+    staging = Path(json.loads(add_path.read_text(encoding="utf-8"))["installedRoot"])
+
+    def git(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
+        proc = subprocess.run(
+            ["git", "-C", str(staging), *args],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if check and proc.returncode:
+            raise ValueError(f"git {' '.join(args)} failed in staged checkout: {proc.stderr.strip()}")
+        return proc
+
+    head = git("rev-parse", "HEAD").stdout.strip()
+    if head != expected_ref:
+        raise ValueError(f"{profile} staged HEAD {head} != pinned {expected_ref}")
+    sparse = git("sparse-checkout", "list", check=False)
+    selected = [line.strip() for line in sparse.stdout.splitlines() if line.strip()]
+    if profile == "full":
+        enabled = git("config", "--bool", "--get", "core.sparseCheckout", check=False)
+        if enabled.returncode not in (0, 1) or enabled.stdout.strip() not in ("", "false"):
+            raise ValueError(f"full staged checkout unexpectedly sparse: {enabled.stdout.strip()!r}")
+        if selected or sparse.returncode not in (0, 128):
+            raise ValueError(f"full staged checkout has sparse selection or invalid state: {selected}")
+    elif profile == "sparse":
+        expected = {".agents/plugins", ".codex-plugin/ycc", ".codex-plugin/ycc-mcp"}
+        missing = sorted(expected - set(selected))
+        if sparse.returncode or missing:
+            raise ValueError(f"sparse selection {selected} missing {missing}")
+        for key in ("core.sparseCheckout", "core.sparseCheckoutCone"):
+            if git("config", "--get", key).stdout.strip() != "true":
+                raise ValueError(f"sparse staged checkout lacks {key}=true")
+    print(f"PASS {profile} checkout: HEAD={head}; sparse selection={selected or 'none'}")
+
+
+def check_staging(add_path: Path, profile: str, source_root: Path | None = None) -> None:
     staging = Path(json.loads(add_path.read_text(encoding="utf-8"))["installedRoot"])
     catalog = staging / ".agents/plugins/marketplace.json"
     if not catalog.is_file():
         raise ValueError(f"{profile} staging is missing requested catalog: {catalog}")
-    sentinel = staging / "outside-sparse/sentinel"
-    if profile == "full":
-        if sentinel.read_text(encoding="utf-8") != "outside sparse selection\n":
-            raise ValueError("full checkout lost fixture sentinel")
-    elif sentinel.exists():
-        raise ValueError("sparse checkout retained outside-selection sentinel")
+    if source_root is None:
+        sentinel = staging / "outside-sparse/sentinel"
+        if profile == "full":
+            if sentinel.read_text(encoding="utf-8") != "outside sparse selection\n":
+                raise ValueError("full checkout lost fixture sentinel")
+        elif sentinel.exists():
+            raise ValueError("sparse checkout retained outside-selection sentinel")
+    else:
+        check_fixture(source_root, staging)
+        # Full clones must retain every top-level fixture entry. Sparse clones must
+        # omit unselected directories (cone-mode Git may still keep root files).
+        for path in source_root.iterdir():
+            if path.name in {".git", ".agents", ".codex-plugin"}:
+                continue
+            present = (staging / path.name).exists()
+            if profile == "full" and not present or profile != "full" and path.is_dir() and present:
+                raise ValueError(f"unexpected {path.name} presence in {profile} staging")
     for pkg in ("ycc", "ycc-mcp"):
         payload = staging / ".codex-plugin" / pkg / ".codex-plugin/plugin.json"
         if payload.is_file() != (profile != "catalog-only"):
             raise ValueError(f"unexpected payload presence for {pkg} in {profile}")
-    print(f"PASS {profile} staging: sentinel and both payload roots checked")
+    print(f"PASS {profile} staging: full/sparse selection and both payload roots checked")
 
 
 def check_failed_install(codex_home: Path, stderr_path: Path) -> None:
@@ -235,11 +305,15 @@ def run_helper(helper: Path, project_dir: Path, codex_home: Path) -> None:
 def main() -> None:
     cmd, *args = sys.argv[1:]
     if cmd == "version":
-        check_version(args[0])
+        check_version(args[0], args[1] if args[1:] else None)
     elif cmd == "catalog":
         check_catalog(Path(args[0]), Path(args[1]), payloads_present=args[2:] != ["--catalog-only"])
     elif cmd == "staging":
-        check_staging(Path(args[0]), args[1])
+        check_staging(Path(args[0]), args[1], Path(args[2]) if args[2:] else None)
+    elif cmd == "checkout":
+        check_checkout(Path(args[0]), args[1], args[2])
+    elif cmd == "fixture":
+        check_fixture(Path(args[0]), Path(args[1]))
     elif cmd == "failed-install":
         check_failed_install(Path(args[0]), Path(args[1]))
     elif cmd == "installed":

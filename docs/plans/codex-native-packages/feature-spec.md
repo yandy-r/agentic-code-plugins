@@ -8,7 +8,7 @@ Generate independently installable Codex workflow and MCP packages from the cano
 
 ### APIs and Services
 
-Codex CLI 0.161.0 was tested, satisfying the requested run on “0.160 or later”; this does not establish 0.160.0 as the minimum compatible version. YAN-1163 tracks baseline execution and public transport proof before listing. Native catalog discovery prefers `.agents/plugins/marketplace.json`; source paths are root-relative local paths. No new library dependency.
+Codex CLI 0.161.0 was tested against the local Git fixture, satisfying the requested run on “0.160 or later”; that run alone did not establish 0.160.0 as the minimum compatible version. YAN-1163 subsequently ran the exact `codex-cli 0.160.0` official binary against an anonymous public GitHub HTTPS fixture, full and sparse, with both packages installed independently (payload version 5.3.0); see [public fork install evidence](../../internal/spikes/codex-public-fork-install.md). Later runtimes, authenticated/private transports, and final v6.0.0 payload bytes were not tested. Native catalog discovery prefers `.agents/plugins/marketplace.json`; source paths are root-relative local paths. No new library dependency.
 
 - [Plugin loader](https://github.com/openai/codex/blob/rust-v0.161.0/codex-rs/core-plugins/src/loader.rs): default `.mcp.json` is discovered even without a manifest declaration.
 - [MCP parser](https://github.com/openai/codex/blob/rust-v0.161.0/codex-rs/codex-mcp/src/plugin_config.rs): `mcpServers` wrapper accepts Codex server fields.
@@ -31,7 +31,7 @@ As a maintainer, I want to generate and install the complete future Codex distri
 
 ### Success Criteria
 
-- A Git-fork fixture installs both package IDs on Codex 0.161.0, satisfying the requested “0.160 or later” run, with complete independent cache payloads and usable helper paths under clean HOME. Minimum-version compatibility and public transport remain YAN-1163 pre-listing gates.
+- A Git-fork fixture installs both package IDs on Codex 0.161.0, satisfying the requested “0.160 or later” run, with complete independent cache payloads and usable helper paths under clean HOME. YAN-1163 additionally observed the same full/sparse independent installs, helper execution, and MCP metadata assertions on exact Codex 0.160.0 over anonymous public GitHub HTTPS ([evidence](../../internal/spikes/codex-public-fork-install.md)). Production listing (YAN-1140) and migration/dedupe (YAN-1139) remain closed gates.
 - Codex validator passes.
 - Default behavior remains unchanged; no hooks are generated.
 
