@@ -15,7 +15,7 @@ OUTPUT_ROOT="${REPO_ROOT}/packages/claude"
 
 if [[ $# -ne 0 ]]; then
     echo "Usage: $0" >&2
-    exit 2
+    exit 1
 fi
 
 command -v python3 >/dev/null 2>&1 || { echo "validate-claude-packages.sh: python3 is required" >&2; exit 1; }

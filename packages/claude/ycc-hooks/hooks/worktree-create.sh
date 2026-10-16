@@ -39,8 +39,10 @@ json_get() {
     printf '%s' "$INPUT" | jq -r --arg f "$field" '.[$f] // empty'
   else
     # Fallback: extract "field": "value" (handles most well-formed JSON).
+    # A missing field makes grep exit 1; under pipefail that would abort, so
+    # swallow it and return an empty value.
     printf '%s' "$INPUT" \
-      | grep -o "\"${field}\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" \
+      | { grep -o "\"${field}\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" || true; } \
       | head -1 \
       | sed 's/.*: *"\(.*\)"/\1/'
   fi
@@ -119,10 +121,16 @@ WORKTREE_PATH="$WORKTREE_ROOT/${REPO_NAME}-${SLUG}"
 mkdir -p "$WORKTREE_ROOT"
 
 if [[ -d "$WORKTREE_PATH" ]]; then
-  if git -C "$WORKTREE_PATH" rev-parse --git-dir >/dev/null 2>&1; then
-    printf '%s\n' "$WORKTREE_PATH"
-    exit 0
-  fi
+  # Reuse only a path that git itself lists as a worktree of this repository;
+  # an ordinary directory nested inside the repo would otherwise pass via
+  # parent .git discovery.
+  existing_canon="$(cd "$WORKTREE_PATH" && pwd -P)"
+  while IFS= read -r wt_line; do
+    if [[ "$wt_line" == "worktree ${existing_canon}" ]]; then
+      printf '%s\n' "$WORKTREE_PATH"
+      exit 0
+    fi
+  done < <(git -C "$REPO_ROOT" worktree list --porcelain 2>/dev/null || true)
 
   echo "worktree-create.sh: error: target exists but is not a git worktree: $WORKTREE_PATH" >&2
   exit 1

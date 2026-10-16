@@ -194,6 +194,33 @@ assert_eq "hook absolute override (with space)" \
   "${SCRATCH}/hook abs root/${hook_name}-hook-abs" \
   "$(run_hook hook-abs YCC_WORKTREE_ROOT="${SCRATCH}/hook abs root")"
 
+# Regression: without jq, the grep fallback must treat missing optional fields
+# (here base_ref) as empty success instead of aborting under pipefail.
+nojq_bin="${SCRATCH}/nojq-bin"
+mkdir -p "$nojq_bin"
+for tool in bash git grep sed head cat tr basename dirname mkdir env rm; do
+  ln -sf "$(command -v "$tool")" "${nojq_bin}/${tool}"
+done
+nojq_out="$(printf '{"name":"hook-nojq","cwd":"%s","session_id":"s1"}' "$hook_canon" \
+  | env -u YCC_WORKTREE_ROOT PATH="$nojq_bin" "${nojq_bin}/bash" "$HOOK_SH" 2>/dev/null)" || nojq_out="<exit $?>"
+assert_eq "hook without jq tolerates missing base_ref" \
+  "${hook_canon}/.claude/worktrees/${hook_name}-hook-nojq" "$nojq_out"
+
+# Regression: an ordinary directory at the target path (inside the source repo,
+# so parent git discovery succeeds) must be rejected, not reused as a worktree.
+plain_dir="${hook_canon}/.claude/worktrees/${hook_name}-hook-plain"
+mkdir -p "$plain_dir"
+if run_hook hook-plain >/dev/null; then
+  fail "hook accepted ordinary nested directory as worktree"
+else
+  pass "hook rejects ordinary nested directory"
+fi
+
+# Existing registered worktree is still reused idempotently.
+assert_eq "hook reuses existing worktree" \
+  "${hook_canon}/.claude/worktrees/${hook_name}-hook-default" \
+  "$(run_hook hook-default)"
+
 # worktree-strategy.md: outside the protected evidence block, target rewrites apply.
 for strat in \
   "${REPO_ROOT}/.codex-plugin/ycc/shared/references/worktree-strategy.md" \

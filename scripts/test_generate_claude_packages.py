@@ -297,6 +297,27 @@ class ClaudeNativePackageTests(unittest.TestCase):
                 self.assertTrue(link.is_symlink())
                 self.assertEqual(self.snapshot(target), {Path("keep"): b"untouched\n"})
 
+    def test_regular_file_at_any_owned_root_is_rejected_without_mutation(self) -> None:
+        neighbor = Path("packages/claude/foreign/keep.txt")
+        for index, rel in enumerate((MCP_ROOT, HOOKS_ROOT, ALL_ROOT, AGENTS_ROOT)):
+            with self.subTest(root=rel):
+                dest = self.tmp / f"file-root-case-{index}"
+                (dest / neighbor).parent.mkdir(parents=True)
+                (dest / neighbor).write_bytes(b"neighbor\n")
+                (dest / rel).write_bytes(b"not a directory\n")
+                before = self.snapshot(dest)
+                actions = {
+                    "write": lambda _dest=dest: generator.write_all(_dest),
+                    "dry-run": lambda _dest=dest: generator.write_all(_dest, dry_run=True),
+                    "check": lambda _dest=dest: generator.run_check(_dest),
+                }
+                for mode, action in actions.items():
+                    with self.subTest(mode=mode):
+                        with self.assertRaisesRegex(ValueError, "not a directory"):
+                            action()
+                        self.assertEqual(self.snapshot(dest), before)
+                        self.assertTrue((dest / rel).is_file())
+
     def test_check_reports_missing_changed_extra_and_executable_drift_without_mutation(self) -> None:
         generator.write_all(self.dest)
         with contextlib.redirect_stderr(io.StringIO()):

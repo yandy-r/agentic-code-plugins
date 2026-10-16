@@ -155,6 +155,9 @@ def guard_managed_paths(dest_root: Path, inventory: Iterable[Path], owned_roots:
         if rel in files and (dest_root / rel).exists() and not (dest_root / rel).is_file():
             raise ValueError(f"managed output is not a regular file: {rel}")
     for rel in roots:
+        path = dest_root / rel
+        if path.exists() and not path.is_dir():
+            raise ValueError(f"managed root is not a directory: {rel}")
         for directory, dirs, filenames in os.walk(dest_root / rel, followlinks=False):
             for name in dirs + filenames:
                 path = Path(directory) / name
