@@ -1,0 +1,452 @@
+#!/usr/bin/env python3
+"""Preview or apply the global, ownership-safe native package migrations."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+from typing import Any
+
+from codex_marketplace import build_entry, validate_marketplace_catalog
+from generate_codex_plugin import native_packages, native_version
+from install_slices import SPECS, namespace_pattern, project_cursor_init, rewrites_for, shipped_entries, stage
+from merge_managed_config import PROFILES, load_state, remove_hook_commands
+from package_model import load_package_model
+from validate_codex_native import check_catalog, check_package
+
+ROOT = Path(__file__).resolve().parent.parent
+PACKAGES = ("ycc", "ycc-mcp")
+
+
+def load_json(path: Path) -> dict[str, Any]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError(f"expected JSON object: {path}")
+    return data
+
+
+def trusted_source(path: Path, root: Path) -> None:
+    """Reject sources that escape their expected root through symlinks."""
+    if path.is_symlink() or not path.resolve().is_relative_to(root.resolve()):
+        raise ValueError(f"untrusted source path escapes root: {path}")
+
+
+def reject_escaping_symlinks(root: Path, *, any_link: bool = False) -> None:
+    """Refuse a source tree whose links escape it (or any link when projecting).
+
+    Projection helpers write through links, so this runs before any staging.
+    """
+    base = root.resolve()
+    paths = [root, *root.rglob("*")] if root.is_dir() else [root]
+    for path in paths:
+        if path.is_symlink() and (any_link or not path.resolve().is_relative_to(base)):
+            raise ValueError(f"untrusted symlink in canonical source: {path}")
+
+
+def safe_parent(path: Path) -> bool:
+    """Never traverse a user's linked configuration directories."""
+    return not any(parent.is_symlink() for parent in path.parents)
+
+
+def identical(left: Path, right: Path) -> bool:
+    """Compare bytes and link text recursively, never following interior links."""
+    if left.is_symlink() or right.is_symlink():
+        return left.is_symlink() and right.is_symlink() and os.readlink(left) == os.readlink(right)
+    if left.is_file() and right.is_file():
+        return left.read_bytes() == right.read_bytes()
+    if left.is_dir() and right.is_dir():
+        names = {p.name for p in left.iterdir()}
+        return names == {p.name for p in right.iterdir()} and all(identical(left / n, right / n) for n in names)
+    return False
+
+
+def owned_link(path: Path, source: Path) -> bool:
+    return path.is_symlink() and path.resolve() == source.resolve()
+
+
+class Migration:
+    def __init__(self, apply: bool) -> None:
+        self.apply = apply
+        self.home = Path.home()
+
+    def remove(self, path: Path, sources: tuple[Path, ...], *, links_only: bool = False) -> bool:
+        """Remove only proven-owned entries; True when removed (or would be)."""
+        if not path.exists() and not path.is_symlink():
+            return False
+        if not safe_parent(path):
+            print(f"[!!] kept {path}: symlinked parent directory")
+            return False
+        ours = any(owned_link(path, src) or (not links_only and identical(path, src)) for src in sources)
+        if not ours:
+            print(f"[!!] kept {path}: edited or ownership uncertain")
+            return False
+        print(f"[ok] {'remove' if self.apply else 'would remove'} {path}")
+        if self.apply:
+            if path.is_dir() and not path.is_symlink():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
+        return True
+
+    def merge_remove(self, profile: str, source: Path, dest: Path, groups: str, *extra: str) -> None:
+        if dest.is_symlink():
+            print(f"[!!] kept {dest}: symlinked config file (target and ownership state retained)")
+            return
+        if not safe_parent(dest):
+            print(f"[!!] kept {dest}: symlinked parent directory")
+            return
+        command = [
+            sys.executable,
+            str(ROOT / "scripts/merge_managed_config.py"),
+            "--remove",
+            "--profile",
+            profile,
+            "--source",
+            str(source),
+            "--destination",
+            str(dest),
+            "--groups",
+            groups,
+            *extra,
+        ]
+        if not self.apply:
+            command.append("--dry-run")
+        subprocess.run(command, check=True)
+
+    def claude(self) -> None:
+        dest = self.home / ".claude/settings.json"
+        if dest.is_symlink():
+            print(f"[!!] kept {dest}: symlinked config file (hooks, target and ownership state retained)")
+            return
+        if not safe_parent(dest):
+            print(f"[!!] kept {dest}: symlinked parent directory")
+            return
+        settings = load_json(dest) if dest.exists() else {}
+        enabled = settings.get("enabledPlugins", {})
+        # Installed registry membership or ycc-all's dependency closure is NOT
+        # evidence of explicit enablement at user scope.
+        if isinstance(enabled, dict) and enabled.get("ycc-hooks@ycc") is True:
+            self.merge_remove(
+                "claude-settings", ROOT / "ycc/settings/settings.json", dest, "hooks", "--prune-hook-commands"
+            )
+            current = load_json(dest) if dest.exists() else {}
+            if not self.apply:
+                # Use the engine's pure plan, including event-hash and wrapper
+                # proof. Command-string subtraction would falsely forecast
+                # unlinking when ownership or a matcher is uncertain.
+                state_entry = load_state().get(f"claude-settings:{dest}", {})
+                if not isinstance(state_entry, dict):
+                    state_entry = {}
+                rendered, _, _, _ = remove_hook_commands(
+                    load_json(ROOT / "ycc/settings/settings.json"),
+                    dest,
+                    PROFILES["claude-settings"],
+                    ["hooks"],
+                    state_entry,
+                    False,
+                )
+                if rendered is not None:
+                    current = json.loads(rendered)
+
+            def commands(value: Any) -> list[str]:
+                if isinstance(value, dict):
+                    return ([value["command"]] if isinstance(value.get("command"), str) else []) + [
+                        c for k, v in value.items() if k != "command" for c in commands(v)
+                    ]
+                if isinstance(value, list):
+                    return [c for v in value for c in commands(v)]
+                return []
+
+            remaining = commands(current.get("hooks", {}))
+            if any(".claude/hooks" in c for c in remaining):
+                print("[!!] kept ~/.claude/hooks: remaining hooks may use it")
+            else:
+                self.remove(self.home / ".claude/hooks", (ROOT / "ycc/settings/hooks",), links_only=True)
+        else:
+            print("[!!] Claude hooks retained: ycc-hooks@ycc is not explicitly enabled")
+        if isinstance(enabled, dict) and enabled.get("ycc-mcp@ycc") is True:
+            self.merge_remove("claude-mcp", ROOT / "mcp-configs/mcp.json", self.home / ".claude.json", "mcp")
+        else:
+            print("[!!] Claude MCP retained: ycc-mcp@ycc is not explicitly enabled")
+        print("Claude migrate complete (global scope only).")
+
+    def cursor(self) -> None:
+        units = (("skills", "ycc"), ("agents", "ycc"), ("rules", "ycc-rules"))
+        # Validate every canonical source before any removal or projection.
+        for unit, package in units:
+            source = ROOT / "packages/cursor" / package / unit
+            if not source.is_dir():
+                raise ValueError(f"canonical Cursor source missing: {source}")
+            trusted_source(source, ROOT)
+            reject_escaping_symlinks(source)
+            if unit == "skills" and (source / "init").exists():
+                reject_escaping_symlinks(source / "init", any_link=True)
+        for unit, package in units:
+            source = ROOT / "packages/cursor" / package / unit
+            dest = self.home / ".cursor" / unit
+            if not safe_parent(dest / "entry"):
+                print(f"[!!] kept {dest}: symlinked parent directory")
+                continue
+            # The installer projects init back to file-copy resources. Compare
+            # both forms; recorded entry names alone never establish ownership.
+            gone: set[str] = set()
+            shared: Path | None = None
+            with tempfile.TemporaryDirectory(prefix="ycc-migrate-") as tmp:
+                staging = Path(tmp)
+                for src in sorted(source.iterdir()):
+                    trusted_source(src, source)
+                    if unit == "skills" and src.name == "_shared":
+                        shared = src
+                        continue
+                    projected = staging / src.name
+                    if unit == "skills" and src.name == "init":
+                        shutil.copytree(src, projected, symlinks=True)
+                        project_cursor_init(src.name, projected)
+                        removed = self.remove(dest / src.name, (src, projected))
+                    else:
+                        removed = self.remove(dest / src.name, (src,))
+                    if removed:
+                        gone.add(src.name)
+            if shared is not None:
+                # Retained skills (edited or foreign) may source this helper.
+                left = [e.name for e in dest.iterdir() if e.name not in gone | {"_shared"}] if dest.is_dir() else []
+                if left:
+                    print(f"[!!] kept {dest / '_shared'}: retained entries may depend on it: {', '.join(sorted(left))}")
+                else:
+                    self.remove(dest / "_shared", (shared,))
+            if dest.is_dir():
+                for entry in sorted(dest.iterdir()):
+                    if not (source / entry.name).exists():
+                        print(f"[!!] kept {entry}: not shipped by ycc")
+        print("Cursor: open /add-plugin and add the ycc marketplace, then select the native packages.")
+        print("Cursor migrate complete; native installation is interactive, not automatic.")
+
+    def codex_skills(self) -> None:
+        """Retire exact standalone ~/.codex/skills copies; never ~/.codex/agents."""
+        unit = SPECS[("codex", "skills")][0]
+        dest = self.home / unit.dest
+        if not dest.is_dir() or dest.is_symlink():
+            return
+        if not safe_parent(dest / "entry"):
+            print(f"[!!] kept {dest}: symlinked parent directory")
+            return
+        if not (ROOT / unit.src).is_dir():
+            raise ValueError(f"canonical Codex skills source missing: {ROOT / unit.src}")
+        entries = shipped_entries(unit)
+        for src in entries.values():
+            trusted_source(src, ROOT)
+            reject_escaping_symlinks(src)
+        rewrites, pattern = rewrites_for("codex", self.home), namespace_pattern("codex")
+        gone: set[str] = set()
+        with tempfile.TemporaryDirectory(prefix="ycc-migrate-") as tmp:
+            staging = Path(tmp)
+            for name, src in sorted(entries.items()):
+                if name != "_shared" and self.remove(dest / name, (src, stage(name, src, staging, rewrites, pattern))):
+                    gone.add(name)
+            if "_shared" in entries:
+                left = [e.name for e in dest.iterdir() if e.name not in gone | {"_shared"}]
+                if left:
+                    print(f"[!!] kept {dest / '_shared'}: retained entries may depend on it: {', '.join(sorted(left))}")
+                else:
+                    src = entries["_shared"]
+                    self.remove(dest / "_shared", (src, stage("_shared", src, staging, rewrites, pattern)))
+
+    def codex(self, source: Path, eligible: bool) -> None:
+        if not eligible:
+            print("[!!] Codex native catalog not listed (YAN-1140); legacy ycc@local-ycc-plugins retained")
+            return
+        if not self.apply:
+            print(
+                f"Codex: would add marketplace {source}, install ycc@ycc and ycc-mcp@ycc, "
+                "and verify installed/enabled"
+            )
+            print(
+                "Codex: would retire only proven legacy config, links and cache after successful verification; "
+                "~/.codex/agents retained"
+            )
+            self.codex_skills()
+            return
+
+        def cli(*args: str) -> dict[str, Any]:
+            print(f"[ok] codex {' '.join(args)}", flush=True)
+            result = subprocess.run(["codex", *args, "--json"], check=True, capture_output=True, text=True)
+            payload = json.loads(result.stdout)
+            if not isinstance(payload, dict):
+                raise ValueError("Codex CLI returned a non-object response")
+            return payload
+
+        added = cli("plugin", "marketplace", "add", str(source))
+        if added.get("marketplaceName") != "ycc":
+            raise ValueError("Codex did not register marketplace ycc; legacy retained")
+        listing = cli("plugin", "list", "--available")
+        # codex-cli 0.161 moves an installed id out of `available` into
+        # `installed`, so a rerun finds both ids only there. Eligibility is
+        # membership in either list; enablement is still verified below.
+        offered = {item.get("pluginId") for item in listing.get("available", [])}
+        offered |= {item.get("pluginId") for item in listing.get("installed", [])}
+        if not {f"{p}@ycc" for p in PACKAGES}.issubset(offered):
+            raise ValueError("native packages missing from Codex marketplace; legacy retained")
+        for package in PACKAGES:
+            cli("plugin", "add", f"{package}@ycc")
+        installed = {item.get("pluginId"): item for item in cli("plugin", "list").get("installed", [])}
+        version = native_version(load_package_model())
+        for package in PACKAGES:
+            item = installed.get(f"{package}@ycc", {})
+            if item.get("installed") is not True or item.get("enabled") is not True or item.get("version") != version:
+                raise ValueError(f"{package}@ycc not installed/enabled at {version}; legacy retained")
+        # No legacy mutation occurs above this point. CLI failures are fatal;
+        # there is deliberately no fallback to install_codex_plugin.
+        with tempfile.TemporaryDirectory(prefix="ycc-migrate-") as tmp:
+            leaf = Path(tmp) / "legacy.toml"
+            leaf.write_text('[plugins."ycc@local-ycc-plugins"]\nenabled = true\n', encoding="utf-8")
+            self.merge_remove(
+                "codex-config", leaf, self.home / ".codex/config.toml", "plugins", "--entries", "ycc@local-ycc-plugins"
+            )
+        self.merge_remove(
+            "codex-config", ROOT / ".codex-plugin/config/mcp-servers.json", self.home / ".codex/config.toml", "mcp"
+        )
+        legacy = ROOT / ".codex-plugin/ycc"
+        trusted_source(legacy, ROOT)
+        # Decide which user-catalog entries survive before retiring any link
+        # they may reference.
+        catalog_path, catalog, kept, retained = self.plan_codex_catalog()
+        self.codex_skills()
+        for relative in (".codex/plugins/ycc", ".agents/plugins/ycc"):
+            link = self.home / relative
+            if link in retained:
+                print(f"[!!] kept {link}: referenced by a retained user catalog entry")
+                continue
+            self.remove(link, (legacy,), links_only=True)
+        cache = self.home / ".codex/plugins/cache/local-ycc-plugins/ycc"
+        self.remove(cache, (legacy,))
+        # A versioned cache may hold other versions or user changes. Retire
+        # only byte-identical snapshots, never the whole marketplace directory.
+        if (
+            safe_parent(cache / "entry")
+            and cache.is_dir()
+            and not cache.is_symlink()
+            and not (cache / ".codex-plugin").exists()
+        ):
+            for child in sorted(cache.iterdir()):
+                self.remove(child, (legacy,))
+        if catalog_path is not None and catalog is not None and kept is not None:
+            catalog["plugins"] = kept
+            catalog_path.write_text(json.dumps(catalog, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        print("Codex migrate complete; all ~/.codex/agents retained.")
+
+    def plan_codex_catalog(self) -> tuple[Path | None, dict[str, Any] | None, list[Any] | None, set[Path]]:
+        """Plan the user catalog edit without writing; return links to keep."""
+        path = self.home / ".agents/plugins/marketplace.json"
+        links = {self.home / ".codex/plugins/ycc", self.home / ".agents/plugins/ycc"}
+        if not path.exists() and not path.is_symlink():
+            return None, None, None, set()
+        try:
+            catalog = load_json(path)
+            plugins = catalog.get("plugins", [])
+            if not isinstance(plugins, list):
+                raise ValueError(f"invalid plugins array: {path}")
+        except (OSError, ValueError) as error:
+            print(f"[!!] kept {path}: unreadable catalog ({error}); legacy links retained")
+            return None, None, None, links
+        recognized = [
+            build_entry("local", "./.agents/plugins/ycc"),
+            build_entry("local", "./plugins/ycc"),
+            build_entry("repo", ""),
+        ]
+        writable = catalog.get("name") == "local-ycc-plugins" and not path.is_symlink() and safe_parent(path)
+        if not writable:
+            print(f"[!!] kept {path}: symlinked or foreign catalog")
+        kept: list[Any] = []
+        retained: set[Path] = set()
+        for entry in plugins:
+            if isinstance(entry, dict) and entry.get("name") == "ycc":
+                ours = writable and any(
+                    entry.get("source") == candidate["source"]
+                    and all(key in candidate and value == candidate[key] for key, value in entry.items())
+                    for candidate in recognized
+                )
+                if ours:
+                    print(f"[ok] removed recognized legacy ycc catalog entry from {path}")
+                    continue
+                print(f"[!!] kept foreign or edited ycc catalog entry in {path}")
+                source = entry.get("source")
+                if isinstance(source, dict) and source.get("source") == "local" and isinstance(source.get("path"), str):
+                    target = Path(os.path.normpath(self.home / source["path"]))
+                    retained |= {link for link in links if link == target}
+            kept.append(entry)
+        if not writable or kept == plugins:
+            return None, None, None, retained
+        return path, catalog, kept, retained
+
+
+def codex_eligible(source: Path) -> None:
+    catalog_path = source / ".agents/plugins/marketplace.json"
+    if not source.is_dir() or source.is_symlink():
+        raise ValueError(f"untrusted marketplace source: {source}")
+    trusted_source(catalog_path, source)
+    catalog = validate_marketplace_catalog(load_json(catalog_path))
+    if catalog.get("name") != "ycc":
+        raise ValueError("native catalog not listed (YAN-1140)")
+    entries = {item["name"]: item for item in catalog["plugins"]}
+    model = load_package_model()
+    check_catalog(source, native_packages(model.packages))
+    for name in PACKAGES:
+        runtime = model.lookup(name, "codex")
+        if runtime is None or runtime.status != "included" or runtime.mechanism != "native" or runtime.opt_in:
+            raise ValueError(f"ineligible native Codex package: {name}")
+        if entries.get(name, {}).get("source") != {"source": "local", "path": f"./.codex-plugin/{name}"}:
+            raise ValueError(f"missing native source for {name}")
+        package_root = source / ".codex-plugin" / name
+        if not package_root.resolve().is_relative_to(source.resolve()):
+            raise ValueError(f"native payload escapes marketplace: {package_root}")
+        for path in package_root.rglob("*"):
+            if path.is_symlink() and not path.resolve().is_relative_to(package_root.resolve()):
+                raise ValueError(f"native payload symlink escapes package: {path}")
+        package = next(p for p in model.packages if p.key == name)
+        check_package(source, package, native_version(model))
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--targets", required=True)
+    parser.add_argument("--apply", action="store_true")
+    parser.add_argument("--marketplace-source", type=Path, default=ROOT)
+    args = parser.parse_args()
+    targets = args.targets.split(",")
+    if not targets or any(target not in {"claude", "codex", "cursor"} for target in targets):
+        print("[err] unsupported migration targets", file=sys.stderr)
+        return 1
+    migration = Migration(args.apply)
+    eligible = True
+    try:
+        # Preflight the whole selection before applying any target.
+        if "codex" in targets:
+            try:
+                codex_eligible(args.marketplace_source)
+            except (OSError, ValueError) as error:
+                eligible = False
+                print(f"[!!] Codex native gate: {error}")
+                if args.apply:
+                    raise ValueError(f"Codex native gate failed: {error}; legacy retained (YAN-1140)") from error
+        print(f"Migration {'apply' if args.apply else 'dry-run (pass --apply to change files)'}")
+        for target in targets:
+            if target == "codex":
+                migration.codex(args.marketplace_source.resolve(), eligible)
+            else:
+                getattr(migration, target)()
+        return 0
+    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+        print(f"[err] migration stopped: {error}", file=sys.stderr)
+        if isinstance(error, subprocess.CalledProcessError) and error.stderr:
+            print(error.stderr, file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

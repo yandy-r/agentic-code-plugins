@@ -65,6 +65,7 @@ validate_scope_targets_for_path() {
         scripts/lib/install/*) echo "opencode agents config" ;;
         install.sh | scripts/tests/install/* | scripts/test-install-sync.sh | scripts/completions/*) echo "config" ;;
         scripts/install_slices.py | scripts/test_install_slices_legacy.py) echo "config" ;;
+        scripts/install_migrate.py) echo "config" ;;
         scripts/merge_managed_config.py | scripts/managed_config_*.py) echo "config" ;;
         scripts/test_merge_managed_config.py | scripts/test_managed_config_entries.py) echo "config" ;;
         scripts/codex_marketplace.py | scripts/test_codex_marketplace.py) echo "config codex-native" ;;

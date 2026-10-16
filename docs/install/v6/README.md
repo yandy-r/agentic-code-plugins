@@ -1,16 +1,16 @@
 # ycc v6 Install Drafts
 
-> **DRAFT — unwired for v6.** These pages describe the planned native-package
-> install surface targeted at v6.0.0. The hidden native packages under
-> `packages/` remain **unlisted in production catalogs**: Claude `ycc@ycc`
-> stays the only listed, shipping entry. The experimental opencode npm package
-> is generated and its tag-triggered publishing workflow is implemented;
-> neither fact establishes that a version has actually been published to npm.
-> The commands shown in these drafts (`install.sh migrate`, `install.sh --package`)
-> are planned v6 commands, not implemented today. The live, working install
-> commands are the `install.sh` file-copy path documented in `docs/install/` —
-> they are unchanged and remain the supported route. The repository name is
-> also unchanged today: `yandy-r/claude-plugins`.
+> **DRAFT — unwired for v6.** These pages describe the native-package install
+> surface targeted at v6.0.0. The hidden native packages under `packages/`
+> remain **unlisted in production catalogs**: Claude `ycc@ycc` stays the only
+> listed, shipping entry. The experimental opencode npm package is generated
+> and its tag-triggered publishing workflow is implemented; neither fact
+> establishes that a version has actually been published to npm.
+> `install.sh migrate` is implemented as a dry-run-first command for Claude,
+> Codex, and Cursor; `install.sh --package` remains planned, not implemented.
+> The live install commands in `docs/install/` are unchanged and remain the
+> supported install route. The repository name is also unchanged today:
+> `yandy-r/claude-plugins`.
 
 This directory is a draft tree only. It is not linked from the root README or
 the live `docs/install/README.md`; nothing here affects production navigation.
@@ -46,32 +46,61 @@ these are the current, runnable commands, documented fully in `docs/install/`:
 | opencode | `@yandy-r/ycc-opencode` (generated npm V2 plugin registering skills, agents, namespaced commands, shared helpers, MCP, instructions; experimental and opt-in) | `install.sh --target opencode`: file copy of skills, agents, commands, shared, `opencode.json` settings, `AGENTS.md` instructions — **primary and unchanged**                                                                                              | — (the npm package is unlisted and opt-in; registry publication is separate from generation and the implemented publish workflow)  |
 | agents   | none — file copy only                                                                                                                                         | `install.sh --target agents`: skills + `ycc-shared` into `~/.agents/`                                                                                                                                                                                      | The `npx skills` path cannot replace the file copy (spike: shared helpers not delivered; bare-repo discovery finds the wrong tree) |
 
-### Duplicates and what migration must delete
+### Duplicates and what migration removes
 
-- **Claude:** a native plugin and the installer-merged settings hooks both run;
-  settings + plugin copies do not dedupe. Native hooks rollout waits for
-  installer-owned command-level dedupe.
+- **Claude:** a native plugin and installer-merged settings hooks both run;
+  settings + plugin copies do not dedupe. Migration prunes only proven
+  installer-owned hook commands when `ycc-hooks@ycc` is explicitly enabled,
+  preserving user commands in the same event. It does not infer enablement
+  from `ycc-all@ycc`. Managed MCP removal similarly requires explicit
+  `ycc-mcp@ycc` enablement; only global config files and owned links are in
+  scope.
 - **Codex:** the current catalog ID is `ycc@local-ycc-plugins` (marketplace
-  `local-ycc-plugins`, source `./plugins/ycc`). It stays active until the v6
-  flip; the planned listing is `ycc@ycc` from `.agents/plugins/marketplace.json`
-  with a `local` source at `./.codex-plugin/ycc`.
-- **Cursor:** `~/.cursor/skills/<name>` copies and plugin skills do not share a
-  dedupe key, so both stay. Migration must remove confirmed installer-owned
-  copies while preserving user-owned files. No ownership-aware migration is
-  implemented today; live bundle removal deletes by name, not ownership. See
-  [cursor.md](cursor.md) for the hazard and manual inventory/backup procedure.
-- **opencode:** the file copy stays primary. The generated npm alternative is
-  opt-in; existing same-ID file-copy definitions can override package content,
-  while namespaced package commands coexist with bare file-copy commands. See
-  [opencode.md](opencode.md) before opting in.
-- **agents:** file copy only; see [agents.md](agents.md).
+  `local-ycc-plugins`, source `./plugins/ycc`). It stays active until an
+  eligible native `ycc` catalog is available (YAN-1140). Production apply
+  fails closed before cleanup or any CLI call while that gate is unmet;
+  dry-run explains the gate and retains the legacy install. A staged native
+  catalog can be selected with `--marketplace-source <dir>` (Codex only),
+  subject to the same catalog and payload checks. Native installation and
+  installed/enabled verification must succeed before retiring legacy entries.
+  Migration never removes anything under `~/.codex/agents/`.
+- **Cursor:** file copies and plugin skills do not share a dedupe key.
+  Migration removes only byte-identical canonical copies or exactly owned
+  symlinks across installed skills, agents, rules, and shared helpers. Edited
+  and foreign entries remain with conflict reports; recorded names alone
+  never authorize deletion. It prints the interactive `/add-plugin` step,
+  not an automatic install or a claim of runtime verification.
+- **opencode:** no migration is supported; the file copy stays primary. The
+  generated npm alternative is opt-in; same-ID file-copy definitions can
+  override package content, while namespaced package commands coexist with
+  bare file-copy commands. See [opencode.md](opencode.md) before opting in.
+- **agents:** no migration is supported; file copy only. See
+  [agents.md](agents.md).
 
-## Planned installer surface (not runnable today)
+## Migration CLI
 
-`install.sh --package <name>` and `install.sh migrate --target <t>` are
-**planned but not implemented**. They are documented in the per-runtime drafts
-as future behavior only; no command shown for them can be run in the current
-tree.
+Preview first; `migrate` defaults to dry-run and writes no config, state,
+build output, or CLI state. Only `--apply` makes changes:
+
+```bash
+./install.sh migrate --target claude
+./install.sh migrate --target codex
+./install.sh migrate --target cursor
+./install.sh migrate --target claude --apply
+./install.sh migrate --target codex --apply
+./install.sh migrate --target cursor --apply
+```
+
+`--target all` resolves to exactly Claude, Codex, and Cursor; opencode and
+agents are excluded from `all`, and naming either target explicitly is
+rejected. Migration preserves user edits/data and uncertain entries, is safe
+to run repeatedly, and rejects `--force`. See each runtime guide for gates.
+For Codex, apply checks installed/enabled CLI state before retiring legacy;
+that metadata check is not runtime session, MCP execution, or hook-dispatch
+verification.
+
+`install.sh --package <name>` (package-graph closure expansion) is still
+**planned and not implemented**; it is not a runnable command today.
 
 ## Evidence
 

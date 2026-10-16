@@ -1,9 +1,9 @@
 # Claude Install Guide (v6 native packages)
 
 > **DRAFT — unwired for v6: hidden native packages are not installable from
-> production catalogs today.** Everything under `docs/install/v6/` is planned
-> behavior, not current install instructions. For the guide that works now,
-> use [Claude Install](../claude.md).
+> production catalogs today.** The native install surface below remains
+> planned; the dry-run-first `migrate` command is implemented. For current
+> installation instructions, use [Claude Install](../claude.md).
 
 ## Current Install (unchanged today)
 
@@ -126,9 +126,34 @@ proof alone does not satisfy the gate. This guide therefore documents
   `installer-fallback` in `packages.json` is an internal modeling key, never
   an installable ID.
 
-`install.sh migrate` and `install.sh --package` (closure expansion through
-the package graph) are **planned and not implemented**. They are never
-runnable commands; do not document or run them as if they exist.
+## Migration CLI
+
+Preview the global Claude migration, then explicitly apply it:
+
+```bash
+./install.sh migrate --target claude
+./install.sh migrate --target claude --apply
+```
+
+The default dry-run writes no config, state, build output, or CLI state and
+uses the same state-based cleanup plan as apply. Symlinked configuration
+files are retained with a notice, preserving dotfiles links.
+Migration does not install hidden packages: hook cleanup requires
+`ycc-hooks@ycc` to be explicitly enabled, and MCP cleanup requires
+`ycc-mcp@ycc` to be explicitly enabled. `ycc-all@ycc` enablement alone is not
+evidence that either dependency is installed and enabled.
+
+Apply prunes only proven installer-owned hook commands in
+`~/.claude/settings.json`, preserving user-owned commands even within the
+same event group. Managed global MCP entries are removed only with ownership
+proof; project MCP files are not touched. Link cleanup removes only symlinks
+that still point at this checkout's managed source, never real files or
+foreign links. Edited values and uncertain ownership are retained and
+reported, repeated migration is safe, and `--force` is rejected.
+
+This cleanup is not a Claude session, MCP execution, or hook-dispatch check.
+`install.sh --package` (package-graph closure expansion) remains **planned
+and not implemented**.
 
 ## Duplicates And Coexistence
 
@@ -141,11 +166,11 @@ runnable commands; do not document or run them as if they exist.
   `WorktreeCreate` runs. The `SessionStart` double-run result concerns spike
   fixtures only: the actual package has no `SessionStart` registration and
   does not produce duplicate herdr reports.
-- **Migration constraint.** Safe migration must remove only installer-owned
-  settings hook entries and preserve any user-owned hooks in the same event
-  array. The current merge engine (`scripts/merge_managed_config.py`) models
-  `hooks` as `map-entries` and cannot do command-level removal today; that
-  merge-engine work gates the native hooks rollout.
+- **Migration constraint (implemented).** Migration removes only
+  installer-owned settings hook commands with legacy managed-state or source
+  hash proof, preserving any user hooks in the same event array. This uses
+  command-level pruning in `scripts/merge_managed_config.py`, not whole-event
+  removal; uncertainty is reported rather than forced.
 - **Plugin + file copy.** A native plugin and an install.sh file copy can both
   be installed; the same dedupe requirement applies before native rollout.
 - **Standalone slices.** Installing `--only skills` (or the `commands` alias)

@@ -44,6 +44,7 @@ from pathlib import Path
 from typing import Any
 
 from managed_config_entries import available_entries, select_source_entries, selected_state
+from managed_config_hooks import prune_event
 from managed_config_legacy import plan_legacy_migration
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -1030,6 +1031,73 @@ def remove_json(
     return json.dumps(pruned, indent=2, ensure_ascii=False) + "\n", changed, conflicts, stale_keys
 
 
+def remove_hook_commands(
+    source: dict[str, Any],
+    destination_path: Path,
+    profile: dict[str, Any],
+    groups: list[str],
+    state_entry: dict[str, Any],
+    force: bool,
+) -> tuple[str | None, list[list[str]], list[str], list[str]]:
+    """Prune exact source hook commands only with legacy event-hash proof.
+
+    This opt-in path never calls the generic event-array removal planner.
+    Conflicting events retain their state so ownership evidence is not lost.
+    """
+    if not destination_path.exists():
+        return None, [], [], [key for key in state_entry if key.startswith("/hooks/")]
+    destination = load_json_config(destination_path.read_text(encoding="utf-8"), destination_path, profile)
+    if not isinstance(destination, dict):
+        raise MergeError(f"{destination_path}: expected a JSON object at the root")
+    hooks = destination.get("hooks", {})
+    if not isinstance(hooks, dict):
+        return None, [], ["/hooks"], []
+    source_hooks = source.get("hooks", {})
+    if not isinstance(source_hooks, dict):
+        source_hooks = {}
+    events = set(source_hooks)
+    events.update(
+        path[1]
+        for key in state_entry
+        if key.startswith("/") and len(path := parse_pointer(key)) == 2 and path[0] == "hooks"
+    )
+    kept_events = dict(hooks)
+    changed: list[list[str]] = []
+    conflicts: list[str] = []
+    stale_keys: list[str] = []
+    for event in sorted(events):
+        path = ["hooks", event]
+        key = pointer(path)
+        if event not in hooks:
+            if key in state_entry:
+                stale_keys.append(key)
+            continue
+        ownership = state_entry.get(key)
+        state_sha = ownership.get("last_applied_sha256") if isinstance(ownership, dict) else None
+        result = prune_event(source_hooks.get(event), hooks[event], state_sha, value_hash)
+        if not result.proven:
+            conflicts.append(key)
+            continue
+        if result.uncertain:
+            conflicts.append(key)
+        elif key in state_entry:
+            stale_keys.append(key)
+        if not result.removed:
+            continue
+        changed.append(path)
+        if not result.remaining:
+            kept_events.pop(event)
+        else:
+            kept_events[event] = result.remaining
+    if not changed:
+        return None, [], conflicts, stale_keys
+    if kept_events:
+        destination["hooks"] = kept_events
+    else:
+        destination.pop("hooks", None)
+    return json.dumps(destination, indent=2, ensure_ascii=False) + "\n", changed, conflicts, stale_keys
+
+
 def delete_toml_entries(text: str, entries: list[list[str]]) -> str:
     """Drop every table and assignment at or below the given paths.
 
@@ -1199,6 +1267,8 @@ def run_remove(
     """Remove tool-owned managed entries; user-edited entries need --force."""
     label = f"({args.profile}: {', '.join(groups)})"
     remove = remove_json if profile["format"] == "json" else remove_toml
+    if args.prune_hook_commands:
+        remove = remove_hook_commands
     try:
         rendered, removed, conflicts, stale_keys = remove(
             source, destination_path, profile, groups, plan_state, args.force
@@ -1208,7 +1278,10 @@ def run_remove(
         return 1
 
     for conflict in conflicts:
-        print(f"  [!!] kept your local value at {conflict} (re-run with --force to remove it)")
+        if args.prune_hook_commands:
+            print(f"  [!!] kept uncertain or locally modified hook commands at {conflict} (edit by hand to remove)")
+        else:
+            print(f"  [!!] kept your local value at {conflict} (re-run with --force to remove it)")
 
     if args.dry_run:
         for path in removed:
@@ -1264,6 +1337,11 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true", help="Report the merge without writing anything")
     parser.add_argument("--remove", action="store_true", help="Remove managed entries instead of merging them")
     parser.add_argument(
+        "--prune-hook-commands",
+        action="store_true",
+        help="With --remove and claude-settings hooks only, prune proven exact managed hook commands",
+    )
+    parser.add_argument(
         "--entries",
         help="Comma-separated entry names (e.g. MCP servers) to restrict the run to; other entries are left alone",
     )
@@ -1278,6 +1356,15 @@ def main() -> int:
     groups = [group.strip() for group in args.groups.split(",") if group.strip()]
     if not groups:
         print("merge_managed_config: --groups requires at least one group", file=sys.stderr)
+        return 1
+    if args.prune_hook_commands and (
+        not args.remove or args.profile != "claude-settings" or groups != ["hooks"] or args.force or args.list_entries
+    ):
+        print(
+            "merge_managed_config: --prune-hook-commands requires --remove --profile claude-settings "
+            "--groups hooks and cannot be combined with --force or --list-entries",
+            file=sys.stderr,
+        )
         return 1
 
     source_path = args.source if args.source.is_absolute() else (REPO_ROOT / args.source)

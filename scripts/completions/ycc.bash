@@ -15,7 +15,7 @@ _ycc() {
     [[ ${COMP_CWORD} -gt 1 ]] && sub="${COMP_WORDS[1]}"
 
     case "${prev}" in
-        --target) values="claude cursor codex opencode agents all" ;;
+        --target) values="claude cursor codex opencode agents all"; [[ "${sub}" == migrate ]] && values="claude codex cursor all" ;;
         --skills-home) mapfile -t COMPREPLY < <(compgen -W "agents native" -- "${cur}"); return ;;
         --intent) values="base skills agents commands settings rules mcp hooks plugins mods" ;;
         --package) [[ "${sub}" == "install" ]] && values="ycc ycc-mcp ycc-hooks ycc-rules" ;;
@@ -23,7 +23,7 @@ _ycc() {
         --only)   values="base skills agents commands settings rules mcp hooks mods" ;;
         --mode)   mapfile -t COMPREPLY < <(compgen -W "local repo" -- "${cur}"); return ;;
         --shell)  mapfile -t COMPREPLY < <(compgen -W "bash zsh fish" -- "${cur}"); return ;;
-        --dir)    mapfile -t COMPREPLY < <(compgen -d -- "${cur}"); return ;;
+        --dir|--marketplace-source) mapfile -t COMPREPLY < <(compgen -d -- "${cur}"); return ;;
     esac
 
     # Comma lists: complete the item after the last comma, keep the prefix.
@@ -40,7 +40,7 @@ _ycc() {
 
     local words
     if [[ ${COMP_CWORD} -eq 1 ]]; then
-        words="install sync remove cli completion list-mcps"
+        words="install sync remove migrate cli completion list-mcps"
     else
         case "${sub}" in
             cli)        words="--dir --force --help" ;;
@@ -49,6 +49,7 @@ _ycc() {
             install)    words="--target --package --only --mode --skills-home --settings --rules --mcp --mcps --hooks --project --global --force --help" ;;
             sync)       words="--target --intent --mcps --mode --skills-home --project --global --force --help" ;;
             remove)     words="--target --only --intent --mcps --project --global --force --help" ;;
+            migrate)    words="--target --apply --marketplace-source --help" ;;
             *)          words="" ;;
         esac
     fi
