@@ -56,7 +56,9 @@ for f in .mcp.json .cursor/mcp.json opencode.json; do
 done
 merged="$(cat "${home}/project/.codex/config.toml")"
 assert_contains "${merged}" "[mcp_servers.linear-personal]" "--mcps writes linear-personal to codex"
-assert_contains "${merged}" 'command = "github-mcp-server"' "codex keeps its native github override"
+assert_contains "${merged}" 'command = "sh"' "codex keeps its github bridge override"
+assert_contains "${merged}" 'mcp-remote https://api.githubcopilot.com/mcp/' "codex bridges to the remote github endpoint"
+assert_contains "${merged}" 'gh auth token' "codex resolves github authentication at startup"
 assert_not_contains "${merged}" "bearer_token_env_var" "codex github has no PAT mapping"
 assert_not_contains "${merged}" "[mcp_servers.stripe]" "codex skips unselected servers"
 
