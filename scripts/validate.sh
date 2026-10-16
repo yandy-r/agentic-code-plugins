@@ -288,6 +288,7 @@ run_target() {
             "${REPO_ROOT}/scripts/validate-cursor-packages.sh" || fail "validate-cursor-packages.sh"
             python3 "${REPO_ROOT}/scripts/test_generate_cursor_packages.py" || fail "test_generate_cursor_packages.py"
             python3 "${REPO_ROOT}/scripts/test_validate_cursor_native.py" || fail "test_validate_cursor_native.py"
+            python3 "${REPO_ROOT}/scripts/test_cursor_live_smoke.py" || fail "test_cursor_live_smoke.py"
             ;;
         codex-native)
             echo "== validate: codex native packages =="

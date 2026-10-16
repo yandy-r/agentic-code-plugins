@@ -187,6 +187,62 @@ before="$(migrate_snapshot "${home}")"
 install_must_succeed "${home}" migrate --target cursor --apply
 [[ "$(migrate_snapshot "${home}")" == "${before}" ]] && ok "Cursor repeated apply is byte-stable" || ko "Cursor repeated apply is byte-stable"
 
+# Package carriers must retire before skills: no active wrappers or duplicate
+# sessionStart registration may survive a successful migration.
+home="$(new_home)"
+install_must_succeed "${home}" install --target cursor --only skills,commands,hooks --skills-home native
+printf 'my independent command\n' > "${home}/.cursor/commands/mine.md"
+migrate_fixture_must_succeed python3 - "${home}/.cursor/hooks.json" <<'PY'
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data['hooks']['sessionStart'].append({'command': 'echo my-session-hook'})
+path.write_text(json.dumps(data, indent=2) + '\n')
+PY
+before="$(migrate_snapshot "${home}")"
+install_must_succeed "${home}" migrate --target cursor
+assert_contains "${INSTALL_OUT}" "would retire" "Cursor preview includes carrier retirement"
+[[ "$(migrate_snapshot "${home}")" == "${before}" ]] && ok "Cursor carrier preview preserves all bytes and state" || ko "Cursor carrier preview preserves all bytes and state"
+install_must_succeed "${home}" migrate --target cursor --apply
+[[ ! -e "${home}/.cursor/commands/clean.md" && ! -e "${home}/.cursor/skills/clean" ]] && ok "Cursor removes managed wrappers before their skills" || ko "Cursor removes managed wrappers before their skills"
+[[ ! -e "${home}/.cursor/hooks/herdr-session-start.sh" ]] && ok "Cursor retires installer hook script" || ko "Cursor retires installer hook script"
+assert_not_contains "$(cat "${home}/.cursor/hooks.json")" "herdr-session-start.sh" "Cursor retires installer sessionStart registration"
+assert_contains "$(cat "${home}/.cursor/hooks.json")" "echo my-session-hook" "Cursor preserves foreign sessionStart command"
+assert_contains "$(cat "${home}/.cursor/commands/mine.md")" "my independent command" "Cursor preserves foreign command file"
+before="$(migrate_snapshot "${home}")"
+install_must_succeed "${home}" migrate --target cursor --apply
+[[ "$(migrate_snapshot "${home}")" == "${before}" ]] && ok "Cursor carrier repeated apply is byte-stable" || ko "Cursor carrier repeated apply is byte-stable"
+
+# Every refusal must happen before removing any other carrier or skill.
+for conflict in edited-command edited-script lost-hook-state lost-command-state malformed-hooks symlink-hooks; do
+    home="$(new_home)"
+    install_must_succeed "${home}" install --target cursor --only skills,commands,hooks --skills-home native
+    case "${conflict}" in
+        edited-command) printf '\nmy edit\n' >> "${home}/.cursor/commands/clean.md" ;;
+        edited-script) printf '\n# my edit\n' >> "${home}/.cursor/hooks/herdr-session-start.sh" ;;
+        lost-hook-state) migrate_fixture_must_succeed rm "${home}/.config/ycc/managed-config-state.json" ;;
+        lost-command-state) migrate_fixture_must_succeed rm "${home}/.config/ycc/installed-units.json" ;;
+        malformed-hooks) printf '{\n' > "${home}/.cursor/hooks.json" ;;
+        symlink-hooks)
+            migrate_fixture_must_succeed mv "${home}/.cursor/hooks.json" "${home}/saved-hooks.json"
+            migrate_fixture_must_succeed ln -s "${home}/saved-hooks.json" "${home}/.cursor/hooks.json"
+            ;;
+    esac
+    before="$(migrate_snapshot "${home}")"
+    for apply in preview apply; do
+        flags=()
+        [[ "${apply}" == apply ]] && flags+=(--apply)
+        if out="$(run_install "${home}" migrate --target cursor "${flags[@]}")"; then
+            ko "Cursor ${conflict} ${apply} fails closed"
+        else
+            ok "Cursor ${conflict} ${apply} fails closed"
+        fi
+        assert_contains "${out}" "before applying or activating native packages" "Cursor ${conflict} ${apply} explains resolution"
+        [[ "$(migrate_snapshot "${home}")" == "${before}" ]] && ok "Cursor ${conflict} ${apply} leaves every carrier and skill intact" || ko "Cursor ${conflict} ${apply} leaves every carrier and skill intact"
+    done
+done
+
 # A symlink in the init projection aborts before staging or writes. This case
 # runs against an isolated checkout copy because it corrupts one source file.
 repo_copy="${SANDBOX_ROOT}/migrate-repo-copy"

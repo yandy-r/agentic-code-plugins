@@ -33,12 +33,19 @@ def test_closures() -> None:
         ("ycc-mcp", "claude", ("settings", "rules", "mcp")),
         ("ycc-mcp", "codex", ("agents", "settings", "rules", "mcp")),
         ("ycc-mcp", "cursor", ("settings", "mcp")),
+        ("ycc", "cursor", ("base", "commands", "settings")),
+        ("ycc-hooks", "cursor", ("settings", "hooks")),
         ("ycc-hooks", "claude", ("settings", "rules", "hooks")),
     ):
         assert plan_install(MODEL, (package,), (target,)).targets[0].steps == expected
     rules = plan_install(MODEL, ("ycc-rules",), ("cursor",)).targets[0]
     assert rules.cursor_units == ("rules",)
-    assert rules.skipped_components == ("hooks",)
+    assert rules.skipped_components == ()
+    main = plan_install(MODEL, ("ycc",), ("cursor",)).targets[0]
+    assert main.cursor_units == ("skills", "agents")
+    hooks = plan_install(MODEL, ("ycc-hooks",), ("cursor",)).targets[0]
+    assert hooks.cursor_units == ()
+    assert "hooks" not in plan_install(MODEL, ("ycc-mcp",), ("cursor",)).targets[0].steps
     assert parse_packages("ycc,ycc-mcp,ycc") == ("ycc", "ycc-mcp")
 
 
@@ -52,13 +59,11 @@ def test_rejections() -> None:
         ("ycc", "opencode", "not available"),
         ("ycc", "agents", "not available"),
         ("ycc-hooks", "codex", "excluded"),
-        ("ycc", "cursor", "commands"),
-        ("ycc-hooks", "cursor", "hooks"),
     ):
         expect_error((package,), target, needle)
     all_plan = plan_install(MODEL, ("ycc",), ("claude", "cursor", "codex", "opencode", "agents"), skip_unsupported=True)
-    assert tuple(t.target for t in all_plan.targets) == ("claude", "codex")
-    assert any("commands" in warning for warning in all_plan.warnings)
+    assert tuple(t.target for t in all_plan.targets) == ("claude", "cursor", "codex")
+    assert not any("commands" in warning for warning in all_plan.warnings)
     assert not any("shared" in warning for warning in all_plan.warnings)
 
 

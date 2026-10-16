@@ -88,4 +88,100 @@ for f in CLAUDE.md AGENTS.md; do
     if [[ ! -e "${home}/.cursor/${f}" && ! -L "${home}/.cursor/${f}" ]]; then ok "cursor remove unlinks legacy ~/.cursor/${f}"; else ko "cursor remove unlinks legacy ~/.cursor/${f}"; fi
 done
 
+echo "== Cursor carrier ownership boundaries =="
+
+# Commands cannot be installed as dangling references; preflight touches nothing.
+home="$(new_home)"
+out="$(run_install "${home}" sync --target cursor --intent commands 2>&1)" && rc=0 || rc=$?
+if [[ ${rc} -ne 0 ]]; then ok "cursor commands reject missing installed skills"; else ko "cursor commands reject missing installed skills" "${out}"; fi
+assert_contains "${out}" '--only skills,commands' "cursor missing skills names the recovery command"
+if [[ ! -e "${home}/.cursor/commands" && ! -e "${home}/.config/ycc/installed-units.json" ]]; then ok "missing skills preflight writes no carriers or state"; else ko "missing skills preflight writes no carriers or state"; fi
+
+# A commands-only refresh must use the explicitly selected consolidated home.
+home="$(new_home)"
+install_must_succeed "${home}" install --target cursor --package ycc --skills-home agents
+install_must_succeed "${home}" sync --target cursor --intent commands --skills-home agents
+assert_contains "$(cat "${home}/.cursor/commands/init.md")" "${home}/.agents/skills/init/SKILL.md" "commands-only refresh honors agents skills home"
+if [[ ! -e "${home}/.cursor/skills" ]]; then ok "commands-only agents refresh creates no native skills"; else ko "commands-only agents refresh creates no native skills"; fi
+
+# One collision must abort the whole slice before other wrappers are installed.
+home="$(new_home)"
+install_must_succeed "${home}" install --target cursor --only skills --skills-home native
+mkdir -p "${home}/.cursor/commands"
+echo mine > "${home}/.cursor/commands/init.md"
+out="$(run_install "${home}" sync --target cursor --intent commands 2>&1)" && rc=0 || rc=$?
+if [[ ${rc} -ne 0 && ! -e "${home}/.cursor/commands/clean.md" ]]; then ok "foreign command collision aborts the whole carrier"; else ko "foreign command collision aborts the whole carrier" "${out}"; fi
+assert_contains "$(cat "${home}/.cursor/commands/init.md")" mine "foreign colliding command survives"
+install_must_succeed "${home}" sync --target cursor --intent commands --force
+echo edited >> "${home}/.cursor/commands/init.md"
+out="$(run_install "${home}" sync --target cursor --intent commands 2>&1)" && rc=0 || rc=$?
+if [[ ${rc} -ne 0 ]]; then ok "locally edited owned command fails closed"; else ko "locally edited owned command fails closed"; fi
+assert_contains "$(cat "${home}/.cursor/commands/init.md")" edited "local command edit survives"
+out="$(run_install "${home}" remove --target cursor --intent commands 2>&1)" && rc=0 || rc=$?
+if [[ ${rc} -ne 0 && -e "${home}/.cursor/commands/clean.md" ]]; then ok "edited command aborts removal before partial deletion"; else ko "edited command aborts removal before partial deletion" "${out}"; fi
+install_must_succeed "${home}" remove --target cursor --intent commands --force
+if [[ ! -e "${home}/.cursor/commands" ]]; then ok "forced command removal cleans owned entries"; else ko "forced command removal cleans owned entries"; fi
+
+# Hook shape and script collisions are checked before settings, script or state.
+for fixture in malformed version collision symlink; do
+    home="$(new_home)"
+    case "${fixture}" in
+        malformed) echo '{' > "${home}/.cursor/hooks.json" ;;
+        version) echo '{"version":2,"hooks":{}}' > "${home}/.cursor/hooks.json" ;;
+        collision)
+            mkdir -p "${home}/.cursor/hooks"
+            echo mine > "${home}/.cursor/hooks/herdr-session-start.sh"
+            ;;
+        symlink)
+            mkdir -p "${home}/foreign-hooks"
+            echo mine > "${home}/foreign-hooks/keep"
+            ln -s "${home}/foreign-hooks" "${home}/.cursor/hooks"
+            ;;
+    esac
+    before="$(find "${home}" -type f -exec sha256sum {} + | sort)"
+    out="$(run_install "${home}" install --target cursor --package ycc-hooks 2>&1)" && rc=0 || rc=$?
+    after="$(find "${home}" -type f -exec sha256sum {} + | sort)"
+    if [[ ${rc} -ne 0 && "${before}" == "${after}" && ! -e "${home}/.cursor/cli-config.json" && ! -e "${home}/.config/ycc/managed-config-state.json" ]]; then ok "cursor hooks ${fixture} preflight fails before writes"; else ko "cursor hooks ${fixture} preflight fails before writes" "${out}"; fi
+done
+
+# Installed script edits do not authorize overwrite or removal.
+home="$(new_home)"
+install_must_succeed "${home}" install --target cursor --only hooks
+echo '# edited' >> "${home}/.cursor/hooks/herdr-session-start.sh"
+out="$(run_install "${home}" install --target cursor --only hooks 2>&1)" && rc=0 || rc=$?
+if [[ ${rc} -ne 0 ]]; then ok "edited owned hook script fails closed"; else ko "edited owned hook script fails closed"; fi
+assert_contains "$(cat "${home}/.cursor/hooks/herdr-session-start.sh")" '# edited' "hook script edit survives"
+
+# Never delete a script when its registration was pre-existing or lost ownership.
+for fixture in preexisting lost-state; do
+    home="$(new_home)"
+    if [[ "${fixture}" == "preexisting" ]]; then
+        python3 - "${home}" <<'PY'
+import json
+import pathlib
+import shlex
+import sys
+
+home = pathlib.Path(sys.argv[1])
+script = home / ".cursor/hooks/herdr-session-start.sh"
+command = f"bash {shlex.quote(str(script))} session"
+(home / ".cursor/hooks.json").write_text(json.dumps({"version": 1, "hooks": {"sessionStart": [{"command": command}]}}))
+PY
+    fi
+    install_must_succeed "${home}" install --target cursor --only hooks
+    if [[ "${fixture}" == "lost-state" ]]; then
+        rm "${home}/.config/ycc/managed-config-state.json"
+    fi
+    before="$(cat "${home}/.cursor/hooks.json")"
+    out="$(run_install "${home}" remove --target cursor --intent hooks 2>&1)" && rc=0 || rc=$?
+    if [[ ${rc} -ne 0 && -x "${home}/.cursor/hooks/herdr-session-start.sh" && "${before}" == "$(cat "${home}/.cursor/hooks.json")" ]]; then ok "${fixture} registration prevents hook script removal"; else ko "${fixture} registration prevents hook script removal" "${out}"; fi
+    assert_contains "${out}" 'registration still references the hook script' "${fixture} removal explains registration ownership"
+    install_must_succeed "${home}" remove --target cursor --intent hooks --force
+    if [[ ! -e "${home}/.cursor/hooks/herdr-session-start.sh" ]]; then ok "${fixture} forced removal retracts script safely"; else ko "${fixture} forced removal retracts script safely"; fi
+done
+
+home="$(new_home)"
+install_must_succeed "${home}" sync --target cursor --intent base
+if [[ ! -e "${home}/.cursor/commands" && ! -e "${home}/.cursor/hooks.json" ]]; then ok "default base installs no optional carriers"; else ko "default base installs no optional carriers"; fi
+
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then install_tests_finish; fi

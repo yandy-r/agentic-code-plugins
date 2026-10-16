@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import subprocess
 import sys
 import tempfile
 import tomllib
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 HELPER = REPO_ROOT / "scripts" / "merge_managed_config.py"
@@ -607,6 +609,141 @@ class MergeHelperTestCase(MergeBase):
         self.assertEqual(merged["permissions"]["allow"], [])
         self.assertEqual(merged["permissions"]["deny"], [])
         self.assertEqual(merged["model"]["modelId"], "claude-fable-5-1")
+
+    def test_cursor_hooks_merge_appends_and_preserves_foreign(self) -> None:
+        source = REPO_ROOT / "packages/cursor/ycc-hooks/hooks/hooks.json"
+        destination = self.write_json(
+            self.tmp / "hooks.json",
+            {
+                "version": 1,
+                "hooks": {
+                    "sessionStart": [{"command": "echo foreign"}],
+                    "afterShellExecution": [{"command": "echo other"}],
+                },
+                "custom": True,
+            },
+        )
+
+        self.run_merge("cursor-hooks", source, destination, "hooks")
+
+        merged = json.loads(destination.read_text())
+        self.assertEqual(merged["version"], 1)
+        self.assertEqual(merged["custom"], True)
+        self.assertEqual(merged["hooks"]["sessionStart"][0]["command"], "echo foreign")
+        self.assertEqual(merged["hooks"]["afterShellExecution"], [{"command": "echo other"}])
+        ycc = merged["hooks"]["sessionStart"][1]["command"]
+        self.assertEqual(ycc, f"bash {shlex.quote(str(Path.home() / '.cursor/hooks/herdr-session-start.sh'))} session")
+
+    def test_cursor_hooks_merge_is_idempotent(self) -> None:
+        source = REPO_ROOT / "packages/cursor/ycc-hooks/hooks/hooks.json"
+        destination = self.tmp / "hooks.json"
+
+        self.run_merge("cursor-hooks", source, destination, "hooks")
+        self.run_merge("cursor-hooks", source, destination, "hooks")
+
+        merged = json.loads(destination.read_text())
+        self.assertEqual(len(merged["hooks"]["sessionStart"]), 1)
+
+    def test_cursor_hooks_command_preserves_shell_sensitive_home(self) -> None:
+        source = REPO_ROOT / "packages/cursor/ycc-hooks/hooks/hooks.json"
+        for name in ("josé", "space and 'quote'", "$HOME", "`echo expanded`", "$(echo expanded)"):
+            with self.subTest(home=name):
+                home = self.tmp / name
+                script = home / ".cursor/hooks/herdr-session-start.sh"
+                script.parent.mkdir(parents=True)
+                script.write_text("printf '%s' \"$1\"\n", encoding="utf-8")
+                destination = home / ".cursor/hooks.json"
+                with patch.dict(os.environ, {"HOME": str(home)}):
+                    self.run_merge("cursor-hooks", source, destination, "hooks")
+                command = json.loads(destination.read_text())["hooks"]["sessionStart"][0]["command"]
+                result = subprocess.run(["sh", "-c", command], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout, "session")
+
+    def test_cursor_hooks_remove_rejects_unowned_registration(self) -> None:
+        source = REPO_ROOT / "packages/cursor/ycc-hooks/hooks/hooks.json"
+        destination = self.tmp / "hooks.json"
+        self.run_merge("cursor-hooks", source, destination, "hooks")
+        before = destination.read_bytes()
+        self.state.unlink()
+
+        for extra in (("--remove", "--dry-run"), ("--remove",)):
+            result = self.run_merge("cursor-hooks", source, destination, "hooks", extra=extra, expect_success=False)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("registration still references the hook script", result.stderr)
+            self.assertEqual(destination.read_bytes(), before)
+            self.assertFalse(self.state.exists())
+
+        self.run_merge("cursor-hooks", source, destination, "hooks", force=True, extra=("--remove",))
+        if destination.exists():
+            self.assertEqual(json.loads(destination.read_text())["hooks"]["sessionStart"], [])
+
+    def test_cursor_hooks_remove_takes_back_only_own_entry(self) -> None:
+        source = REPO_ROOT / "packages/cursor/ycc-hooks/hooks/hooks.json"
+        destination = self.write_json(
+            self.tmp / "hooks.json",
+            {"version": 1, "hooks": {"sessionStart": [{"command": "echo foreign"}]}},
+        )
+        self.run_merge("cursor-hooks", source, destination, "hooks")
+
+        self.run_merge("cursor-hooks", source, destination, "hooks", extra=("--remove",))
+
+        merged = json.loads(destination.read_text())
+        self.assertEqual(merged["hooks"]["sessionStart"], [{"command": "echo foreign"}])
+
+    def test_cursor_hooks_invalid_destination_fails_closed(self) -> None:
+        source = REPO_ROOT / "packages/cursor/ycc-hooks/hooks/hooks.json"
+        destination = self.write_json(
+            self.tmp / "hooks.json",
+            {"version": 2, "hooks": {"sessionStart": "echo foreign"}},
+        )
+
+        result = self.run_merge("cursor-hooks", source, destination, "hooks", expect_success=False)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("invalid Cursor hooks.json", result.stderr)
+        self.assertEqual(json.loads(destination.read_text())["version"], 2)
+
+    def test_cursor_hooks_foreign_herdr_collision_fails_closed(self) -> None:
+        source = REPO_ROOT / "packages/cursor/ycc-hooks/hooks/hooks.json"
+        destination = self.write_json(
+            self.tmp / "hooks.json",
+            {
+                "version": 1,
+                "hooks": {"sessionStart": [{"command": "bash ~/.cursor/hooks/herdr-session-start.sh other"}]},
+            },
+        )
+
+        result = self.run_merge("cursor-hooks", source, destination, "hooks", expect_success=False)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("ownership collision", result.stderr)
+        self.assertEqual(len(json.loads(destination.read_text())["hooks"]["sessionStart"]), 1)
+
+    def test_cursor_hooks_symlinked_destination_refused(self) -> None:
+        source = REPO_ROOT / "packages/cursor/ycc-hooks/hooks/hooks.json"
+        real = self.write_json(self.tmp / "real.json", {"version": 1, "hooks": {}})
+        destination = self.tmp / "hooks.json"
+        destination.symlink_to(real)
+
+        result = self.run_merge("cursor-hooks", source, destination, "hooks", expect_success=False)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("symlinked", result.stderr)
+        self.assertTrue(destination.is_symlink())
+
+    def test_cursor_hooks_noncanonical_source_refused(self) -> None:
+        source = self.write_json(
+            self.tmp / "src.json",
+            {"version": 1, "hooks": {"sessionStart": [{"command": "echo anything"}]}},
+        )
+        destination = self.tmp / "hooks.json"
+
+        result = self.run_merge("cursor-hooks", source, destination, "hooks", expect_success=False)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("canonical herdr sessionStart command", result.stderr)
+        self.assertFalse(destination.exists())
 
     def test_removed_managed_leaf_is_cleaned_up(self) -> None:
         """Repo transport changes must not leave stale managed fields behind."""

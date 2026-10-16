@@ -303,7 +303,36 @@ then ok "codex legacy CLI keeps earlier managed github/cloudflare enablement tru
 echo
 echo "== install.sh install --package: cursor closures =="
 
-# Explicit cursor ycc / ycc-hooks fail preflight with no writes (see the rejection section).
+# Cursor packages deliver only their own filesystem carriers, never activate a plugin.
+
+home="$(new_home)"
+mkdir -p "${home}/.cursor/commands"
+echo foreign > "${home}/.cursor/commands/foreign.md"
+install_must_succeed "${home}" install --target cursor --package ycc --skills-home native
+assert_contains "$(cat "${home}/.cursor/commands/init.md")" "${home}/.cursor/skills/init/SKILL.md" "cursor ycc commands reference installed skills"
+assert_not_contains "$(cat "${home}/.cursor/commands/init.md")" 'CURSOR_PLUGIN_ROOT' "cursor user commands have no plugin-root dependency"
+assert_contains "$(cat "${home}/.cursor/commands/foreign.md")" foreign "cursor ycc preserves foreign commands"
+if [[ -f "${home}/.cursor/skills/init/SKILL.md" && ! -e "${home}/.cursor/hooks.json" && ! -e "${home}/.cursor/plugins" ]]; then ok "cursor ycc installs skills without implicit hooks or native activation"; else ko "cursor ycc installs skills without implicit hooks or native activation"; fi
+
+home="$(new_home)"
+install_must_succeed "${home}" install --target cursor --package ycc --skills-home agents
+assert_contains "$(cat "${home}/.cursor/commands/init.md")" "${home}/.agents/skills/init/SKILL.md" "cursor consolidated commands reference actual skills home"
+if [[ -f "${home}/.agents/skills/init/SKILL.md" && ! -e "${home}/.cursor/skills" ]]; then ok "cursor ycc consolidation installs one skills home"; else ko "cursor ycc consolidation installs one skills home"; fi
+
+home="$(new_home)"
+echo '{"version":1,"hooks":{"sessionStart":[{"command":"echo foreign"}],"afterShellExecution":[{"command":"echo other"}]},"custom":true}' > "${home}/.cursor/hooks.json"
+install_must_succeed "${home}" install --target cursor --package ycc-hooks
+assert_contains "$(cat "${home}/.cursor/hooks.json")" 'echo foreign' "cursor hooks package preserves foreign sessionStart"
+assert_contains "$(cat "${home}/.cursor/hooks.json")" 'afterShellExecution' "cursor hooks package preserves unrelated events"
+assert_contains "$(cat "${home}/.cursor/hooks.json")" 'herdr-session-start.sh' "cursor hooks package activates canonical script"
+assert_not_contains "$(cat "${home}/.cursor/hooks.json")" 'WorktreeCreate' "cursor hooks never register unsupported WorktreeCreate"
+if [[ -x "${home}/.cursor/hooks/herdr-session-start.sh" && ! -e "${home}/.cursor/skills" && ! -e "${home}/.cursor/commands" && ! -e "${home}/.cursor/plugins" ]]; then ok "cursor hooks package owns only hook payload plus settings"; else ko "cursor hooks package owns only hook payload plus settings"; fi
+install_must_succeed "${home}" install --target cursor --package ycc-hooks
+if [[ "$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["hooks"]["sessionStart"]))' "${home}/.cursor/hooks.json")" == 2 ]]; then ok "cursor hooks install is idempotent"; else ko "cursor hooks install is idempotent"; fi
+install_must_succeed "${home}" remove --target cursor --intent hooks
+assert_contains "$(cat "${home}/.cursor/hooks.json")" 'echo foreign' "cursor hooks removal preserves user hooks"
+assert_not_contains "$(cat "${home}/.cursor/hooks.json")" 'herdr-session-start.sh' "cursor hooks removal retracts only own activation"
+if [[ ! -e "${home}/.cursor/hooks/herdr-session-start.sh" ]]; then ok "cursor hooks removal retracts own script"; else ko "cursor hooks removal retracts own script"; fi
 
 home="$(new_home)"
 install_must_succeed "${home}" install --target cursor --package ycc-mcp --mcps github
@@ -311,7 +340,7 @@ out="${INSTALL_OUT}"
 assert_contains "$(cat "${home}/project/.cursor/mcp.json" 2>/dev/null)" '"github"' "cursor ycc-mcp delivers the selected MCP server"
 assert_not_contains "$(cat "${home}/project/.cursor/mcp.json" 2>/dev/null)" '"playwright"' "cursor ycc-mcp honors --mcps"
 assert_contains "$(cat "${home}/.cursor/cli-config.json" 2>/dev/null)" '"claude-fable-5-1"' "cursor ycc-mcp includes fallback settings"
-if [[ ! -e "${home}/.cursor/skills" && ! -e "${home}/.cursor/agents" && ! -e "${home}/.cursor/rules" ]]; then ok "cursor ycc-mcp copies no bundle content"; else ko "cursor ycc-mcp copies no bundle content"; fi
+if [[ ! -e "${home}/.cursor/skills" && ! -e "${home}/.cursor/agents" && ! -e "${home}/.cursor/rules" && ! -e "${home}/.cursor/commands" ]]; then ok "cursor ycc-mcp copies no bundle content"; else ko "cursor ycc-mcp copies no bundle content"; fi
 
 # ycc-rules: rules + settings only — no skills, agents, plugin registration or MCP.
 home="$(new_home)"
@@ -322,7 +351,7 @@ assert_contains "$(cat "${home}/.cursor/cli-config.json" 2>/dev/null)" '"claude-
 if [[ ! -e "${home}/.cursor/skills" && ! -e "${home}/.cursor/agents" && ! -e "${home}/.agents/skills" ]]; then ok "cursor ycc-rules delivers no skills or agents even with --skills-home agents"; else ko "cursor ycc-rules delivers no skills or agents even with --skills-home agents"; fi
 if [[ ! -e "${home}/project/.cursor/mcp.json" && ! -e "${home}/.cursor/mcp.json" ]]; then ok "cursor ycc-rules writes no MCP config"; else ko "cursor ycc-rules writes no MCP config"; fi
 if [[ ! -e "${home}/.cursor/plugins" ]]; then ok "cursor ycc-rules registers no plugin"; else ko "cursor ycc-rules registers no plugin"; fi
-assert_contains "${out}" "hooks" "cursor ycc-rules reports unsupported fallback hooks without failing"
+if [[ ! -e "${home}/.cursor/hooks.json" ]]; then ok "cursor ycc-rules does not inherit fallback hooks"; else ko "cursor ycc-rules does not inherit fallback hooks"; fi
 
 echo
 echo "== install.sh install --package: CSV, --target all, regressions =="
@@ -341,19 +370,19 @@ out="${INSTALL_OUT}"
 for target in opencode agents; do
     assert_contains "${out}" "package 'ycc' is not available for target '${target}' — skipping target '${target}'" "--package --target all warns and skips ${target}"
 done
-assert_contains "${out}" "skipping target 'cursor'" "--package --target all skips cursor ycc without native commands activation"
+if [[ -f "${home}/.cursor/commands/init.md" ]]; then ok "--package --target all delivers cursor commands"; else ko "--package --target all delivers cursor commands"; fi
 for f in .claude/CLAUDE.md .codex/AGENTS.md; do
     if [[ -e "${home}/${f}" ]]; then ok "--package --target all still delivers ${f}"; else ko "--package --target all still delivers ${f}" "${out}"; fi
 done
-if [[ ! -e "${home}/project/opencode.json" && ! -e "${home}/.agents/skills" && ! -e "${home}/.cursor/cli-config.json" && ! -e "${home}/.cursor/skills" && ! -e "${home}/.cursor/agents" ]]; then ok "--package --target all skips unsupported target delivery"; else ko "--package --target all skips unsupported target delivery"; fi
+if [[ ! -e "${home}/project/opencode.json" && ! -e "${home}/.agents/skills" ]]; then ok "--package --target all skips unsupported target delivery"; else ko "--package --target all skips unsupported target delivery"; fi
 
-# ycc-hooks under --target all: codex (excluded) and cursor (no step) are skipped, claude still runs.
+# ycc-hooks under --target all: excluded Codex is skipped; Claude and Cursor run.
 home="$(new_home)"
 install_must_succeed "${home}" install --target all --package ycc-hooks --skills-home native
 out="${INSTALL_OUT}"
 if [[ -L "${home}/.claude/hooks" ]]; then ok "--package ycc-hooks --target all still links claude hooks"; else ko "--package ycc-hooks --target all still links claude hooks" "${out}"; fi
 assert_contains "${out}" "skipping target 'codex'" "--package ycc-hooks --target all skips codex"
-assert_contains "${out}" "skipping target 'cursor'" "--package ycc-hooks --target all skips cursor"
+if [[ -x "${home}/.cursor/hooks/herdr-session-start.sh" ]]; then ok "--package ycc-hooks --target all delivers cursor hook"; else ko "--package ycc-hooks --target all delivers cursor hook"; fi
 
 # Every unsupported target: --target all with nothing deliverable fails.
 home="$(new_home)"
@@ -397,8 +426,6 @@ assert_package_rejected() {
 assert_package_rejected "ycc on opencode" "package 'ycc' is not available for target 'opencode'" install --target opencode --package ycc
 assert_package_rejected "ycc on agents" "package 'ycc' is not available for target 'agents'" install --target agents --package ycc
 assert_package_rejected "ycc-hooks on codex" "package 'ycc-hooks'" install --target codex --package ycc-hooks
-assert_package_rejected "ycc-hooks on cursor" "hooks have no installer carrier" install --target cursor --package ycc-hooks
-assert_package_rejected "ycc on cursor" "commands" install --target cursor --package ycc
 assert_package_rejected "unknown package" "unknown package 'bogus'" install --target claude --package bogus
 assert_package_rejected "ycc-all" "ycc-all is gated on automatic dependency installation proof" install --target claude --package ycc-all
 assert_package_rejected "installer-fallback" "installer-fallback is an internal modeling key" install --target claude --package installer-fallback

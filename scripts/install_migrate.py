@@ -15,7 +15,16 @@ from typing import Any
 
 from codex_marketplace import build_entry, validate_marketplace_catalog
 from generate_codex_plugin import native_packages, native_version
-from install_slices import SPECS, namespace_pattern, project_cursor_init, rewrites_for, shipped_entries, stage
+from install_slices import (
+    SPECS,
+    load_state as load_slice_state,
+    namespace_pattern,
+    project_cursor_init,
+    rewrites_for,
+    shipped_entries,
+    stage,
+    state_path as slice_state_path,
+)
 from merge_managed_config import PROFILES, load_state, remove_hook_commands
 from package_model import load_package_model
 from validate_codex_native import check_catalog, check_package
@@ -176,6 +185,91 @@ class Migration:
             print("[!!] Claude MCP retained: ycc-mcp@ycc is not explicitly enabled")
         print("Claude migrate complete (global scope only).")
 
+    def retire_cursor_carriers(self) -> None:
+        """Retract installer-owned Cursor command wrappers and the sessionStart hook.
+
+        Wrappers reference the file-copy skills and the hook would duplicate the
+        native ycc-hooks package, so both must go before skills are removed. The
+        slice and merge engines own the ownership proof (recorded names plus
+        content hashes); every decision is preflighted with --dry-run before
+        any mutation, and a refusal stops the whole Cursor migration closed.
+        """
+        helper = str(ROOT / "scripts/install_slices.py")
+        merge = str(ROOT / "scripts/merge_managed_config.py")
+        hooks_source = str(ROOT / "packages/cursor/ycc-hooks/hooks/hooks.json")
+        hooks_json = str(self.home / ".cursor/hooks.json")
+        steps = [
+            ("commands", [sys.executable, helper, "remove", "--target", "cursor", "--slice", "commands"]),
+            (
+                "hook registration",
+                [
+                    sys.executable,
+                    merge,
+                    "--remove",
+                    "--profile",
+                    "cursor-hooks",
+                    "--source",
+                    hooks_source,
+                    "--destination",
+                    hooks_json,
+                    "--groups",
+                    "hooks",
+                ],
+            ),
+            ("hook script", [sys.executable, helper, "remove", "--target", "cursor", "--slice", "hooks"]),
+        ]
+        owned = load_slice_state(slice_state_path())
+        commands_dir = self.home / ".cursor/commands"
+        # The strict slice remover intentionally ignores unrecorded user files.
+        # Do not delete their referenced skills behind its back: require manual
+        # resolution for possible former carriers that lack ownership proof.
+        if commands_dir.is_dir() and not commands_dir.is_symlink() and safe_parent(commands_dir / "entry"):
+            tracked = set(owned.get(str(commands_dir), []))
+            shipped = shipped_entries(SPECS[("cursor", "commands")][0])
+            for entry in commands_dir.iterdir():
+                if entry.name in tracked:
+                    continue
+                references_skills = entry.is_file() and not entry.is_symlink() and any(
+                    marker in entry.read_text(encoding="utf-8", errors="replace")
+                    for marker in (
+                        str(self.home / ".cursor/skills"),
+                        str(self.home / ".agents/skills"),
+                        "~/.cursor/skills",
+                        "~/.agents/skills",
+                    )
+                )
+                if entry.name in shipped or entry.is_symlink() or references_skills:
+                    raise ValueError(
+                        f"Cursor command may reference file-copy skills but has no ownership proof: {entry}; "
+                        "no Cursor cleanup performed. Back it up and edit or remove it manually, then re-run migrate "
+                        "before applying or activating native packages"
+                    )
+        print(f"[ok] Cursor carriers {'will retire' if self.apply else 'would retire'} before file-copy skills")
+
+        def run(label: str, command: list[str], dry_run: bool) -> None:
+            try:
+                subprocess.run([*command, *(["--dry-run"] if dry_run else [])], check=True)
+            except subprocess.CalledProcessError as error:
+                raise ValueError(
+                    f"Cursor {label} cleanup refused; no file-copy skills, agents or rules removed. "
+                    "Back up and resolve the reported carrier manually, then run "
+                    "`./install.sh remove --target cursor --intent commands,hooks` and retry "
+                    "`./install.sh migrate --target cursor` before applying or activating native packages"
+                ) from error
+
+        # Preflight everything first: no step may mutate if any would refuse.
+        for label, command in steps:
+            run(label, command, True)
+        if self.apply:
+            for label, command in steps:
+                # The strict slice CLI saves state even for an empty removal.
+                # Avoid creating unrelated ownership state when no carrier was
+                # ever recorded (and keep no-op migration byte-stable).
+                key = {"commands": ".cursor/commands", "hook script": ".cursor/hooks"}.get(label)
+                if key is not None and not owned.get(str(self.home / key)):
+                    continue
+                run(label, command, False)
+
     def cursor(self) -> None:
         units = (("skills", "ycc"), ("agents", "ycc"), ("rules", "ycc-rules"))
         # Validate every canonical source before any removal or projection.
@@ -187,6 +281,9 @@ class Migration:
             reject_escaping_symlinks(source)
             if unit == "skills" and (source / "init").exists():
                 reject_escaping_symlinks(source / "init", any_link=True)
+        # Command wrappers and the sessionStart hook must be retracted before
+        # the skills they reference are removed; refusals stop everything.
+        self.retire_cursor_carriers()
         for unit, package in units:
             source = ROOT / "packages/cursor" / package / unit
             dest = self.home / ".cursor" / unit
