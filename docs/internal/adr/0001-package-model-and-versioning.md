@@ -103,8 +103,9 @@ findings are pinned to opencode v2.0.29; other versions are unverified. The `plu
   dependency field. A closure expansion from `ycc/settings/packages.json` through
   `install.sh --package` is planned but not implemented.
 - `scripts/build_package_graph.py` (YAN-1129, YAN-1162) builds the component graph and validates
-  package closures, dispatch-name casing, required catalog skills, and public-package duplicates
-  in the `packages` validator group. Prose `mention` edges stay informational and out of closure.
+  package closures, complete dispatch tokens (including casing and invalid suffixes), required
+  catalog skills, and public-package duplicates in the `packages` validator group. Prose `mention`
+  edges stay informational and out of closure.
   Any shared `_shared/` content and cross-skill script reach-ins stay inside `ycc`, so nothing is
   vendored in 6.0.
 
