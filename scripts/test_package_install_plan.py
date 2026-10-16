@@ -9,6 +9,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from generate_codex_skills import write_tree
 from package_install_plan import codex_native_marketplace, parse_packages, plan_install
 from package_model import PackageModelError, load_package_model
 
@@ -99,6 +100,19 @@ def test_positive_native_detection() -> None:
         manifest.write_text('{"name":"ycc","version":"1.0.0"}', encoding="utf-8")
         config.write_text('[plugins."ycc@foreign"]\nenabled = false\n', encoding="utf-8")
         assert codex_native_marketplace(home) == "", "cached but disabled is not active"
+        # Documentation of the legacy layout is preserved by the generator's
+        # intentional verbatim COPY policy. It is not a resource dependency.
+        config.write_text('[plugins."ycc@foreign"]\nenabled = true\n', encoding="utf-8")
+        matrix = payload / "shared/references/target-capability-matrix.md"
+        matrix.parent.mkdir(parents=True, exist_ok=True)
+        matrix.write_text("See ~/.codex/plugins/ycc for the legacy layout.", encoding="utf-8")
+        assert codex_native_marketplace(home) == "foreign"
+        # Move that doc's path onto the dependency: the executable chain from a
+        # non-verbatim skill to shared/scripts counts, and must reject.
+        (payload / "shared/scripts/helper.sh").write_text(
+            "exec ~/.codex/plugins/ycc/shared/scripts/helper.sh", encoding="utf-8"
+        )
+        assert codex_native_marketplace(home) == ""
 
 
 def test_cli() -> None:
@@ -111,10 +125,29 @@ def test_cli() -> None:
     assert result.returncode == 0 and result.stdout.strip() == "target\tclaude\tbase,settings,rules"
 
 
+def test_real_native_export() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        home = Path(tmp)
+        (home / ".codex").mkdir()
+        payload = home / ".codex/plugins/cache/foreign/ycc/9.9.9"
+        payload.mkdir(parents=True)
+        write_tree(payload, False, native_paths=True)
+        (payload / ".codex-plugin").mkdir(exist_ok=True)
+        version = json.loads((ROOT.parent / "ycc/.claude-plugin/plugin.json").read_text(encoding="utf-8"))
+        (payload / ".codex-plugin/plugin.json").write_text(
+            json.dumps({"name": version["name"], "version": version["version"]}), encoding="utf-8"
+        )
+        (home / ".codex/config.toml").write_text('[plugins."ycc@foreign"]\nenabled = true\n', encoding="utf-8")
+        text = (payload / "shared/references/target-capability-matrix.md").read_text(encoding="utf-8")
+        assert "~/.codex/plugins/ycc" in text
+        assert codex_native_marketplace(home) == "foreign"
+
+
 if __name__ == "__main__":
     test_closures()
     test_rejections()
     test_parse_rejects_empty()
     test_positive_native_detection()
+    test_real_native_export()
     test_cli()
-    print("test_package_install_plan: 5 tests passed")
+    print("test_package_install_plan: 6 tests passed")

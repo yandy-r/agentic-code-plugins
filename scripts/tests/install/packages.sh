@@ -187,6 +187,41 @@ assert_not_contains "${out}" "not re-registering" "legacy foreign cache is not r
 assert_contains "$(cat "${home}/.agents/plugins/marketplace.json" 2>/dev/null)" '"ycc"' "legacy foreign cache install writes the marketplace"
 if [[ -f "${home}/.codex/plugins/cache/other-marketplace/ycc/1.0.0/.codex-plugin/plugin.json" ]]; then ok "legacy foreign cache payload is preserved"; else ko "legacy foreign cache payload is preserved"; fi
 
+# A REAL generate_codex_skills.write_tree(native_paths=True) export is the
+# relocatable payload. It intentionally keeps one legacy-layout sentence in the
+# verbatim target-capability-matrix doc; that documentation must not make the
+# installer re-register a second ycc over a working foreign native install.
+home="$(new_home)"
+cat > "${home}/.codex/config.toml" <<'TOML'
+[plugins."ycc@other-marketplace"]
+enabled = true
+TOML
+real_export="${home}/.codex/plugins/cache/other-marketplace/ycc/9.9.9"
+mkdir -p "${real_export}/.codex-plugin"
+REAL_EXPORT="${real_export}" REPO_ROOT="${REPO_ROOT}" python3 - <<'PY'
+import json
+import os
+import sys
+from pathlib import Path
+
+root = Path(os.environ["REPO_ROOT"])
+sys.path.insert(0, str(root / "scripts"))
+from generate_codex_skills import write_tree
+
+dest = Path(os.environ["REAL_EXPORT"])
+write_tree(dest, False, native_paths=True)
+version = json.loads((root / "ycc/.claude-plugin/plugin.json").read_text(encoding="utf-8"))
+(dest / ".codex-plugin/plugin.json").write_text(
+    json.dumps({"name": version["name"], "version": version["version"]}), encoding="utf-8"
+)
+PY
+if grep -qF -- "${LEGACY_PLUGIN_ROOT}" "${real_export}/shared/references/target-capability-matrix.md"; then ok "real native export keeps its verbatim legacy-layout documentation"; else ko "real native export keeps its verbatim legacy-layout documentation"; fi
+install_must_succeed "${home}" install --target codex --package ycc --mode local --skills-home native
+out="${INSTALL_OUT}"
+assert_not_contains "$(cat "${home}/claude-calls.log" 2>/dev/null)" "codex plugin add" "real native export skips registration"
+assert_contains "${out}" "other-marketplace" "real native export names the foreign marketplace"
+if [[ ! -e "${home}/.agents/plugins/marketplace.json" && ! -L "${home}/.agents/plugins/ycc" ]]; then ok "real native export registers no local ycc"; else ko "real native export registers no local ycc"; fi
+if codex_deliveries_ok "${home}"; then ok "real native export still delivers agents, settings and rules"; else ko "real native export still delivers agents, settings and rules" "${out}"; fi
 # Own already-enabled native install must refresh rather than hit the foreign
 # marketplace skip. A stale marketplace entry makes the refresh observable.
 home="$(new_home)"

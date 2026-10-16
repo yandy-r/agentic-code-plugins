@@ -11,6 +11,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from build_package_graph import package_sets
+from generate_codex_common import PLUGIN_ROOT, VERBATIM_SKILL_FILES
+from generate_codex_skills import plugin_output_path
 from package_model import PackageModel, PackageModelError, load_package_model
 
 TARGETS = ("claude", "cursor", "codex", "opencode", "agents")
@@ -196,9 +198,15 @@ def _codex_payload_valid(root: Path) -> bool:
                 return False
         except (OSError, UnicodeError):
             return False
+    # These multi-runtime documents/scripts intentionally preserve install-layout
+    # examples. Use the generator's source-to-output policy instead of treating
+    # documentation of a legacy path as an actual resource dependency.
+    verbatim_outputs = {plugin_output_path(Path(source)).relative_to(PLUGIN_ROOT) for source in VERBATIM_SKILL_FILES}
     for directory in (root / "skills", root / "shared"):
         for document in directory.rglob("*"):
             if not document.is_file() or document.suffix not in {".md", ".sh", ".py"}:
+                continue
+            if document.relative_to(root) in verbatim_outputs:
                 continue
             try:
                 if LEGACY_PLUGIN_ROOT in document.read_text(encoding="utf-8"):
