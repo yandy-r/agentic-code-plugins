@@ -3,9 +3,9 @@
 
 Used by ``preflight.sh`` (``check``) and ``bump-version.sh`` (``bump``).
 
-Discovery is a fixed, bounded list of product surfaces; the repository is never
-scanned recursively, so ``ycc/mods`` (versioned separately), root dev metadata,
-``node_modules`` and worktrees can never participate.
+Discovery requires manifests selected by ``ycc/settings/packages.json``, with a
+bounded scan for unmodeled surfaces. The repository is never scanned recursively,
+so ``ycc/mods``, root dev metadata, ``node_modules`` and worktrees cannot participate.
 
 Canonical version: ``ycc/.claude-plugin/plugin.json`` ``.version`` (required).
 
@@ -22,7 +22,8 @@ marketplaces ``.agents/plugins/marketplace.json`` and
 directories), plus ``packages/<package>`` and ``packages/<runtime>/<package>``
 plugin/package manifests (same bounded manifest filenames).
 
-Missing optional files and versionless entries are valid and never gain a field.
+Included native manifests must exist and have a version. Unmodeled optional files
+and versionless marketplace entries never gain a field.
 """
 
 from __future__ import annotations
@@ -42,6 +43,7 @@ MANIFEST_SUBDIRS = (".claude-plugin", ".codex-plugin", ".cursor-plugin")
 EXCLUDED_NAME = "ycc-mods"
 EXCLUDED_SOURCE_PREFIX = "ycc/mods"
 PACKAGE_RUNTIMES = ("claude", "codex", "cursor", "opencode", "agents")
+MODEL_REL = "ycc/settings/packages.json"
 Key = str | int
 
 
@@ -87,7 +89,7 @@ def _version_field(rel: str, container: Any, keys: tuple[Key, ...], label: str) 
     if "version" not in container:
         return []
     value = container["version"]
-    if not isinstance(value, str) or not value:
+    if not isinstance(value, str) or not value.strip():
         raise ReleaseError(f"{rel}: {label}: expected non-empty string, got {value!r}")
     return [VersionField(rel, label, keys, value)]
 
@@ -147,10 +149,72 @@ def _manifest_rels(root: Path, directory: str) -> list[str]:
     return [r for r in rels + [f"{directory}/package.json"] if (root / r).is_file()]
 
 
+def _model_manifests(root: Path) -> list[tuple[str, str, bool, bool]]:
+    """Return (model label, manifest, included, required) without external imports."""
+    data = _load(root, MODEL_REL)
+    if not isinstance(data, dict) or not isinstance(data.get("packages"), dict):
+        raise ReleaseError(f"{MODEL_REL}: expected packages object")
+    if data.get("version_source") != PLUGIN_REL:
+        raise ReleaseError(f"{MODEL_REL}: version_source must be {PLUGIN_REL}")
+    manifests: list[tuple[str, str, bool, bool]] = []
+    for key, package in data["packages"].items():
+        label = f"packages.{key}"
+        if (
+            not isinstance(key, str)
+            or not key
+            or key in {".", ".."}
+            or ("/" in key and not (key.startswith("@") and key.count("/") == 1))
+            or "\\" in key
+        ):
+            raise ReleaseError(f"{MODEL_REL}: {label}: invalid package key")
+        if not isinstance(package, dict) or not isinstance(package.get("runtimes"), dict):
+            raise ReleaseError(f"{MODEL_REL}: {label}: expected runtimes object")
+        for runtime, entry in package["runtimes"].items():
+            label = f"packages.{key}.runtimes.{runtime}"
+            if runtime not in PACKAGE_RUNTIMES or not isinstance(entry, dict):
+                raise ReleaseError(f"{MODEL_REL}: {label}: expected known runtime object")
+            status, mechanism = entry.get("status"), entry.get("mechanism")
+            if status not in ("included", "deferred", "excluded"):
+                raise ReleaseError(f"{MODEL_REL}: {label}: invalid status {status!r}")
+            if mechanism not in ("native", "npm", "file-copy"):
+                raise ReleaseError(f"{MODEL_REL}: {label}: invalid mechanism {mechanism!r}")
+            if mechanism == "file-copy":
+                continue
+            required = True
+            if mechanism == "native" and runtime in PACKAGE_RUNTIMES[:3] and "/" not in key:
+                subdir = MANIFEST_SUBDIRS[PACKAGE_RUNTIMES.index(runtime)]
+                if runtime == "claude" and key == "ycc":
+                    rel = PLUGIN_REL
+                else:
+                    base = f"{subdir}/{key}" if runtime == "codex" else f"packages/{runtime}/{key}"
+                    rel = f"{base}/{subdir}/plugin.json"
+            elif runtime == "opencode" and mechanism == "npm":
+                name = key.rsplit("/", 1)[-1]
+                if name in {".", ".."} or not name:
+                    raise ReleaseError(f"{MODEL_REL}: {label}: invalid npm package key")
+                rel = f"packages/{runtime}/{name}/package.json"
+            else:
+                raise ReleaseError(f"{MODEL_REL}: {label}: unsupported {mechanism} manifest")
+            manifests.append((label, rel, status == "included", required))
+    return manifests
+
+
+def _included_manifest(root: Path, label: str, rel: str, required: bool) -> Surface | None:
+    try:
+        surface = _manifest_surface(root, rel, rel == PLUGIN_REL, required)
+        if surface is not None and not surface.fields:
+            raise ReleaseError(f"{rel}: version: expected non-empty string")
+        return surface
+    except ReleaseError as exc:
+        raise ReleaseError(f"{label}: {exc}") from exc
+
+
 def discover(root: Path) -> list[Surface]:
     """Return every surface; raise ReleaseError listing all file problems."""
     surfaces: list[Surface] = []
     errors: list[str] = []
+    seen: set[str] = set()
+    suppressed: set[str] = set()
 
     def add(builder: Any, *args: Any) -> None:
         try:
@@ -159,8 +223,21 @@ def discover(root: Path) -> list[Surface]:
             errors.append(str(exc))
             return
         if result is not None:
+            if result.rel in seen:
+                return
+            seen.add(result.rel)
             surfaces.append(result)
 
+    try:
+        modeled = _model_manifests(root)
+    except ReleaseError as exc:
+        errors.append(str(exc))
+        modeled = []
+    for label, rel, included, required in modeled:
+        if included:
+            add(_included_manifest, label, rel, required)
+        else:
+            suppressed.add(rel)
     add(_manifest_surface, PLUGIN_REL, True, True)
     add(_marketplace_surface, SOURCE_MARKETPLACE_REL, True, True)
     for rel in OPTIONAL_MARKETPLACES:
@@ -175,14 +252,16 @@ def discover(root: Path) -> list[Surface]:
         package_dirs += _child_dirs(root, f"packages/{runtime}")
     for package_dir in sorted(set(package_dirs)):
         for rel in _manifest_rels(root, package_dir):
-            add(_manifest_surface, rel, False)
+            if rel not in suppressed:
+                add(_manifest_surface, rel, False)
     generated_dirs: list[str] = []
     for base in (".codex-plugin", ".cursor-plugin"):
         if (root / base).is_dir():
             generated_dirs += [base] + _child_dirs(root, base)
     for directory in generated_dirs:
         for rel in _manifest_rels(root, directory):
-            add(_manifest_surface, rel, False)
+            if rel not in suppressed:
+                add(_manifest_surface, rel, False)
     if errors:
         raise ReleaseError("\n".join(errors))
     return surfaces

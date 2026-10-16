@@ -1,9 +1,10 @@
 {
   "mcp_servers": {
     "github": {
-      "command": "github-mcp-server",
+      "command": "sh",
       "args": [
-        "stdio"
+        "-c",
+        "token=$(gh auth token) || exit; export GH_MCP_AUTH=\"Bearer $token\"; header=$(printf 'Authorization:$%s' '{GH_MCP_AUTH}'); exec npx -y mcp-remote https://api.githubcopilot.com/mcp/ --header \"$header\""
       ],
       "tools": {
         "create_pull_request": {

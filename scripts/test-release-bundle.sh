@@ -80,6 +80,7 @@ new_fixture() { # <name>
   FIX="${SANDBOX_ROOT}/$1"
   mkdir -p "${FIX}/ycc/.claude-plugin" "${FIX}/.claude-plugin"
   git -C "${FIX}" init -q
+  write_model_fixture
 }
 wf() { # <rel-path-under-fix> (JSON from stdin)
   local path="${FIX}/$1"; mkdir -p "$(dirname "${path}")" && cat >"${path}"
@@ -148,8 +149,14 @@ run_bump() { # <fixture> <version>...
 run_pf() { # <fixture>
   OUT="$(YCC_REPO_ROOT="$1" "${PREFLIGHT}" 2>&1)"
 }
+write_model_fixture() {
+  wf "ycc/settings/packages.json" <<'EOF'
+{"version_source":"ycc/.claude-plugin/plugin.json","packages":{"ycc":{"runtimes":{"claude":{"status":"included","mechanism":"native","listed":true}}}}}
+EOF
+}
 write_source_fixture() { # <version>
   local ver="$1"
+  write_model_fixture
   wf "ycc/.claude-plugin/plugin.json" <<EOF
 {"name": "ycc", "version": "${ver}", "description": "test plugin"}
 EOF
@@ -166,9 +173,7 @@ EOF
 EOF
 }
 # === Case 1: single-entry compatibility =====================================
-FIX="${SANDBOX_ROOT}/single"
-mkdir -p "${FIX}/ycc/.claude-plugin" "${FIX}/.claude-plugin"
-git -C "${FIX}" init -q
+new_fixture single
 wf "ycc/.claude-plugin/plugin.json" <<<'{"name": "ycc", "version": "1.2.3", "description": "test plugin"}'
 wf ".claude-plugin/marketplace.json" <<'EOF'
 {"name":"ycc","metadata":{"version":"1.2.3"},"plugins":[{"name":"ycc","version":"1.2.3","description":"bundle","source":"./ycc"}]}
@@ -518,6 +523,124 @@ for bundle in .opencode-plugin/skills .codex-plugin/ycc/skills packages/cursor/y
     "$(grep -F 'MANIFEST_SUBDIRS =' "${REPO_ROOT}/${bundle}/bundle-release/scripts/release_versions.py")" \
     'MANIFEST_SUBDIRS = (".claude-plugin", ".codex-plugin", ".cursor-plugin")'
 done
+# === Case 9: model-driven included manifests and release notes ==============
+MODEL_GENERATED=(
+  "packages/claude/ycc-mcp/.claude-plugin/plugin.json"
+  "packages/claude/ycc-hooks/.claude-plugin/plugin.json"
+  "packages/claude/ycc-all/.claude-plugin/plugin.json"
+  ".codex-plugin/ycc/.codex-plugin/plugin.json"
+  ".codex-plugin/ycc-mcp/.codex-plugin/plugin.json"
+  "packages/cursor/ycc/.cursor-plugin/plugin.json"
+  "packages/cursor/ycc-mcp/.cursor-plugin/plugin.json"
+  "packages/cursor/ycc-hooks/.cursor-plugin/plugin.json"
+  "packages/cursor/ycc-rules/.cursor-plugin/plugin.json"
+)
+new_fixture model
+write_source_fixture "5.3.0"
+cp "${REPO_ROOT}/ycc/settings/packages.json" "${FIX}/ycc/settings/packages.json"
+for manifest in "${MODEL_GENERATED[@]}"; do
+  wf "${manifest}" <<<'{"name":"fixture","version":"5.3.0"}'
+done
+NPM="packages/opencode/ycc-opencode/package.json"
+wf "${NPM}" <<<'{"name":"@yandy-r/ycc-opencode","version":"5.3.0"}'
+commit_fix "full model fixture"
+if run_pf "${FIX}"; then ok "model: included native and npm manifests pass"; else not_ok "model: included manifests pass" "${OUT}"; fi
+rm "${FIX}/${NPM}"
+commit_fix "missing included npm manifest"
+SOURCE_HASHES="$(sha "ycc/.claude-plugin/plugin.json");$(sha ".claude-plugin/marketplace.json")"
+if run_pf "${FIX}"; then not_ok "model: missing npm manifest fails preflight"; else
+  assert_contains "model: preflight names missing npm runtime" "${OUT}" "packages.@yandy-r/ycc-opencode.runtimes.opencode"
+  assert_contains "model: preflight names missing npm manifest" "${OUT}" "${NPM}: file not found"
+fi
+assert_eq "model: missing npm preflight preserves source" "${SOURCE_HASHES}" "$(sha "ycc/.claude-plugin/plugin.json");$(sha ".claude-plugin/marketplace.json")"
+if run_bump "${FIX}" "6.0.0"; then not_ok "model: missing npm manifest fails bump"; else
+  assert_contains "model: bump names missing npm runtime" "${OUT}" "packages.@yandy-r/ycc-opencode.runtimes.opencode"
+  assert_eq "model: missing npm bump preserves source" "${SOURCE_HASHES}" "$(sha "ycc/.claude-plugin/plugin.json");$(sha ".claude-plugin/marketplace.json")"
+fi
+wf "${NPM}" <<<'{"name":"@yandy-r/ycc-opencode","version":"5.3.0"}'
+commit_fix "restore included npm manifest"
+MISSING="packages/claude/ycc-hooks/.claude-plugin/plugin.json"
+rm "${FIX}/${MISSING}"
+commit_fix "missing included manifest"
+SOURCE_HASHES="$(sha "ycc/.claude-plugin/plugin.json");$(sha ".claude-plugin/marketplace.json")"
+if run_pf "${FIX}"; then not_ok "model: missing manifest fails check"; else
+  assert_contains "model: check names missing runtime" "${OUT}" "packages.ycc-hooks.runtimes.claude"
+fi
+if run_bump "${FIX}" "6.0.0"; then not_ok "model: missing manifest fails bump"; else
+  assert_contains "model: bump names missing runtime" "${OUT}" "packages.ycc-hooks.runtimes.claude"
+  assert_eq "model: missing manifest bump has no mutation" "${SOURCE_HASHES}" "$(sha "ycc/.claude-plugin/plugin.json");$(sha ".claude-plugin/marketplace.json")"
+fi
+wf "${MISSING}" <<<'{"name":"fixture"}'
+commit_fix "versionless included manifest"
+if run_pf "${FIX}"; then not_ok "model: versionless manifest fails check"; else
+  assert_contains "model: versionless runtime named" "${OUT}" "packages.ycc-hooks.runtimes.claude"
+fi
+if run_bump "${FIX}" "6.0.0"; then not_ok "model: versionless manifest fails bump"; else
+  assert_eq "model: versionless bump has no mutation" "${SOURCE_HASHES}" "$(sha "ycc/.claude-plugin/plugin.json");$(sha ".claude-plugin/marketplace.json")"
+fi
+wf "${MISSING}" <<<'{"name":"fixture","version":"5.3.0"}'
+wf "packages/claude/ycc-agents/.claude-plugin/plugin.json" <<<'{"name":"ycc-agents","version":"0.1.0"}'
+wf ".codex-plugin/ycc-hooks/.codex-plugin/plugin.json" <<<'{"name":"ycc-hooks","version":"0.1.0"}'
+commit_fix "deferred and excluded decoys"
+if run_pf "${FIX}"; then ok "model: deferred and excluded stale manifests ignored"; else not_ok "model: ignores inactive paths" "${OUT}"; fi
+# Existing npm manifests must agree with the canonical product version.
+wf "${NPM}" <<<'{"name":"@yandy-r/ycc-opencode","version":"0.1.0"}'
+commit_fix "stale npm"
+if run_pf "${FIX}"; then not_ok "model: stale opencode npm fails"; else
+  assert_contains "model: stale npm named" "${OUT}" "${NPM} version = 0.1.0"
+fi
+jset_all_versions "${NPM}" "5.3.0"
+commit_fix "matching npm"
+if run_pf "${FIX}"; then ok "model: matching opencode npm passes"; else not_ok "model: matching npm passes" "${OUT}"; fi
+MODEL_HASHES="$(for manifest in "${MODEL_GENERATED[@]}" "${NPM}"; do sha "${manifest}"; done)"
+if run_bump "${FIX}" "6.0.0"; then
+  assert_eq "model: bump 6.0.0 preserves every generated manifest" "${MODEL_HASHES}" "$(for manifest in "${MODEL_GENERATED[@]}" "${NPM}"; do sha "${manifest}"; done)"
+else not_ok "model: bump 6.0.0 passes" "${OUT}"; fi
+commit_fix "bump 6.0.0"
+if run_pf "${FIX}"; then not_ok "model: bump leaves stale surfaces"; else
+  assert_contains "model: stale modeled surface after bump" "${OUT}" "${NPM} version = 5.3.0"
+fi
+for manifest in "${MODEL_GENERATED[@]}" "${NPM}"; do jset_all_versions "${manifest}" "6.0.0"; done
+commit_fix "simulated model sync"
+if run_pf "${FIX}"; then ok "model: 6.0.0 preflight green after simulated sync"; else not_ok "model: 6.0.0 preflight green" "${OUT}"; fi
+mkdir -p "${FIX}/ycc/skills/bundle-release/references"
+cp "${REPO_ROOT}/ycc/skills/bundle-release/references/release-notes-template.md" "${FIX}/ycc/skills/bundle-release/references/"
+if OUT="$(YCC_REPO_ROOT="${FIX}" "${SCRIPTS}/draft-notes.sh" 6.0.0 2>&1)"; then
+  NOTES="$(cat "${FIX}/docs/releases/6.0.0.md")"
+  assert_contains "notes: packages section" "${NOTES}" "## Packages"
+  assert_contains "notes: table headings" "${NOTES}" "| Package | Runtime | Status | Mechanism | Listed | Version or target | Notes |"
+  assert_contains "notes: included hidden package" "${NOTES}" "| ycc-hooks | cursor | included | native | no | 6.0.0 |"
+  assert_contains "notes: deferred target" "${NOTES}" "| ycc-agents | claude | deferred | native | no | target v7.0.0 |"
+  assert_contains "notes: excluded target" "${NOTES}" "| ycc-hooks | codex | excluded | native | no | target v6.0.0 |"
+  assert_contains "notes: opencode npm release" "${NOTES}" "| @yandy-r/ycc-opencode | opencode | included | npm | no | 6.0.0 | experimental; opt-in; not yet published"
+  assert_not_contains "notes: installer-fallback row omitted" "${NOTES}" "| installer-fallback |"
+  assert_contains "notes: file-copy fallback note" "${NOTES}" "File-copy packages"
+  assert_not_contains "notes: no unresolved package placeholder" "${NOTES}" "{{PACKAGES_TABLE}}"
+else not_ok "notes: renders packages table" "${OUT}"; fi
+
+# A model error must be clean and must precede all bump writes.
+for bad_model in '{' '{}' '{"version_source":"ycc/.claude-plugin/plugin.json","packages":{"ycc":{}}}' \
+  '{"version_source":"ycc/.claude-plugin/plugin.json","packages":{"ycc":{"runtimes":{"claude":{"status":"typo","mechanism":"native"}}}}}'; do
+  wf "ycc/settings/packages.json" <<<"${bad_model}"
+  commit_fix "malformed package model"
+  SOURCE_HASHES="$(sha "ycc/.claude-plugin/plugin.json");$(sha ".claude-plugin/marketplace.json")"
+  if run_pf "${FIX}"; then not_ok "model: malformed model fails check"; else
+    assert_contains "model: malformed model named" "${OUT}" "ycc/settings/packages.json"
+    assert_not_contains "model: check has no traceback" "${OUT}" "Traceback"
+  fi
+  if run_bump "${FIX}" "6.1.0"; then not_ok "model: malformed model fails bump"; else
+    assert_not_contains "model: bump has no traceback" "${OUT}" "Traceback"
+    assert_eq "model: malformed model has no mutation" "${SOURCE_HASHES}" "$(sha "ycc/.claude-plugin/plugin.json");$(sha ".claude-plugin/marketplace.json")"
+  fi
+done
+rm "${FIX}/ycc/settings/packages.json"
+commit_fix "missing package model"
+if run_pf "${FIX}"; then not_ok "model: missing model fails check"; else
+  assert_contains "model: missing model named" "${OUT}" "ycc/settings/packages.json: file not found"
+fi
+if run_bump "${FIX}" "6.1.0"; then not_ok "model: missing model fails bump"; else
+  assert_eq "model: missing model has no mutation" "${SOURCE_HASHES}" "$(sha "ycc/.claude-plugin/plugin.json");$(sha ".claude-plugin/marketplace.json")"
+fi
 echo
 echo "test-release-bundle: ${PASS} passed, ${FAIL} failed"
 [[ "${FAIL}" -eq 0 ]]

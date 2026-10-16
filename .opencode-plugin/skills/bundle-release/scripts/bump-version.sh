@@ -9,9 +9,15 @@
 #   - .claude-plugin/marketplace.json (.metadata.version and each
 #     .plugins[].version that exists)
 #   - versioned source package manifest (ycc/package.json)
+#
+# Reads ycc/settings/packages.json (directly, in release_versions.py) to learn the
+# required included native manifests; a missing or malformed model fails before any
+# writes. Included native manifests must exist and carry a version; deferred/excluded
+# paths are suppressed and file-copy entries are skipped. Included opencode npm
+# manifests are required to exist at the lockstep version (check-only).
 # Never touches ycc/mods (versioned separately) or generated bundles
-# (packages/, .agents/plugins/, .cursor-plugin/, .codex-plugin/) — refresh those with
-# ./scripts/sync.sh after the bump; preflight.sh enforces their parity.
+# (packages/, .agents/plugins/, .cursor-plugin/, .codex-plugin/, .opencode-plugin/) —
+# refresh those with ./scripts/sync.sh after the bump; preflight.sh enforces their parity.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -57,9 +63,10 @@ Bump the product version across every hand-edited version surface in lockstep:
   - .claude-plugin/marketplace.json (.metadata.version and every .plugins[].version)
   - ycc/package.json if it already carries a version
 Versionless entries stay versionless. ycc/mods is never touched. Generated
-bundles (packages/, .agents/plugins/, .cursor-plugin/, .codex-plugin/) are not edited —
-run ./scripts/sync.sh afterwards. Validates semver format (x.y.z); malformed
-inputs abort before any file is written.
+bundles (packages/, .agents/plugins/, .cursor-plugin/, .codex-plugin/,
+.opencode-plugin/) are not edited — run ./scripts/sync.sh afterwards. Validates
+semver format (x.y.z); malformed inputs, a missing/malformed package model, or a
+missing/versionless required manifest abort before any file is written.
 EOF
 }
 

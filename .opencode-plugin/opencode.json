@@ -206,8 +206,9 @@
       "github": {
         "type": "local",
         "command": [
-          "github-mcp-server",
-          "stdio"
+          "sh",
+          "-c",
+          "token=$(gh auth token) || exit; export GH_MCP_AUTH=\"Bearer $token\"; header=$(printf 'Authorization:$%s' '{GH_MCP_AUTH}'); exec npx -y mcp-remote https://api.githubcopilot.com/mcp/ --header \"$header\""
         ]
       },
       "context7": {

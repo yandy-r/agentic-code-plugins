@@ -1,0 +1,170 @@
+# opencode v6 Install Draft
+
+> **DRAFT — unwired for v6.** The experimental, opt-in npm package
+> `@yandy-r/ycc-opencode` is generated under `packages/opencode/ycc-opencode`,
+> and its tag-triggered publishing workflow is implemented. A generated package
+> and a workflow are not proof of npm publication; registry availability is not
+> established here. The package is unlisted and **never the default install**.
+> The commands shown (`install.sh migrate`, `install.sh --package`) are planned
+> v6 commands, not implemented today. The live file-copy installer in
+> `docs/install/` is unchanged and stays the primary path.
+
+## Primary path today (unchanged in v6): file copy
+
+```bash
+./install.sh install --target opencode
+./install.sh sync --target opencode --intent base,settings,mcp,plugins,rules
+```
+
+This rsyncs `.opencode-plugin/{skills,agents,commands}/` into
+`~/.config/opencode/`, merges managed keys from `.opencode-plugin/opencode.json`
+into `~/.config/opencode/opencode.json`, merges MCP servers (project scope by
+default; `--global` for user config), and symlinks `.opencode-plugin/AGENTS.md`
+to `~/.config/opencode/AGENTS.md`. The file copy is **primary and unchanged** in
+v6; it is not a transitional route to be retired.
+
+Current-state steps that keep working unchanged:
+
+- The generated config is **V2-only** (`opencode.ai/v2/docs`). V1 shapes
+  (`plugin` singular, `provider`/`agent` top-level, server names directly under
+  `mcp`) are rejected by the repo validator.
+- The goal plugin is enabled through the live `plugins` array (this is
+  current behavior, not the v6 npm package):
+
+  ```json
+  {
+    "plugins": ["@prevalentware/opencode-goal-plugin"]
+  }
+  ```
+
+  Install its TUI half with `opencode2 plugin add @prevalentware/opencode-goal-plugin`
+  (idempotent; verify with `opencode2 plugin list`). `--settings` installs the
+  server-side half.
+
+## Experimental opt-in npm package (generated; publication separate)
+
+`scripts/generate-opencode-package.sh` generates
+`packages/opencode/ycc-opencode` from the included npm row in
+`ycc/settings/packages.json`. The current generated manifest is version **5.3.0**
+(lockstep with `ycc/.claude-plugin/plugin.json`), not the target v6.0.0. Its
+default-exported `{ id, setup }` V2 plugin registers skills, agents, MCP, and
+one `/ycc:<skill>` command per public skill; shared helpers ship with the
+skills. It delivers `AGENTS.md` instructions through
+`session.hook("context", ...)`. Provider and variant settings remain user
+configuration, not package content.
+
+`scripts/sync.sh --only opencode` regenerates the package and the `opencode`
+validator group in `scripts/validate.sh` runs the generator in `--check` mode
+to catch committed drift.
+
+Facts that bound every claim below:
+
+- **Generated, with publishing implemented — not evidence of publication.**
+  `.github/workflows/release.yml` runs only on product-tag pushes, never branches,
+  PRs, or manual runs. Its guard requires an exact `vX.Y.Z` tag, matching tag,
+  checkout and event commits, ancestry on freshly fetched `origin/main`, and
+  canonical/generated/lockstep version agreement. It validates and packs the
+  package, then publishes the packed artifact with provenance and public access.
+  Maintainers must configure the `release` environment's publish-scoped
+  `NPM_TOKEN`, approval, and restricted tag creation. That workflow does not
+  establish that any tag has been pushed or that npm has a published version.
+- **Opt-in, experimental, and unlisted** in the package model (`experimental:
+true`, `opt_in: true`, `listed: false`); the file copy never falls back to it
+  or vice versa.
+- **Declared engine floor: opencode `>=2.0.30`.** The registration spike used
+  v2.0.29; the package smoke targets v2.0.30. These are distinct evidence points,
+  not a claim that every later version has been tested.
+
+### Opt-in configuration (local checkout or after publication)
+
+The V2 key is `plugins` (plural). A local checkout can use the generated package
+directory — not its `index.js` file — with an absolute `file://` entry:
+
+```json
+{
+  "plugins": ["file:///abs/path/to/claude-plugins/packages/opencode/ycc-opencode"]
+}
+```
+
+Only after confirming a version is published to npm, use the registry name in
+your own `opencode.json`:
+
+```json
+{
+  "plugins": ["@yandy-r/ycc-opencode"]
+}
+```
+
+**Choose the npm route deliberately; do not assume file-copy dedupe.** Same-ID
+file-copy skills override package skills, agents field-blend over package
+agents, and config MCP servers win over package MCP servers. A stale file-copy
+bundle can therefore mask package content. Package commands are namespaced
+`/ycc:<skill>` and coexist with the bare file-copy `/<skill>` commands instead
+of replacing them. The context hook skips instructions already present in the
+request. For a package-only setup, remove only confirmed installer-owned
+file-copy entries by hand; preserve user-owned definitions and configuration.
+The planned (future, not implemented)
+`install.sh --package @yandy-r/ycc-opencode --target opencode` would install
+the npm package and take back only installer-owned file-copy entries. Nothing
+implementing that planned command exists today.
+
+**WARNING — name-based deletion hazard in the live installer.** Do NOT treat
+`./install.sh remove --target opencode --intent base` (or `--only base`) as a
+safe cleanup step: its bundle branch runs `remove_mirrored_entries`
+(`scripts/lib/install/bundle.sh`), which deletes every same-named entry from
+`~/.config/opencode/{skills,agents,commands,shared}` for each top-level entry
+the bundle ships, regardless of ownership. Your own same-named skill, agent,
+or command entry would be destroyed; it is name-based, not ownership-aware.
+
+**Manual migration (the safe route today):**
+
+1. Inventory `~/.config/opencode/{skills,agents,commands,shared}` entries,
+   checking each same-named entry's contents against the installed bundle
+   (for example,
+   `diff -r .opencode-plugin/skills/<name> ~/.config/opencode/skills/<name>`,
+   plus the matching `agents/`, `commands/`, and `shared/` entries).
+2. Back up `~/.config/opencode/{skills,agents,commands,shared}` (or at
+   minimum the entries you are about to delete).
+3. Remove only entries you confirm are managed/generated copies; keep
+   anything user-owned or user-edited.
+4. Add the local-directory plugin entry above, or the registry name only after
+   confirming publication. Keep any unrelated entries in your `plugins` array.
+
+## What the spike proved (opencode v2.0.29)
+
+- **Go:** a V2 `{ id, setup }` plugin registered agents, commands, skills
+  (inline content + `path` into a fixture directory), and MCP through the V2
+  registration APIs; the context hook's pushed system part reached the outgoing
+  model request.
+- **No-Go:** V1-style `config(cfg)` plugins fail to load (`Plugin must export a
+default definition with an id and an effect or setup function.`). The config
+  `instructions` array is parsed but **not resolved** on v2.0.29 — a local-file
+  entry never reached the model; discovered `AGENTS.md` files did (positive
+  control). That is why the file copy ships `~/.config/opencode/AGENTS.md` and
+  the npm package uses the context hook instead.
+- Skills from config (`skills: ["<dir>"]`, HTTP catalog) listed fine; plugin
+  skill bodies arrive as user-role `<skill_content>` blocks with the skill's
+  base directory advertised. The generated npm package additionally renders
+  its `{{package-root}}` tokens to an absolute temporary asset-tree root at
+  setup, so shell snippets can reach shared helpers from any working directory.
+
+## Migration
+
+**Planned (future, not implemented):** `install.sh migrate --target opencode`
+is a planned v6 command; its exact opencode behavior is not designed yet and
+it cannot be run today. It must remove only installer-owned copies and
+preserve user-owned files; until that ownership-aware migration ships,
+migrate by hand using the manual procedure above. For users staying on the
+file copy (the default and recommended path), no migration is needed:
+re-running the sync commands above keeps the bundle current.
+
+## Evidence
+
+- `docs/internal/spikes/opencode-config-hook.md` (YAN-1125, opencode v2.0.29)
+- `docs/internal/adr/0001-package-model-and-versioning.md` (package matrix)
+- `ycc/settings/packages.json` (`@yandy-r/ycc-opencode`: experimental, opt-in)
+- `scripts/generate_opencode_package.py` (generator, engine floor, package paths)
+- `packages/opencode/ycc-opencode/{package.json,index.js,registration.json,README.md}`
+  (generated version, V2 registrations, command namespace, coexistence behavior)
+- `.github/workflows/release.yml` and `scripts/opencode_npm_release.py`
+  (implemented publication workflow and release guards, not registry evidence)

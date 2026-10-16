@@ -1,8 +1,9 @@
-"""Plan only the GitHub MCP move from known npm/remote defaults to native stdio."""
+"""Plan the GitHub MCP move from known defaults to the remote stdio bridge."""
 
 from __future__ import annotations
 
 import re
+import shlex
 
 from managed_config_entries import entry_rule_paths
 
@@ -10,6 +11,15 @@ ConfigValue = str | int | float | bool | None | list["ConfigValue"] | dict[str, 
 MCP_PATHS = (["mcpServers"], ["mcp_servers"], ["mcp", "servers"])
 REMOTE_URL = "https://api.githubcopilot.com/mcp"
 PAT_KEYS = {"GITHUB_PERSONAL_ACCESS_TOKEN", "GITHUB_API_TOKEN"}
+AUTH_OVERRIDE_KEYS = PAT_KEYS | {
+    "GITHUB_TOKEN",
+    "GH_TOKEN",
+    "GH_ENTERPRISE_TOKEN",
+    "GITHUB_ENTERPRISE_TOKEN",
+    "GITHUB_HOST",
+    "GH_HOST",
+    "GH_MCP_AUTH",
+}
 CONNECTION_KEYS = ("command", "args", "type")
 LEGACY_KEYS = (
     "url",
@@ -38,6 +48,30 @@ def _argv(entry: dict[str, ConfigValue]) -> list[ConfigValue] | None:
     return [command, *args] if isinstance(args, list) else None
 
 
+def _is_github_bridge(entry: dict[str, ConfigValue]) -> bool:
+    """Recognize the specific bridge invocation, not arbitrary shell commands."""
+    argv = _argv(entry)
+    if not isinstance(argv, list) or len(argv) != 3 or argv[:2] != ["sh", "-c"] or not isinstance(argv[2], str):
+        return False
+    try:
+        lexer = shlex.shlex(argv[2], posix=True, punctuation_chars=";")
+        lexer.whitespace_split = True
+        tokens = list(lexer)
+    except ValueError:
+        return False
+    # Match the terminal exec command rather than duplicating its setup script.
+    return len(tokens) >= 8 and tokens[-8:] == [
+        ";",
+        "exec",
+        "npx",
+        "-y",
+        "mcp-remote",
+        f"{REMOTE_URL}/",
+        "--header",
+        "$header",
+    ]
+
+
 def plan_legacy_migration(
     profile: dict[str, ConfigValue],
     groups: list[str],
@@ -47,7 +81,7 @@ def plan_legacy_migration(
 ) -> tuple[list[tuple[list[str], ConfigValue]], list[list[str]], list[list[str]]]:
     """Return updates, deletions and custom entries to leave entirely untouched.
 
-    Selection already filters source. Only a native stdio source enables this
+    Selection already filters source. Only the remote bridge source enables this
     exception to normal leaf ownership; --force explicitly opts custom entries in.
     """
     updates: list[tuple[list[str], ConfigValue]] = []
@@ -59,7 +93,7 @@ def plan_legacy_migration(
         base = [*container, "github"]
         wanted = _entry(source, base)
         current = _entry(destination, base)
-        if not isinstance(wanted, dict) or _argv(wanted) != ["github-mcp-server", "stdio"]:
+        if not isinstance(wanted, dict) or not _is_github_bridge(wanted):
             continue
         if current is MISSING:
             continue
@@ -84,37 +118,42 @@ def plan_legacy_migration(
             and url.rstrip("/") == REMOTE_URL
         )
         if not (force or npm or remote):
-            # Even matching native argv with auth/transport overrides is custom.
+            # Matching default argv with auth/transport overrides is still custom.
             env_vars = current.get("env_vars")
             auth_override = (
                 any(key in current for key in LEGACY_KEYS)
                 or any(
-                    isinstance(current.get(key), dict) and PAT_KEYS.intersection(current[key])
+                    isinstance(current.get(key), dict) and AUTH_OVERRIDE_KEYS.intersection(current[key])
                     for key in ("env", "environment")
                 )
-                or (isinstance(env_vars, list) and any(isinstance(name, str) and name in PAT_KEYS for name in env_vars))
+                or (
+                    isinstance(env_vars, list)
+                    and any(isinstance(name, str) and name in AUTH_OVERRIDE_KEYS for name in env_vars)
+                )
             )
             if (
-                argv != ["github-mcp-server", "stdio"]
+                (argv != ["github-mcp-server", "stdio"] and argv != _argv(wanted))
                 or auth_override
                 or current.get("type") not in (None, "local", "stdio")
             ):
                 preserved.append(base)
-            continue
+                continue
+            if argv == _argv(wanted):
+                continue
         updates.extend(
             ([*base, key], wanted[key]) for key in CONNECTION_KEYS if key in wanted and current.get(key) != wanted[key]
         )
-        # Transport keys absent from the native shape cannot survive conversion.
+        # Transport keys absent from the bridge shape cannot survive conversion.
         deletions.extend(
             [*base, key] for key in (*LEGACY_KEYS, *CONNECTION_KEYS) if key in current and key not in wanted
         )
         for key in ("env", "environment"):
             env = current.get(key)
             if isinstance(env, dict):
-                deletions.extend([*base, key, name] for name in PAT_KEYS if name in env)
+                deletions.extend([*base, key, name] for name in AUTH_OVERRIDE_KEYS if name in env)
         env_vars = current.get("env_vars")
-        if isinstance(env_vars, list) and any(name in PAT_KEYS for name in env_vars if isinstance(name, str)):
-            kept = [name for name in env_vars if not isinstance(name, str) or name not in PAT_KEYS]
+        if isinstance(env_vars, list) and any(name in AUTH_OVERRIDE_KEYS for name in env_vars if isinstance(name, str)):
+            kept = [name for name in env_vars if not isinstance(name, str) or name not in AUTH_OVERRIDE_KEYS]
             if kept:
                 updates.append(([*base, "env_vars"], kept))
             else:

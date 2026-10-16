@@ -76,8 +76,8 @@ trust_level = "trusted"
 network_access = true
 
 [mcp_servers.github]
-command = "github-mcp-server"
-args = ["stdio"]
+command = "sh"
+args = ["-c", '''token=$(gh auth token) || exit; export GH_MCP_AUTH="Bearer $token"; header=$(printf 'Authorization:$%s' '{GH_MCP_AUTH}'); exec npx -y mcp-remote https://api.githubcopilot.com/mcp/ --header "$header"''']
 
 [mcp_servers.github.tools.create_pull_request]
 approval_mode = "approve"

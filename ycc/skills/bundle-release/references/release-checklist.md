@@ -23,7 +23,8 @@ The completed checklist for each release is saved to `docs/releases/<version>.md
 
 - [ ] Working tree is clean (no uncommitted changes). `git status --porcelain` must return empty output.
 - [ ] Currently on `main` branch (or a dedicated release branch with intent).
-- [ ] Version fields are in parity: every marketplace `plugins[]` entry and every versioned package manifest agrees with `ycc/.claude-plugin/plugin.json` (`ycc-mods` excluded).
+- [ ] Version fields are in parity: `ycc/settings/packages.json` is valid, every participating marketplace `plugins[]` entry and versioned package manifest agrees with `ycc/.claude-plugin/plugin.json` (`ycc-mods` excluded), and every included native manifest exists with a version regardless of `listed` (Claude `ycc` canonical, other Claude packages under `packages/claude/<key>/`, Codex under `.codex-plugin/<key>/`, Cursor under `packages/cursor/<key>/`).
+- [ ] Deferred/excluded paths are suppressed from the bounded backstop, file-copy entries are skipped, and the included opencode npm manifest (`packages/opencode/<unscoped-key>/package.json`) exists and is in parity; unmodeled manifests remain covered by the bounded scan.
 - [ ] `./scripts/validate.sh` passes on the pre-release tree.
 
 Run: `ycc/skills/bundle-release/scripts/preflight.sh`
@@ -52,7 +53,8 @@ Run: `ycc/skills/bundle-release/scripts/bump-version.sh <new-version>`
 - [ ] `ycc/.claude-plugin/plugin.json` — `version` field updated.
 - [ ] `.claude-plugin/marketplace.json` — `metadata.version` and every `plugins[].version` updated.
 - [ ] Versioned `ycc/package.json` updated; generated `packages/**` is check-only until regeneration.
-- [ ] Versionless entries stay versionless; `ycc/mods` untouched.
+- [ ] A missing or malformed `ycc/settings/packages.json` model fails the bump before any writes; an included native manifest missing or versionless does the same.
+- [ ] Versionless marketplace entries and unmodeled optional manifests stay versionless; `ycc/mods` untouched.
 - [ ] Diff reviewed: only version values and JSON formatting normalization (2-space indent, trailing newline) changed; unrelated fields preserved.
 
 Malformed inputs cause no writes (all inputs are validated first); write errors have
@@ -107,6 +109,7 @@ Run: `ycc/skills/bundle-release/scripts/draft-notes.sh <new-version>`
 - [ ] `Summary` section edited to describe the release in 1–3 sentences.
 - [ ] `Upgrade Notes` section reviewed and updated (delete if not applicable).
 - [ ] `Added`, `Changed`, `Removed`, and `Fixed` bullet sections reflect the actual changes from Phase 1.
+- [ ] `Packages` section present with the generated table (Package, Runtime, Status, Mechanism, Listed, Version or target, Notes): included packages at the release version, deferred/excluded at their target, opencode npm marked experimental/opt-in/not yet published, and the file-copy fallback noted.
 - [ ] Commit log section at the bottom preserved as-is (auto-populated by the script).
 
 ---

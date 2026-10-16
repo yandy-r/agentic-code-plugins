@@ -387,8 +387,9 @@ class MergeHelperTestCase(MergeBase):
         self.assertEqual(parsed["agents"]["default_subagent_reasoning_effort"], "high")
         self.assertEqual(
             parsed["mcp_servers"]["github"]["command"],
-            "github-mcp-server",
+            "sh",
         )
+        self.assertIn("mcp-remote https://api.githubcopilot.com/mcp/", parsed["mcp_servers"]["github"]["args"][1])
         self.assertEqual(parsed["projects"]["/home/me/work"]["trust_level"], "trusted")
 
     def test_provider_credentials_survive_model_variant_merge(self) -> None:
@@ -825,6 +826,8 @@ class MergeHelperTestCase(MergeBase):
 
 class GithubMcpMigrationTestCase(MergeBase):
     NATIVE = {"command": "github-mcp-server", "args": ["stdio"]}
+    BRIDGE = json.loads((REPO_ROOT / "mcp-configs" / "mcp.json").read_text())["mcpServers"]["github"]
+    AUTH_OVERRIDES = {"GITHUB_PERSONAL_ACCESS_TOKEN", "GITHUB_TOKEN", "GH_TOKEN", "GH_HOST"}
     NPM = {
         "command": "npx",
         "args": ["-y", "@modelcontextprotocol/server-github"],
@@ -832,7 +835,20 @@ class GithubMcpMigrationTestCase(MergeBase):
         "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_API_TOKEN}", "KEEP": "1"},
         "autoApprove": ["x"],
     }
-    SERVERS = {"mcpServers": {"github": NATIVE, "linear": {"type": "http", "url": "https://l"}}}
+    SERVERS = {"mcpServers": {"github": BRIDGE, "linear": {"type": "http", "url": "https://l"}}}
+
+    def test_non_bridge_source_does_not_enable_legacy_migration(self) -> None:
+        for script in (
+            "echo https://api.githubcopilot.com/mcp/; exec other-mcp",
+            'header=x; exec npx -y mcp-remote https://ghe.example.com/mcp/ --header "$header"',
+            'header=x; exec npx -y mcp-remote https://api.githubcopilot.com/mcp/ --header "$header"; echo done',
+        ):
+            with self.subTest(script=script):
+                wanted = {"command": "sh", "args": ["-c", script]}
+                source = self.write_json(self.tmp / "src.json", {"mcpServers": {"github": wanted}})
+                dest = self.write_json(self.tmp / "dest.json", {"mcpServers": {"github": self.NPM}})
+                self.sync("claude-mcp", source, dest)
+                self.assertEqual(self.load(dest)["mcpServers"]["github"], self.NPM)
 
     def sync(
         self, profile: str, source: Path, dest: Path, groups: str = "mcp", **kw
@@ -851,7 +867,7 @@ class GithubMcpMigrationTestCase(MergeBase):
         source, dest = self.claude(self.NPM, mine={"url": "https://mine"})
         self.sync("claude-mcp", source, dest)
         data = self.load(dest)
-        self.assertEqual(data["mcpServers"]["github"], {**self.NATIVE, "env": {"KEEP": "1"}, "autoApprove": ["x"]})
+        self.assertEqual(data["mcpServers"]["github"], {**self.BRIDGE, "env": {"KEEP": "1"}, "autoApprove": ["x"]})
         self.assertEqual(data["mcpServers"]["mine"], {"url": "https://mine"})
         self.assertEqual(data["keep"], 1)
         before = (dest.read_text(), self.state.read_text())
@@ -863,7 +879,33 @@ class GithubMcpMigrationTestCase(MergeBase):
         remote = {"type": "http", "url": "https://api.githubcopilot.com/mcp/", "headers": {"Authorization": "Bearer x"}}
         source, dest = self.claude(remote)
         self.sync("cursor-mcp", source, dest)
-        self.assertEqual(self.load(dest)["mcpServers"]["github"], self.NATIVE)
+        self.assertEqual(self.load(dest)["mcpServers"]["github"], self.BRIDGE)
+
+    def test_legacy_native_stdio_migrates_without_state_and_is_idempotent(self) -> None:
+        source, dest = self.claude(self.NATIVE, mine={"url": "https://mine"})
+        self.sync("claude-mcp", source, dest)
+        data = self.load(dest)
+        self.assertEqual(data["mcpServers"]["github"], self.BRIDGE)
+        self.assertEqual(data["mcpServers"]["mine"], {"url": "https://mine"})
+        before = (dest.read_text(), self.state.read_text())
+        self.assertIn("up-to-date", self.sync("claude-mcp", source, dest).stdout)
+        self.assertEqual(before, (dest.read_text(), self.state.read_text()))
+
+    def test_legacy_native_stdio_toml_migrates_and_keeps_tools(self) -> None:
+        source, dest = self.toml_case(
+            '[mcp_servers.github]\ncommand = "github-mcp-server"\nargs = ["stdio"]\n\n'
+            '[mcp_servers.github.tools.create_pull_request]\napproval_mode = "approve"\n'
+        )
+        self.sync("codex-config", source, dest)
+        parsed = tomllib.loads(dest.read_text())["mcp_servers"]["github"]
+        self.assertEqual(parsed, {**self.BRIDGE, "tools": {"create_pull_request": {"approval_mode": "approve"}}})
+        self.assertIn("up-to-date", self.sync("codex-config", source, dest).stdout)
+
+    def test_bridge_signature_does_not_match_arbitrary_shell_commands(self) -> None:
+        custom = {"command": "sh", "args": ["-c", "exec npx -y mcp-remote https://ghe.example.com/mcp/ --header x"]}
+        source, dest = self.claude(custom)
+        self.sync("claude-mcp", source, dest)
+        self.assertEqual(self.load(dest)["mcpServers"]["github"], custom)
 
     def test_tracked_state_npm_migrates(self) -> None:
         old = self.write_json(
@@ -874,7 +916,7 @@ class GithubMcpMigrationTestCase(MergeBase):
         self.sync("claude-mcp", old, dest)
         source = self.write_json(self.tmp / "src.json", self.SERVERS)
         self.sync("claude-mcp", source, dest)
-        self.assertEqual(self.load(dest)["mcpServers"]["github"], self.NATIVE)
+        self.assertEqual(self.load(dest)["mcpServers"]["github"], self.BRIDGE)
 
     def test_custom_github_untouched_without_force_replaced_with_force(self) -> None:
         for custom in (
@@ -882,15 +924,27 @@ class GithubMcpMigrationTestCase(MergeBase):
             {"command": "npx", "args": ["-y", "my-github-fork"], "env": {"X": "1"}},
             {"url": "https://ghe.example.com/mcp", "headers": {"A": "b"}},
             {**GithubMcpMigrationTestCase.NATIVE, "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": "t"}},
+            {**GithubMcpMigrationTestCase.NATIVE, "args": ["stdio", "--read-only"]},
+            {**GithubMcpMigrationTestCase.NATIVE, "env": {"GH_HOST": "ghe.example.com"}},
+            {**GithubMcpMigrationTestCase.NATIVE, "env_vars": ["GITHUB_TOKEN"]},
+            {**GithubMcpMigrationTestCase.BRIDGE, "env": {"GH_TOKEN": "custom"}},
         ):
             with self.subTest(custom=custom):
                 source, dest = self.claude(custom)
                 self.sync("claude-mcp", source, dest)
                 self.assertEqual(self.load(dest)["mcpServers"]["github"], custom)
                 self.sync("claude-mcp", source, dest, force=True)
-                expected = dict(self.NATIVE)
-                if "env" in custom and "GITHUB_PERSONAL_ACCESS_TOKEN" not in custom["env"]:
-                    expected["env"] = custom["env"]
+                expected = dict(self.BRIDGE)
+                if "env" in custom:
+                    kept = {
+                        k: v for k, v in custom["env"].items() if k not in GithubMcpMigrationTestCase.AUTH_OVERRIDES
+                    }
+                    if kept:
+                        expected["env"] = kept
+                if "env_vars" in custom:
+                    kept = [n for n in custom["env_vars"] if n not in GithubMcpMigrationTestCase.AUTH_OVERRIDES]
+                    if kept:
+                        expected["env_vars"] = kept
                 self.assertEqual(self.load(dest)["mcpServers"]["github"], expected)
 
     def test_dry_run_and_entry_selection_do_not_migrate(self) -> None:
@@ -912,7 +966,7 @@ class GithubMcpMigrationTestCase(MergeBase):
                     "servers": {
                         "github": {
                             "type": "local",
-                            "command": ["github-mcp-server", "stdio"],
+                            "command": [self.BRIDGE["command"], *self.BRIDGE["args"]],
                         }
                     }
                 }
@@ -935,12 +989,12 @@ class GithubMcpMigrationTestCase(MergeBase):
         self.sync("opencode-config", source, dest)
         self.assertEqual(
             self.load(dest)["mcp"]["servers"]["github"],
-            {"type": "local", "command": ["github-mcp-server", "stdio"], "environment": {"KEEP": "1"}},
+            {"type": "local", "command": [self.BRIDGE["command"], *self.BRIDGE["args"]], "environment": {"KEEP": "1"}},
         )
 
     def test_codex_toml_remote_migrates_and_keeps_tools(self) -> None:
         source = self.tmp / "src.toml"
-        source.write_text('[mcp_servers.github]\ncommand = "github-mcp-server"\nargs = ["stdio"]\n', encoding="utf-8")
+        source.write_text(self.GH_TOML_SRC, encoding="utf-8")
         dest = self.tmp / "dest.toml"
         dest.write_text(
             '# keep\nmodel = "m"\n\n[mcp_servers.github]\nurl = "https://api.githubcopilot.com/mcp"\n'
@@ -952,10 +1006,10 @@ class GithubMcpMigrationTestCase(MergeBase):
         text = dest.read_text()
         self.assertIn("# keep", text)
         parsed = tomllib.loads(text)["mcp_servers"]["github"]
-        self.assertEqual(parsed, {**self.NATIVE, "tools": {"create_pull_request": {"approval_mode": "approve"}}})
+        self.assertEqual(parsed, {**self.BRIDGE, "tools": {"create_pull_request": {"approval_mode": "approve"}}})
         self.assertIn("up-to-date", self.sync("codex-config", source, dest).stdout)
 
-    GH_TOML_SRC = '[mcp_servers.github]\ncommand = "github-mcp-server"\nargs = ["stdio"]\n'
+    GH_TOML_SRC = f'[mcp_servers.github]\ncommand = "sh"\nargs = {json.dumps(BRIDGE["args"])}\n'
 
     def toml_case(self, text: str) -> tuple[Path, Path]:
         source = self.tmp / "src.toml"
@@ -977,7 +1031,7 @@ class GithubMcpMigrationTestCase(MergeBase):
         self.assertEqual(
             tomllib.loads(text)["mcp_servers"],
             {
-                "github": {**self.NATIVE, "tools": {"create_pull_request": {"approval_mode": "approve"}}},
+                "github": {**self.BRIDGE, "tools": {"create_pull_request": {"approval_mode": "approve"}}},
                 "other": {"url": "https://o"},
             },
         )
@@ -990,7 +1044,7 @@ class GithubMcpMigrationTestCase(MergeBase):
             'http_headers = { Authorization = "Bearer x" }\nenv_http_headers = { A = "B" }\n'
         )
         self.sync("codex-config", source, dest)
-        self.assertEqual(tomllib.loads(dest.read_text())["mcp_servers"]["github"], self.NATIVE)
+        self.assertEqual(tomllib.loads(dest.read_text())["mcp_servers"]["github"], self.BRIDGE)
 
     def test_codex_toml_inline_env_pat_leaf_keeps_siblings(self) -> None:
         source, dest = self.toml_case(
@@ -1000,7 +1054,7 @@ class GithubMcpMigrationTestCase(MergeBase):
         )
         self.sync("codex-config", source, dest)
         parsed = tomllib.loads(dest.read_text())["mcp_servers"]["github"]
-        self.assertEqual(parsed, {**self.NATIVE, "env": {"KEEP": "1"}, "tools": {"a": {"approval_mode": "approve"}}})
+        self.assertEqual(parsed, {**self.BRIDGE, "env": {"KEEP": "1"}, "tools": {"a": {"approval_mode": "approve"}}})
 
     def test_codex_toml_inline_env_only_pat_drops_env(self) -> None:
         source, dest = self.toml_case(
@@ -1008,7 +1062,7 @@ class GithubMcpMigrationTestCase(MergeBase):
             'env = { GITHUB_PERSONAL_ACCESS_TOKEN = "t" }\n'
         )
         self.sync("codex-config", source, dest)
-        self.assertEqual(tomllib.loads(dest.read_text())["mcp_servers"]["github"], self.NATIVE)
+        self.assertEqual(tomllib.loads(dest.read_text())["mcp_servers"]["github"], self.BRIDGE)
 
     def test_filtered_env_vars_survive_repeated_state_backed_syncs(self) -> None:
         source, dest = self.toml_case(
@@ -1018,7 +1072,7 @@ class GithubMcpMigrationTestCase(MergeBase):
         for _ in range(3):
             self.sync("codex-config", source, dest)
             parsed = tomllib.loads(dest.read_text())["mcp_servers"]["github"]
-            self.assertEqual(parsed, {**self.NATIVE, "env_vars": ["KEEP"]})
+            self.assertEqual(parsed, {**self.BRIDGE, "env_vars": ["KEEP"]})
         state = json.loads(self.state.read_text())
         self.assertNotIn("/mcp_servers/github/env_vars", state[f"codex-config:{dest}"])
 
@@ -1034,11 +1088,11 @@ class GithubMcpMigrationTestCase(MergeBase):
         self.sync("claude-mcp", source, dest)
         self.assertEqual(self.load(dest)["mcpServers"]["github"], "weird")
         self.sync("claude-mcp", source, dest, force=True)
-        self.assertEqual(self.load(dest)["mcpServers"]["github"], self.NATIVE)
+        self.assertEqual(self.load(dest)["mcpServers"]["github"], self.BRIDGE)
 
     def test_codex_toml_custom_untouched(self) -> None:
         source = self.tmp / "src.toml"
-        source.write_text('[mcp_servers.github]\ncommand = "github-mcp-server"\nargs = ["stdio"]\n', encoding="utf-8")
+        source.write_text(self.GH_TOML_SRC, encoding="utf-8")
         dest = self.tmp / "dest.toml"
         custom = '[mcp_servers.github]\nurl = "https://ghe.example.com/mcp"\n'
         dest.write_text(custom, encoding="utf-8")
