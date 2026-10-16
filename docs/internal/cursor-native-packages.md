@@ -31,7 +31,7 @@ license (attribution and source paths: `scripts/vendor/cursor/NOTICE`).
 
 ```bash
 ./scripts/sync.sh --only cursor
-./scripts/validate.sh --only cursor
+./scripts/validate.sh --only cursor,cursor-native,packages
 ./scripts/generate-cursor-packages.sh --check
 python3 scripts/test_generate_cursor_packages.py
 ```
@@ -43,6 +43,8 @@ Cursor package roots plus the retired legacy `.cursor-plugin/{skills,agents,rule
 directories, and rejects managed symlinks before writing. `--check` also fails if a root
 `.cursor-plugin/marketplace.json` appears before the listing flip. Edit source
 configuration or the generator, never generated files.
+
+The validation command above also runs offline native-policy fixtures and package-model/tree/catalog parity, which fails on modeled components that are missing and on recognized components present but unmodeled. It does not prove installed-plugin runtime behavior.
 
 The generator fails before any destination mutation on: unsupported component sets,
 unknown hook events (only `sessionStart` is allowed; a mixed or misspelled event name

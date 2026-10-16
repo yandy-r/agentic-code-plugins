@@ -205,7 +205,8 @@ def make_package_relative(text: str, prefix: str, known: frozenset[str] = frozen
     output = _PLUGIN_UNIT_PATTERN.sub(plugin, _HOME_UNIT_PATTERN.sub(home, text))
     # `_shared` moves out of the skills directory into the package root.
     output = re.sub(r"(?:\.\./)+_shared/", lambda _: prefix + "shared/", output)
-    return _BUNDLE_UNIT_PATTERN.sub(bundle, output) if known else output
+    output = _BUNDLE_UNIT_PATTERN.sub(bundle, output) if known else output
+    return output
 
 
 def climb(rel: Path) -> str:
@@ -229,6 +230,7 @@ def asset_prefix(rel: Path) -> str:
     return climb(rel)
 
 
+_CLIMB_UNIT_PATTERN = re.compile(r"(?<![\w.$}{/-])((?:\.\./)+(?:shared|skills|agents)/[A-Za-z0-9_./-]+)")
 _LINK_TARGET_TOKEN = re.compile(r"\]\(" + re.escape(PACKAGE_ROOT_TOKEN) + "/")
 
 
@@ -241,6 +243,14 @@ def finalize_markdown(text: str, rel: Path, names: frozenset[str] | None = None)
     if rel.suffix != ".md":
         return text
     if rel.parts[0] != "agents":
+        # Executable snippets must survive a foreign cwd, so any remaining
+        # relative climb to a shipped unit becomes the package-root token;
+        # link targets are restored to the climb below because nothing
+        # executes them and relative links read cleaner.
+        text = _CLIMB_UNIT_PATTERN.sub(
+            lambda match: PACKAGE_ROOT_TOKEN + "/" + match.group(1).lstrip("./"),
+            text,
+        )
         text = _LINK_TARGET_TOKEN.sub(lambda _: "](" + climb(rel), text)
     return namespace_slash_commands(text, public_skill_names() if names is None else names)
 

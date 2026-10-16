@@ -67,9 +67,10 @@ this table records install ownership, not a claim of runtime feature parity:
 | `./scripts/sync.sh`                                           | Regenerate compatibility bundles and inventory                |
 | `./scripts/validate.sh`                                       | Run every validator used by CI                                |
 | `./scripts/sync.sh --only claude`                             | Regenerate hidden native Claude packages                      |
-| `./scripts/validate.sh --only claude`                         | Check Claude output, generator tests, optional CLI validation |
+| `./scripts/validate.sh --only claude,claude-native,packages`  | Generator, native policy, parity, optional CLI validation     |
 | `./scripts/sync.sh --only cursor`                             | Regenerate hidden native Cursor packages and file-copy inputs |
-| `./scripts/validate.sh --only cursor`                         | Check Cursor output and generator boundary tests              |
+| `./scripts/validate.sh --only cursor,cursor-native,packages`  | Cursor content, generator, native policy fixtures, parity     |
+| `./scripts/validate.sh --only codex,codex-native,packages`    | Codex content, native export, policy fixtures, parity         |
 | `./scripts/validate.sh --only practices`                      | Rule/skill/agent authoring ratchet                            |
 | `python3 scripts/test_validate_practices.py`                  | Authoring-validator regression tests                          |
 | `./scripts/install-shellcheck.sh`                             | Install the pinned ShellCheck matching CI                     |

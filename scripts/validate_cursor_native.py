@@ -7,6 +7,7 @@ import json
 import re
 import stat
 import sys
+from collections.abc import Iterable
 from pathlib import Path
 
 from generate_cursor_packages import (
@@ -17,18 +18,30 @@ from generate_cursor_packages import (
     SUPPORTED_HOOK_EVENTS,
     cursor_runtime,
     native_packages,
-    native_version,
 )
 from jsonschema import Draft7Validator, FormatChecker
-from package_model import load_package_model
+from package_model import PackageModel, load_package_model
 
 ROOT_REF = re.compile(r"\$\{CURSOR_PLUGIN_ROOT\}/([^\s\"'`)>\]\\]+)")
 HOME_REF = re.compile(r"(?:~|\$\{?HOME\}?)/\.cursor/([A-Za-z0-9_./-]+)")
 INSTALLER_ONLY_HOME = ("agents/", "skills/", "mcp-library", "plugins/")
 
+MARKETPLACE_PATH = Path(".cursor-plugin/marketplace.json")
+
+
+class ValidationInputError(ValueError):
+    """An unreadable or malformed validation input."""
+
 
 def load(path: Path) -> dict:
-    return json.loads(path.read_text(encoding="utf-8"))
+    """Load a JSON object from ``path``, raising ValidationInputError when malformed."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValidationInputError(f"{path}: unreadable or malformed JSON: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ValidationInputError(f"{path}: expected a JSON object, got {type(data).__name__}")
+    return data
 
 
 def _resource_target(ref: str) -> str:
@@ -68,42 +81,116 @@ def resource_errors(root: Path) -> list[str]:
     return errors
 
 
-def main() -> int:
+def plugin_schema_validator() -> Draft7Validator:
+    """Draft-7 validator for plugin manifests (vendored cursor/plugins schema)."""
+    return Draft7Validator(load(SCHEMA_DIR / "plugin.schema.json"), format_checker=FormatChecker())
+
+
+def marketplace_schema_validator() -> Draft7Validator:
+    """Draft-7 validator for the root marketplace file (vendored cursor schema)."""
+    return Draft7Validator(load(SCHEMA_DIR / "marketplace.schema.json"), format_checker=FormatChecker())
+
+
+def _plugin_errors(
+    package_key: str,
+    runtime_components: Iterable[str],
+    manifest_path: Path,
+    manifest: dict,
+    version: str | None,
+    validator: Draft7Validator,
+) -> list[str]:
     errors: list[str] = []
-    model = load_package_model()
-    validator = Draft7Validator(load(SCHEMA_DIR / "plugin.schema.json"), format_checker=FormatChecker())
-    version = native_version(model)
-    if (REPO_ROOT / ".cursor-plugin/marketplace.json").exists():
+    package_dir = manifest_path.parent.parent
+    components = set(runtime_components)
+    errors.extend(f"{manifest_path}: {error.message}" for error in validator.iter_errors(manifest))
+    if manifest.get("name") != package_key or (version is not None and manifest.get("version") != version):
+        errors.append(f"{manifest_path}: name/version must follow the package model")
+    if manifest.get("minClientVersions") != {"cursor": MIN_CURSOR_VERSION}:
+        errors.append(f"{manifest_path}: minClientVersions.cursor must be {MIN_CURSOR_VERSION}")
+    if components == {"hooks"}:
+        hooks = load(package_dir / "hooks/hooks.json").get("hooks", {})
+        if not isinstance(hooks, dict) or set(hooks) != SUPPORTED_HOOK_EVENTS:
+            errors.append(f"{package_key}: hooks must register {sorted(SUPPORTED_HOOK_EVENTS)} only")
+        script = package_dir / "hooks/herdr-session-start.sh"
+        if not script.is_file() or not script.stat().st_mode & stat.S_IXUSR:
+            errors.append(f"{script}: must exist and be executable")
+    if components == {"mcp"}:
+        variables = manifest.get("variables")
+        properties = variables.get("properties") if isinstance(variables, dict) else None
+        declared = set(properties) if isinstance(properties, dict) else set()
+        try:
+            mcp = load(package_dir / "mcp.json")
+        except ValidationInputError as exc:
+            errors.append(str(exc))
+        else:
+            used = set(re.findall(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}", json.dumps(mcp)))
+            if declared != used:
+                errors.append(f"{package_key}: MCP placeholders must all be declared variables")
+        if manifest.get("mcpServers") != "./mcp.json":
+            errors.append(f"{package_key}: mcpServers must point at ./mcp.json")
+    return errors
+
+
+def cursor_native_errors(root: Path, model: PackageModel) -> list[str]:
+    """Validate the generated Cursor-native packages rooted at ``root``.
+
+    The root marketplace stays absent until the listing flip: the
+    must-not-exist gate always fires on its presence, and whenever the file
+    is nevertheless present it must additionally satisfy the vendored
+    marketplace schema. Package manifests, hooks, MCP wiring, and resource
+    references are checked for every included native package in ``model``.
+    Malformed or unreadable inputs become diagnostics, never tracebacks.
+    """
+    errors: list[str] = []
+    validator = plugin_schema_validator()
+    version: str | None = None
+    try:
+        source = load(root / model.version_source)
+        raw_version = source.get("version")
+        if not isinstance(raw_version, str) or not raw_version.strip():
+            raise ValidationInputError(f"{root / model.version_source}: missing nonempty version")
+        version = raw_version
+    except ValidationInputError as exc:
+        errors.append(str(exc))
+    marketplace = root / MARKETPLACE_PATH
+    if marketplace.exists():
         errors.append(".cursor-plugin/marketplace.json must not exist before the listing flip")
+        try:
+            data = load(marketplace)
+        except ValidationInputError as exc:
+            errors.append(str(exc))
+        else:
+            errors.extend(
+                f"{marketplace}: {error.message}" for error in marketplace_schema_validator().iter_errors(data)
+            )
     for package in native_packages(model.packages):
         runtime = cursor_runtime(package)
         assert runtime is not None
-        root = REPO_ROOT / OUTPUT_ROOT / package.key
-        manifest_path = root / ".cursor-plugin/plugin.json"
+        package_root = root / OUTPUT_ROOT / package.key
+        manifest_path = package_root / ".cursor-plugin/plugin.json"
         if not manifest_path.is_file():
-            errors.append(f"{manifest_path.relative_to(REPO_ROOT)}: missing")
+            errors.append(f"{manifest_path.relative_to(root)}: missing")
             continue
-        manifest = load(manifest_path)
-        errors.extend(f"{manifest_path}: {error.message}" for error in validator.iter_errors(manifest))
-        if manifest.get("name") != package.key or manifest.get("version") != version:
-            errors.append(f"{manifest_path}: name/version must follow the package model")
-        if manifest.get("minClientVersions") != {"cursor": MIN_CURSOR_VERSION}:
-            errors.append(f"{manifest_path}: minClientVersions.cursor must be {MIN_CURSOR_VERSION}")
-        if set(runtime.components) == {"hooks"}:
-            hooks = load(root / "hooks/hooks.json")
-            if set(hooks.get("hooks", {})) != SUPPORTED_HOOK_EVENTS:
-                errors.append(f"{package.key}: hooks must register {sorted(SUPPORTED_HOOK_EVENTS)} only")
-            script = root / "hooks/herdr-session-start.sh"
-            if not script.is_file() or not script.stat().st_mode & stat.S_IXUSR:
-                errors.append(f"{script}: must exist and be executable")
-        if set(runtime.components) == {"mcp"}:
-            declared = manifest.get("variables", {}).get("properties", {})
-            used = set(re.findall(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}", (root / "mcp.json").read_text()))
-            if set(declared) != used:
-                errors.append(f"{package.key}: MCP placeholders must all be declared variables")
-            if manifest.get("mcpServers") != "./mcp.json":
-                errors.append(f"{package.key}: mcpServers must point at ./mcp.json")
-        errors.extend(resource_errors(root))
+        try:
+            manifest = load(manifest_path)
+            errors.extend(_plugin_errors(package.key, runtime.components, manifest_path, manifest, version, validator))
+        except ValidationInputError as exc:
+            errors.append(str(exc))
+        errors.extend(resource_errors(package_root))
+    return errors
+
+
+def main(root: Path = REPO_ROOT, model: PackageModel | None = None) -> int:
+    """Validate ``root`` and print diagnostics; exit 1 on any error."""
+    try:
+        root = Path(root)
+        checked_model = model
+        if checked_model is None:
+            checked_model = load_package_model(root / "ycc/settings/packages.json", repo_root=root)
+        errors = cursor_native_errors(root, checked_model)
+    except (OSError, UnicodeError, ValueError) as exc:
+        print(f"validate_cursor_native: {exc}", file=sys.stderr)
+        return 1
     for error in errors:
         print(f"validate_cursor_native: {error}", file=sys.stderr)
     return 1 if errors else 0
