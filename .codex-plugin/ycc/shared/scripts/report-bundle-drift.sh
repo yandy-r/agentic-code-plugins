@@ -10,10 +10,23 @@
 #                          [PATH]
 #                          [--help]
 #
+# Requires a ycc/claude-plugins SOURCE CHECKOUT: a directory containing
+# ycc/skills and scripts/generate_*.py. Installed native and file-copy
+# bundles do not contain those generator sources, so discovery never accepts
+# them (no marketplace or plugin manifest is required or consulted).
+#
+# Root resolution order:
+#   1. explicit --repo-root=PATH or positional PATH (searched with its
+#      ancestors; if nothing qualifies, fail — never fall through to PWD or
+#      the script location)
+#   2. PWD and its ancestors
+#   3. the script's own directory and its ancestors
+#
 # Exit codes:
 #   0  every sub-check passed (no drift)
 #   1  at least one sub-check reported drift
-#   2  usage error (bad flag, unknown target, repo root not found)
+#   2  usage error (bad flag, unknown target, repo root not found, missing
+#      generator entrypoint)
 
 set -euo pipefail
 
@@ -28,6 +41,11 @@ Usage: report-bundle-drift.sh [--target=all|cursor|codex|opencode|inventory] [--
 Wraps the generate_*.py --check entry points and emits a per-target drift
 report. Exit 0 iff every target is clean. Exit 1 on drift. Exit 2 on
 usage error.
+
+Requires a ycc/claude-plugins source checkout with ycc/skills and
+scripts/generate_*.py. Installed native/file-copy bundles omit these sources.
+Pass --repo-root=PATH (or positional PATH) to search it and its ancestors;
+explicit input is authoritative. Otherwise searches PWD, then script ancestors.
 EOF
 }
 
@@ -74,7 +92,10 @@ case "$FORMAT" in
 esac
 
 # ---------------------------------------------------------------------------
-# Resolve repo root from explicit input, then PWD, then SCRIPT_DIR
+# Resolve the ycc source-checkout root: explicit input (authoritative), then
+# PWD ancestors, then script-dir ancestors. A qualifying root has the ycc
+# skill sources and the repo generator entrypoints — never a marketplace
+# manifest, which installed bundles fake but cannot back with generators.
 # ---------------------------------------------------------------------------
 
 echo "report-bundle-drift.sh: resolving repo root..." >&2
@@ -82,21 +103,29 @@ echo "report-bundle-drift.sh: resolving repo root..." >&2
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO_ROOT=""
 
+is_source_root() {
+  local dir="$1"
+  [[ -d "${dir}/ycc/skills" && -f "${dir}/scripts/generate_inventory.py" ]]
+}
+
 resolve_repo_root_from() {
-  local start="$1"
-  local candidate="$start"
+  local candidate="$1"
   while [[ "$candidate" != "/" ]]; do
-    if [[ -f "$candidate/.codex-plugin/marketplace.json" ]]; then
+    if is_source_root "$candidate"; then
       REPO_ROOT="$candidate"
       return 0
     fi
     candidate="$(dirname "$candidate")"
   done
-  if [[ -f "/.codex-plugin/marketplace.json" ]]; then
-    REPO_ROOT="/"
-    return 0
-  fi
-  return 1
+  is_source_root "/" && REPO_ROOT="/"
+}
+
+die_no_source_root() {
+  echo "report-bundle-drift.sh: no ycc/claude-plugins source checkout found${1:+ (searched from $1)}." >&2
+  echo "This helper needs a source checkout containing ycc/skills and scripts/generate_*.py;" >&2
+  echo "installed native and file-copy bundles do not contain them. Run it from the source" >&2
+  echo "checkout or pass --repo-root=/path/to/checkout." >&2
+  exit 2
 }
 
 if [[ -n "$REPO_ROOT_INPUT" ]]; then
@@ -104,7 +133,8 @@ if [[ -n "$REPO_ROOT_INPUT" ]]; then
     echo "report-bundle-drift.sh: --repo-root/positional path is not a directory: $REPO_ROOT_INPUT" >&2
     exit 2
   fi
-  resolve_repo_root_from "$(cd "$REPO_ROOT_INPUT" && pwd)" || true
+  # Explicit input is authoritative: no fallthrough to PWD or SCRIPT_DIR.
+  resolve_repo_root_from "$(cd "$REPO_ROOT_INPUT" && pwd)" || die_no_source_root "$REPO_ROOT_INPUT"
 fi
 
 if [[ -z "$REPO_ROOT" ]]; then
@@ -116,13 +146,36 @@ if [[ -z "$REPO_ROOT" ]]; then
 fi
 
 if [[ -z "$REPO_ROOT" ]]; then
-  echo "report-bundle-drift.sh: cannot locate repo root (no .codex-plugin/marketplace.json found from repo-root input/PWD/SCRIPT_DIR search)" >&2
-  exit 2
+  die_no_source_root "$PWD"
 fi
 
 echo "report-bundle-drift.sh: repo root is $REPO_ROOT" >&2
 SCRIPTS_DIR="${REPO_ROOT}/scripts"
 
+# ---------------------------------------------------------------------------
+# Verify the selected target's generator entrypoints exist before running:
+# a missing generator is a broken checkout (exit 2), not drift (exit 1).
+# ---------------------------------------------------------------------------
+
+require_generators() {
+  local g
+  for g in "$@"; do
+    if [[ ! -f "${SCRIPTS_DIR}/${g}" ]]; then
+      echo "report-bundle-drift.sh: generator entrypoint missing: ${SCRIPTS_DIR}/${g}" >&2
+      echo "The selected root is not a usable source checkout. Run from a complete checkout or" >&2
+      echo "pass --repo-root=/path/to/checkout." >&2
+      exit 2
+    fi
+  done
+}
+
+case "$TARGET" in
+  inventory)                require_generators generate_inventory.py ;;
+  cursor)                   require_generators generate_cursor_skills.py generate_cursor_agents.py generate_cursor_rules.py ;;
+  codex)                    require_generators generate_codex_skills.py generate_codex_agents.py generate_codex_plugin.py ;;
+  opencode)                 require_generators generate_opencode_skills.py generate_opencode_agents.py generate_opencode_commands.py generate_opencode_plugin.py ;;
+  all)                      require_generators generate_inventory.py generate_cursor_skills.py generate_cursor_agents.py generate_cursor_rules.py generate_codex_skills.py generate_codex_agents.py generate_codex_plugin.py generate_opencode_skills.py generate_opencode_agents.py generate_opencode_commands.py generate_opencode_plugin.py ;;
+esac
 # ---------------------------------------------------------------------------
 # Sub-check runner — appends to three parallel arrays
 # ---------------------------------------------------------------------------

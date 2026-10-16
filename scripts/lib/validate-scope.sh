@@ -75,6 +75,7 @@ validate_scope_targets_for_path() {
         # Single-target tests and validators.
         scripts/test-release-*.sh) echo "release" ;;
         scripts/test-plan-workflow-validators.sh) echo "inventory" ;;
+        scripts/test-helper-root-discovery.sh) echo "inventory" ;;
         scripts/rename-repo.sh | scripts/rename_repo.py | scripts/test-rename-repo.sh | scripts/test_rename_repo.py) echo "inventory" ;;
         scripts/validate-mods.sh) echo "mods" ;;
         scripts/validate-practices.sh | scripts/validate_practices.py) echo "practices" ;;

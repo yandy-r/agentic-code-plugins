@@ -217,6 +217,8 @@ run_target() {
             "${REPO_ROOT}/scripts/test-plan-workflow-validators.sh" || fail "test-plan-workflow-validators.sh"
             echo "== validate: per-runtime worktree roots =="
             "${REPO_ROOT}/scripts/test-worktree-roots.sh" || fail "test-worktree-roots.sh"
+            echo "== validate: helper root discovery =="
+            "${REPO_ROOT}/scripts/test-helper-root-discovery.sh" || fail "test-helper-root-discovery.sh"
             echo "== validate: formatter bundle smoke =="
             "${REPO_ROOT}/scripts/validate-formatters-bundle.sh" || fail "validate-formatters-bundle.sh"
             echo "== validate: style.sh Node CLI resolution =="

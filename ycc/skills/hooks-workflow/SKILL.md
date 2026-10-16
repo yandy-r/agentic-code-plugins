@@ -132,14 +132,18 @@ emitting).
 
 ### Phase 4: Invoke build-hook-config.sh
 
+The builder requires canonical `ycc/rules/*/hooks.md` sources, the compatibility
+matrix, and hook templates. It discovers a source checkout or accepts
+`--repo-root=/path/to/checkout`; installed bundles do not contain these sources.
+
 Run:
 
 ```
 ${CLAUDE_PLUGIN_ROOT}/skills/hooks-workflow/scripts/build-hook-config.sh \
-  --language <language> \
-  --target <target> \
-  --event <event> \
-  --out <resolved-out-path> \
+  --language=<language> \
+  --target=<target> \
+  --event=<event> \
+  --out=<path> \
   [--force]
 ```
 

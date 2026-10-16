@@ -114,13 +114,11 @@ back into installed skills; it does not copy native-only `resources/`.
 Native listing/install is **not** available: all packages are unlisted, there is no root
 marketplace, and interactive installed-plugin runtime verification remains the gate.
 
-Known limitation (pre-existing, preserved for file-copy parity): in the generated Cursor
-bundle, `skills/_shared/scripts/report-bundle-drift.sh` and
-`skills/hooks-workflow/scripts/build-hook-config.sh` auto-discover the repository root by
-walking up for a repo-root `.cursor-plugin/marketplace.json`, which this repository does
-not ship. Auto-discovery fails and both scripts exit 2; pass `--repo-root` (drift
-reporter) or run from the `ycc` source tree instead. Nothing else in the Cursor package
-depends on this sentinel.
+Known limitation: `skills/_shared/scripts/report-bundle-drift.sh` and
+`skills/hooks-workflow/scripts/build-hook-config.sh` require canonical sources
+that installed native and file-copy bundles do not contain. Run them from a
+source checkout or pass `--repo-root=/path/to/checkout`. No marketplace manifest
+is needed for checkout discovery.
 
 The file-copy installer delivers user commands for `ycc` (`base,commands,settings`)
 and user hooks for `ycc-hooks` (`settings,hooks`); `ycc-mcp` selects
