@@ -21,17 +21,15 @@ cursor_unit_src_root() {
 }
 
 # cursor_valid_steps — comma-separated steps Cursor accepts for --only.
-cursor_valid_steps() { echo "base,skills,agents,settings,rules,mcp"; }
+cursor_valid_steps() { echo "base,skills,agents,commands,settings,rules,mcp,hooks"; }
 
 # cursor_intent_steps <intent> — steps <intent> maps to; empty means no-op.
 cursor_intent_steps() {
     case "$1" in
-        skills|agents) echo "$1" ;;
-        # Cursor has no command layer.
-        commands) echo "" ;;
+        skills|agents|commands|hooks) echo "$1" ;;
         base|rules|mcp) echo "$1" ;;
         settings) echo "settings" ;;
-        hooks|plugins) echo "" ;;
+        plugins) echo "" ;;
         # Mods are Claude Code only for now. A target gains them by mapping
         # 'mods' to a step that translates ycc/mods/<name> into that tool's
         # extension format; until then the intent is reported and skipped.
@@ -51,6 +49,52 @@ cursor_reads_agents_skills() { return 0; }
 # cursor_native_skills_dirs — where this target installs ycc skills natively.
 cursor_native_skills_dirs() { printf '%s\n' "${HOME}/.cursor/skills"; }
 
+# Where a commands carrier finds the skills it references this run: the chosen
+# skills home (native or consolidated ~/.agents/skills), never a plugin root.
+cursor_skills_home() {
+    if [[ "${SKILLS_HOME:-}" == "agents" ]] || skills_consolidated cursor; then
+        echo "${HOME}/.agents/skills"
+    else
+        echo "${HOME}/.cursor/skills"
+    fi
+}
+
+# Preflight both carriers before any user file is changed. The helpers reject
+# unsafe ownership, local edits, malformed hooks, and symlink destinations.
+cursor_carrier_preflight() {
+    local action="$1" skills_home
+    local -a flags=()
+    [[ "${FORCE:-0}" == "1" ]] && flags+=(--force)
+    if [[ "${action}" == "install" ]] && step_enabled commands; then
+        skills_home="$(cursor_skills_home)"
+        # Skills land later in the same run: reference the destination, not what
+        # is on disk yet. Standalone commands without skills fail closed here.
+        local -a skills_flags=(--skills-dir "${skills_home}")
+        if step_enabled base || step_enabled skills; then
+            skills_flags+=(--skills-pending)
+        fi
+        python3 "${SLICE_HELPER}" install --target cursor --slice commands --dry-run \
+            "${skills_flags[@]}" "${flags[@]}" || return 1
+    fi
+    if [[ "${action}" == "remove" ]] && step_enabled commands; then
+        python3 "${SLICE_HELPER}" remove --target cursor --slice commands --dry-run "${flags[@]}" || return 1
+    fi
+    if step_enabled hooks; then
+        python3 "${SLICE_HELPER}" "${action}" --target cursor --slice hooks --dry-run "${flags[@]}" || return 1
+    fi
+    if step_enabled hooks; then
+        [[ "${action}" == "remove" ]] && flags+=(--remove)
+        merge_settings_config cursor-hooks "${CURSOR_PACKAGES_DIR}/ycc-hooks/hooks/hooks.json" \
+            "${HOME}/.cursor/hooks.json" hooks --dry-run "${flags[@]}" || return 1
+    fi
+}
+
+cursor_sync_hooks() {
+    run_slice cursor hooks
+    merge_settings_config cursor-hooks "${CURSOR_PACKAGES_DIR}/ycc-hooks/hooks/hooks.json" \
+        "${HOME}/.cursor/hooks.json" hooks
+}
+
 # ---------------------------------------------------------------------------
 # Cursor sync (base + optional MCP + optional settings/rules)
 # ---------------------------------------------------------------------------
@@ -61,6 +105,7 @@ sync_cursor_target() {
     local scripts_dir="${SCRIPT_DIR}/scripts"
 
     command -v python3 >/dev/null 2>&1 || { err "python3 is required but not found"; exit 1; }
+    cursor_carrier_preflight install || exit 1
 
     mkdir -p "${cursor_dir}"
 
@@ -79,15 +124,17 @@ sync_cursor_target() {
         done
         units=("${package_units[@]}")
     fi
-    local do_bundle=0 do_settings=0 do_mcp=0 do_rules=0
+    local do_bundle=0 do_settings=0 do_mcp=0 do_rules=0 do_commands=0 do_hooks=0
     [[ ${#units[@]} -gt 0 ]] && do_bundle=1
     step_enabled settings && do_settings=1
     step_enabled mcp && do_mcp=1
     step_enabled rules && do_rules=1
+    step_enabled commands && do_commands=1
+    step_enabled hooks && do_hooks=1
 
     [[ $do_bundle -eq 1 ]] && { command -v rsync >/dev/null 2>&1 || { err "rsync is required but not found"; exit 1; }; }
 
-    if [[ $do_bundle -eq 0 && $do_settings -eq 0 && $do_mcp -eq 0 && $do_rules -eq 0 ]]; then
+    if [[ $do_bundle -eq 0 && $do_settings -eq 0 && $do_mcp -eq 0 && $do_rules -eq 0 && $do_commands -eq 0 && $do_hooks -eq 0 ]]; then
         warn "Cursor target ran no steps"
         printf '\n%sCursor %s complete.%s\n' "${BOLD}" "${COMMAND}" "${NC}"
         return 0
@@ -98,6 +145,8 @@ sync_cursor_target() {
     [[ $do_settings -eq 1 ]] && total=$((total + 1))
     [[ $do_mcp -eq 1 ]] && total=$((total + 1))
     [[ $do_rules -eq 1 ]] && total=$((total + 1))
+    [[ $do_commands -eq 1 ]] && total=$((total + 1))
+    [[ $do_hooks -eq 1 ]] && total=$((total + 1))
     local step=0
 
     if [[ $do_bundle -eq 1 ]]; then
@@ -157,6 +206,22 @@ PY
         done
     fi
 
+    if [[ $do_commands -eq 1 ]]; then
+        step=$((step + 1))
+        printf '\n%s[%d/%d] Install Cursor user commands%s\n' "${BOLD}" "$step" "$total" "${NC}"
+        if skills_consolidated cursor; then
+            # The agents target normally runs later; commands cannot land with
+            # dangling references, so materialize its scheduled skills first.
+            run_slice agents skills
+        fi
+        YCC_CURSOR_SKILLS_HOME="$(cursor_skills_home)" run_slice cursor commands
+    fi
+    if [[ $do_hooks -eq 1 ]]; then
+        step=$((step + 1))
+        printf '\n%s[%d/%d] Merge Cursor sessionStart hook%s\n' "${BOLD}" "$step" "$total" "${NC}"
+        cursor_sync_hooks
+    fi
+
     if [[ $do_settings -eq 1 ]]; then
         step=$((step + 1))
         printf '\n%s[%d/%d] Merge Cursor CLI settings%s\n' "${BOLD}" "$step" "$total" "${NC}"
@@ -193,6 +258,12 @@ PY
 remove_cursor_target() {
     validate_only_steps "cursor"
     local cursor_dir="${HOME}/.cursor"
+    cursor_carrier_preflight remove || exit 1
+    if step_enabled hooks; then
+        remove_settings cursor-hooks "${CURSOR_PACKAGES_DIR}/ycc-hooks/hooks/hooks.json" "${cursor_dir}/hooks.json" hooks || exit 1
+        run_slice cursor hooks
+    fi
+    remove_slices cursor commands
 
     if step_enabled rules; then
         printf '\n%sCursor: unlink rules (CLAUDE.md + AGENTS.md)%s\n' "${BOLD}" "${NC}"

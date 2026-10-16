@@ -16,7 +16,7 @@ from generate_codex_skills import plugin_output_path
 from package_model import PackageModel, PackageModelError, load_package_model
 
 TARGETS = ("claude", "cursor", "codex", "opencode", "agents")
-STEP_ORDER = ("base", "agents", "settings", "rules", "mcp", "hooks")
+STEP_ORDER = ("base", "agents", "commands", "settings", "rules", "mcp", "hooks")
 CARRIERS: dict[str, dict[str, str]] = {
     "claude": {
         "skills": "base",
@@ -39,14 +39,14 @@ CARRIERS: dict[str, dict[str, str]] = {
         "rules": "rules",
         "mcp": "mcp",
     },
-    # Cursor shared helpers ride physically inside skills/_shared. Commands and
-    # hooks have no supported installer carrier, and native enablement is
-    # account-side with no non-interactive install.
+    # Filesystem carriers do not activate native plugins or consult their caches.
     "cursor": {
         "skills": "base",
         "agents": "base",
         "shared": "base",
         "rules": "base",
+        "commands": "commands",
+        "hooks": "hooks",
         "settings": "settings",
         "mcp": "mcp",
     },
@@ -88,8 +88,8 @@ def plan_install(
 ) -> InstallPlan:
     """Expand model closures; a package's own components must all be deliverable.
 
-    Explicit unsupported pairs fail before any write. installer-fallback extras
-    that no installer has ever carried (Cursor hooks) are reported, not blocking.
+    Explicit unsupported pairs fail before any write. Cursor fallback hooks
+    are not inherited: only a package providing hooks owns that carrier.
     """
     known = {package.key: package for package in model.packages}
     for package in packages:
@@ -129,13 +129,11 @@ def plan_install(
                         f"package '{package}' cannot be fully delivered on target '{target}': "
                         f"{', '.join(missing)} have no installer carrier"
                     )
-                    if target == "cursor":
-                        problem += (
-                            "; Cursor has no non-interactive plugin install (native activation is the interactive "
-                            "/plugins flow after the listing flip) and WorktreeCreate is unsupported"
-                        )
                 else:
-                    components.update(pair.install_set)
+                    selected = set(pair.install_set)
+                    if target == "cursor" and "hooks" not in pair.provides:
+                        selected.discard("hooks")
+                    components.update(selected)
             if problem:
                 break
         if problem:

@@ -41,6 +41,7 @@ validate_scope_targets_for_path() {
         # generators (skills/agents/rules) stay on the catch-all: install tests
         # and other targets import or regenerate them.
         scripts/generate_cursor_packages.py | scripts/cursor_native_resources.py | scripts/generate-cursor-packages.sh | scripts/validate-cursor-packages.sh | scripts/validate_cursor_native.py | scripts/test_validate_cursor_native.py | scripts/test_generate_cursor_packages.py | scripts/vendor/cursor/*) echo "cursor cursor-native config" ;;
+        scripts/cursor_live_smoke.py | scripts/test_cursor_live_smoke.py) echo "cursor-native" ;;
 
         # Install docs contain model-validated public package identifiers.
         docs/install/*) echo "packages" ;;

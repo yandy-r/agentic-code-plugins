@@ -36,6 +36,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import sys
 import tempfile
 import tomllib
@@ -120,6 +121,17 @@ PROFILES: dict[str, dict[str, Any]] = {
                 # without managing their contents (list-union never removes).
                 {"path": ["permissions", "allow"], "policy": "list-union", "keep_empty": True},
                 {"path": ["permissions", "deny"], "policy": "list-union", "keep_empty": True},
+            ],
+        },
+    },
+    # Cursor loads user sessionStart hooks from hooks.json. Only that event is managed;
+    # list-union preserves every foreign hook command and unrelated event entry.
+    "cursor-hooks": {
+        "format": "json",
+        "strict_hooks": True,
+        "groups": {
+            "hooks": [
+                {"path": ["hooks", "sessionStart"], "policy": "list-union", "keep_empty": True},
             ],
         },
     },
@@ -241,6 +253,49 @@ def load_json_config(raw: str, path: Path, profile: dict[str, Any]) -> Any:
     data = json.loads(strip_jsonc(raw))
     print(f"  [!!] {path} is JSONC (comments or trailing commas); they are dropped when it is rewritten")
     return data
+
+
+def validate_cursor_hooks_source(source: Any) -> dict[str, Any]:
+    """Return the generated sessionStart payload after an exact shape check."""
+    if not isinstance(source, dict) or set(source) != {"version", "hooks"} or source.get("version") != 1:
+        raise MergeError("Cursor hooks source must be {version: 1, hooks: {sessionStart: [...]}}")
+    hooks = source.get("hooks")
+    if not isinstance(hooks, dict) or set(hooks) != {"sessionStart"}:
+        raise MergeError("Cursor hooks source may register sessionStart only")
+    entries = hooks.get("sessionStart")
+    if not isinstance(entries, list) or len(entries) != 1 or not isinstance(entries[0], dict):
+        raise MergeError("Cursor hooks source must contain exactly one sessionStart command")
+    entry = entries[0]
+    if set(entry) != {"command"} or not isinstance(entry.get("command"), str) or not entry["command"]:
+        raise MergeError("Cursor hooks sessionStart entry must contain one non-empty command")
+    return source
+
+
+def validate_cursor_hooks_destination(destination: Any) -> None:
+    """Reject generated-hook rewrites that could silence Cursor's hooks file."""
+    hooks = destination.get("hooks") if isinstance(destination, dict) else None
+    if (
+        not isinstance(destination, dict)
+        or destination.get("version") != 1
+        or not isinstance(hooks, dict)
+        or any(not isinstance(entries, list) for entries in hooks.values())
+        or "sessionStart" in hooks
+        and any(not isinstance(e, dict) or not isinstance(e.get("command"), str) for e in hooks["sessionStart"])
+    ):
+        raise MergeError(
+            "invalid Cursor hooks.json (expected version 1 and event lists of command objects); "
+            "fix it before installing ycc-hooks"
+        )
+
+
+def check_cursor_hooks_ownership(source: dict[str, Any], destination: dict[str, Any]) -> None:
+    """Fail closed when a different herdr sessionStart command already exists."""
+    wanted = source["hooks"]["sessionStart"][0]
+    for entry in destination.get("hooks", {}).get("sessionStart", []):
+        if "herdr-session-start.sh" in entry["command"] and entry != wanted:
+            raise MergeError(
+                "Cursor sessionStart ownership collision: existing herdr command differs; resolve it first"
+            )
 
 
 class MergeError(RuntimeError):
@@ -1017,8 +1072,16 @@ def remove_json(
     destination = load_json_config(raw, destination_path, profile)
     if not isinstance(destination, dict):
         raise MergeError(f"{destination_path}: expected a JSON object at the root")
+    if profile.get("strict_hooks"):
+        validate_cursor_hooks_destination(destination)
+        check_cursor_hooks_ownership(source, destination)
 
     to_remove, rewrites, conflicts, stale_keys = plan_remove(profile, groups, source, destination, state_entry, force)
+    if profile.get("strict_hooks") and conflicts:
+        raise MergeError(
+            "Cursor sessionStart registration still references the hook script; "
+            "refusing removal without ownership (resolve it or re-run with --force)"
+        )
     if not to_remove and not rewrites:
         return None, [], conflicts, stale_keys
 
@@ -1198,14 +1261,20 @@ def merge_json(
         destination = load_json_config(raw, destination_path, profile)
         if not isinstance(destination, dict):
             raise MergeError(f"{destination_path}: expected a JSON object at the root")
+        if profile.get("strict_hooks"):
+            validate_cursor_hooks_destination(destination)
     else:
         destination = {}
+    if profile.get("strict_hooks"):
+        check_cursor_hooks_ownership(source, destination)
 
     updates, conflicts, deletions, additions = plan_merge(profile, groups, source, destination, state_entry, force)
     if not updates and not deletions:
         return None, updates, conflicts, deletions, additions
 
     merged = json.loads(json.dumps(destination))
+    if profile.get("strict_hooks"):
+        merged.setdefault("version", 1)
     for path, value in updates:
         write_nested(merged, path, value)
     for path in deletions:
@@ -1376,8 +1445,20 @@ def main() -> int:
     if not source_path.is_file():
         print(f"merge_managed_config: source not found: {source_path}", file=sys.stderr)
         return 1
+    if profile.get("strict_hooks") and (
+        destination_path.is_symlink() or any(p.is_symlink() for p in destination_path.parents)
+    ):
+        print("merge_managed_config: refusing symlinked Cursor hooks destination", file=sys.stderr)
+        return 1
     try:
         source = load_source(source_path, profile)
+        if profile.get("strict_hooks"):
+            validate_cursor_hooks_source(source)
+            expected = 'bash "${CURSOR_PLUGIN_ROOT}/hooks/herdr-session-start.sh" session'
+            if source["hooks"]["sessionStart"][0]["command"] != expected:
+                raise MergeError("Cursor hooks source must use the canonical herdr sessionStart command")
+            hook_script = Path.home() / ".cursor/hooks/herdr-session-start.sh"
+            source["hooks"]["sessionStart"][0]["command"] = f"bash {shlex.quote(str(hook_script))} session"
     except (MergeError, json.JSONDecodeError, tomllib.TOMLDecodeError) as error:
         print(f"merge_managed_config: {error}", file=sys.stderr)
         return 1

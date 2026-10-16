@@ -197,17 +197,14 @@ install_must_succeed "${home}" remove --target claude --intent skills
 if [[ ! -e "${home}/.claude/skills" ]]; then ok "claude skills remove takes back every entry"; else ko "claude skills remove takes back every entry" "$(ls "${home}/.claude/skills")"; fi
 
 home="$(new_home)"
-install_must_succeed "${home}" sync --target cursor,codex --intent commands
+install_must_succeed "${home}" sync --target codex --intent commands
 out="${INSTALL_OUT}"
-assert_contains "${out}" "intent 'commands' is not supported by target 'cursor'" "cursor skips commands intent"
 assert_contains "${out}" "intent 'commands' is not supported by target 'codex'" "codex skips commands intent"
 assert_not_contains "${out}" "Generate" "unsupported commands intent generates nothing"
 
 home="$(new_home)"
-install_must_succeed "${home}" install --target claude,cursor --only commands
-out="${INSTALL_OUT}"
-assert_contains "${out}" "step 'commands' is not supported by target 'cursor' — skipping" "install --only skips a slice a target lacks"
-if [[ -e "${home}/.claude/skills/clean" ]]; then ok "install --only commands still runs where supported"; else ko "install --only commands still runs where supported" "${out}"; fi
+install_must_succeed "${home}" install --target claude,cursor --only skills,commands --skills-home native
+if [[ -e "${home}/.claude/skills/clean" && -e "${home}/.cursor/commands/clean.md" ]]; then ok "install --only commands runs on both supported targets"; else ko "install --only commands runs on both supported targets" "${INSTALL_OUT}"; fi
 
 # Legacy wrappers: only names recorded in installed-units.json are retired,
 # and only after the skills install succeeded.

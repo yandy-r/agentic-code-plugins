@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import filecmp
+import hashlib
 import json
 import os
 import re
@@ -28,7 +29,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SLICES = ("skills", "agents", "commands")
+SLICES = ("skills", "agents", "commands", "hooks")
 
 
 @dataclass(frozen=True)
@@ -41,6 +42,9 @@ class Unit:
     extra: dict[str, str] = field(default_factory=dict)
     # Install only these entry names from src (empty = every entry).
     only: tuple[str, ...] = ()
+    # Strict filesystem carriers track bytes, reject local edits, and preflight
+    # the entire slice before changing any entry (including symlink ancestors).
+    strict: bool = False
 
 
 # Claude has no commands slice of its own: skills are the slash commands, so
@@ -53,6 +57,10 @@ SPECS: dict[tuple[str, str], tuple[Unit, ...]] = {
     ("claude", "agents"): (Unit("ycc/agents", ".claude/agents"),),
     ("cursor", "skills"): (Unit("packages/cursor/ycc/skills", ".cursor/skills"),),
     ("cursor", "agents"): (Unit("packages/cursor/ycc/agents", ".cursor/agents"),),
+    ("cursor", "commands"): (Unit("packages/cursor/ycc/commands", ".cursor/commands", strict=True),),
+    ("cursor", "hooks"): (
+        Unit("packages/cursor/ycc-hooks/hooks", ".cursor/hooks", only=("herdr-session-start.sh",), strict=True),
+    ),
     # Codex keeps shared helpers beside skills/ in the plugin; standalone
     # skills find them at ~/.codex/skills/_shared instead.
     ("codex", "skills"): (
@@ -81,6 +89,10 @@ class Context:
     rewrites: list[tuple[str, str]]
     pattern: re.Pattern[str] | None
     state: dict[str, list[str]]
+    hashes: dict[str, str] = field(default_factory=dict)
+    dry_run: bool = False
+    skills_dir: Path | None = None
+    skills_pending: bool = False
 
 
 def rewrites_for(target: str, home: Path) -> list[tuple[str, str]]:
@@ -94,7 +106,6 @@ def rewrites_for(target: str, home: Path) -> list[tuple[str, str]]:
             ("~/.codex/plugins/ycc/shared/", "~/.codex/skills/_shared/"),
             ("../../../shared/", "../../_shared/"),
         ]
-    # cursor / opencode / agents bundles already target the directories slices use.
     return []
 
 
@@ -130,9 +141,11 @@ def load_state(path: Path) -> dict[str, list[str]]:
     return {k: list(v) for k, v in units.items() if isinstance(v, list)}
 
 
-def save_state(path: Path, units: dict[str, list[str]]) -> None:
+def save_state(path: Path, units: dict[str, list[str]], hashes: dict[str, str] | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {"version": 1, "units": {k: sorted(v) for k, v in sorted(units.items()) if v}}
+    if hashes:
+        payload["sha256"] = hashes
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".installed-units.")
     with os.fdopen(fd, "w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2)
@@ -227,7 +240,84 @@ def exists(path: Path) -> bool:
     return path.exists() or path.is_symlink()
 
 
+def entry_hash(path: Path) -> str:
+    """Fingerprint the bytes and executable bit of strict carrier files."""
+    return hashlib.sha256(path.read_bytes() + str(path.stat().st_mode & 0o111).encode()).hexdigest()
+
+
+def strict_unit(unit: Unit, ctx: Context, install: bool) -> int:
+    """Plan all ownership decisions before mutating a Cursor carrier directory."""
+    dest = ctx.home / unit.dest
+    key = str(dest)
+    for parent in (dest, *dest.parents):
+        if parent.is_symlink():
+            print(f"[err] refusing symlinked Cursor carrier destination: {parent}", file=sys.stderr)
+            return 1
+        if parent == ctx.home:
+            break
+    entries = shipped_entries(unit)
+    owned = set(ctx.state.get(key, []))
+    with tempfile.TemporaryDirectory() as tmp:
+        staging = Path(tmp)
+        skills_dir = ctx.skills_dir or ctx.home / ".cursor/skills"
+        rewrites = [("${CURSOR_PLUGIN_ROOT}/skills/", f"{skills_dir}/")] if unit.dest == ".cursor/commands" else []
+        if install and unit.dest == ".cursor/commands" and not ctx.skills_pending:
+            missing = [name for name in entries if not (skills_dir / Path(name).stem / "SKILL.md").is_file()]
+            if missing:
+                print(
+                    f"[err] Cursor commands require installed skills at {skills_dir}: {', '.join(missing)}; "
+                    "run install.sh install --target cursor --only skills,commands first",
+                    file=sys.stderr,
+                )
+                return 1
+        staged = {name: stage(name, src, staging, rewrites, None) for name, src in entries.items()}
+        actions: list[str] = []
+        for name in sorted((set(entries) | owned) if install else owned):
+            if not name or Path(name).name != name or name in {".", ".."}:
+                print("[err] invalid Cursor carrier ownership state", file=sys.stderr)
+                return 1
+            target = dest / name
+            if exists(target):
+                wanted = staged.get(name)
+                plain = target.is_file() and not target.is_symlink()
+                matches = wanted is not None and plain and same_entry(wanted, target)
+                recorded = ctx.hashes.get(str(target))
+                unchanged = target.is_file() and not target.is_symlink() and recorded == entry_hash(target)
+                if not (matches and install or unchanged or ctx.force):
+                    print(
+                        f"[err] Cursor carrier ownership collision: {target}; "
+                        "not owned or locally edited (use --force)",
+                        file=sys.stderr,
+                    )
+                    return 1
+                actions.append(name)
+            elif install and name in entries:
+                actions.append(name)
+        if ctx.dry_run:
+            return 0
+        if install:
+            dest.mkdir(parents=True, exist_ok=True)
+        for name in actions:
+            target = dest / name
+            if exists(target):
+                delete_entry(target)
+            ctx.hashes.pop(str(target), None)
+            if install and name in staged:
+                shutil.move(str(staged[name]), str(target))
+                ctx.hashes[str(target)] = entry_hash(target)
+        if install:
+            ctx.state[key] = sorted(entries)
+        else:
+            ctx.state.pop(key, None)
+            if dest.is_dir() and not any(dest.iterdir()):
+                dest.rmdir()
+    print(f"[ok] Cursor {unit.dest} {'installed' if install else 'removed'}")
+    return 0
+
+
 def install_unit(unit: Unit, ctx: Context) -> int:
+    if unit.strict:
+        return strict_unit(unit, ctx, True)
     dest = ctx.home / unit.dest
     key = str(dest)
     owned = set(ctx.state.get(key, []))
@@ -265,6 +355,8 @@ def install_unit(unit: Unit, ctx: Context) -> int:
 
 
 def remove_unit(unit: Unit, ctx: Context) -> int:
+    if unit.strict:
+        return strict_unit(unit, ctx, False)
     dest = ctx.home / unit.dest
     key = str(dest)
     owned = set(ctx.state.get(key, []))
@@ -343,9 +435,25 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--target", required=True, choices=sorted({t for t, _ in SPECS}))
     parser.add_argument("--slice", required=True, choices=SLICES)
     parser.add_argument("--force", action="store_true")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Preflight strict Cursor carrier ownership without writing"
+    )
+    parser.add_argument(
+        "--skills-dir",
+        type=Path,
+        default=os.environ.get("YCC_CURSOR_SKILLS_HOME"),
+        help="Installed skills directory referenced by Cursor commands",
+    )
+    parser.add_argument(
+        "--skills-pending",
+        action="store_true",
+        help="Preflight only: skills are scheduled in the same installer run",
+    )
     args = parser.parse_args(argv)
 
     install = args.action == "install"
+    if args.skills_pending and not args.dry_run:
+        parser.error("--skills-pending requires --dry-run")
     claude_commands = args.target == "claude" and args.slice == "commands"
     slice_name = "skills" if claude_commands and install else args.slice
     # Removing claude 'commands' only retires recorded legacy wrappers.
@@ -353,9 +461,22 @@ def main(argv: list[str] | None = None) -> int:
     if units is None:
         print(f"[err] target '{args.target}' has no '{args.slice}' slice", file=sys.stderr)
         return 1
+    if args.dry_run and any(not unit.strict for unit in units):
+        parser.error("--dry-run is supported for strict Cursor commands/hooks carriers only")
     home = Path.home()
     path = state_path()
-    ctx = Context(home, args.force, rewrites_for(args.target, home), namespace_pattern(args.target), load_state(path))
+    hashes = json.loads(path.read_text(encoding="utf-8")).get("sha256", {}) if path.is_file() else {}
+    ctx = Context(
+        home,
+        args.force,
+        rewrites_for(args.target, home),
+        namespace_pattern(args.target),
+        load_state(path),
+        hashes,
+        args.dry_run,
+        args.skills_dir,
+        args.skills_pending,
+    )
     run = install_unit if install else remove_unit
     conflicts = 0
     try:
@@ -365,7 +486,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.target == "claude" and not conflicts and (claude_commands or (install and slice_name == "skills")):
             retire_legacy_commands(ctx)
     finally:
-        save_state(path, ctx.state)
+        if not args.dry_run and (not conflicts or not any(unit.strict for unit in units)):
+            save_state(path, ctx.state, ctx.hashes)
     return 1 if conflicts else 0
 
 
