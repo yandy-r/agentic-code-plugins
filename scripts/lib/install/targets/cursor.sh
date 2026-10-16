@@ -127,7 +127,8 @@ sync_cursor_target() {
             for unit in "${units[@]}"; do
                 sync_bundle_units "$(cursor_unit_src_root "${unit}")" "${cursor_dir}" "${unit}"
             done
-            python3 - "${scripts_dir}" "${cursor_dir}" <<'PY'
+            if [[ " ${units[*]} " == *" skills "* ]]; then
+                python3 - "${scripts_dir}" "${cursor_dir}" <<'PY'
 import sys
 from pathlib import Path
 
@@ -136,6 +137,7 @@ from cursor_native_resources import restore_installer_init
 
 restore_installer_init(Path(sys.argv[2]) / "skills")
 PY
+            fi
         fi
         local slice
         for slice in $(skills_filter cursor "$(selected_slices skills agents)"); do
