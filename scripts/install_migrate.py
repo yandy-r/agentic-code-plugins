@@ -17,12 +17,16 @@ from codex_marketplace import build_entry, validate_marketplace_catalog
 from generate_codex_plugin import native_packages, native_version
 from install_slices import (
     SPECS,
-    load_state as load_slice_state,
     namespace_pattern,
     project_cursor_init,
     rewrites_for,
     shipped_entries,
     stage,
+)
+from install_slices import (
+    load_state as load_slice_state,
+)
+from install_slices import (
     state_path as slice_state_path,
 )
 from merge_managed_config import PROFILES, load_state, remove_hook_commands
@@ -229,13 +233,17 @@ class Migration:
             for entry in commands_dir.iterdir():
                 if entry.name in tracked:
                     continue
-                references_skills = entry.is_file() and not entry.is_symlink() and any(
-                    marker in entry.read_text(encoding="utf-8", errors="replace")
-                    for marker in (
-                        str(self.home / ".cursor/skills"),
-                        str(self.home / ".agents/skills"),
-                        "~/.cursor/skills",
-                        "~/.agents/skills",
+                references_skills = (
+                    entry.is_file()
+                    and not entry.is_symlink()
+                    and any(
+                        marker in entry.read_text(encoding="utf-8", errors="replace")
+                        for marker in (
+                            str(self.home / ".cursor/skills"),
+                            str(self.home / ".agents/skills"),
+                            "~/.cursor/skills",
+                            "~/.agents/skills",
+                        )
                     )
                 )
                 if entry.name in shipped or entry.is_symlink() or references_skills:
