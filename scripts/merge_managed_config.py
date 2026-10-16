@@ -1042,7 +1042,7 @@ def remove_hook_commands(
     """Prune exact source hook commands only with legacy event-hash proof.
 
     This opt-in path never calls the generic event-array removal planner.
-    Conflicting events retain their state so ownership evidence is not lost.
+    A removal retires the event proof; conflicts retain it only without changes.
     """
     if not destination_path.exists():
         return None, [], [], [key for key in state_entry if key.startswith("/hooks/")]
@@ -1080,10 +1080,13 @@ def remove_hook_commands(
             continue
         if result.uncertain:
             conflicts.append(key)
-        elif key in state_entry:
-            stale_keys.append(key)
         if not result.removed:
             continue
+        # Any actual removal spends the event's ownership proof, even with
+        # uncertain leftovers (those need manual cleanup). Keeping it would let a
+        # repeat run consume retained byte-identical user copies.
+        if key in state_entry:
+            stale_keys.append(key)
         changed.append(path)
         if not result.remaining:
             kept_events.pop(event)

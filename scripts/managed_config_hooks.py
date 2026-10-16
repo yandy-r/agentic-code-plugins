@@ -89,8 +89,10 @@ def prune_event(
     all_managed = [hook for _, hooks in managed for hook in hooks]
     present = [hook for group in dest_event if (hooks := _wrapper_hooks(group)) for hook in hooks]
     any_missing = any(hook not in present for hook in all_managed)
-
     result = HookPrune(proven=True)
+    # The event state proves one installed occurrence per source hook, not every
+    # byte-identical user copy: each source occurrence is consumed at most once.
+    available = [(source_meta, hook) for source_meta, source_hooks in managed for hook in source_hooks]
     for group in dest_event:
         hooks = _wrapper_hooks(group)
         if hooks is None:
@@ -100,8 +102,20 @@ def prune_event(
         matching = [
             (source_meta, source_hooks) for source_meta, source_hooks in managed if _covers(metadata, source_meta)
         ]
-        owned = [hook for _, source_hooks in matching for hook in source_hooks]
-        kept = [hook for hook in hooks if hook not in owned]
+        kept = []
+        for hook in hooks:
+            owner = next(
+                (
+                    index
+                    for index, (source_meta, owned) in enumerate(available)
+                    if owned == hook and _covers(metadata, source_meta)
+                ),
+                None,
+            )
+            if owner is None:
+                kept.append(hook)
+            else:
+                available.pop(owner)
         result.removed += len(hooks) - len(kept)
         result.uncertain += sum(1 for hook in kept if hook in all_managed)
         if any_missing:

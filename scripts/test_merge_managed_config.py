@@ -946,7 +946,6 @@ class HookCommandPruneTestCase(MergeBase):
                 }
             },
         )
-        state_before = self.state.read_bytes()
 
         result = self.prune(source, destination)
 
@@ -957,7 +956,56 @@ class HookCommandPruneTestCase(MergeBase):
                 "hooks": {"PreToolUse": [{**self.GROUP, "hooks": [edited, self.OTHER]}]},
             },
         )
-        self.assertEqual(self.state.read_bytes(), state_before)
+        self.assertNotIn(f"claude-settings:{destination}", json.loads(self.state.read_text()))
+        before = destination.read_bytes(), self.state.read_bytes()
+        self.prune(source, destination)
+        self.assertEqual(before, (destination.read_bytes(), self.state.read_bytes()))
+
+    def test_prune_duplicate_commands_in_same_wrapper_retains_one_across_repeats(self) -> None:
+        source, destination = self.seed()
+        self.write_json(
+            destination,
+            {
+                "hooks": {
+                    "PreToolUse": [
+                        {
+                            **self.GROUP,
+                            "hooks": [self.COMMAND, self.COMMAND],
+                        }
+                    ]
+                }
+            },
+        )
+        before = destination.read_bytes(), self.state.read_bytes()
+
+        preview = self.prune(source, destination, "--dry-run")
+        self.assertIn("would remove /hooks/PreToolUse", preview.stdout)
+        self.assertIn("kept uncertain", preview.stdout)
+        self.assertEqual(before, (destination.read_bytes(), self.state.read_bytes()))
+
+        result = self.prune(source, destination)
+
+        self.assertIn("kept uncertain", result.stdout)
+        self.assertEqual(json.loads(destination.read_text()), {"hooks": {"PreToolUse": [self.GROUP]}})
+        self.assertNotIn(f"claude-settings:{destination}", json.loads(self.state.read_text()))
+        before = destination.read_bytes(), self.state.read_bytes()
+        repeat = self.prune(source, destination)
+        self.assertIn("kept uncertain", repeat.stdout)
+        self.assertEqual(before, (destination.read_bytes(), self.state.read_bytes()))
+
+    def test_prune_duplicate_wrappers_retains_one_across_repeats(self) -> None:
+        source, destination = self.seed()
+        self.write_json(destination, {"hooks": {"PreToolUse": [self.GROUP, self.GROUP]}})
+
+        result = self.prune(source, destination)
+
+        self.assertIn("kept uncertain", result.stdout)
+        self.assertEqual(json.loads(destination.read_text()), {"hooks": {"PreToolUse": [self.GROUP]}})
+        self.assertNotIn(f"claude-settings:{destination}", json.loads(self.state.read_text()))
+        before = destination.read_bytes(), self.state.read_bytes()
+        repeat = self.prune(source, destination)
+        self.assertIn("kept uncertain", repeat.stdout)
+        self.assertEqual(before, (destination.read_bytes(), self.state.read_bytes()))
 
     def test_prune_without_state_does_not_adopt_matching_source(self) -> None:
         source, destination = self.seed()
