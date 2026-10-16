@@ -311,6 +311,68 @@ class NativeExportTests(unittest.TestCase):
                     self.assertFalse((legacy / MCP_ROOT).exists())
                     self.assertEqual(self.snapshot(legacy / SKILLS_ROOT), legacy_before)
 
+    def test_default_rejects_managed_symlinks_without_mutation(self) -> None:
+        target = self.tmp / "outside"
+        target.mkdir()
+        (target / "sentinel").write_bytes(b"outside sentinel\n")
+        paths = (
+            MCP_ROOT,
+            MCP_ROOT / "nested",
+            Path(".codex-plugin"),
+            Path(".codex-plugin/config"),
+            Path(".codex-plugin/config/mcp-servers.json"),
+            SKILLS_ROOT / ".codex-plugin",
+            SKILLS_ROOT / ".mcp.json",
+            Path(".agents"),
+            Path(".agents/plugins"),
+            CATALOG,
+        )
+        for index, rel in enumerate(paths):
+            dest = self.tmp / f"default-symlink-{index}"
+            link = dest / rel
+            link.parent.mkdir(parents=True)
+            link.symlink_to(target, target_is_directory=True)
+            before = self.snapshot(dest)
+            for dry_run in (False, True):
+                with self.subTest(rel=rel, dry_run=dry_run):
+                    with self.assertRaisesRegex(ValueError, "symlink"):
+                        generator.write_all(dest, dry_run=dry_run)
+            with self.assertRaisesRegex(ValueError, "symlink"):
+                generator.run_check(dest)
+            self.assertEqual(self.snapshot(dest), before)
+            self.assertEqual(self.snapshot(target), {Path("sentinel"): b"outside sentinel\n"})
+
+    def test_regular_file_package_roots_have_explicit_lifecycle(self) -> None:
+        for native in (False, True):
+            dest = self.tmp / f"regular-roots-{native}"
+            root = dest / MCP_ROOT
+            root.parent.mkdir(parents=True)
+            root.write_bytes(b"selected root is a file\n")
+            for dry_run in (False, True):
+                with self.assertRaisesRegex(ValueError, "package root.*directory"):
+                    if native:
+                        generator.generate_native_tree(dest, dry_run=dry_run)
+                    else:
+                        generator.write_all(dest, dry_run=dry_run)
+            self.assertEqual(self.snapshot(dest), {MCP_ROOT: b"selected root is a file\n"})
+            root.unlink()
+            excluded = dest / ".codex-plugin/ycc-hooks"
+            excluded.write_bytes(b"stale excluded root\n")
+            if native:
+                generator.generate_native_tree(dest)
+                excluded.write_bytes(b"stale excluded root\n")
+                with contextlib.redirect_stderr(io.StringIO()) as errors:
+                    self.assertEqual(generator.run_native_check(dest), 1)
+                generator.generate_native_tree(dest)
+            else:
+                generator.write_all(dest, dry_run=False)
+                excluded.write_bytes(b"stale excluded root\n")
+                with contextlib.redirect_stderr(io.StringIO()) as errors:
+                    self.assertEqual(generator.run_check(dest), 1)
+                generator.write_all(dest, dry_run=False)
+            self.assertIn("ycc-hooks", errors.getvalue())
+            self.assertFalse(excluded.exists())
+
     def test_legacy_builders_and_bytes_unchanged(self) -> None:
         def serialized(payload: dict) -> bytes:
             return (json.dumps(payload, indent=2) + "\n").encode("utf-8")

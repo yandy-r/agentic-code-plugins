@@ -8,6 +8,7 @@ import re
 import sys
 import tempfile
 import unittest
+from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -53,46 +54,76 @@ class NativeResourceTestCase(unittest.TestCase):
                     self.assertIn("absolute path", instruction)
                     self.assertIn("project as cwd", instruction)
 
+    def assert_resource_paths(self, rel: Path, legacy: str, content: str) -> int:
+        references = re.findall(r"~/\.codex/plugins/ycc/([a-zA-Z0-9_./{},#-]+)", legacy)
+        references += ["shared/" + tail for tail in re.findall(r"(?:\.\./)+_shared/([a-zA-Z0-9_./{},#-]+)", legacy)]
+        counts = Counter(ref.split("#", 1)[0].rstrip(".,") for ref in references if "{{" not in ref)
+        for reference, count in counts.items():
+            if not reference:
+                continue
+            if rel.as_posix() in skills.NATIVE_PROMPT_FILES:
+                prefix = re.escape(skills.NATIVE_PLUGIN_PLACEHOLDER + "/")
+                tail = reference
+            else:
+                # Use only the resource's non-traversal tail to find it, then resolve the
+                # traversal actually emitted so an extra ../ cannot false-pass.
+                expected = os.path.relpath(reference, rel.parent) + ("/" if reference.endswith("/") else "")
+                tail = expected
+                while tail.startswith("../"):
+                    tail = tail[3:]
+                if tail in {"", ".."}:
+                    # Ancestor-only directory examples are followed by an angle-bracket template.
+                    tail = expected
+                    prefix = ""
+                else:
+                    prefix = r"(?:\$\{SCRIPT_DIR\}/)?(?:\.\./)*"
+            ending = r"(?=<)" if tail.startswith("../") and not tail.strip("./") else r"(?=$|[\s\"'`()<>#.,:;])"
+            pattern = r"(?<![\w./~${}-])(" + prefix + re.escape(tail) + ")" + ending
+            emitted = re.findall(pattern, content)
+            # Count legacy spellings already local before rewriting, e.g. SCRIPT_DIR primaries.
+            self.assertEqual(len(emitted), count + len(re.findall(pattern, legacy)), (rel, reference, emitted))
+            for value in emitted:
+                if value.startswith(skills.NATIVE_PLUGIN_PLACEHOLDER + "/"):
+                    target = self.root / value.removeprefix(skills.NATIVE_PLUGIN_PLACEHOLDER + "/")
+                else:
+                    target = self.root / rel.parent / value.removeprefix("${SCRIPT_DIR}/")
+                # Expand compact lists in the value actually emitted, not an expected path.
+                brace = re.search(r"\{([^{}]+)\}", str(target))
+                targets = [str(target)]
+                if brace:
+                    targets = [
+                        str(target)[: brace.start()] + name + str(target)[brace.end() :]
+                        for name in brace.group(1).split(",")
+                    ]
+                for path in targets:
+                    resolved = Path(path).resolve()
+                    self.assertTrue(resolved.is_relative_to(self.root), (rel, value))
+                    self.assertTrue(resolved.exists(), (rel, value, resolved))
+        return sum(counts.values())
+
     def test_rewritten_bundled_resources_resolve_inside_emitted_tree(self) -> None:
         checked = 0
-        seen_contexts: set[str] = set()
         for rel in sorted(self.written):
             legacy = PLUGIN_ROOT / rel
             if not legacy.is_file() or not skills.should_transform_text(legacy):
                 continue
             if rel.as_posix() == "shared/references/target-capability-matrix.md":
                 continue
-            content = (self.root / rel).read_text(encoding="utf-8")
-            refs = re.findall(r"~/\.codex/plugins/ycc/([a-zA-Z0-9_./{},#-]+)", legacy.read_text())
-            for reference in refs:
-                if "{{" in reference:
-                    continue
-                reference = reference.split("#", 1)[0].rstrip(".,")
-                if not reference:
-                    continue
-                # Expand the authored compact list notation, not arbitrary template payloads.
-                brace = re.search(r"\{([^{}]+)\}", reference)
-                targets = [reference]
-                if brace:
-                    targets = [
-                        reference[: brace.start()] + name + reference[brace.end() :]
-                        for name in brace.group(1).split(",")
-                    ]
-                with self.subTest(document=rel, reference=reference):
-                    if rel.as_posix() in skills.NATIVE_PROMPT_FILES:
-                        emitted = skills.NATIVE_PLUGIN_PLACEHOLDER + "/" + reference
-                    else:
-                        emitted = Path(os.path.relpath(reference, rel.parent)).as_posix()
-                    self.assertIn(emitted, content)
-                    for target in targets:
-                        relative = os.path.relpath(target, rel.parent)
-                        resolved = (self.root / rel.parent / relative).resolve()
-                        self.assertTrue(resolved.is_relative_to(self.root))
-                        self.assertTrue(resolved.exists(), str(resolved))
-                    checked += 1
-                    seen_contexts.add("shared" if rel.parts[0] == "shared" else rel.parent.name)
+            with self.subTest(document=rel):
+                checked += self.assert_resource_paths(
+                    rel, legacy.read_text(), (self.root / rel).read_text(encoding="utf-8")
+                )
         self.assertGreater(checked, 200)
-        self.assertTrue({"shared", "references", "scripts", "git-workflow"} <= seen_contexts)
+
+    def test_resource_invariant_rejects_extra_parent_traversal(self) -> None:
+        rel = Path("skills/git-workflow/references/commit-phases.md")
+        legacy = (PLUGIN_ROOT / rel).read_text()
+        content = (self.root / rel).read_text()
+        # Simulate a bad native renderer in memory; never mutate authored/generated files.
+        mutated, changes = re.subn(r"\.\./scripts/analyze-changes\.sh", "../../scripts/analyze-changes.sh", content)
+        self.assertGreater(changes, 0)
+        with self.assertRaises(AssertionError):
+            self.assert_resource_paths(rel, legacy, mutated)
 
     def test_executable_script_directory_references_have_a_definition(self) -> None:
         checked = 0

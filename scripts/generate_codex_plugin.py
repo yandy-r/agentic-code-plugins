@@ -188,8 +188,37 @@ def native_metadata(model: PackageModel, packages: Iterable[Package]) -> dict[Pa
     return output
 
 
+def guard_managed_paths(
+    dest_root: Path,
+    managed_paths: Iterable[Path],
+    owned_roots: Iterable[Path],
+    selected_roots: Iterable[Path],
+) -> None:
+    """Reject symlinks on managed paths/owned trees and non-directory selected roots."""
+    for rel in (*managed_paths, *owned_roots):
+        for depth in range(1, len(rel.parts) + 1):
+            prefix = Path(*rel.parts[:depth])
+            if (dest_root / prefix).is_symlink():
+                raise ValueError(f"managed-path symlink is not allowed: {prefix}")
+    for rel in owned_roots:
+        root = dest_root / rel
+        for directory, dirs, files in os.walk(root, followlinks=False):
+            for name in dirs + files:
+                path = Path(directory) / name
+                if path.is_symlink():
+                    raise ValueError(f"managed-path symlink is not allowed: {path.relative_to(dest_root)}")
+    for rel in selected_roots:
+        if (dest_root / rel).exists() and not (dest_root / rel).is_dir():
+            raise ValueError(f"selected package root is not a directory: {rel}")
+
+
+def selected_roots(inventory: Iterable[Path], roots: tuple[Path, ...]) -> tuple[Path, ...]:
+    files = tuple(inventory)
+    return tuple(root for root in roots if any(root in path.parents for path in files))
+
+
 def preflight_native_destination(dest_root: Path, roots: tuple[Path, ...] | None = None) -> Path:
-    """Reject checkout overlap and symlinks before any managed-path mutation."""
+    """Reject checkout overlap and unsafe managed paths before native mutation."""
     dest_root = dest_root.resolve()
     repo_root = REPO_ROOT.resolve()
     if dest_root == Path(dest_root.anchor):
@@ -198,25 +227,11 @@ def preflight_native_destination(dest_root: Path, roots: tuple[Path, ...] | None
         raise ValueError("native output must not overlap the repository")
     if dest_root.exists() and not dest_root.is_dir():
         raise ValueError("native output must be a directory")
+    model = load_package_model()
     if roots is None:
-        roots = native_package_roots(load_package_model().packages)
-    managed_paths = (
-        Path(".agents"),
-        Path(".agents/plugins"),
-        NATIVE_MARKETPLACE,
-        Path(".codex-plugin"),
-        *roots,
-    )
-    for rel in managed_paths:
-        if (dest_root / rel).is_symlink():
-            raise ValueError(f"native output contains managed-path symlink: {rel}")
-    for rel in roots:
-        root = dest_root / rel
-        for directory, dirs, files in os.walk(root, followlinks=False):
-            for name in dirs + files:
-                path = Path(directory) / name
-                if path.is_symlink():
-                    raise ValueError(f"native output contains managed-path symlink: {path.relative_to(dest_root)}")
+        roots = native_package_roots(model.packages)
+    selected = tuple(Path(".codex-plugin") / package.key for package in native_packages(model.packages))
+    guard_managed_paths(dest_root, (NATIVE_MARKETPLACE,), roots, selected)
     return dest_root
 
 
@@ -235,6 +250,9 @@ def native_extras(dest_root: Path, inventory: set[Path], roots: tuple[Path, ...]
 def prune_native_output(dest_root: Path, inventory: set[Path], roots: tuple[Path, ...]) -> None:
     for rel in sorted(native_owned_files(dest_root, roots) - inventory):
         (dest_root / rel).unlink()
+    for rel in roots:
+        if (dest_root / rel).is_file() and rel not in selected_roots(inventory, roots):
+            (dest_root / rel).unlink()
     for rel in roots:
         root = dest_root / rel
         for path in sorted(root.rglob("*"), key=lambda path: len(path.parts), reverse=True):
@@ -303,6 +321,7 @@ def write_all(dest_root: Path, dry_run: bool) -> set[Path]:
     files.add(codex_mcp_path.relative_to(dest_root))
     files.add(mcp_path.relative_to(dest_root))
     files.add(marketplace_path.relative_to(dest_root))
+    guard_managed_paths(dest_root, files, roots, (Path(".codex-plugin/ycc"), *selected_roots(files, roots)))
 
     if dry_run:
         for path in sorted(files):
@@ -343,6 +362,7 @@ def run_check(repo_root: Path | None = None) -> int:
     with tempfile.TemporaryDirectory() as tmp:
         temp_root = Path(tmp)
         files = write_all(temp_root, dry_run=False)
+        guard_managed_paths(repo_root, files, roots, (Path(".codex-plugin/ycc"), *selected_roots(files, roots)))
         diffs = compare_files(temp_root, repo_root, files)
         diffs.extend(f"extra in output: {rel}" for rel in sorted(native_extras(repo_root, files, roots)))
         if diffs:
