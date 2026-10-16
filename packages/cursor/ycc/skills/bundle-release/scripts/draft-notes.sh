@@ -125,20 +125,83 @@ ADDED="$(filter '^[a-f0-9]+ (feat|add)')"
 CHANGED="$(filter '^[a-f0-9]+ (refactor|chore|perf|update|change)')"
 REMOVED="$(filter '(remove|delete|drop)')"
 FIXED="$(filter '^[a-f0-9]+ fix')"
+# --- packages table from ycc/settings/packages.json (skips file-copy entries) ---
+PACKAGES_TABLE="$(python3 - "${REPO_ROOT}/ycc/settings/packages.json" "${NEW_VERSION}" <<'PY'
+import json, sys
 
-# --- substitute placeholders via python3 ---
-python3 - "${TEMPLATE}" "${OUT}" "${NEW_VERSION}" "${DATE_STR}" "${PREV_TAG}" "${COMMITS_RAW}" "${ADDED}" "${CHANGED}" "${REMOVED}" "${FIXED}" <<'PY'
+path = sys.argv[1]
+version = sys.argv[2]
+try:
+    with open(path, encoding="utf-8") as fh:
+        model = json.load(fh)
+except (OSError, ValueError) as exc:
+    print(f"draft-notes.sh: FAIL: cannot read {path}: {exc}", file=sys.stderr)
+    sys.exit(1)
+packages = model.get("packages", {})
+if not isinstance(packages, dict):
+    print(f"draft-notes.sh: FAIL: {path}: packages must be an object", file=sys.stderr)
+    sys.exit(1)
+
+RUNTIME_ORDER = ("claude", "codex", "cursor", "opencode", "agents")
+rows = []
+for key in sorted(packages):
+    package = packages[key]
+    if not isinstance(package, dict):
+        continue
+    runtimes = package.get("runtimes", {})
+    if not isinstance(runtimes, dict):
+        continue
+    for runtime in RUNTIME_ORDER:
+        entry = runtimes.get(runtime)
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("mechanism") == "file-copy":
+            continue
+        status = entry.get("status", "")
+        mechanism = entry.get("mechanism", "")
+        listed = entry.get("listed") is True
+        target = entry.get("target_release")
+        if status == "included":
+            version_cell = version
+        elif target:
+            version_cell = f"target {target}"
+        else:
+            version_cell = "—"
+        notes = []
+        if entry.get("experimental"):
+            notes.append("experimental")
+        if entry.get("opt_in"):
+            notes.append("opt-in")
+        if mechanism == "npm" and status == "included":
+            notes.append("not yet published")
+        if entry.get("notes"):
+            notes.append(str(entry["notes"]))
+        rows.append(
+            f"| {key} | {runtime} | {status} | {mechanism} | {'yes' if listed else 'no'} "
+            f"| {version_cell} | {'; '.join(notes) or '—'} |"
+        )
+
+print("| Package | Runtime | Status | Mechanism | Listed | Version or target | Notes |")
+print("| --- | --- | --- | --- | --- | --- | --- |")
+for row in rows:
+    print(row)
+PY
+)"
+
+# --- substitute placeholders via python3 (template, out, version, table, inputs) ---
+python3 - "${TEMPLATE}" "${OUT}" "${NEW_VERSION}" "${PACKAGES_TABLE}" "${DATE_STR}" "${PREV_TAG}" "${COMMITS_RAW}" "${ADDED}" "${CHANGED}" "${REMOVED}" "${FIXED}" <<'PY'
 import sys, pathlib
 template_path = pathlib.Path(sys.argv[1])
 out_path      = pathlib.Path(sys.argv[2])
 version       = sys.argv[3]
-date_str      = sys.argv[4]
-prev_tag      = sys.argv[5]
-commits       = sys.argv[6]
-added         = sys.argv[7]
-changed       = sys.argv[8]
-removed       = sys.argv[9]
-fixed         = sys.argv[10]
+packages_table= sys.argv[4]
+date_str      = sys.argv[5]
+prev_tag      = sys.argv[6]
+commits       = sys.argv[7]
+added         = sys.argv[8]
+changed       = sys.argv[9]
+removed       = sys.argv[10]
+fixed         = sys.argv[11]
 
 text = template_path.read_text()
 text = (text
@@ -149,6 +212,7 @@ text = (text
         .replace("{{COMMITS_CHANGED}}", changed)
         .replace("{{COMMITS_REMOVED}}", removed)
         .replace("{{COMMITS_FIXED}}", fixed)
+        .replace("{{PACKAGES_TABLE}}", packages_table)
         .replace("{{COMMITS}}", commits)
        )
 out_path.parent.mkdir(parents=True, exist_ok=True)

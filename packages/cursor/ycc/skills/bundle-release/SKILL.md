@@ -43,11 +43,17 @@ Checks owned by `preflight.sh`:
 
 - Working tree is clean (`git status --porcelain` returns empty output).
 - Currently on `main` branch (or user has confirmed a release branch is intentional).
-- Version parity: every existing product version field (all marketplace `plugins[]`
+- Version parity: every participating product version field (marketplace `plugins[]`
   entries, optional metadata versions and package manifests) equals the canonical
-  `ycc/.claude-plugin/plugin.json` version. `ycc-mods` is excluded. Discovery is bounded
-  to the product paths in `references/version-policy.md`; versionless entries stay
-  versionless.
+  `ycc/.claude-plugin/plugin.json` version. The helper reads
+  `ycc/settings/packages.json` directly: every included native entry must have an
+  existing versioned manifest regardless of `listed`; deferred/excluded paths are
+  suppressed from the bounded scan, and file-copy entries are skipped. Included
+  opencode npm manifests are check-only when present, with temporary missing-file
+  tolerance until their generator lands. `ycc-mods` is excluded. The bounded scan
+  remains a backstop for unmodeled manifests; versionless marketplace entries and
+  unmodeled optional manifests stay versionless. See `references/version-policy.md`
+  for the exact runtime paths.
 - No stale version literals (`version: X.Y.Z` or `"version": "X.Y.Z"`) in hand-edited
   docs (`CLAUDE.md`, `AGENTS.md`, `README.md`, `docs/README.md`) where the semver does
   not match the current bundle version. Author should use the `<managed by
@@ -78,7 +84,8 @@ If `--dry-run` was passed, print the full release plan:
 - Current version and new version.
 - Source files that will be modified: `ycc/.claude-plugin/plugin.json`,
   `.claude-plugin/marketplace.json`, and `ycc/package.json` when it carries a version.
-  `packages/**` is generated check-only.
+  The package model is validated, not bumped; generated `packages/**` and runtime
+  manifests are check-only (including opencode npm when present).
 - Derived bundles that will be regenerated (`.cursor-plugin/`, `.codex-plugin/`, `.opencode-plugin/`).
 - All commands that would be executed, in order.
 
@@ -88,9 +95,11 @@ Then STOP without writing or executing anything.
 
 Run `ycc/skills/bundle-release/scripts/bump-version.sh <new-version>`.
 
-The wrappers share `scripts/release_versions.py`, which discovers every product
-version field and validates all inputs before writing. Malformed inputs cause no
-writes; a write error mid-bump has best-effort rollback only (not crash-atomic).
+The wrappers share `scripts/release_versions.py`, which reads
+`ycc/settings/packages.json`, discovers required included native and bounded
+unmodeled product version fields, and validates all inputs before writing. A missing
+or malformed model or required manifest causes no writes; a write error mid-bump
+has best-effort rollback only (not crash-atomic).
 Generated surfaces (`packages/`, runtime bundles, `.agents/plugins/marketplace.json`)
 are checked by preflight but never bumped directly. Bumped files are JSON
 re-serialized (2-space indent, trailing newline), preserving key order and unrelated
@@ -142,8 +151,13 @@ ycc/skills/bundle-release/scripts/draft-notes.sh <new-version>
 ```
 
 This reads `references/release-notes-template.md` and writes `docs/releases/<new-version>.md`.
-Prompt the user to review and edit the Summary and Upgrade Notes sections before
-committing. If the script exits non-zero, surface stderr and STOP.
+The `{{PACKAGES_TABLE}}` placeholder is rendered from `ycc/settings/packages.json`
+with Package, Runtime, Status, Mechanism, Listed, Version or target, and Notes
+columns. Included packages show the release version; deferred/excluded entries
+show their target. The opencode npm package is experimental, opt-in, and not yet
+published; file-copy fallback is noted separately. Prompt the user to review the
+Packages, Summary, and Upgrade Notes sections before committing. If the script
+exits non-zero, surface stderr and STOP.
 
 ## Phase 7: Emit next-step commands
 

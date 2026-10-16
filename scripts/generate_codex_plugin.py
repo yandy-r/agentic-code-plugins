@@ -42,7 +42,9 @@ def build_plugin_manifest() -> dict:
     source = load_source_plugin()
     description = str(source.get("description") or "").replace("Claude Code", "Codex")
     author = source.get("author") or {"name": "yandy-r"}
-    version = source.get("version") or "0.0.0"
+    version = source.get("version")
+    if not isinstance(version, str) or not version.strip():
+        raise ValueError(f"{SOURCE_PLUGIN_PATH}: missing nonempty version")
     return {
         "name": "ycc",
         "version": version,

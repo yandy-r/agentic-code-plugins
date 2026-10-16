@@ -15,37 +15,51 @@ The following files carry version information for the `ycc` bundle. Only hand-ed
 files are modified directly; regenerated files are produced by running the listed
 generator script.
 
-| File                                                                                                                                            | Kind        | Maintained by                                                                                            |
-| ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------- |
-| `ycc/.claude-plugin/plugin.json`                                                                                                                | hand-edited | `bundle-release` `bump-version.sh`                                                                       |
-| `.claude-plugin/marketplace.json`                                                                                                               | hand-edited | `bundle-release` `bump-version.sh`                                                                       |
-| `ycc/package.json`                                                                                                                              | optional    | `bundle-release` `bump-version.sh` (only if it already has a `version` field)                            |
-| `packages/<package>` and `packages/<runtime>/<package>` manifests (`{.claude-plugin,.codex-plugin,.cursor-plugin}/plugin.json`, `package.json`) | regenerated | runtime package generators via `scripts/sync.sh` (checked only when they already have a `version` field) |
-| `.agents/plugins/marketplace.json`                                                                                                              | regenerated | `scripts/generate-codex-plugin.sh`                                                                       |
-| `.codex-plugin/**`                                                                                                                              | regenerated | `scripts/generate-codex-plugin.sh`                                                                       |
-| `.cursor-plugin/**`                                                                                                                             | regenerated | `scripts/sync.sh --only cursor`                                                                          |
-| `.opencode-plugin/**`                                                                                                                           | regenerated | `scripts/sync.sh --only opencode`                                                                        |
+| File                                                                                                                                            | Kind        | Maintained by                                                                                                       |
+| ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------- |
+| `ycc/.claude-plugin/plugin.json`                                                                                                                | hand-edited | `bundle-release` `bump-version.sh`                                                                                  |
+| `.claude-plugin/marketplace.json`                                                                                                               | hand-edited | `bundle-release` `bump-version.sh`                                                                                  |
+| `ycc/package.json`                                                                                                                              | optional    | `bundle-release` `bump-version.sh` (only if it already has a `version` field)                                       |
+| `ycc/settings/packages.json`                                                                                                                    | hand-edited | package model read directly by release discovery; validated, never bumped                                           |
+| `packages/<package>` and `packages/<runtime>/<package>` manifests (`{.claude-plugin,.codex-plugin,.cursor-plugin}/plugin.json`, `package.json`) | regenerated | runtime package generators via `scripts/sync.sh`; included native manifests required, generated versions check-only |
+| `.agents/plugins/marketplace.json`                                                                                                              | regenerated | `scripts/generate-codex-plugin.sh`                                                                                  |
+| `.codex-plugin/**`                                                                                                                              | regenerated | `scripts/generate-codex-plugin.sh`                                                                                  |
+| `.cursor-plugin/**`                                                                                                                             | regenerated | `scripts/sync.sh --only cursor`                                                                                     |
+| `.opencode-plugin/**`                                                                                                                           | regenerated | `scripts/sync.sh --only opencode`                                                                                   |
 
 Discovery rules are implemented in `bundle-release/scripts/release_versions.py`
 (shared by `bump-version.sh` and `preflight.sh`):
 
 - The canonical version is `ycc/.claude-plugin/plugin.json:"version"` (required).
+- `ycc/settings/packages.json` is read directly by the source helper. A missing or
+  malformed model fails discovery and aborts a bump before any writes.
+- Every `included` native entry must have an existing manifest with a non-empty
+  string version, regardless of `listed`: Claude `ycc` uses the canonical source;
+  other Claude packages use `packages/claude/<key>/` with the same manifest suffix,
+  Codex uses `.codex-plugin/<key>/.codex-plugin/plugin.json`, and Cursor uses
+  `packages/cursor/<key>/.cursor-plugin/plugin.json`. Generated manifests are check-only.
+- Included opencode npm packages use `packages/opencode/<unscoped-key>/package.json`
+  and are check-only when present. Missing npm manifests are temporarily tolerated
+  until the opencode npm generator lands; the package is experimental, opt-in, and
+  not yet published.
+- `deferred` and `excluded` entries require no manifest and suppress their modeled
+  paths from the bounded backstop. `file-copy` entries are skipped entirely.
 - `ycc/mods/**` is excluded entirely — `ycc-mods` keeps its own version. Marketplace
   entries named `ycc-mods` or sourced from `./ycc/mods` are ignored wherever they appear.
 - The root `package.json` (repo dev tooling), `node_modules`, git worktrees, docs and
-  test fixtures are never scanned; discovery is a fixed allowlist of product paths, not
-  a repository-wide search.
-- Versionless entries, metadata and manifests are valid and never gain a `version`
-  field; existing string versions always participate. `packages/<package>` and
-  `packages/<runtime>/<package>` are both supported layouts.
+  test fixtures are never scanned; discovery uses the package model plus a bounded
+  allowlist of product paths for unmodeled manifests, not a repository-wide search.
+- Versionless marketplace entries and unmodeled optional manifests are valid and
+  never gain a `version` field; existing string versions participate unless suppressed
+  above. `packages/<package>` and `packages/<runtime>/<package>` are both supported layouts.
 
 ## Parity Rule
 
 Every product version field must equal `ycc/.claude-plugin/plugin.json:"version"`:
 `.claude-plugin/marketplace.json` `metadata.version` (when present) and every
-non-excluded `plugins[]` entry's `version`, plus the optional package manifests above.
-Only source manifests and versioned `ycc/package.json` are bumped directly;
-`packages/**` is generated check-only, including future runtime package trees.
+non-excluded `plugins[]` entry's `version`, the required included native manifests,
+and the optional versioned manifests above. Only source manifests and versioned
+`ycc/package.json` are bumped directly; `packages/**` is generated check-only.
 Generated marketplaces and package manifests (`.agents/plugins/marketplace.json`,
 `.cursor-plugin/**`, `.codex-plugin/**`, `packages/**`) are checked for parity too, refreshed only by
 `./scripts/sync.sh`. `bundle-release/scripts/preflight.sh` enforces all of this before
