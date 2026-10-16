@@ -88,6 +88,15 @@ and `~/.config/opencode/cli.json`, and is idempotent. Verify with
 `opencode2 plugin list`. Use `opencode` instead of `opencode2` when the V2 binary
 is installed under that name.
 
+The V2 `plugins` array is the correct key (the V1 singular `plugin` key is
+rejected). The plugin API spike ran on opencode **v2.0.29**, and the planned
+experimental npm package declares an `engines.opencode` floor of **>=2.0.30**,
+the version its package smoke targets; other versions are unverified. The
+package is opt-in, planned, and not yet published or listed. The file-copy
+install above stays primary, and a native or npm plugin installed alongside the
+file copy would register the same components twice. Package-install guidance
+stays out of this guide until the v6 docs flip.
+
 ## Selective Steps
 
 Use `--only` to run exactly the listed steps:
@@ -117,7 +126,9 @@ config directories, so use the default local mode.
 
 Rules reach the model through `~/.config/opencode/AGENTS.md`, which V2 loads as
 the global instructions file. The config's `instructions` array is deliberately
-unused: V2 parses the field but does not resolve its files, globs, or URLs.
+unused: V2 parses the field but does not resolve its files, globs, or URLs. The
+opt-in npm plugin delivers its instructions through the verified context hook
+instead.
 
 Invoke skills with the built-in `skill` tool, agents with `@agent-name` mentions
 or the native v2 `subagent(agent, description, prompt, sessionID?, background?)`

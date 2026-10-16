@@ -23,12 +23,13 @@ validate_scope_targets_for_path() {
         packages/cursor/installer-fallback/*) echo "cursor config" ;;
         packages/cursor/*) echo "cursor" ;;
         packages/claude/*) echo "claude" ;;
+        packages/opencode/*) echo "opencode release" ;;
 
-        # The package manifest and its model feed both the packages validators
-        # and the Claude generator, so they must match before the catch-all
-        # settings rule.
-        ycc/settings/packages.json | ycc/settings/packages.schema.json) echo "claude cursor packages" ;;
-        scripts/package_model.py | scripts/test_package_model.py) echo "claude cursor packages" ;;
+        # The package manifest and its model feed the packages validators and
+        # per-runtime package generators, so they must match before the
+        # catch-all settings rule.
+        ycc/settings/packages.json | ycc/settings/packages.schema.json) echo "claude cursor opencode packages" ;;
+        scripts/package_model.py | scripts/test_package_model.py) echo "claude cursor opencode packages" ;;
         scripts/build_package_graph.py | scripts/package_graph_extract.py | scripts/test_package_graph.py) echo "packages" ;;
 
         # Claude package generator, validator and tests.
@@ -38,6 +39,9 @@ validate_scope_targets_for_path() {
         # generators (skills/agents/rules) stay on the catch-all: install tests
         # and other targets import or regenerate them.
         scripts/generate_cursor_packages.py | scripts/cursor_native_resources.py | scripts/generate-cursor-packages.sh | scripts/validate-cursor-packages.sh | scripts/test_generate_cursor_packages.py | scripts/vendor/cursor/*) echo "cursor config" ;;
+
+        # Experimental OpenCode npm package source and boundary tests.
+        scripts/generate_opencode_package.py | scripts/generate-opencode-package.sh | scripts/opencode_package* | scripts/test_generate_opencode_package.py | scripts/test-opencode-npm-package.sh | scripts/opencode_npm_release.py | scripts/test_opencode_npm_release.py) echo "opencode release" ;;
 
         # Docs and repo meta that no validator reads.
         docs/* | CONTRIBUTING.md | RELEASING.md | LICENSE | .github/*) ;;
