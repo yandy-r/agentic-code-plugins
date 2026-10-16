@@ -208,6 +208,10 @@ All four native packages stay unlisted (`listed: false` never gates generation),
 generator never writes a root marketplace; that ships only at the v6 listing flip.
 Interactive installation and installed-plugin runtime behavior remain unverified gates.
 
+YAN-1137 later added offline native-policy fixtures to `claude-native`, `cursor-native`,
+and `codex-native`, and manifest/tree/catalog parity to `packages`. These validator groups
+do not list any package or prove installed-plugin runtime behavior.
+
 The original M0 proposal to emit singular `plugin` and `agent` keys is obsolete. Opencode V1
 support was dropped (YAN-1118 is canceled), so the V2-only target keeps the `plugins` array
 ([opencode spike](../spikes/opencode-config-hook.md)). That proposal is not pending

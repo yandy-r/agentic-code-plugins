@@ -14,11 +14,13 @@ Target: v6.0.0. These generated packages remain unlisted; the public marketplace
 
 ```bash
 ./scripts/sync.sh --only claude
-./scripts/validate.sh --only claude
+./scripts/validate.sh --only claude,claude-native,packages
 ./scripts/test-claude-native-packages.sh
 ```
 
 The generator also supports `--check` (read-only missing/content/extra/executable drift check) and `--dry-run`. It owns modeled Claude add-on roots only and rejects managed symlinks before writing. Edit source configuration or generator, never generated files.
+
+The validation command above adds offline native fixtures (manifest identity, modeled dependencies, agent skill preload resolution, catalog identity, component presence and absence) and package-model/tree/catalog parity. When the `claude` CLI is on PATH it also runs `claude plugin validate` on every included native Claude package, canonical `ycc/` and the generated add-ons alike; otherwise it prints a NOTICE and skips only that optional check.
 
 The opt-in smoke harness isolates HOME/config/XDG/temp paths, builds a directory-source marketplace from actual packages, installs only ycc-all, checks all four plugins enabled at the product version, and exercises the copied WorktreeCreate script in a disposable Git repository. No Claude session, inference or MCP-server execution is requested. `CLAUDE_BIN` selects a CLI; `VERIFY_TEMP_DIR` selects an existing temporary parent; `--keep` retains evidence.
 
