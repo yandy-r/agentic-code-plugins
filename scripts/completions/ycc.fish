@@ -41,6 +41,7 @@ complete -c ycc -n $isr -l mcps -x -a '(__ycc_mcps)' -d 'Only these managed MCP 
 complete -c ycc -n '__fish_seen_subcommand_from list-mcps' -l target -x -a '(__ycc_csv "claude cursor codex opencode agents all")' -d Targets
 complete -c ycc -n $ir -l only -x -a '(__ycc_csv "base skills agents commands settings rules mcp hooks mods")' -d Steps
 complete -c ycc -n $is -l mode -x -a 'local repo' -d 'Marketplace source mode'
+complete -c ycc -n $inst -l package -x -a '(__ycc_csv "ycc ycc-mcp ycc-hooks ycc-rules")' -d 'Install package closures'
 complete -c ycc -n $inst -l settings -d 'Also merge settings'
 complete -c ycc -n $inst -l rules -d 'Also link rules'
 complete -c ycc -n $inst -l mcp -d 'Also merge MCP servers'

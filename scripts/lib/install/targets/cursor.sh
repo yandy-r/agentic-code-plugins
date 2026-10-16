@@ -67,6 +67,18 @@ sync_cursor_target() {
     # 'base' ships every bundle unit; 'skills' / 'agents' ship one each.
     local -a units=()
     read -r -a units <<< "$(skills_filter cursor "$(selected_bundle_units skills agents rules)")"
+    if [[ -n "${PACKAGE:-}" ]]; then
+        # A package installs only the bundle units its closure names: ycc-rules
+        # is rules only, ycc-mcp carries no bundle unit. base alone would mirror all.
+        # The planner already rejected any closure with an undeliverable own
+        # component, and Cursor plugin caches are never treated as active.
+        local -a package_units=()
+        local unit_name
+        for unit_name in "${units[@]}"; do
+            [[ " ${PACKAGE_CURSOR_UNITS:-} " == *" ${unit_name} "* ]] && package_units+=("${unit_name}")
+        done
+        units=("${package_units[@]}")
+    fi
     local do_bundle=0 do_settings=0 do_mcp=0 do_rules=0
     [[ ${#units[@]} -gt 0 ]] && do_bundle=1
     step_enabled settings && do_settings=1

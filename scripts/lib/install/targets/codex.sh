@@ -142,6 +142,22 @@ install_codex_plugin() {
     codex plugin add "${selector}" || warn "'codex plugin add ${selector}' returned non-zero — check 'codex plugin list'"
 }
 
+# enable_local_codex_plugin_leaf — enable only the installer-owned legacy cache.
+# Passing a one-leaf source to the existing managed merge preserves comments,
+# foreign plugin tables, and unrelated enablement from the machine's config.
+enable_local_codex_plugin_leaf() {
+    [[ -n "${PACKAGE:-}" ]] || return 0
+    codex_plugin_cli_supported && return 0
+    [[ -z "${PACKAGE_CODEX_FOREIGN_MARKETPLACE:-}" ]] || return 0
+    local source rc=0
+    source="$(mktemp)"
+    printf '[plugins."ycc@local-ycc-plugins"]\nenabled = true\n' > "${source}"
+    merge_settings_config codex-config "${source}" "${HOME}/.codex/config.toml" plugins \
+        --entries ycc@local-ycc-plugins --force || rc=$?
+    rm -f "${source}"
+    return "${rc}"
+}
+
 # uninstall_codex_plugin — undo install_codex_plugin through the CLI; a
 # plugin that is not installed is reported, not fatal.
 uninstall_codex_plugin() {
@@ -204,13 +220,23 @@ sync_codex_target() {
     # ~/.codex/skills/<name> and ~/.codex/agents/<name>.toml — no plugin.
     local do_plugin=0 do_agents=0 do_settings=0 do_rules=0 do_mcp=0
     step_enabled base && do_plugin=1
+    if [[ -n "${PACKAGE:-}" && ${do_plugin} -eq 1 ]]; then
+        # Only the existing local catalog may be refreshed. A foreign native
+        # plugin already delivers skills/shared; retain its enablement and
+        # deliver the installer-owned agents/settings/instructions gap below.
+        codex_native_plugin_detected || true
+        if [[ -n "${PACKAGE_CODEX_FOREIGN_MARKETPLACE:-}" ]]; then
+            info "native ycc already installed as ycc@${PACKAGE_CODEX_FOREIGN_MARKETPLACE}; not re-registering local-ycc-plugins — delivering agents, settings and rules only"
+            do_plugin=0
+        fi
+    fi
     local -a slices=()
     read -r -a slices <<< "$(skills_filter codex "$(selected_slices skills agents)")"
     # Choice 1 (skills → ~/.agents/skills): drop plugin registration; install
     # the agents slice (~/.codex/agents) instead.
-    if skills_consolidated codex && [[ $do_plugin -eq 1 && ${#slices[@]} -eq 0 ]]; then
+    if skills_consolidated codex && [[ $do_plugin -eq 1 ]]; then
         warn "codex skills consolidated into ~/.agents/skills — skipped plugin registration"
-        slices=(agents)
+        [[ " ${slices[*]} " == *" agents "* ]] || slices+=(agents)
         do_plugin=0
     fi
     # Local base mirrors the custom agents, unless the agents slice already
@@ -343,6 +369,7 @@ sync_codex_target() {
             merge_codex_marketplace_json "local" "./.agents/plugins/ycc"
         fi
         install_codex_plugin
+        enable_local_codex_plugin_leaf
     fi
 
     local slice
