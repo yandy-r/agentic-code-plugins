@@ -18,8 +18,8 @@ other runtime bundles are generated from it. Keep the plugin name `ycc` stable.
 ## Source and generated targets
 
 - Add workflow logic under `ycc/`, not generated bundles. Do not hand-edit generated
-  `.cursor-plugin/`, `.codex-plugin/`, `.opencode-plugin/`, or `.agents-plugin/` files;
-  change their source or generator first, then regenerate.
+  `.cursor-plugin/`, `.codex-plugin/`, `.opencode-plugin/`, `.agents-plugin/`, or
+  `packages/claude/` files; change their source or generator first, then regenerate.
 - Do not add top-level workflow plugins. Extend `ycc` or use the sibling-repo decision
   gate in `CONTRIBUTING.md`. Claude-only mods are the documented exception in `CLAUDE.md`.
 - Skills use `kebab-case` directories under `ycc/skills/`; agents use `kebab-case.md`
@@ -34,14 +34,15 @@ other runtime bundles are generated from it. Keep the plugin name `ycc` stable.
 The capability contract is `ycc/skills/_shared/references/target-capability-matrix.md`;
 this table records install ownership, not a claim of runtime feature parity:
 
-| Target              | Generated / managed surface                        | User install destination                                                    |
-| ------------------- | -------------------------------------------------- | --------------------------------------------------------------------------- |
-| Cursor              | `.cursor-plugin/` skills, agents, rules            | `~/.cursor/` via installer                                                  |
-| Codex               | `.codex-plugin/ycc/`; `.codex-plugin/agents/`      | `~/.codex/plugins/ycc`; custom agents under `~/.codex/agents/`              |
-| Codex marketplace   | User marketplace managed by Codex target           | `~/.agents/plugins/marketplace.json`                                        |
-| opencode            | `.opencode-plugin/skills/`, `agents/`, `commands/` | Matching directories under `~/.config/opencode/`                            |
-| opencode settings   | `.opencode-plugin/opencode.json`, `AGENTS.md`      | `~/.config/opencode/` via `install.sh install --target opencode --settings` |
-| Cross-tool `agents` | `.agents-plugin/skills/`, `ycc-shared/`            | `~/.agents/skills/`, `~/.agents/ycc-shared/`                                |
+| Target                | Generated / managed surface                        | User install destination                                                    |
+| --------------------- | -------------------------------------------------- | --------------------------------------------------------------------------- |
+| Cursor                | `.cursor-plugin/` skills, agents, rules            | `~/.cursor/` via installer                                                  |
+| Codex                 | `.codex-plugin/ycc/`; `.codex-plugin/agents/`      | `~/.codex/plugins/ycc`; custom agents under `~/.codex/agents/`              |
+| Codex marketplace     | User marketplace managed by Codex target           | `~/.agents/plugins/marketplace.json`                                        |
+| opencode              | `.opencode-plugin/skills/`, `agents/`, `commands/` | Matching directories under `~/.config/opencode/`                            |
+| opencode settings     | `.opencode-plugin/opencode.json`, `AGENTS.md`      | `~/.config/opencode/` via `install.sh install --target opencode --settings` |
+| Cross-tool `agents`   | `.agents-plugin/skills/`, `ycc-shared/`            | `~/.agents/skills/`, `~/.agents/ycc-shared/`                                |
+| Claude native add-ons | `packages/claude/` MCP, hooks, dependency bundle   | Hidden/unlisted; no public catalog or installer change                      |
 
 - The `agents` target is skills-only; never write `~/.agents/plugins/` (owned by Codex).
 - Project rules here are not user-global plugin rules. opencode's generated `AGENTS.md`
@@ -60,15 +61,17 @@ this table records install ownership, not a claim of runtime feature parity:
 - There is no `npm test` or npm build target. Validation lives in `scripts/validate.sh`;
   run the relevant `scripts/test_*` / `scripts/test-*` suites for changed behavior.
 
-| Command                                                       | Purpose                                        |
-| ------------------------------------------------------------- | ---------------------------------------------- |
-| `./scripts/sync.sh`                                           | Regenerate compatibility bundles and inventory |
-| `./scripts/validate.sh`                                       | Run every validator used by CI                 |
-| `./scripts/validate.sh --only practices`                      | Rule/skill/agent authoring ratchet             |
-| `python3 scripts/test_validate_practices.py`                  | Authoring-validator regression tests           |
-| `./scripts/install-shellcheck.sh`                             | Install the pinned ShellCheck matching CI      |
-| `npm run lint` / `npm run lint:modified` / `npm run lint:fix` | Python + Shell lint / changed files / fixes    |
-| `npm run format` / `npm run format:modified`                  | Python + docs formatting / changed files       |
+| Command                                                       | Purpose                                                       |
+| ------------------------------------------------------------- | ------------------------------------------------------------- |
+| `./scripts/sync.sh`                                           | Regenerate compatibility bundles and inventory                |
+| `./scripts/validate.sh`                                       | Run every validator used by CI                                |
+| `./scripts/sync.sh --only claude`                             | Regenerate hidden native Claude packages                      |
+| `./scripts/validate.sh --only claude`                         | Check Claude output, generator tests, optional CLI validation |
+| `./scripts/validate.sh --only practices`                      | Rule/skill/agent authoring ratchet                            |
+| `python3 scripts/test_validate_practices.py`                  | Authoring-validator regression tests                          |
+| `./scripts/install-shellcheck.sh`                             | Install the pinned ShellCheck matching CI                     |
+| `npm run lint` / `npm run lint:modified` / `npm run lint:fix` | Python + Shell lint / changed files / fixes                   |
+| `npm run format` / `npm run format:modified`                  | Python + docs formatting / changed files                      |
 
 ## MUST / MUST NOT
 

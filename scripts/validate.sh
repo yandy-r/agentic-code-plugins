@@ -13,10 +13,12 @@
 # replayed in order. `config` runs last and alone: its install tests regenerate
 # the bundles in this checkout, which the other targets read.
 #
-# Targets: inventory, cursor, codex, opencode, agents, json, config, packages, release, mods, practices, scope
+# Targets: inventory, cursor, codex, opencode, agents, claude, json, config, packages, release, mods, practices, scope
 #   - inventory  validates ycc skill frontmatter, the shared inventory, the formatter bundle and
 #                plan-workflow regressions and per-runtime worktree roots (scripts/test-worktree-roots.sh)
 #   - json       validates .claude-plugin/marketplace.json plus ycc/.claude-plugin/plugin.json
+#   - claude     validates the generated hidden Claude packages (packages/claude) with the
+#                generator drift check, its unit tests and optional `claude plugin validate`
 #   - config     tests the managed-config merge helper and install.sh sync CLI
 #   - packages   validates the package manifest (ycc/settings/packages.json) against its schema
 #                and invariants, package graph closures, and their unit tests
@@ -254,6 +256,12 @@ run_target() {
             "${REPO_ROOT}/scripts/validate-agents-skills.sh" || fail "validate-agents-skills.sh"
             echo "== validate: agents install coverage =="
             "${REPO_ROOT}/scripts/validate-agents-install-coverage.sh" || fail "validate-agents-install-coverage.sh"
+            ;;
+        claude)
+            echo "== validate: claude packages =="
+            "${REPO_ROOT}/scripts/validate-claude-packages.sh" || fail "validate-claude-packages.sh"
+            echo "== test: claude packages generator =="
+            python3 "${REPO_ROOT}/scripts/test_generate_claude_packages.py" || fail "test_generate_claude_packages.py"
             ;;
         config)
             run_group run_config_part helpers install-sync || fail "config"

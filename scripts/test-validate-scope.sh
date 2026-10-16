@@ -56,6 +56,16 @@ expect_targets "README.md selects inventory" "inventory" README.md
 expect_targets "skill source selects the bundle targets, not config" "${BUNDLES}" ycc/skills/init/SKILL.md
 expect_targets "agent source selects the bundle targets" "${BUNDLES}" ycc/agents/planner.md
 expect_targets "a generated bundle selects its own target" "codex" .codex-plugin/ycc/skills/init/SKILL.md
+expect_targets "generated Claude MCP selects claude" "claude" packages/claude/ycc-mcp/.mcp.json
+expect_targets "generated Claude hook selects claude" "claude" packages/claude/ycc-hooks/hooks/worktree-create.sh
+expect_targets "generated Claude aggregate selects claude" "claude" packages/claude/ycc-all/.claude-plugin/plugin.json
+expect_targets "unrelated package output still selects everything" "${ALL}" packages/cursor/ycc-mcp/.mcp.json
+expect_targets "Claude generator selects claude" "claude" scripts/generate_claude_packages.py
+expect_targets "Claude generator wrapper selects claude" "claude" scripts/generate-claude-packages.sh
+expect_targets "Claude validator selects claude" "claude" scripts/validate-claude-packages.sh
+expect_targets "Claude generator tests select claude" "claude" scripts/test_generate_claude_packages.py
+expect_targets "Claude live harness selects claude" "claude" scripts/test-claude-native-packages.sh
+expect_targets "Claude smoke driver selects claude" "claude" scripts/claude_native_smoke.py
 expect_targets "install.sh selects config" "config" install.sh
 expect_targets "install tests select config" "config" scripts/tests/install/codex.sh
 expect_targets "install target libs also select the coverage validators" "opencode agents config" \
@@ -68,10 +78,10 @@ expect_targets "claude rules select practices" "practices" .claude/rules/scripts
 expect_targets "non-md claude rules file selects practices" "practices" .claude/rules/sub/notes.txt
 expect_targets "practices rules module selects practices" "practices" scripts/practices_rules.py
 expect_targets "settings select everything" "${ALL}" ycc/settings/models.json
-expect_targets "packages manifest selects packages" "packages" ycc/settings/packages.json
-expect_targets "packages schema selects packages" "packages" ycc/settings/packages.schema.json
-expect_targets "package model selects packages" "packages" scripts/package_model.py
-expect_targets "package model tests select packages" "packages" scripts/test_package_model.py
+expect_targets "packages manifest selects claude and packages" "claude packages" ycc/settings/packages.json
+expect_targets "packages schema selects claude and packages" "claude packages" ycc/settings/packages.schema.json
+expect_targets "package model selects claude and packages" "claude packages" scripts/package_model.py
+expect_targets "package model tests select claude and packages" "claude packages" scripts/test_package_model.py
 expect_targets "package graph builder selects packages" "packages" scripts/build_package_graph.py
 expect_targets "package graph extractor selects packages" "packages" scripts/package_graph_extract.py
 expect_targets "package graph tests select packages" "packages" scripts/test_package_graph.py

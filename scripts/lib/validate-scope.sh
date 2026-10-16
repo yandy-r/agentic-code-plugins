@@ -8,7 +8,7 @@
 # the unscoped validate.sh, so a rule that is too narrow is caught there.
 
 # shellcheck disable=SC2034  # read by validate.sh and the scope tests.
-VALIDATE_TARGETS=(inventory cursor codex opencode agents json config packages release mods practices scope)
+VALIDATE_TARGETS=(inventory cursor codex opencode agents claude json config packages release mods practices scope)
 
 # validate_scope_targets_for_path <path> — print the targets a changed
 # repo-relative path affects: a space-separated list, `all`, or nothing.
@@ -20,6 +20,17 @@ validate_scope_targets_for_path() {
         .codex-plugin/*) echo "codex" ;;
         .opencode-plugin/*) echo "opencode" ;;
         .agents-plugin/*) echo "agents" ;;
+        packages/claude/*) echo "claude" ;;
+
+        # The package manifest and its model feed both the packages validators
+        # and the Claude generator, so they must match before the catch-all
+        # settings rule.
+        ycc/settings/packages.json | ycc/settings/packages.schema.json) echo "claude packages" ;;
+        scripts/package_model.py | scripts/test_package_model.py) echo "claude packages" ;;
+        scripts/build_package_graph.py | scripts/package_graph_extract.py | scripts/test_package_graph.py) echo "packages" ;;
+
+        # Claude package generator, validator and tests.
+        scripts/generate_claude_packages.py | scripts/generate-claude-packages.sh | scripts/validate-claude-packages.sh | scripts/test_generate_claude_packages.py | scripts/test-claude-native-packages.sh | scripts/claude_native_smoke.py) echo "claude" ;;
 
         # Docs and repo meta that no validator reads.
         docs/* | CONTRIBUTING.md | RELEASING.md | LICENSE | .github/*) ;;
@@ -27,10 +38,6 @@ validate_scope_targets_for_path() {
         .markdownlint.json | .markdownlintignore | mise.toml) ;;
         package-lock.json | pnpm-lock.yaml | pnpm-workspace.yaml) ;;
 
-	# The package manifest and its model are read only by the packages
-	# validators, so they must match before the catch-all settings rule.
-	ycc/settings/packages.json | ycc/settings/packages.schema.json) echo "packages" ;;
-	scripts/package_model.py | scripts/test_package_model.py | scripts/build_package_graph.py | scripts/package_graph_extract.py | scripts/test_package_graph.py) echo "packages" ;;
 
         # Plugin source. Settings and the plugin manifest feed the generators,
         # the install tests and the manifest checks, so they select everything.
