@@ -32,6 +32,7 @@ validate_scope_targets_for_path() {
         scripts/package_model.py | scripts/test_package_model.py) echo "cursor codex claude claude-native cursor-native codex-native packages" ;;
         scripts/build_package_graph.py | scripts/package_graph_extract.py | scripts/test_package_graph.py) echo "packages" ;;
         scripts/validate_packages.py | scripts/test_validate_packages.py) echo "packages" ;;
+        scripts/validate_install_doc_ids.py | scripts/test_validate_install_doc_ids.py) echo "packages" ;;
         # Claude package generator, validator and tests.
         scripts/generate_claude_packages.py | scripts/generate-claude-packages.sh | scripts/validate-claude-packages.sh | scripts/validate_claude_native.py | scripts/test_validate_claude_native.py | scripts/test_generate_claude_packages.py | scripts/test-claude-native-packages.sh | scripts/claude_native_smoke.py) echo "claude claude-native" ;;
 
@@ -39,6 +40,9 @@ validate_scope_targets_for_path() {
         # generators (skills/agents/rules) stay on the catch-all: install tests
         # and other targets import or regenerate them.
         scripts/generate_cursor_packages.py | scripts/cursor_native_resources.py | scripts/generate-cursor-packages.sh | scripts/validate-cursor-packages.sh | scripts/validate_cursor_native.py | scripts/test_validate_cursor_native.py | scripts/test_generate_cursor_packages.py | scripts/vendor/cursor/*) echo "cursor cursor-native config" ;;
+
+        # Install docs contain model-validated public package identifiers.
+        docs/install/*) echo "packages" ;;
 
         # Docs and repo meta that no validator reads.
         docs/* | CONTRIBUTING.md | RELEASING.md | LICENSE | .github/*) ;;

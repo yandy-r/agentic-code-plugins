@@ -50,7 +50,7 @@ BUNDLES="inventory cursor codex opencode agents claude-native cursor-native code
 echo "== path -> target mapping =="
 
 expect_targets "docs and repo meta select nothing" "" \
-    docs/plans/demo/plan.md docs/install/cursor.md CONTRIBUTING.md .github/pull_request_template.md .gitignore
+    docs/plans/demo/plan.md docs/research/notes.md CONTRIBUTING.md .github/pull_request_template.md .gitignore
 expect_targets "no changed paths select nothing" ""
 expect_targets "README.md selects inventory" "inventory" README.md
 expect_targets "skill source selects the bundle targets, not config" "${BUNDLES}" ycc/skills/init/SKILL.md
@@ -105,6 +105,11 @@ expect_targets "non-md claude rules file selects practices" "practices" .claude/
 expect_targets "practices rules module selects practices" "practices" scripts/practices_rules.py
 expect_targets "package parity validator selects packages" "packages" scripts/validate_packages.py
 expect_targets "package parity tests select packages" "packages" scripts/test_validate_packages.py
+expect_targets "live install docs select packages" "packages" docs/install/cursor.md
+expect_targets "v6 install drafts select packages before docs catch-all" "packages" docs/install/v6/codex.md
+expect_targets "install doc indexes select packages" "packages" docs/install/README.md docs/install/v6/README.md
+expect_targets "install ID validator selects packages" "packages" scripts/validate_install_doc_ids.py
+expect_targets "install ID tests select packages" "packages" scripts/test_validate_install_doc_ids.py
 expect_targets "settings select everything" "${ALL}" ycc/settings/models.json
 expect_targets "package model selects content, native, generators and parity" "cursor codex claude claude-native cursor-native codex-native packages" scripts/package_model.py
 expect_targets "package graph builder selects packages" "packages" scripts/build_package_graph.py
