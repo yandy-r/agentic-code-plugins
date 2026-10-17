@@ -6,6 +6,7 @@
 #   - ycc/skills/bundle-release/scripts/preflight.sh     (clean-tree gate + parity check)
 #
 # Coverage (roadmap item release-multi-entry / YAN-1120):
+#   0. substring assertion verdicts on large output with an early match
 #   1. single-entry compatibility (stdout contract, bump, description preserved)
 #   2. three-entry marketplace: per-entry parity failures (index 1, 2, metadata),
 #      reordered entries, bump updates every entry
@@ -62,15 +63,18 @@ assert_eq() { # <label> <want> <got>
     not_ok "$1 (got '$3' want '$2')"
   fi
 }
+# Both substring assertions use a here-string to feed grep:
+# printf | grep under pipefail makes grep's early exit on a match kill
+# printf with SIGPIPE, corrupting verdicts for large haystacks matching early.
 assert_contains() { # <label> <haystack> <needle>
-  if printf '%s\n' "$2" | grep -Fq -- "$3"; then
+  if grep -Fq -- "$3" <<<"$2"; then
     ok "$1"
   else
     not_ok "$1 (missing '$3')" "$2"
   fi
 }
 assert_not_contains() { # <label> <haystack> <needle>
-  if printf '%s\n' "$2" | grep -Fq -- "$3"; then
+  if grep -Fq -- "$3" <<<"$2"; then
     not_ok "$1 (unexpected '$3')" "$2"
   else
     ok "$1"
@@ -172,6 +176,28 @@ EOF
 }
 EOF
 }
+# === Case 0: substring assertions on large output ============================
+printf -v LARGE_HAYSTACK '%1048576s' ''
+LARGE_HAYSTACK=$'release-assertion-needle\n'"${LARGE_HAYSTACK}"
+for ASSERTION in assert_contains assert_not_contains; do
+  for NEEDLE in release-assertion-needle absent-assertion-needle; do
+    # Isolate intentional negative verdicts from the suite's counters.
+    COUNTS="$(
+      PASS=0
+      FAIL=0
+      "${ASSERTION}" "probe" "${LARGE_HAYSTACK}" "${NEEDLE}" >/dev/null 2>&1
+      printf '%s %s' "${PASS}" "${FAIL}"
+    )"
+    case "${ASSERTION}:${NEEDLE}" in
+      assert_contains:release-assertion-needle|assert_not_contains:absent-assertion-needle)
+        EXPECTED="1 0" ;;
+      *) EXPECTED="0 1" ;;
+    esac
+    assert_eq "large output: ${ASSERTION} ${NEEDLE} PASS/FAIL" "${EXPECTED}" "${COUNTS}"
+  done
+done
+unset LARGE_HAYSTACK ASSERTION NEEDLE COUNTS EXPECTED
+
 # === Case 1: single-entry compatibility =====================================
 new_fixture single
 wf "ycc/.claude-plugin/plugin.json" <<<'{"name": "ycc", "version": "1.2.3", "description": "test plugin"}'
