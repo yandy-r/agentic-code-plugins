@@ -121,7 +121,7 @@ Dispatch a single `prp-researcher` agent via the `subagent` tool, in codebase mo
 
 By default (`WORKTREE_MODE=true`), append the following directive to the researcher prompt. Omit when `--no-worktree` was passed (`WORKTREE_MODE=false`):
 
-> **WORKTREE MODE:** The plan you are helping to build will include worktree annotations. In the emitted plan, include a `## Worktree Setup` section with a single `**Parent**:` line naming the feature worktree; no `**Children**:` list; no per-task `**Worktree**:` annotations. All tasks (parallel and sequential) share this one feature worktree path. Follow `.opencode-plugin/skills/_shared/references/worktree-strategy.md` for the naming scheme and annotation format.
+> **WORKTREE MODE:** The plan you are helping to build will include worktree annotations. In the emitted plan, include a `## Worktree Setup` section with a single `**Parent**:` line naming the feature worktree; no `**Children**:` list; no per-task `**Worktree**:` annotations. All tasks (parallel and sequential) share this one feature worktree path. Follow `~/.config/opencode/shared/references/worktree-strategy.md` for the naming scheme and annotation format.
 
 ### Path B — Three standalone researchers (`PARALLEL_MODE=true`)
 
@@ -211,7 +211,7 @@ All tasks — parallel and sequential — share this one feature worktree path. 
 
 > **Plan-file handoff**: leave the emitted plan file in `docs/prps/plans/<name>.plan.md` (in the main checkout). The implementor (`prp-implement`) will **move** it into the feature worktree once the worktree is created — do not pre-write the plan to a worktree path, and do not copy it. See `worktree-strategy.md` §7.
 
-Follow `.opencode-plugin/skills/_shared/references/worktree-strategy.md` for the full naming scheme and annotation contract.
+Follow `~/.config/opencode/shared/references/worktree-strategy.md` for the full naming scheme and annotation contract.
 
 ### Writing guidelines
 

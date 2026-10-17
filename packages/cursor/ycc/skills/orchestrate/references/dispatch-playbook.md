@@ -109,7 +109,7 @@ Worktree:   feature=<repo-root>/.cursor/worktrees/<repo>-<FEATURE_SLUG>/  (all s
 
 When `WORKTREE_MODE=true`, the plan file at `docs/orchestration/[sanitized-task-name].md`
 gains a `## Worktree Setup` section immediately after frontmatter, before Batch 1.
-Follow the annotation format in `ycc/skills/_shared/references/worktree-strategy.md`
+Follow the annotation format in `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/worktree-strategy.md`
 section 2: list only the parent path. Do not add child paths or a `**Children**:` list.
 
 ---

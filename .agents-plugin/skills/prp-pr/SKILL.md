@@ -41,7 +41,7 @@ This is the lightweight counterpart to `/git-workflow --pr`. Use it when you jus
   BASE=$(bash ~/.agents/ycc-shared/scripts/pr-guard.sh base [--base <base-branch>])
   ```
 
-  Without an explicit base this is the `RELEASING.md` base (`release-state.sh base`), else the repo default branch. Exit 2 means a malformed `RELEASING.md`: stop with the parse error and `/release-model --audit`. Use `$BASE` as `<base>` everywhere below. See [`../_shared/references/pr-base-and-backport.md`](../_shared/references/pr-base-and-backport.md).
+  Without an explicit base this is the `RELEASING.md` base (`release-state.sh base`), else the repo default branch. Exit 2 means a malformed `RELEASING.md`: stop with the parse error and `/release-model --audit`. Use `$BASE` as `<base>` everywhere below. See `~/.agents/ycc-shared/references/pr-base-and-backport.md`.
 
 ---
 
@@ -182,7 +182,7 @@ Use this default format:
 
 ### Backport prompt
 
-Before creating the PR, run `pr-guard.sh backport-label --base <base> --title "<PR title>"` (add `--labels` when labels are known). On `backport=1`, ask `Backport to <branch>? (yes/no)`; on yes, add the printed label to the new PR and tell the user to run `/backport <PR#>` after it merges. Details: [`../_shared/references/pr-base-and-backport.md`](../_shared/references/pr-base-and-backport.md#backport-prompt).
+Before creating the PR, run `pr-guard.sh backport-label --base <base> --title "<PR title>"` (add `--labels` when labels are known). On `backport=1`, ask `Backport to <branch>? (yes/no)`; on yes, add the printed label to the new PR and tell the user to run `/backport <PR#>` after it merges. Details: `~/.agents/ycc-shared/references/pr-base-and-backport.md#backport-prompt`.
 
 ### Create the PR
 
@@ -190,7 +190,7 @@ PR creation is provider-aware. Detect the forge provider on `origin` first
 (`forge_detect_provider origin`) and route through the matching CLI: `gh pr
 create` for `github`, `tea pull create --title --description [--head]` for
 `forgejo`/`gitea`. See
-[`../_shared/references/forge-detection.md`](../_shared/references/forge-detection.md)
+`~/.agents/ycc-shared/references/forge-detection.md`
 for the operation-equivalence map. Log the resolved provider + CLI so the user
 sees which forge the PR targeted.
 
@@ -267,7 +267,7 @@ controls). On a non-GitHub remote `ci-monitor.sh` returns
 `RESULT=unsupported-provider` (exit 2). Treat this like
 `pr-not-found`/`refused-default-branch`: report that the loop is GitHub-only and
 skip it cleanly — do not retry, do not error. See
-[`../_shared/references/forge-detection.md`](../_shared/references/forge-detection.md).
+`~/.agents/ycc-shared/references/forge-detection.md`.
 
 **Step 1 — Verify PR is monitorable:** Confirm a PR number is in scope. If not,
 hard-stop: `--ci was passed but no PR is in scope to monitor.`
