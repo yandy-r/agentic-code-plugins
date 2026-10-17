@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Regression test: standalone agents must not reach into skill/shared source files.
+"""Regression test: standalone agents must not reach into unshipped external files.
 
 Standalone agent installs (Claude ~/.claude/agents, Cursor, Codex, opencode
 file-copy, the opencode npm package) ship the agent bodies without the plugin's
 ``ycc/skills`` or ``_shared`` trees. An agent body that names those paths, or
 defers to "the skill's ``references/...``", points at files the runtime cannot
-resolve. Guidance must be prompt-owned or self-contained in the agent body.
+resolve. User-global template reach-ins likewise require unshipped files.
+Guidance must be prompt-owned or self-contained in the agent body.
 
 Scans the checked-in agent source and every generated agent surface; it never
 regenerates anything.
@@ -29,6 +30,13 @@ SURFACES: tuple[tuple[str, str], ...] = (
     ("opencode-npm", "packages/opencode/ycc-opencode/agents/*.md"),
 )
 
+# User-global doc templates (``~/.claude/file-templates``, ``%USERPROFILE%\.cursor\file-templates``)
+# are never shipped by any package. Matches ``file-templates`` as a whole path segment, with or
+# without a trailing separator.
+HOME_TEMPLATE_PATTERN = re.compile(
+    r"(?:~|\$HOME|\$\{HOME\}|%USERPROFILE%)[/\\]\.[\w.\\/-]*?[/\\]file-templates(?![\w-])"
+)
+
 REACH_IN_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"ycc/skills/"),
     re.compile(r"_shared/"),
@@ -36,6 +44,7 @@ REACH_IN_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\{\{package-root\}\}/(?:skills|shared)/"),
     re.compile(r"CLAUDE_PLUGIN_ROOT"),
     re.compile(r"worktree-strategy\.md"),
+    HOME_TEMPLATE_PATTERN,
     # Prose deferrals: "the skill's `references/...`", "the shared `x.md` reference"
     # (including when wrapped across lines or escaped inside a TOML string).
     re.compile(r"skill['\u2019]s(?:\s|\\n)+`references/"),
@@ -92,6 +101,16 @@ class StandaloneAgentReferenceTests(unittest.TestCase):
             "per the bundle's shared `branching-model.md` reference",
             "per the bundle's shared\n`branching-model.md` reference",
             "open `worktree-strategy.md` first",
+            "read ~/.claude/file-templates/feature-doc.template.md",
+            "read ~/.cursor/file-templates/claude.template.md",
+            "read ~/.codex/file-templates/api.template.md",
+            "read ~/.config/opencode/file-templates/setup.template.md",
+            "read $HOME/.claude/file-templates/arch.template.md",
+            "read ${HOME}/.config/opencode/file-templates/arch.template.md",
+            "read all templates from ~/.claude/file-templates",
+            "templates live in `~/.cursor/file-templates`.",
+            r"read %USERPROFILE%\.claude\file-templates\api.template.md",
+            'developer_instructions = "intro\\nread ~/.codex/file-templates/x.md"',
         )
         for sample in samples:
             with self.subTest(sample=sample):
@@ -101,6 +120,17 @@ class StandaloneAgentReferenceTests(unittest.TestCase):
     def test_matcher_ignores_project_paths(self) -> None:
         """Ordinary project output paths are not reach-ins."""
         self.assertEqual(find_reach_ins("write to `docs/plans/x.md` and `docs/prps/reviews/y.md`\n"), [])
+        self.assertEqual(find_reach_ins("use `docs/templates/feature-doc.template.md`\n"), [])
+        self.assertEqual(find_reach_ins("see ~/.claude/not-file-templates/x.md\n"), [])
+        self.assertEqual(find_reach_ins("see ~/.claude/file-templates-old/x.md\n"), [])
+
+    def test_git_workflow_templates_have_no_home_template_reach_ins(self) -> None:
+        """Dispatch prompts must not reintroduce user-global template dependencies."""
+        files = sorted((REPO_ROOT / "ycc/skills/git-workflow/templates").glob("*.md"))
+        self.assertTrue(files, "no git-workflow templates found")
+        for path in files:
+            with self.subTest(path=path.relative_to(REPO_ROOT)):
+                self.assertIsNone(HOME_TEMPLATE_PATTERN.search(path.read_text(encoding="utf-8")))
 
 
 if __name__ == "__main__":

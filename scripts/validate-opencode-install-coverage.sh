@@ -52,7 +52,6 @@ MANAGED_UNITS = set(match.group(1).split())
 # the user maintains outside the plugin, or runtime/state paths the
 # plugin only reads/writes at runtime.
 ALLOWLIST_ROOTS = {
-    "file-templates",   # user-maintained doc templates (~/.claude/file-templates rewritten to ~/.config/opencode/file-templates)
     "sessions",         # runtime session state
     "session-data",     # runtime session state
     "plugins",          # opencode's own plugin install/cache location (read at runtime, not bundle-shipped)
