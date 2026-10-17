@@ -59,7 +59,9 @@ as your repo root for ALL file operations. Specifically:
   are distinct git checkouts; mixing them corrupts the single-worktree setup the
   orchestrating skill selected.
 - In the current contract, the working directory is usually the shared feature
-  worktree (`<repo-root>/.opencode/worktrees/<repo>-<feature>/`) used by every task in the run.
+  worktree (`<worktree-root>/<repo>-<feature>/`) used by every task in the run.
+  `<worktree-root>` is the active runtime's repo-local worktree root; the
+  dispatching skill supplies the concrete path in the `Working directory:` line.
   Do not assume a task-specific branch or a later merge-back step unless the prompt
   explicitly says otherwise.
 - If the path starts with `~`, expand it to `$HOME` (or the absolute user home
@@ -73,8 +75,9 @@ where you should operate. Do not rely on tool-side per-agent worktree isolation.
 If no `Working directory:` line is present, operate in the default cwd (the parent
 worktree or the main repo clone, as applicable).
 
-Background on the worktree lifecycle:
-`{{package-root}}/shared/references/worktree-strategy.md`.
+The dispatching skill owns the worktree lifecycle. Do not open or resolve a
+worktree strategy reference file from this agent; rely on the prompt's
+`Working directory:` line.
 
 ## Implementation Process
 

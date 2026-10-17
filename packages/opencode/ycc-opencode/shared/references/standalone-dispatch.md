@@ -233,10 +233,9 @@ In your emitted plan:
 
    - **Parent**: <repo-root>/.opencode/worktrees/<repo>-<feature>/ (branch: feat/<feature>)
 
-   All tasks - parallel and sequential - share this one path. Do NOT add a
-   `**Children**:` list and do NOT add per-task `**Worktree**:` annotations.
-
-See worktree-strategy.md section 1-2 for the canonical single-worktree contract.
+   Substitute the concrete `<repo>` and `<feature>` values; keep `<repo-root>/.opencode/worktrees/`
+   as this runtime's worktree root. All tasks - parallel and sequential - share this one path.
+   Do NOT add a `**Children**:` list and do NOT add per-task `**Worktree**:` annotations.
 ```
 
 ## 9. Dependency Resolution and Batching
