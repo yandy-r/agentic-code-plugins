@@ -37,7 +37,7 @@ Before anything else, verify:
    - Exit 2 (malformed state block): STOP. Show the parse error and point at
      `$release-model --audit`. Never guess a trunk from a broken block.
    - `present=1`: keep `model` and `trunk`. The model's rules are in
-     `~/.codex/plugins/ycc/shared/references/branching-model.md`; how this skill
+     `../../../shared/references/branching-model.md`; how this skill
      applies them is in
      `~/.codex/plugins/ycc/skills/releaser/references/release-branches.md`.
 

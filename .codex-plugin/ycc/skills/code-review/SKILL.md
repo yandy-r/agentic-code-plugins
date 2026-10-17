@@ -61,7 +61,7 @@ After delegation exit; quick-review owns artifact lifecycle.
 
 Read changed files in full. Apply mode-specific checklist and severity rubric:
 
-`~/.codex/plugins/ycc/shared/references/review-checklist.md`
+`../../shared/references/review-checklist.md`
 
 Flag only gaps that affect correctness or the stated requirements. Checklist
 items are investigation prompts, not automatic style findings.
@@ -76,10 +76,10 @@ The shape of this phase depends on `PARALLEL_MODE` and `AGENT_TEAM_MODE`:
 
 Read only on the selected fan-out path:
 
-- `~/.codex/plugins/ycc/shared/references/review-dispatch.md`
-- `~/.codex/plugins/ycc/shared/references/standalone-dispatch.md`
+- `../../shared/references/review-dispatch.md`
+- `../../shared/references/standalone-dispatch.md`
   (`--parallel` only; dispatch contract; reviewers are read-only and the caller persists scratch copies)
-- `~/.codex/plugins/ycc/shared/references/agent-team-dispatch.md`
+- `../../shared/references/agent-team-dispatch.md`
   (`--team` only; team creation, tasks up front, shutdown, deletion)
 
 Reviewers use checklist roster, pre-ID findings format and merge procedure,
@@ -96,7 +96,7 @@ If explicit `--worktree`, print:
 2. **REVIEW** — Read changed files, project rules and relevant requirements;
    follow REVIEW path above (Local / Quick checklist).
 3. **REPORT** — Read canonical artifact schema before writing:
-   `~/.codex/plugins/ycc/shared/references/review-artifact-format.md`.
+   `../../shared/references/review-artifact-format.md`.
    Generate one timestamp per invocation, reused for any fan-out run-id and
    `docs/prps/reviews/local-{YYYYMMDD-HHMMSS}-review.md`. Write even when no
    findings. Apply the schema's Finding ID rules — IDs ordered by severity
@@ -113,7 +113,7 @@ approve security vulnerabilities.
 
 GitHub-only. Before any `gh pr` call, detect provider on `origin` using
 `forge_detect_provider origin`; read
-`~/.codex/plugins/ycc/shared/references/forge-detection.md`.
+`../../shared/references/forge-detection.md`.
 Non-GitHub provider: state limitation, offer local mode; do not call `gh pr`.
 Prefer available `mcp__github__*` for fetch/view/review; otherwise use `gh`.
 If neither is available, warn and fall back to local-only review without publish.
@@ -121,9 +121,9 @@ If neither is available, warn and fall back to local-only review without publish
 Read `~/.codex/plugins/ycc/skills/code-review/references/pr-procedure.md`
 only after selecting PR mode; it contains setup commands, validation examples,
 posting procedure and edge cases. Read canonical schema for REPORT:
-`~/.codex/plugins/ycc/shared/references/review-artifact-format.md`.
+`../../shared/references/review-artifact-format.md`.
 For release-base checks in CONTEXT, also read
-`~/.codex/plugins/ycc/shared/references/pr-base-and-backport.md#checking-an-existing-pr`.
+`../../shared/references/pr-base-and-backport.md#checking-an-existing-pr`.
 
 Phase checklist (execute in order):
 

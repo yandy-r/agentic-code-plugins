@@ -2,7 +2,7 @@
 
 Pair this skill with the `/goal` session directive to drive the `--ci` autofix loop to completion — through every `handoff` fix-and-re-push iteration and every `rerun-pending` flake retry — without returning control between iterations. The done condition references the Phase 8 Goal Signals block, not the report file.
 
-The shared contract (transcript-output rules, condition skeleton, caveats) is `~/.codex/plugins/ycc/shared/references/goal-pairing.md`; read it before relying on a `/goal` loop.
+The shared contract (transcript-output rules, condition skeleton, caveats) is `../../../shared/references/goal-pairing.md`; read it before relying on a `/goal` loop.
 
 ## How the evaluator reads `RESULT=` markers
 

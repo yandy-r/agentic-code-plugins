@@ -84,6 +84,19 @@ NATIVE_PROMPT_FILES = frozenset(
 NATIVE_PLUGIN_PLACEHOLDER = "<installed ycc plugin root>"
 
 
+def prompt_substitution_instruction(text: str, output_path: Path) -> str:
+    """Require absolute plugin-root expansion before a bundled prompt is forwarded."""
+    root = Path(os.path.relpath(".", output_path.parent)).as_posix()
+    return (
+        "## Native prompt substitution\n\nBefore forwarding any prompt, replace every `"
+        + NATIVE_PLUGIN_PLACEHOLDER
+        + "` with the absolute installed ycc plugin root (resolve `"
+        + root
+        + "` from this document's directory). Forward only absolute resource paths; "
+        "keep the user's project as cwd.\n\n" + text
+    )
+
+
 def rewrite_native_paths(text: str, output_path: Path) -> str:
     """Make bundled resources relative to the emitted file instead of the installer symlink.
 
@@ -131,15 +144,7 @@ def rewrite_native_paths(text: str, output_path: Path) -> str:
     if not is_shell:
         rendered = rewrite(text, executable=False)
         if output_path.as_posix() in NATIVE_PROMPT_FILES:
-            root = Path(os.path.relpath(".", output_path.parent)).as_posix()
-            rendered = (
-                "## Native prompt substitution\n\nBefore forwarding any prompt, replace every `"
-                + NATIVE_PLUGIN_PLACEHOLDER
-                + "` with the absolute installed ycc plugin root (resolve `"
-                + root
-                + "` from this document's directory). Forward only absolute resource paths; "
-                "keep the user's project as cwd.\n\n" + rendered
-            )
+            rendered = prompt_substitution_instruction(rendered, output_path)
         if output_path.as_posix() in {
             "skills/git-workflow/SKILL.md",
             "skills/git-workflow/references/commit-phases.md",
@@ -161,6 +166,27 @@ def rewrite_native_paths(text: str, output_path: Path) -> str:
     )
 
 
+_SHARED_REFERENCE_TAIL = re.compile(re.escape(HOME_INSTALL_PLUGIN_ROOT) + r"/(shared/references/[^\s\"'`()<>]+)")
+
+
+def rewrite_shared_reference_paths(text: str, output_path: Path) -> str:
+    """Make Markdown shared-reference links relative so repo and relocated installs resolve."""
+    if output_path.suffix != ".md":
+        return text
+
+    def relative(match: re.Match[str]) -> str:
+        path = match.group(1)
+        if output_path.as_posix() in NATIVE_PROMPT_FILES:
+            return NATIVE_PLUGIN_PLACEHOLDER + "/" + path
+        rel = Path(os.path.relpath(path, output_path.parent)).as_posix()
+        return rel + "/" if path.endswith("/") else rel
+
+    rendered = _SHARED_REFERENCE_TAIL.sub(relative, text)
+    if rendered != text and output_path.as_posix() in NATIVE_PROMPT_FILES:
+        rendered = prompt_substitution_instruction(rendered, output_path)
+    return rendered
+
+
 def transform_skill_markdown(
     raw: str,
     aliases: dict[str, str],
@@ -176,10 +202,13 @@ def transform_skill_markdown(
         rewrite_plugin_paths(description),
         aliases,
     ).strip()
+    resolved_output = output_path or Path("skills") / name / "SKILL.md"
     if native_paths:
         if output_path is None:
             raise ValueError("native skill rendering requires its output path")
         transformed_description = rewrite_native_paths(transformed_description, output_path)
+    else:
+        transformed_description = rewrite_shared_reference_paths(transformed_description, resolved_output)
     transformed_description = compress_skill_description(transformed_description)
     transformed_body = apply_codex_text_transforms(
         rewrite_plugin_paths(body),
@@ -193,6 +222,8 @@ def transform_skill_markdown(
             "them to absolute paths and run helpers by absolute path while keeping the user's "
             "project as cwd.\n\n" + transformed_body.lstrip("\n")
         )
+    else:
+        transformed_body = rewrite_shared_reference_paths(transformed_body, resolved_output)
     payload = {
         "name": name,
         "description": transformed_description,
@@ -318,6 +349,8 @@ def write_tree(dest_root: Path, dry_run: bool, *, native_paths: bool = False) ->
                     )
                     if native_paths:
                         transformed = rewrite_native_paths(transformed, out.relative_to(dest_root))
+                    else:
+                        transformed = rewrite_shared_reference_paths(transformed, out.relative_to(dest_root))
                 if rel.parts and rel.parts[0] == "bundle-release":
                     transformed = restore_bundle_release_source_paths(transformed)
                 transformed = transformed.replace("\x00RELEASE_MODEL_CLAUDE_FILE\x00", "CLAUDE.md")

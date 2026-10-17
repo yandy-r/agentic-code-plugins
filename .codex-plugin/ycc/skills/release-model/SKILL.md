@@ -14,7 +14,7 @@ branch, opens a PR, cuts a release, or cleans up branches reads it through `rele
 **Operational context:** Render project-specific RELEASING.md with machine-readable state and CLAUDE.md/AGENTS.md pointers. Trunk-only tags every release from trunk; release-branches tags minors from trunk and patches from release/X.Y with backports. --upgrade moves to release-branches; --audit reports drift read-only.
 
 The rules themselves (both models, where a change goes, backporting, the state-block
-format) live in `~/.codex/plugins/ycc/shared/references/branching-model.md`. Cite
+format) live in `../../shared/references/branching-model.md`. Cite
 its sections; do not restate them in output or in generated files beyond what the
 template already contains.
 

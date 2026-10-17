@@ -13,8 +13,8 @@ Flow: Research → Checkpoint → Analysis → Plan Generation → Validation �
 
 ## Dispatch lifecycle (applies to every agent-spawning step below)
 
-Read `~/.codex/plugins/ycc/shared/references/standalone-dispatch.md` for standalone dispatch.
-Read `~/.codex/plugins/ycc/shared/references/agent-team-dispatch.md` only when `--team` is present. Never mix the two lifecycles in one run.
+Read `../../shared/references/standalone-dispatch.md` for standalone dispatch.
+Read `../../shared/references/agent-team-dispatch.md` only when `--team` is present. Never mix the two lifecycles in one run.
 
 ## Critical gates (read first)
 
@@ -55,7 +55,7 @@ If no feature name is provided, abort with the full usage instructions from `ref
 
 ## Visual mode
 
-See `~/.codex/plugins/ycc/shared/references/visual-mode.md` for the canonical `--visual` contract. `--visual` is a terminal decorator step, orthogonal to `--optimized` and `--no-worktree`; it runs once at the very end. With `VISUAL_MODE=true` and no `--dry-run`, after the final phase invoke `visual-plan <absolute-plan-path>` where the path is the **actual written plan** at `${feature_dir}/parallel-plan.md` (resolved in Phase 0) — never a hardcoded `docs/prps/plans` path; `visual-plan` derives its `visual/` output directory from it. With `--dry-run`, short-circuit: print `visual generation would run` and do not invoke `visual-plan`. `--research-only` produces no plan file, so `--visual` does not run.
+See `../../shared/references/visual-mode.md` for the canonical `--visual` contract. `--visual` is a terminal decorator step, orthogonal to `--optimized` and `--no-worktree`; it runs once at the very end. With `VISUAL_MODE=true` and no `--dry-run`, after the final phase invoke `visual-plan <absolute-plan-path>` where the path is the **actual written plan** at `${feature_dir}/parallel-plan.md` (resolved in Phase 0) — never a hardcoded `docs/prps/plans` path; `visual-plan` derives its `visual/` output directory from it. With `--dry-run`, short-circuit: print `visual generation would run` and do not invoke `visual-plan`. `--research-only` produces no plan file, so `--visual` does not run.
 
 ## Phase 0: Initialize
 
@@ -378,7 +378,7 @@ Send shutdown requests to all validation teammates.
 
 ## Phase 9.5: Visual Mode (if --visual)
 
-Runs only after the plan is written (Phase 8) and validated (Phases 8–9). It never re-orders, re-runs, or substitutes for any earlier phase. See `~/.codex/plugins/ycc/shared/references/visual-mode.md`.
+Runs only after the plan is written (Phase 8) and validated (Phases 8–9). It never re-orders, re-runs, or substitutes for any earlier phase. See `../../shared/references/visual-mode.md`.
 
 ### Step 32.5: Render Visual Artifact
 

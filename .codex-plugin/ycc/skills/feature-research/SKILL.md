@@ -165,7 +165,7 @@ Do **not** call `record the task`, `Agent`, or `send follow-up instructions` in 
 If `AGENT_TEAM_MODE=false`, skip this step entirely — the default path dispatches standalone sub-agents in Step 8.
 
 If `AGENT_TEAM_MODE=true`, follow the universal lifecycle contract at
-`~/.codex/plugins/ycc/shared/references/agent-team-dispatch.md`.
+`../../shared/references/agent-team-dispatch.md`.
 
 **Team name sanitization** — apply the rules from the shared reference:
 
@@ -240,7 +240,7 @@ In this mode there is no shared task list; rely on each `Agent`'s return value p
 > **MANDATORY — AGENT TEAMS REQUIRED**
 >
 > In Path B you MUST follow the agent-team lifecycle at
-> `~/.codex/plugins/ycc/shared/references/agent-team-dispatch.md`.
+> `../../shared/references/agent-team-dispatch.md`.
 > Do NOT mix standalone `Agent` calls with team dispatch.
 
 All 7 `record the task` entries were registered up front in Step 6 — do not re-create them here.

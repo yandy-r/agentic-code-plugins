@@ -62,8 +62,8 @@ Usage: /implement-plan [--team] [--dry-run] [--worktree] [--no-worktree] <featur
 
 ## Dispatch Lifecycle
 
-Read `~/.codex/plugins/ycc/shared/references/standalone-dispatch.md` for standalone dispatch and common preparation (§§8–9).
-Read `~/.codex/plugins/ycc/shared/references/agent-team-dispatch.md` §8.2 only when `--team` is passed.
+Read `../../shared/references/standalone-dispatch.md` for standalone dispatch and common preparation (§§8–9).
+Read `../../shared/references/agent-team-dispatch.md` §8.2 only when `--team` is passed.
 
 ## Phase 0: Prerequisites Check
 
@@ -122,7 +122,7 @@ All tasks with `Depends on [none]` form the first batch; mark them ready for exe
 
 ### Steps 6.5–6.7
 
-Use standalone-dispatch.md §8.2 in both dispatch modes for Git inspection, required branch preparation, one-time parent setup, and one-way artifact relocation. Expected dirty artifacts: `docs/plans/${WT_FEATURE_SLUG}/` only; unrelated dirty files stop and require user cleanup. Move `docs/plans/${WT_FEATURE_SLUG}/parallel-plan.md` with `docs/plans/${WT_FEATURE_SLUG}/shared.md` as companion; other research artifacts from the same feature directory may ride as extra arguments. Keep returned `$PLAN_PATH` canonical; later validation/reports use the execution tree. Branch-prep exit contract: `~/.codex/plugins/ycc/shared/references/branch-prep.md`.
+Use standalone-dispatch.md §8.2 in both dispatch modes for Git inspection, required branch preparation, one-time parent setup, and one-way artifact relocation. Expected dirty artifacts: `docs/plans/${WT_FEATURE_SLUG}/` only; unrelated dirty files stop and require user cleanup. Move `docs/plans/${WT_FEATURE_SLUG}/parallel-plan.md` with `docs/plans/${WT_FEATURE_SLUG}/shared.md` as companion; other research artifacts from the same feature directory may ride as extra arguments. Keep returned `$PLAN_PATH` canonical; later validation/reports use the execution tree. Branch-prep exit contract: `../../shared/references/branch-prep.md`.
 
 ## Phase 3: Execute in Batches
 
@@ -142,7 +142,7 @@ Execute the dependency-ready standalone batches described below.
 
 ### Path A — Standalone Sub-Agent Batches (default)
 
-Read `~/.codex/plugins/ycc/shared/references/standalone-dispatch.md` for the `Agent` contract; use its §§9–10 for dependency-ready batches. Coordinate agents, do not implement tasks yourself. Read `~/.codex/plugins/ycc/skills/implement-plan/references/agent-task-prompt.md` once before the loop. Per ready task, one `Agent` call per batch message: `subagent_type=implementor`, `description="Implement [Task ID]: [Title]"`, full substituted template.
+Read `../../shared/references/standalone-dispatch.md` for the `Agent` contract; use its §§9–10 for dependency-ready batches. Coordinate agents, do not implement tasks yourself. Read `~/.codex/plugins/ycc/skills/implement-plan/references/agent-task-prompt.md` once before the loop. Per ready task, one `Agent` call per batch message: `subagent_type=implementor`, `description="Implement [Task ID]: [Title]"`, full substituted template.
 
 **When `WORKTREE_ACTIVE=true`**, every task prompt (parallel and sequential) carries the lines below; when `WORKTREE_ACTIVE=false` (`--no-worktree`) use `Working directory: ${REPO_ROOT}` and `All parallel agents in this batch share the current feature branch; batching guarantees no two agents touch the same file.` Never pass `isolation: "worktree"`. Agents read the plan, shared context and "READ THESE BEFORE TASK" files first, implement only assigned files/instructions, lint and compile/parse modified files, then report files created/modified and issues.
 
@@ -163,7 +163,7 @@ Repeat from the ready-task selection until no tasks remain, then Phase 4.
 
 ### Path B — Agent Team Batches (`--team`)
 
-Read `~/.codex/plugins/ycc/shared/references/agent-team-dispatch.md` §8.2 (plus standalone-dispatch.md §§8–9). Inputs: context = feature name; prefix `impl-`; sanitize per team §1 (20-char context, fallback `untitled`); team description `implement-plan team for: <feature-name>`; task subject `<task-id>: <task title>`; task description = full spec (files to read/create/modify and instructions); dependencies = Phase 1 graph; same implementor template plus own-`update the task tracker` completion; same `Working directory:` lines. Print the same `[done] Batch BN: K tasks — complete` marker per batch. Failure: no auto-retry or skipping; use `ask the user`: _"Batch {BN} had failures. Choose: (1) fix manually and resume, (2) switch to sequential standalone sub-agents for remaining batches, (3) abort."_ Cleanup and worktree survival follow §8.2. After all batches, Phase 4.
+Read `../../shared/references/agent-team-dispatch.md` §8.2 (plus standalone-dispatch.md §§8–9). Inputs: context = feature name; prefix `impl-`; sanitize per team §1 (20-char context, fallback `untitled`); team description `implement-plan team for: <feature-name>`; task subject `<task-id>: <task title>`; task description = full spec (files to read/create/modify and instructions); dependencies = Phase 1 graph; same implementor template plus own-`update the task tracker` completion; same `Working directory:` lines. Print the same `[done] Batch BN: K tasks — complete` marker per batch. Failure: no auto-retry or skipping; use `ask the user`: _"Batch {BN} had failures. Choose: (1) fix manually and resume, (2) switch to sequential standalone sub-agents for remaining batches, (3) abort."_ Cleanup and worktree survival follow §8.2. After all batches, Phase 4.
 
 ## Phase 4: Final Verification & Summary
 
@@ -199,7 +199,7 @@ Plans are read from the git repository root in `docs/plans/` by default; running
 
 ## /goal pairing
 
-Pair with the `/goal` session directive to loop the batch executor to completion without re-prompting between batches. The condition template and the shared transcript-output caveats are in `references/output-formats.md` (Goal pairing); the cross-skill contract lives at `~/.codex/plugins/ycc/shared/references/goal-pairing.md` — read it before relying on a `/goal` loop.
+Pair with the `/goal` session directive to loop the batch executor to completion without re-prompting between batches. The condition template and the shared transcript-output caveats are in `references/output-formats.md` (Goal pairing); the cross-skill contract lives at `../../shared/references/goal-pairing.md` — read it before relying on a `/goal` loop.
 
 ## References
 

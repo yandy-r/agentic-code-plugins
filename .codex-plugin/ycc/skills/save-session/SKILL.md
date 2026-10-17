@@ -20,7 +20,7 @@ Capture everything that happened in this session — what was built, what worked
 
 ### Step 0 — Read the session-state contract
 
-**Before writing anything, read `~/.codex/plugins/ycc/shared/references/session-state.md` (mandatory). It owns store, filename, and file format — follow it, do not restate it here.**
+**Before writing anything, read `../../shared/references/session-state.md` (mandatory). It owns store, filename, and file format — follow it, do not restate it here.**
 
 ### Step 1 — Gather context
 
@@ -63,7 +63,7 @@ Wait for confirmation. Make edits if requested.
 
 ## Session File Format
 
-The full session-file template, filename, and store rules live in the shared contract at `~/.codex/plugins/ycc/shared/references/session-state.md` — read it and populate its "File Format" template exactly. Do not duplicate the template here.
+The full session-file template, filename, and store rules live in the shared contract at `../../shared/references/session-state.md` — read it and populate its "File Format" template exactly. Do not duplicate the template here.
 
 ---
 
@@ -156,4 +156,4 @@ Then test with Postman — the response should include a `Set-Cookie` header.
 - Each session gets its own file — never append to a previous session's file
 - The "What Did NOT Work" section is the most critical — future sessions will blindly retry failed approaches without it
 - The file is meant to be read by Claude at the start of the next session via `$resume-session`
-- Store, filename form, and file format are owned by `~/.codex/plugins/ycc/shared/references/session-state.md` — follow it for any new session file
+- Store, filename form, and file format are owned by `../../shared/references/session-state.md` — follow it for any new session file

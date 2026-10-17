@@ -80,7 +80,7 @@ After foundation answers, dispatch the **`prp-researcher`** agent via the **`Age
 - Recent trends or changes
 - If a codebase exists: relevant existing functionality, patterns that could be leveraged, and technical constraints
 
-Instruct the researcher to return file:line references for codebase findings and URL citations for market findings. This is a standalone single-researcher dispatch — see `~/.codex/plugins/ycc/shared/references/standalone-dispatch.md` for the `Agent` spawn/return contract (omit `name` for standalone dispatch).
+Instruct the researcher to return file:line references for codebase findings and URL citations for market findings. This is a standalone single-researcher dispatch — see `../../shared/references/standalone-dispatch.md` for the `Agent` spawn/return contract (omit `name` for standalone dispatch).
 
 **Summarize findings to user:**
 

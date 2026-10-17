@@ -87,7 +87,7 @@ the stated requirements.
 Three standalone `code-reviewer` sub-agents, dispatched via `Agent` without
 `name` or `run_in_background` (Path B), or agent-team teammates spawned via
 `Agent` with `name` (Path C). See
-`~/.codex/plugins/ycc/shared/references/standalone-dispatch.md`
+`standalone-dispatch.md`
 for the full `Agent` spawn/return contract that Path B must follow. The **focus
 split** differs between local/quick and PR modes because local mode has a
 narrower category set.
@@ -144,7 +144,7 @@ split already implies a category).
 ## Merge Procedure (Path B / Path C)
 
 After all 3 reviewers return (Path B only — see
-`~/.codex/plugins/ycc/shared/references/standalone-dispatch.md`
+`standalone-dispatch.md`
 for the result-delivery and batch-completion contract):
 
 1. For any reviewer whose `Agent` return was empty, missing, or malformed,

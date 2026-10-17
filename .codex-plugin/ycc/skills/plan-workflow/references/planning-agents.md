@@ -1,3 +1,7 @@
+## Native prompt substitution
+
+Before forwarding any prompt, replace every `<installed ycc plugin root>` with the absolute installed ycc plugin root (resolve `../../..` from this document's directory). Forward only absolute resource paths; keep the user's project as cwd.
+
 # Planning Agent Prompts
 
 ## Contents
@@ -394,7 +398,7 @@ Based on the codebase structure and planning context:
    - Integration tasks (API, UI, tests)
    - Documentation tasks
 
-5. **Label Parallel vs Sequential** - In your output, clearly label each task as **parallel** (can run concurrently with siblings) or **sequential** (must follow a predecessor). The orchestrator uses this labeling for batch ordering. Follow `~/.codex/plugins/ycc/shared/references/worktree-strategy.md` for the single-worktree contract.
+5. **Label Parallel vs Sequential** - In your output, clearly label each task as **parallel** (can run concurrently with siblings) or **sequential** (must follow a predecessor). The orchestrator uses this labeling for batch ordering. Follow `<installed ycc plugin root>/shared/references/worktree-strategy.md` for the single-worktree contract.
 
 ## Team Communication
 

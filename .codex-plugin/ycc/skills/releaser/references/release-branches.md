@@ -11,7 +11,7 @@
 
 How `releaser` applies a project's release model. The rules themselves (trunk-only
 vs. release-branches, maintenance and frozen branches, backport labels) live in
-`~/.codex/plugins/ycc/shared/references/branching-model.md`; this file only
+`../../../shared/references/branching-model.md`; this file only
 covers what the releaser does with them. Without a `RELEASING.md`, none of this applies
 and the releaser behaves as it always has.
 

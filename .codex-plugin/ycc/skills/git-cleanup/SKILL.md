@@ -39,7 +39,7 @@ Parse `$ARGUMENTS`:
 3. **Read the release state**: run
    `~/.codex/plugins/ycc/shared/scripts/release-state.sh get` and parse
    its `key=value` output (format and rules:
-   `~/.codex/plugins/ycc/shared/references/branching-model.md`).
+   `../../shared/references/branching-model.md`).
    - `present=0` (no `RELEASING.md`): release-model rules are off. Every later
      phase behaves exactly as described without the "Release model" notes.
    - `present=1`: record `RELEASE_TRUNK` (`trunk`), `RELEASE_MAINTENANCE`
@@ -51,7 +51,7 @@ Parse `$ARGUMENTS`:
      trunk or a protected set from a broken block.
 4. **Detect host CLIs and MCP tools**. Detection follows the bundle-wide
    contract in
-   `~/.codex/plugins/ycc/shared/references/forge-detection.md`
+   `../../shared/references/forge-detection.md`
    (`forge_detect_provider origin` → `github` / `forgejo` / `gitea` / `gitlab` /
    `unknown`; `forge_cli` → `gh` / `tea` / `glab`); the git-cleanup-specific
    operation map lives in

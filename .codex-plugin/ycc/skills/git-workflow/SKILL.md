@@ -100,19 +100,19 @@ Read `references/commit-phases.md` before Phase 0 for exact commands, the dry-ru
 Only when `pr ∈ actions`. Read `references/pr-creation.md` before Step 22. Decision points:
 
 - Step 22a: existing PR → with `--ci`, ask whether to skip creation and run Phase 6 against it (`no` exits cleanly, no Phase 6); without `--ci`, stop with the "PR already exists" message.
-- Step 22b: resolve `$BASE`, run the sync-check guard (exit 3: no PR, stop), offer backport, per `~/.codex/plugins/ycc/shared/references/pr-base-and-backport.md`. Exit 2 (malformed `RELEASING.md`) stops with the parse error and `$release-model --audit`.
+- Step 22b: resolve `$BASE`, run the sync-check guard (exit 3: no PR, stop), offer backport, per `../../shared/references/pr-base-and-backport.md`. Exit 2 (malformed `RELEASING.md`) stops with the parse error and `$release-model --audit`.
 - Step 23: read `templates/pr-template.md`.
 - Step 25: PR title must be Conventional Commit format and pass `validate-commit.sh`.
-- Step 28: MCP `mcp__github__create_pull_request` first, `gh pr create` fallback; forge routing via `~/.codex/plugins/ycc/shared/references/forge-detection.md` (`tea` for forgejo/gitea).
+- Step 28: MCP `mcp__github__create_pull_request` first, `gh pr create` fallback; forge routing via `../../shared/references/forge-detection.md` (`tea` for forgejo/gitea).
 - Step 27: draft when work is incomplete or feedback is wanted; honor `--draft`.
 
 ## Phase 6: CI Monitoring (Steps 32–37)
 
-Only when `--ci ∈ flags`. Read `references/ci-monitoring-phase.md` before Step 32, and `~/.codex/plugins/ycc/shared/references/ci-monitoring.md` (authoritative policy: classification, termination, audit log, loop protocol) at Step 33. GitHub-only: `RESULT=unsupported-provider` is reported and skipped without error. No PR number: hard-stop. Authorization prompt unless `--ci-yes`. Branch on `RESULT=`: `green` → report; `handoff` → fix, validate, commit, push head branch, loop; `rerun-pending` → `sleep 30`, loop, no fix; `bail-*` → diagnosis, end; `pr-not-found` / `refused-default-branch` → surface, no retry. Print the Goal Signals block verbatim as the last lines of the run (`PR_IN_SCOPE`, `PR_URL_PRINTED`, `CI_GREEN`, `CI_BAIL_VISIBLE`); criteria are in that reference.
+Only when `--ci ∈ flags`. Read `references/ci-monitoring-phase.md` before Step 32, and `../../shared/references/ci-monitoring.md` (authoritative policy: classification, termination, audit log, loop protocol) at Step 33. GitHub-only: `RESULT=unsupported-provider` is reported and skipped without error. No PR number: hard-stop. Authorization prompt unless `--ci-yes`. Branch on `RESULT=`: `green` → report; `handoff` → fix, validate, commit, push head branch, loop; `rerun-pending` → `sleep 30`, loop, no fix; `bail-*` → diagnosis, end; `pr-not-found` / `refused-default-branch` → surface, no retry. Print the Goal Signals block verbatim as the last lines of the run (`PR_IN_SCOPE`, `PR_URL_PRINTED`, `CI_GREEN`, `CI_BAIL_VISIBLE`); criteria are in that reference.
 
 ## /goal Pairing
 
-Pair `/goal` only in `--ci` mode. Read `references/goal-pairing.md` for keep-looping/done/stop semantics and the condition template, and `~/.codex/plugins/ycc/shared/references/goal-pairing.md` before relying on a `/goal` loop.
+Pair `/goal` only in `--ci` mode. Read `references/goal-pairing.md` for keep-looping/done/stop semantics and the condition template, and `../../shared/references/goal-pairing.md` before relying on a `/goal` loop.
 
 ## Quality, Examples, Troubleshooting
 
@@ -127,4 +127,4 @@ Read `references/examples-and-troubleshooting.md` for the commit/docs/agent/PR/o
 - `references/examples-and-troubleshooting.md` — read for checklists, examples, or when a step fails.
 - `templates/commit-types.md`, `templates/documentation-decision.md`, `templates/agent-prompts.md`, `templates/pr-template.md` — read at Steps 8, 6, 14, 23.
 - `scripts/analyze-changes.sh` (Step 2), `scripts/validate-commit.sh` (Steps 10, 18, 25, 36), `scripts/create-pr.sh` (Step 24; `--analyze --base "$BASE"`; defensive existing-PR check).
-- Shared: `~/.codex/plugins/ycc/shared/references/{forge-detection,pr-base-and-backport,ci-monitoring,goal-pairing}.md`, `~/.codex/plugins/ycc/shared/scripts/{pr-guard,ci-monitor}.sh`. `branch-prep.md` does not apply: this skill never creates branches.
+- Shared: `../../shared/references/{forge-detection,pr-base-and-backport,ci-monitoring,goal-pairing}.md`, `~/.codex/plugins/ycc/shared/scripts/{pr-guard,ci-monitor}.sh`. `branch-prep.md` does not apply: this skill never creates branches.

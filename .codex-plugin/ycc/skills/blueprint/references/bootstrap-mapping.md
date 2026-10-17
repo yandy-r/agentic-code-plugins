@@ -50,7 +50,7 @@ The interview asks: _"Will older versions need patches after a newer release shi
 `release-model --model <value> --yes`; bare, it runs `release-model` so the skill
 proposes a model and confirms it. Either way `init` skips the step when `RELEASING.md`
 already exists. Rules behind both models:
-`~/.codex/plugins/ycc/shared/references/branching-model.md`.
+`../../../shared/references/branching-model.md`.
 
 ## init Already Chains formatters
 

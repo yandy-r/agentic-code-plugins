@@ -48,7 +48,7 @@ With MCP, prefer `mcp__github__list_pull_requests` with `head=<branch>`.
 
 ## Step 22b: Resolve base, guard sync merges, offer backport
 
-Follow `~/.codex/plugins/ycc/shared/references/pr-base-and-backport.md` with `GUARD=~/.codex/plugins/ycc/shared/scripts/pr-guard.sh`:
+Follow `../../../shared/references/pr-base-and-backport.md` with `GUARD=~/.codex/plugins/ycc/shared/scripts/pr-guard.sh`:
 
 1. `git fetch origin`, then `BASE=$(bash "$GUARD" base [--base <branch>])` — pass `--base` only when the user gave it. Use `$BASE` everywhere below.
 2. `bash "$GUARD" sync-check --base "$BASE"` — exit 3: do not create the PR; show the reason, cite `branching-model.md#rules`, stop (Phase 6 does not run).
@@ -68,7 +68,7 @@ Gather context:
 
 Output: current branch, base (`$BASE`), commit history since divergence, changed-files summary, documentation changes, suggested title and scope.
 
-**Forge detection**: `create-pr.sh` detects the provider on `origin` and routes through the matching CLI — `gh` for `github`, `tea` for `forgejo`/`gitea` (`gh pr create` ↔ `tea pull create`). The MCP-first path applies only to `github`; on forgejo/gitea the script drives `tea` directly. Algorithm and equivalence map: `~/.codex/plugins/ycc/shared/references/forge-detection.md`. Log the resolved provider and CLI so the user sees which forge the PR targeted.
+**Forge detection**: `create-pr.sh` detects the provider on `origin` and routes through the matching CLI — `gh` for `github`, `tea` for `forgejo`/`gitea` (`gh pr create` ↔ `tea pull create`). The MCP-first path applies only to `github`; on forgejo/gitea the script drives `tea` directly. Algorithm and equivalence map: `../../../shared/references/forge-detection.md`. Log the resolved provider and CLI so the user sees which forge the PR targeted.
 
 ## Step 25: PR title
 

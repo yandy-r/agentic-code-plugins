@@ -51,8 +51,8 @@ Read `references/detection.md` now for the lockfile/package-manager/runner table
 
 ## Dispatch Contract
 
-Read `~/.codex/plugins/ycc/shared/references/standalone-dispatch.md` for standalone dispatch and common preparation (§§8–9).
-Read `~/.codex/plugins/ycc/shared/references/agent-team-dispatch.md` §8.2 only when `--team` is passed.
+Read `../../shared/references/standalone-dispatch.md` for standalone dispatch and common preparation (§§8–9).
+Read `../../shared/references/agent-team-dispatch.md` §8.2 only when `--team` is passed.
 
 ## Phase 1 — LOAD
 
@@ -171,7 +171,7 @@ Read `references/validation-and-failures.md` when any type-check, test, lint, bu
 
 ## /goal pairing and Next Steps
 
-Read `references/report-output.md` (Goal pairing) for the condition template; read `~/.codex/plugins/ycc/shared/references/goal-pairing.md` before relying on a `/goal` loop. Done conditions use printed signals, not file paths. Next: `$code-review`, `$prp-commit`, `$prp-pr`, or `$prp-plan <next-phase>`.
+Read `references/report-output.md` (Goal pairing) for the condition template; read `../../shared/references/goal-pairing.md` before relying on a `/goal` loop. Done conditions use printed signals, not file paths. Next: `$code-review`, `$prp-commit`, `$prp-pr`, or `$prp-plan <next-phase>`.
 
 ## References — read when
 

@@ -82,7 +82,7 @@ Build review context:
 2. **PRP artifacts** — Check `docs/prps/reports/` and `docs/prps/plans/` (including `completed/`) for implementation context related to this PR
 3. **PR intent** — Parse PR description for goals, linked issues, test plans
 4. **Changed files** — List all modified files and categorize by type (source, test, config, docs)
-5. **PR base vs. release model** — Skip silently when `release-state.sh get` prints `present=0`. Otherwise fetch the head (`git fetch origin <headRefName>`, or `pull/<N>/head` for a fork) and compare `baseRefName` with `release-state.sh base --head FETCH_HEAD`, per `~/.codex/plugins/ycc/shared/references/pr-base-and-backport.md` (section "Checking an existing PR"). On a mismatch, record a **MEDIUM** finding anchored at `RELEASING.md` (Category: Pattern Compliance) naming both branches, with the suggested fix `gh pr edit <N> --base <expected>` (a retarget, not a code change).
+5. **PR base vs. release model** — Skip silently when `release-state.sh get` prints `present=0`. Otherwise fetch the head (`git fetch origin <headRefName>`, or `pull/<N>/head` for a fork) and compare `baseRefName` with `release-state.sh base --head FETCH_HEAD`, per `../../../shared/references/pr-base-and-backport.md` (section "Checking an existing PR"). On a mismatch, record a **MEDIUM** finding anchored at `RELEASING.md` (Category: Pattern Compliance) naming both branches, with the suggested fix `gh pr edit <N> --base <expected>` (a retarget, not a code change).
 
 ### Phase 3 — REVIEW
 
@@ -164,7 +164,7 @@ Special cases:
 ### Phase 6 — REPORT
 
 Assign finding IDs and initial Status after merge per the shared artifact
-schema (`~/.codex/plugins/ycc/shared/references/review-artifact-format.md`,
+schema (`../../../shared/references/review-artifact-format.md`,
 Finding ID rules: ordered by severity, CRITICAL first, then by file path).
 
 #### Draft Promotion
@@ -190,7 +190,7 @@ mkdir -p "$(git rev-parse --show-toplevel)/docs/prps/reviews"
 ```
 
 Use the shared Review Artifact Format at
-`~/.codex/plugins/ycc/shared/references/review-artifact-format.md`.
+`../../../shared/references/review-artifact-format.md`.
 The artifact must include finding IDs and `Status: Open` on every finding so that `$review-fix` can later update the file in place.
 
 - Write the artifact to `$(git rev-parse --show-toplevel)/docs/prps/reviews/pr-<N>-review.md`. When `WORKTREE_ACTIVE=true` this resolves to the worktree top-level (e.g., `<repo-root>/.codex/worktrees/<repo>-pr-<N>/docs/prps/reviews/pr-<N>-review.md`); when `--no-worktree` is in effect, it resolves to the main repo. The artifact intentionally lives **with the PR branch** so it travels with the review history.

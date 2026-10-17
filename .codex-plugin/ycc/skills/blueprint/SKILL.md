@@ -115,7 +115,7 @@ Dispatch **`prp-researcher`** via the **`Agent`** tool, in **dual (market + code
 
 Instruct the researcher to return URL citations for market findings and `file:line`
 references for codebase findings. This is a standalone single-researcher dispatch — see
-`~/.codex/plugins/ycc/shared/references/standalone-dispatch.md` for the `Agent`
+`../../shared/references/standalone-dispatch.md` for the `Agent`
 spawn/return contract (omit `name` for standalone dispatch).
 
 **Summarize to the user:**

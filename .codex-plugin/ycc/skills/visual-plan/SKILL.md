@@ -19,13 +19,13 @@ re-plan. Local-files mode uses the pinned Agent-Native Plans CLI and never
 registers an MCP server; hosted sharing uses the Plan MCP connector only after
 explicit consent. The install pin, auth/reconnect flow, connector names,
 localhost bridge, block-catalog lookup, and egress policy are defined ONCE in
-`~/.codex/plugins/ycc/shared/references/agent-native-setup.md`. Read
+`../../shared/references/agent-native-setup.md`. Read
 that file for any setup/auth/serve/egress detail rather than memorizing it here.
 
 ## Contract (read first)
 
 This skill is the hand-off target of the shared `--visual` decorator. The full
-contract lives in `~/.codex/plugins/ycc/shared/references/visual-mode.md`.
+contract lives in `../../shared/references/visual-mode.md`.
 The non-negotiable invariants:
 
 - **Accept ANY plan path.** Never assume `docs/prps/plans` or any fixed
@@ -171,7 +171,7 @@ work touches, and request sign-off.
 ## Egress & consent (default OFF)
 
 Hosted upload is **OFF by default** and **consent-gated**. The full policy lives
-in `~/.codex/plugins/ycc/shared/references/agent-native-setup.md`;
+in `../../shared/references/agent-native-setup.md`;
 the operational rules for this skill:
 
 - **Default = `local-files`.** Set `AGENT_NATIVE_PLANS_MODE=local-files`. In this
@@ -202,7 +202,7 @@ the operational rules for this skill:
 For the pinned install version, the one-time per-client reconnect, the hosted
 `plan` MCP connector (legacy alias `agent-native-plans`), local-files mode, and
 the localhost bridge, read
-`~/.codex/plugins/ycc/shared/references/agent-native-setup.md`. If a
+`../../shared/references/agent-native-setup.md`. If a
 hosted Plans tool returns `needs auth` / `Unauthorized` / `Session terminated`
 in the `--share` branch, stop and give the user the reconnect step from that
 reference — never reinstall from scratch to fix auth, and never use hosted tools

@@ -6,7 +6,7 @@ Pair this skill with the `/goal` session directive only in `--ci` mode. Without 
 
 - **Keep looping** — `handoff` (apply the fix per the classification table, commit, push to the PR head branch, re-invoke the monitor) and `rerun-pending` (flake suspected; sleep, re-invoke). Recoverable progress markers, not endpoints.
 - **Done** — `RESULT=green` (`CI_GREEN: PASS`), PR URL printed in the final report.
-- **Stop** — any `bail-*` (`bail-recurrence`, `bail-nonfixable`, `bail-pushes`, `bail-timeout`). All terminal: `ci-monitor.sh` exhausts recoverable `rerun-pending` retries internally before emitting a bail, so a printed `bail-*` means no further automatic progress is possible. The evaluator distinguishes "loop again" from "stop" by `green` vs `bail-*` in the Step 37 report, never by re-classifying bail codes. Taxonomy: `~/.codex/plugins/ycc/shared/references/ci-monitoring.md`.
+- **Stop** — any `bail-*` (`bail-recurrence`, `bail-nonfixable`, `bail-pushes`, `bail-timeout`). All terminal: `ci-monitor.sh` exhausts recoverable `rerun-pending` retries internally before emitting a bail, so a printed `bail-*` means no further automatic progress is possible. The evaluator distinguishes "loop again" from "stop" by `green` vs `bail-*` in the Step 37 report, never by re-classifying bail codes. Taxonomy: `../../../shared/references/ci-monitoring.md`.
 
 Recommended condition template (`--ci` mode):
 
@@ -20,4 +20,4 @@ bail-* fired), stop and report the bail — do not re-run. If any other signal p
 keep fixing and re-running until all are PASS. Stop after 25 turns if not achieved.
 ```
 
-The transcript-output contract and shared caveats (worktree cwd, interactive failure prompts, platform availability) are in `~/.codex/plugins/ycc/shared/references/goal-pairing.md`; read it before relying on a `/goal` loop.
+The transcript-output contract and shared caveats (worktree cwd, interactive failure prompts, platform availability) are in `../../../shared/references/goal-pairing.md`; read it before relying on a `/goal` loop.

@@ -51,7 +51,7 @@ Parse `$ARGUMENTS` for:
 ### Phase 0: Load capability matrix
 
 Read
-`~/.codex/plugins/ycc/shared/references/target-capability-matrix.md`.
+`../../shared/references/target-capability-matrix.md`.
 
 This document defines which features (skills, agents, slash commands, hooks)
 are available on each target. Load it into context before any per-target work
@@ -218,7 +218,7 @@ from actionable failures, see
 - To act on the findings — bump versions, regenerate bundles, tag a release —
   use `$bundle-release`.
 - The capability matrix at
-  `~/.codex/plugins/ycc/shared/references/target-capability-matrix.md`
+  `../../shared/references/target-capability-matrix.md`
   is the authoritative source for what is and is not expected on each target.
   If a gap appears in the report but is documented in the matrix, it is a `WARN`
   not a `FAIL`.

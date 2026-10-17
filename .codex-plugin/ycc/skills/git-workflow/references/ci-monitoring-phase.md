@@ -15,7 +15,7 @@
 
 Runs only when `--ci ∈ flags`; skip silently otherwise. Phase 5 need not have run — bare `--ci` and `--push --ci` reach this phase by design.
 
-GitHub-only: the loop depends on `gh run` controls (`gh run view --log-failed`, `gh run rerun`). On a non-GitHub remote `ci-monitor.sh` returns `RESULT=unsupported-provider` (exit 2). Treat it like `pr-not-found` / `refused-default-branch`: report it directly, say the loop is GitHub-only and why, end Phase 6 cleanly without erroring. See `~/.codex/plugins/ycc/shared/references/forge-detection.md` and `~/.codex/plugins/ycc/shared/references/ci-monitoring.md`.
+GitHub-only: the loop depends on `gh run` controls (`gh run view --log-failed`, `gh run rerun`). On a non-GitHub remote `ci-monitor.sh` returns `RESULT=unsupported-provider` (exit 2). Treat it like `pr-not-found` / `refused-default-branch`: report it directly, say the loop is GitHub-only and why, end Phase 6 cleanly without erroring. See `../../../shared/references/forge-detection.md` and `../../../shared/references/ci-monitoring.md`.
 
 ## Step 32: Discover PR
 
@@ -35,7 +35,7 @@ With MCP, prefer `mcp__github__list_pull_requests` with `head=<branch>`.
 
 ## Step 33: Load policy
 
-Read `~/.codex/plugins/ycc/shared/references/ci-monitoring.md` for the failure-classification table, termination policy, audit log schema and loop protocol. It is authoritative; do not duplicate it.
+Read `../../../shared/references/ci-monitoring.md` for the failure-classification table, termination policy, audit log schema and loop protocol. It is authoritative; do not duplicate it.
 
 ## Step 34: One-time authorization prompt
 

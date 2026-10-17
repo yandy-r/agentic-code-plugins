@@ -7,7 +7,7 @@ description: Backports merged trunk PRs to maintenance branches. Use when backpo
 # Backport
 
 Move a fix that already landed on the trunk to one or more maintenance branches, the way
-`~/.codex/plugins/ycc/shared/references/branching-model.md` (section "Backporting") prescribes:
+`../../shared/references/branching-model.md` (section "Backporting") prescribes:
 a `git cherry-pick -x` of the trunk's merge or squash commit onto a `backport/X.Y/<pr>-<slug>` branch cut
 from `origin/release/X.Y`, then one PR per target into `release/X.Y` with `Backport of #<N>` in its body.
 
@@ -263,7 +263,7 @@ Print one row per work item: PR, target, result (`opened #M <url>`, `conflict (w
 ## Phase 5 — CI (`--ci` only)
 
 For each opened backport PR, run the loop documented in
-`~/.codex/plugins/ycc/shared/references/ci-monitoring.md` (section "Loop
+`../../shared/references/ci-monitoring.md` (section "Loop
 Protocol"), exactly as `$pr-autofix` Phase 7 does — policy is not restated here:
 
 ```bash
@@ -284,6 +284,6 @@ bash "~/.codex/plugins/ycc/shared/scripts/ci-monitor.sh" \
 
 ## Related
 
-- Rules and manual steps: `~/.codex/plugins/ycc/shared/references/branching-model.md`
+- Rules and manual steps: `../../shared/references/branching-model.md`
 - Release state: `~/.codex/plugins/ycc/shared/scripts/release-state.sh`
-- Worktrees: `~/.codex/plugins/ycc/shared/references/worktree-strategy.md`
+- Worktrees: `../../shared/references/worktree-strategy.md`

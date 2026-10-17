@@ -49,7 +49,7 @@ Error paths:
 - Missing explicit path: `Error: review file not found: <path>`
 - Unparseable: stop with
   `Error: Review file has no parseable findings or is not in the expected format.`
-  - `See ~/.codex/plugins/ycc/shared/references/review-artifact-format.md`.
+  - `See ../../shared/references/review-artifact-format.md`.
 - No Open findings: stop with Fixed/Failed counts, `Nothing to do.`
 
 Package manager detection (`TYPECHECK_CMD`, `TEST_CMD`):
@@ -68,7 +68,7 @@ Package manager detection (`TYPECHECK_CMD`, `TEST_CMD`):
 
 Parse artifact per finding schema and status rules:
 
-`~/.codex/plugins/ycc/shared/references/review-artifact-format.md`
+`../../shared/references/review-artifact-format.md`
 
 Build an in-memory list of `Finding` objects with fields:
 
@@ -160,7 +160,7 @@ Branch based on `PARALLEL_MODE` and `AGENT_TEAM_MODE`:
 
 Read when `WORKTREE_ACTIVE=true`: the "Worktree-mode lifecycle" section of
 `~/.codex/plugins/ycc/skills/review-fix/references/plan.md` and
-`~/.codex/plugins/ycc/shared/references/worktree-strategy.md` §1.
+`../../shared/references/worktree-strategy.md` §1.
 All batches run inside
 `$PARENT_PATH`; validation per batch:
 
@@ -189,7 +189,7 @@ Read report template and worktree summary:
 Write to `docs/prps/reviews/fixes/<source-name>-fixes.md` under the active
 checkout root. In worktree mode, stage and commit the report alongside fix
 commits and push. GitHub-only: detect forge first (see
-`~/.codex/plugins/ycc/shared/references/forge-detection.md`); on
+`../../shared/references/forge-detection.md`); on
 non-GitHub providers skip commit/push with notice
 `PR posting is GitHub-only on provider <provider>; fixes applied locally — commit and push them yourself.` and `REPORT_COMMITTED: n/a`.
 
@@ -236,4 +236,4 @@ Done signal: `Open remaining: 0` plus all five Goal Signals printed. Failed
 findings are terminal (never re-dispatched); when `Fixed + Failed == Eligible`
 the pipeline is complete. Before relying on a `/goal` loop, read:
 
-`~/.codex/plugins/ycc/shared/references/goal-pairing.md`
+`../../shared/references/goal-pairing.md`

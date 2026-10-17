@@ -40,7 +40,7 @@ pauses the pipeline; the fail-stop gate applies to Path B and Path C only.
 
 - When `WORKTREE_ACTIVE=true`: batches are still severity-ordered. Dispatch every parallel review-fixer with `Working directory: ${PARENT_PATH}` only. Do **not** add `isolation: "worktree"`. Between-batch validation runs once in `${PARENT_PATH}` before advancing to the next severity. No fan-in merge.
 
-Process batches sequentially; within each batch, dispatch all review-fixer agents as standalone sub-agents in parallel. Dispatch per the contract in `~/.codex/plugins/ycc/shared/references/standalone-dispatch.md`.
+Process batches sequentially; within each batch, dispatch all review-fixer agents as standalone sub-agents in parallel. Dispatch per the contract in `../../../shared/references/standalone-dispatch.md`.
 
 For each batch:
 
@@ -101,7 +101,7 @@ If a `review-fixer` agent returns `STATUS: Failed`:
 > 6. Send shutdown requests to every teammate after the final batch (or on abort)
 >
 > If up-front `record the task` fails, abort the skill. Refer to
-> `~/.codex/plugins/ycc/shared/references/agent-team-dispatch.md`
+> `../../../shared/references/agent-team-dispatch.md`
 > for the full lifecycle contract.
 
 Process batches sequentially under a single team, with per-batch teammate spawn and inter-batch shutdown. Use this when the fix run spans many findings across multiple batches and you want a shared task graph for audit/visibility, or when fixers should be able to cross-reference each other via `send follow-up instructions` (e.g., if fixing F003 reveals the same root cause as F007 in a different file).
