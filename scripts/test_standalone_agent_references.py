@@ -32,9 +32,9 @@ SURFACES: tuple[tuple[str, str], ...] = (
 
 # User-global doc templates (``~/.claude/file-templates``, ``%USERPROFILE%\.cursor\file-templates``)
 # are never shipped by any package. Matches ``file-templates`` as a whole path segment, with or
-# without a trailing separator.
+# without a trailing separator; separators may be escaped (``\\``) inside TOML strings.
 HOME_TEMPLATE_PATTERN = re.compile(
-    r"(?:~|\$HOME|\$\{HOME\}|%USERPROFILE%)[/\\]\.[\w.\\/-]*?[/\\]file-templates(?![\w-])"
+    r"(?:~|\$HOME|\$\{HOME\}|%USERPROFILE%)[/\\]+\.[\w.\\/-]*?[/\\]+file-templates(?![\w-])"
 )
 
 REACH_IN_PATTERNS: tuple[re.Pattern[str], ...] = (
@@ -110,6 +110,7 @@ class StandaloneAgentReferenceTests(unittest.TestCase):
             "read all templates from ~/.claude/file-templates",
             "templates live in `~/.cursor/file-templates`.",
             r"read %USERPROFILE%\.claude\file-templates\api.template.md",
+            r'developer_instructions = "read %USERPROFILE%\\.claude\\file-templates\\api.md"',
             'developer_instructions = "intro\\nread ~/.codex/file-templates/x.md"',
         )
         for sample in samples:
