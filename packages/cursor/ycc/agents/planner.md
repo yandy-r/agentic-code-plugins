@@ -28,7 +28,7 @@ Use this exact structure for your output:
 
 ## Worktree Setup _(optional — present only in worktree mode; omit entirely for non-worktree plans)_
 
-- **Parent**: `<repo-root>/.claude/worktrees/<repo>-<feature>/` (branch: `feat/<feature>`)
+- **Parent**: `<worktree-root>/<repo>-<feature>/` (branch: `feat/<feature>`)
 
 ## Requirements
 
@@ -84,7 +84,7 @@ When the dispatching skill's prompt contains `WORKTREE MODE:`, emit these additi
 elements in your plan:
 
 1. A top-level `## Worktree Setup` block after the summary and before the first batch
-   or phase. Structure per `ycc/skills/_shared/references/worktree-strategy.md` §1–§2.
+   or phase. Use the parent path supplied by the dispatching prompt.
    Emit only the single `**Parent**:` line — all tasks (parallel and sequential) share
    this one feature worktree path. Do **not** add a `**Children**:` list and do **not**
    add per-task `**Worktree**:` annotations.
@@ -92,18 +92,23 @@ elements in your plan:
    ```markdown
    ## Worktree Setup
 
-   - **Parent**: <repo-root>/.claude/worktrees/<repo>-<feature>/ (branch: feat/<feature>)
+   - **Parent**: <worktree-root>/<repo>-<feature>/ (branch: feat/<feature>)
    ```
 
-The calling skill provides `<repo>` and `<feature-slug>` in its prompt. If not provided,
+`<worktree-root>` is the active runtime's repo-local worktree root supplied by the
+dispatching skill. If no parent path is given, derive it from the root named in
+the prompt and `<repo>-<feature>/`. If no root is supplied, say so in the plan
+rather than guessing a runtime path.
+
+The calling skill provides `<repo>` and `<feature>` in its prompt. If not provided,
 derive:
 
 - `<repo>` = basename of the current git repo root.
-- `<feature-slug>` = sanitized plan subject (lowercase, alphanumeric + hyphens,
+- `<feature>` = sanitized plan subject (lowercase, alphanumeric + hyphens,
   truncated to 20 chars).
 
-Cross-reference `ycc/skills/_shared/references/worktree-strategy.md` §1–§2 in your
-plan's preamble when worktree mode is active.
+The dispatching skill owns the worktree lifecycle; rely on its prompt, not a
+worktree strategy reference file.
 
 ---
 
