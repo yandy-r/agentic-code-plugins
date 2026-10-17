@@ -128,14 +128,19 @@ stay for single-plugin parity rather than because scripts import them.
 
 ### Repository rename tooling
 
-`scripts/rename-repo.sh` prepares the planned v6 repository rename: run it with
+`scripts/rename-repo.sh` rewrites repository references: run it with
 `--from <owner>/<repo> --to <owner>/<repo> --dry-run` to print the full diff of
 anchored remote references it would change; rerun without `--dry-run` to apply
-those edits. It touches only the 12 hand-maintained source files listed in
-`docs/plans/rename-repo/feature-spec.md` — never generated bundles, local
+those edits. It touches only the hand-maintained source files listed in
+`scripts/rename_repo.py` (`ALLOWLIST_FILES`) — never generated bundles, local
 filesystem paths, worktrees, or plugin identities — and it does not rename the
-hosting repos, update remotes, or run sync. The rename itself is applied only
-in the later owner-led reference-flip PR (see RELEASING.md).
+hosting repos, update remotes, or run sync. Regenerate bundles with
+`./scripts/sync.sh` after applying a reference flip.
+
+Codex migration recognizes the exact pre-rename repo-mode catalog entry as
+installer-owned alongside the current entry. Its historical URL in
+`scripts/install_migrate.py` is intentionally outside the rename allowlist;
+edited and foreign catalog entries remain preserved.
 
 ## Structure Requirements
 

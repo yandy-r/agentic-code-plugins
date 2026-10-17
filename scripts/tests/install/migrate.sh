@@ -390,6 +390,58 @@ p.write_text(json.dumps(data, indent=2) + '\n')
 PY
 install_must_succeed "${home}" migrate --target codex --apply --marketplace-source "${native_source}"
 [[ -L "${home}/.agents/plugins/ycc" && "$(readlink "${home}/.agents/plugins/ycc")" == "${REPO_REAL}/.codex-plugin/ycc" ]] && ok "Codex retained catalog keeps its referenced local link" || ko "Codex retained catalog keeps its referenced local link"
+# An exact pre-rename repo-mode catalog entry retires despite the repository rename.
+home="$(new_home)"; migrate_codex_fixture "${home}"
+migrate_fixture_must_succeed python3 - "${home}/.agents/plugins/marketplace.json" <<'PY'
+import json, sys
+from pathlib import Path
+p = Path(sys.argv[1]); data = json.loads(p.read_text())
+data['plugins'][0]['source'] = {
+    'source': 'git-subdir',
+    'url': 'https://github.com/yandy-r/claude-plugins.git',
+    'path': './.codex-plugin/ycc',
+    'ref': 'main',
+}
+p.write_text(json.dumps(data, indent=2) + '\n')
+PY
+install_must_succeed "${home}" migrate --target codex --apply --marketplace-source "${native_source}"
+assert_not_contains "$(cat "${home}/.agents/plugins/marketplace.json")" 'yandy-r/claude-plugins' "Codex retires exact pre-rename repo catalog entry"
+
+# Changing any field makes the pre-rename repo-mode entry foreign and preserves it.
+home="$(new_home)"; migrate_codex_fixture "${home}"
+migrate_fixture_must_succeed python3 - "${home}/.agents/plugins/marketplace.json" <<'PY'
+import json, sys
+from pathlib import Path
+p = Path(sys.argv[1]); data = json.loads(p.read_text())
+data['plugins'][0]['source'] = {
+    'source': 'git-subdir',
+    'url': 'https://github.com/yandy-r/claude-plugins.git',
+    'path': './.codex-plugin/ycc',
+    'ref': 'v1.0.0',
+}
+p.write_text(json.dumps(data, indent=2) + '\n')
+PY
+install_must_succeed "${home}" migrate --target codex --apply --marketplace-source "${native_source}"
+assert_contains "$(cat "${home}/.agents/plugins/marketplace.json")" '"ref": "v1.0.0"' "Codex keeps edited pre-rename repo catalog entry"
+
+# Omitting an installer-written field also makes the pre-rename entry user-owned.
+home="$(new_home)"; migrate_codex_fixture "${home}"
+migrate_fixture_must_succeed python3 - "${home}/.agents/plugins/marketplace.json" <<'PY'
+import json, sys
+from pathlib import Path
+p = Path(sys.argv[1]); data = json.loads(p.read_text())
+data['plugins'][0]['source'] = {
+    'source': 'git-subdir',
+    'url': 'https://github.com/yandy-r/claude-plugins.git',
+    'path': './.codex-plugin/ycc',
+    'ref': 'main',
+}
+del data['plugins'][0]['category']
+p.write_text(json.dumps(data, indent=2) + '\n')
+PY
+install_must_succeed "${home}" migrate --target codex --apply --marketplace-source "${native_source}"
+assert_contains "$(cat "${home}/.agents/plugins/marketplace.json")" 'yandy-r/claude-plugins' "Codex keeps pre-rename repo catalog entry missing an installer field"
+
 STUB_BIN="${old_stub_bin}"
 unset MIGRATE_NATIVE_SOURCE
 

@@ -164,7 +164,7 @@ runs `claude plugin install ycc@ycc --scope user`. Directory mode (default) runs
 `claude plugin marketplace add <absolute-repo-root> --scope user`, so the marketplace
 points at the repo checkout (`.claude-plugin/marketplace.json`, name `ycc`) and edits in `ycc/`
 apply on `/reload-plugins` with no rsync or cache clear; rerun `--only base` if the repo moves.
-Repo mode runs `claude plugin marketplace add yandy-r/claude-plugins --scope user`, a GitHub
+Repo mode runs `claude plugin marketplace add yandy-r/agentic-code-plugins --scope user`, a GitHub
 source; update with `claude plugin install ycc@ycc --scope user` or the `/plugins` UI. The CLI
 writes to `~/.claude/settings.json`. The installer first replaces a symlink there with a real
 file so the committed `ycc/settings/settings.json` is not modified, and the `settings` step

@@ -531,7 +531,7 @@ def package_manifest(package: Package, model: PackageModel) -> dict[str, Any]:
         "engines": {"opencode": f">={MIN_OPENCODE_VERSION}"},
         "repository": {
             "type": "git",
-            "url": "git+https://github.com/yandy-r/claude-plugins.git",
+            "url": "git+https://github.com/yandy-r/agentic-code-plugins.git",
             "directory": package_root(package).as_posix(),
         },
     }

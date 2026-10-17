@@ -133,7 +133,7 @@ class OpencodeNpmPackageTests(unittest.TestCase):
             self.manifest["repository"],
             {
                 "type": "git",
-                "url": "git+https://github.com/yandy-r/claude-plugins.git",
+                "url": "git+https://github.com/yandy-r/agentic-code-plugins.git",
                 "directory": "packages/opencode/ycc-opencode",
             },
         )

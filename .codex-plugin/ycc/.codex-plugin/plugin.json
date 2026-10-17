@@ -5,8 +5,8 @@
   "author": {
     "name": "yandy-r"
   },
-  "repository": "https://github.com/yandy-r/claude-plugins",
-  "homepage": "https://github.com/yandy-r/claude-plugins",
+  "repository": "https://github.com/yandy-r/agentic-code-plugins",
+  "homepage": "https://github.com/yandy-r/agentic-code-plugins",
   "license": "MIT",
   "keywords": [
     "codex",
@@ -27,7 +27,7 @@
       "Read",
       "Write"
     ],
-    "websiteURL": "https://github.com/yandy-r/claude-plugins",
+    "websiteURL": "https://github.com/yandy-r/agentic-code-plugins",
     "defaultPrompt": [
       "Use YCC to plan a medium-sized feature before implementation.",
       "Use YCC to review my branch and summarize the highest-risk findings.",
