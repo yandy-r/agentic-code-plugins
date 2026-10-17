@@ -1,3 +1,7 @@
+## Native prompt substitution
+
+Before forwarding any prompt, replace every `<installed ycc plugin root>` with the absolute installed ycc plugin root (resolve `../../..` from this document's directory). Forward only absolute resource paths; keep the user's project as cwd.
+
 # Agent Prompt Templates
 
 This document provides standardized prompt templates for deploying `docs-git-committer` agents during the git workflow.
@@ -42,10 +46,10 @@ Use the built-in structure for each doc type from the docs-git-committer agent (
 ## Standard: Important Constraints
 
 - **ALWAYS use conventional commit format** — this is mandatory, not optional
-- Read the reference BEFORE writing your commit message: ~/.codex/plugins/ycc/skills/git-workflow/templates/commit-types.md
+- Read the reference BEFORE writing your commit message: <installed ycc plugin root>/skills/git-workflow/templates/commit-types.md
 - Validate your commit message BEFORE committing:
   ```bash
-  ~/.codex/plugins/ycc/skills/git-workflow/scripts/validate-commit.sh "<your-commit-message>"
+  <installed ycc plugin root>/skills/git-workflow/scripts/validate-commit.sh "<your-commit-message>"
 ````
 
 If validation fails, revise the message and re-validate until it passes.
@@ -60,7 +64,7 @@ If validation fails, revise the message and re-validate until it passes.
 
 ## Documentation Decision Guidance
 
-Refer to: ~/.codex/plugins/ycc/skills/git-workflow/templates/documentation-decision.md
+Refer to: <installed ycc plugin root>/skills/git-workflow/templates/documentation-decision.md
 
 Quick reminders:
 

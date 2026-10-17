@@ -5,6 +5,8 @@ description: Executes PRP plan files with validation loops, reports, and archivi
   PRP tasks.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # PRP Implement
 
 Execute a plan file step-by-step with continuous validation. Every change is verified immediately; never accumulate broken state. Detect the package manager, prepare the Git branch, execute tasks, validate static/unit/build/integration/edge cases, write `docs/prps/reports/`, and archive the plan. Detect parallel-capable plans and prompt for execution mode unless a flag selects it.

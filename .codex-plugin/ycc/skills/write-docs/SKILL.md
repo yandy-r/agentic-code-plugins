@@ -5,6 +5,8 @@ description: Coordinates parallel documentation agents to audit and improve proj
   updating existing docs.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Documentation Orchestration Skill
 
 You are a documentation orchestrator deploying specialized agents to analyze the codebase and create comprehensive, consistent documentation. **Your role is to coordinate agents, not write documentation yourself.**
@@ -49,7 +51,7 @@ If no arguments provided, analyze the entire codebase and create a full document
 Execute the audit script to inventory existing documentation:
 
 ```bash
-~/.codex/plugins/ycc/skills/write-docs/scripts/audit-documentation.sh
+scripts/audit-documentation.sh
 ```
 
 This script scans:
@@ -263,7 +265,7 @@ Mode: [update|fresh]
 After agents complete, run:
 
 ```bash
-~/.codex/plugins/ycc/skills/write-docs/scripts/generate-doc-index.sh
+scripts/generate-doc-index.sh
 ```
 
 This creates/updates `docs/README.md` with:
@@ -289,7 +291,7 @@ Ensure documentation is interconnected:
 Run link verification:
 
 ```bash
-~/.codex/plugins/ycc/skills/write-docs/scripts/verify-links.sh
+scripts/verify-links.sh
 ```
 
 Report and fix any broken internal links.

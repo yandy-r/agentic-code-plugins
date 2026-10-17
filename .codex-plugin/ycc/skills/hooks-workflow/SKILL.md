@@ -4,6 +4,8 @@ description: Generates hook configuration from language rules. Use when configur
   Claude hooks, translating rule hook guidance, or verifying existing hook config.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # hooks-workflow
 
 This skill turns existing rule-file hook guidance into real, target-appropriate
@@ -130,7 +132,7 @@ matrix, and hook templates. It discovers a source checkout or accepts
 Run:
 
 ```
-~/.codex/plugins/ycc/skills/hooks-workflow/scripts/build-hook-config.sh \
+scripts/build-hook-config.sh \
   --language=<language> \
   --target=<target> \
   --event=<event> \
@@ -180,7 +182,7 @@ STOP.
 If `--verify` was passed, run:
 
 ```
-~/.codex/plugins/ycc/skills/hooks-workflow/scripts/verify-hooks.sh \
+scripts/verify-hooks.sh \
   --file <resolved-out-path> \
   --target <target>
 ```
@@ -219,7 +221,7 @@ error; it shows what would have been blocked.
 ## Notes
 
 - For per-target capability explanations and known limitations, see
-  `~/.codex/plugins/ycc/skills/hooks-workflow/references/support-notes.md`.
+  `references/support-notes.md`.
 - Run `scripts/build-hook-config.sh` when rendering hook config (Step 2); the script reads
   the three per-target templates internally. Read a template only when inspecting its output:
   `references/templates/claude-settings.json.tmpl` (Claude target),

@@ -5,6 +5,8 @@ description: Creates GitHub PRs from already-committed branches without commit o
   PRP artifacts in a PR.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Create Pull Request
 
 > Adapted from PRPs-agentic-eng by Wirasm. Part of the PRP workflow series.
@@ -26,7 +28,7 @@ This is the lightweight counterpart to `$git-workflow --pr`. Use it when you jus
 - Resolve the base with the shared helper (after `git fetch origin`), passing the explicit base when one was given:
 
   ```bash
-  BASE=$(bash ~/.codex/plugins/ycc/shared/scripts/pr-guard.sh base [--base <base-branch>])
+  BASE=$(bash ../../shared/scripts/pr-guard.sh base [--base <base-branch>])
   ```
 
   Without an explicit base this is the `RELEASING.md` base (`release-state.sh base`), else the repo default branch. Exit 2 means a malformed `RELEASING.md`: stop with the parse error and `$release-model --audit`. Use `$BASE` as `<base>` everywhere below. See `../../shared/references/pr-base-and-backport.md`.
@@ -294,7 +296,7 @@ Reuse this path for every iteration in the session.
 **Step 5 — Loop iteration:** Invoke:
 
 ```bash
-~/.codex/plugins/ycc/shared/scripts/ci-monitor.sh \
+../../shared/scripts/ci-monitor.sh \
   --pr <pr_number> \
   --branch <head_branch> \
   --base <base_branch> \
@@ -311,7 +313,7 @@ Branch on stdout `RESULT=...` per the Loop Protocol in `ci-monitoring.md`:
   `LOG_EXCERPT_FILE`, `SUGGESTED_COMMIT_TYPE`, `SUGGESTED_COMMIT_SCOPE`. Apply
   fix per the Failure Classification table for `CATEGORY` (defined in
   `ci-monitoring.md`). Validate commit message via
-  `~/.codex/plugins/ycc/skills/git-workflow/scripts/validate-commit.sh`. Commit
+  `../git-workflow/scripts/validate-commit.sh`. Commit
   and push to head branch (NEVER `--force`, NEVER `--no-verify`). Goto Step 5.
 - `rerun-pending` → Flake-suspected; script already triggered rerun. Sleep 30s,
   goto Step 5 (do NOT apply any fix).

@@ -1,7 +1,7 @@
 # @yandy-r/ycc-opencode
 
 Experimental, opt-in [OpenCode](https://opencode.ai) V2 plugin carrying the ycc bundle
-(version 5.3.0). It is unlisted and never the default install: the
+(version 6.0.0). It is unlisted and never the default install: the
 `install.sh --target opencode` file copy remains the primary path.
 
 Requires OpenCode `>=2.0.30` (V2 plugin API; V1 hook plugins are not supported).

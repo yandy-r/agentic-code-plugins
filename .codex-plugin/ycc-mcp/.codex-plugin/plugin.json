@@ -1,6 +1,6 @@
 {
   "name": "ycc-mcp",
-  "version": "5.3.0",
+  "version": "6.0.0",
   "description": "YCC MCP server connections for Codex.",
   "author": {
     "name": "yandy-r"

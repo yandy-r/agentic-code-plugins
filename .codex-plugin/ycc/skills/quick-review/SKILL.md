@@ -5,6 +5,8 @@ description: Reviews uncommitted changes inline without saving by default. Use w
   artifact.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Quick Review
 
 Interactive low-friction review of uncommitted changes. Output is **inline**. The default fix path is artifact-free.

@@ -27,7 +27,7 @@
 #   2  RELEASING.md exists but its state block is malformed
 #   3  conflict — the worktree is left mid-cherry-pick for resolution
 #
-# Rules: ~/.codex/plugins/ycc/shared/references/branching-model.md#backporting
+# Rules: ../../../shared/references/branching-model.md#backporting
 
 set -euo pipefail
 

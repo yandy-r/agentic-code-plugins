@@ -4,6 +4,8 @@ description: Creates self-contained PRP plans with codebase patterns. Use when p
   from a PRD, writing a .plan.md artifact, or capturing patterns for prp-implement.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # PRP Plan
 
 Create a detailed, self-contained implementation plan that captures all codebase patterns, conventions, and context needed to implement a feature in a single pass.
@@ -115,7 +117,7 @@ Gather codebase intelligence across 8 categories and 5 traces.
 
 **5 traces**: Entry Points, Data Flow, State Changes, Contracts, Patterns
 
-When `ENHANCED_MODE=true`, run `~/.codex/plugins/ycc/skills/prp-plan/scripts/preflight-enhanced-agents.sh` and abort with the script's stderr if it exits non-zero. This catches missing agent dependencies before any researcher is dispatched. The script auto-derives the plugin root from its own install location; no argument needed at runtime.
+When `ENHANCED_MODE=true`, run `scripts/preflight-enhanced-agents.sh` and abort with the script's stderr if it exits non-zero. This catches missing agent dependencies before any researcher is dispatched. The script auto-derives the plugin root from its own install location; no argument needed at runtime.
 
 Read `../../shared/references/standalone-dispatch.md` when `AGENT_TEAM_MODE=false` for standalone research dispatch; read `../../shared/references/agent-team-dispatch.md` only when `--team` is passed for Path C lifecycle.
 
@@ -152,7 +154,7 @@ After all 3 return: merge tables, de-duplicate, verify all 8 categories covered.
 
 #### Path B (enhanced) — when `ENHANCED_MODE=true`
 
-- Replace the 3-row researcher table above with the 7-row roster from `~/.codex/plugins/ycc/skills/prp-plan/references/enhanced-researchers.md`.
+- Replace the 3-row researcher table above with the 7-row roster from `references/enhanced-researchers.md`.
 - Dispatch in a **SINGLE message** with **SEVEN `Agent` tool calls** (standalone — no `name`). Wait for all researcher results, whether returned directly or delivered asynchronously, before synthesis.
 - Each call uses `prp-researcher` with `description` set to the role name (`api-researcher`, `business-analyzer`, `tech-designer`, `ux-researcher`, `security-researcher`, `practices-researcher`, `recommendations-agent`) and the role-specific prompt copied verbatim from `enhanced-researchers.md`. Per `enhanced-researchers.md`, each role-specific prompt also instructs the researcher to write a backstop file at `docs/prps/plans/.prp-research/<feature-slug>/<role-name>.md` (`api-researcher.md`, `business-analyzer.md`, `tech-designer.md`, `ux-researcher.md`, `security-researcher.md`, `practices-researcher.md`, `recommendations-agent.md`) in addition to returning the same content inline.
 - The 5-line snippet cap and discovery-table-only constraints used in the 3-researcher path apply unchanged.
@@ -224,7 +226,7 @@ Complete shared lifecycle cleanup before continuing to Phase 3, even on partial 
 #### Path C (enhanced) — when `ENHANCED_MODE=true`
 
 - Team name stays `prpp-<sanitized-feature>`.
-- Register 7 tasks instead of 3 via `record the task`, using the role names from `~/.codex/plugins/ycc/skills/prp-plan/references/enhanced-researchers.md` (`api-researcher`, `business-analyzer`, `tech-designer`, `ux-researcher`, `security-researcher`, `practices-researcher`, `recommendations-agent`).
+- Register 7 tasks instead of 3 via `record the task`, using the role names from `references/enhanced-researchers.md` (`api-researcher`, `business-analyzer`, `tech-designer`, `ux-researcher`, `security-researcher`, `practices-researcher`, `recommendations-agent`).
 - Spawn 7 teammates in a **single message** with `name=`, all using `prp-researcher` with the role-specific prompt from `enhanced-researchers.md`.
 - Apply shared lifecycle to all seven teammates.
 - Failure policy: a single teammate failure → continue with a stub note in synthesis ("{role} did not complete — {section} may be incomplete"); ≥4 teammate failures → abort, shut down survivors via `send follow-up instructions`, fall back to suggesting the user re-run with `--enhanced --parallel`.
@@ -270,13 +272,13 @@ mkdir -p docs/prps/plans
 
 ### Step 1: Read the template
 
-Read the plan template from `~/.codex/plugins/ycc/skills/prp-plan/references/plan-template.md`.
+Read the plan template from `references/plan-template.md`.
 
-If `PARALLEL_MODE=true` **or** `AGENT_TEAM_MODE=true`, also read `~/.codex/plugins/ycc/skills/prp-plan/references/parallel-additions.md`. Both modes emit the same parallel-capable plan format (Batches section, hierarchical task IDs, `Depends on` annotations) — they only differ in how the research phase was dispatched.
+If `PARALLEL_MODE=true` **or** `AGENT_TEAM_MODE=true`, also read `references/parallel-additions.md`. Both modes emit the same parallel-capable plan format (Batches section, hierarchical task IDs, `Depends on` annotations) — they only differ in how the research phase was dispatched.
 
 If `ENHANCED_MODE=true` or `PARALLEL_MODE=true` was used for research dispatch (Path B / Path B-enhanced via `Agent`), **before merging researcher findings** verify each researcher's backstop file exists at `docs/prps/plans/.prp-research/<feature-slug>/<role>.md`. If an `Agent` call's inline return was empty, truncated, or otherwise unusable, re-read that researcher's backstop file from disk and treat its contents as the source of truth before concluding the researcher's findings are a gap. Only record a missing-researcher gap in the plan if both the inline return AND the backstop file are absent.
 
-If `ENHANCED_MODE=true`, also read `~/.codex/plugins/ycc/skills/prp-plan/references/synthesis-map.md` and use it to route each researcher's findings into the correct plan section. The plan template is unchanged. Enhanced mode produces a richer plan because each section gets dedicated researcher input, not because new sections are added. Avoid section bloat — if a researcher returns no findings for a section, leave the existing N/A language in place or omit fully optional sections.
+If `ENHANCED_MODE=true`, also read `references/synthesis-map.md` and use it to route each researcher's findings into the correct plan section. The plan template is unchanged. Enhanced mode produces a richer plan because each section gets dedicated researcher input, not because new sections are added. Avoid section bloat — if a researcher returns no findings for a section, leave the existing N/A language in place or omit fully optional sections.
 
 ### Step 2: Write the plan in chunks
 
@@ -324,7 +326,7 @@ Follow `../../shared/references/worktree-strategy.md` for the full naming scheme
 After writing the plan file, run the structural validator:
 
 ```bash
-~/.codex/plugins/ycc/skills/prp-plan/scripts/validate-prp-plan.sh "docs/prps/plans/{name}.plan.md"
+scripts/validate-prp-plan.sh "docs/prps/plans/{name}.plan.md"
 ```
 
 ### On errors (exit 1)

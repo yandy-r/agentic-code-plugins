@@ -5,6 +5,8 @@ description: Applies inline Quick Review findings without review artifacts. Use 
   making artifact-free review fixes.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Quick Fix
 
 Apply fixes from an inline Quick Review findings block without writing or

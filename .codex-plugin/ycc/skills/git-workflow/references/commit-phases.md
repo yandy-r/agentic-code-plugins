@@ -24,7 +24,7 @@ Determine staged vs unstaged, total files, file types (source, test, docs, confi
 Step 2 — structured analysis:
 
 ```bash
-~/.codex/plugins/ycc/skills/git-workflow/scripts/analyze-changes.sh
+../scripts/analyze-changes.sh
 ```
 
 Gives change categorization, file count and metrics, recommended strategy (direct vs agents), scope suggestions.
@@ -88,7 +88,7 @@ Remove --dry-run flag to execute the workflow.
 
 ## Phase 2: Documentation decision
 
-Step 6 — read `~/.codex/plugins/ycc/skills/git-workflow/templates/documentation-decision.md` (when feature docs are needed, when AGENTS.md updates are appropriate (rarely), when architecture/API docs apply, what not to document).
+Step 6 — read `../templates/documentation-decision.md` (when feature docs are needed, when AGENTS.md updates are appropriate (rarely), when architecture/API docs apply, what not to document).
 
 Step 7 — per changed file or feature:
 
@@ -98,7 +98,7 @@ Step 7 — per changed file or feature:
 
 ## Phase 3a: Direct commit
 
-Step 8 — read `~/.codex/plugins/ycc/skills/git-workflow/templates/commit-types.md`.
+Step 8 — read `../templates/commit-types.md`.
 
 Step 9 — craft `<type>(<scope>): <subject>`: type from the valid list; scope optional; subject imperative, no period, max 50 chars; body optional, wrap at 72, what and why; footer optional (breaking changes, issue refs). Example:
 
@@ -115,7 +115,7 @@ Existing sessions will be invalidated.
 Step 10 — validate; if it fails, revise and re-validate:
 
 ```bash
-~/.codex/plugins/ycc/skills/git-workflow/scripts/validate-commit.sh "<commit-message>"
+../scripts/validate-commit.sh "<commit-message>"
 ```
 
 Step 11 — stage and commit in a single operation (avoids race conditions):
@@ -134,7 +134,7 @@ Step 12 — if `push ∈ actions` (resolved in Phase 0.5): `git push`. Then Phas
 
 Step 13 — identify scopes: group files by feature or area; each scope independently committable; note relationships. Examples: "User authentication system", "Payment integration", "API documentation updates", "Test infrastructure improvements".
 
-Step 14 — read `~/.codex/plugins/ycc/skills/git-workflow/templates/agent-prompts.md`.
+Step 14 — read `../templates/agent-prompts.md`. Before Step 14 dispatch, expand every `<installed ycc plugin root>` in the agent prompt to the absolute plugin root derived from this installed SKILL.md; send absolute helper/reference paths and retain the project cwd.
 
 Step 15 — deploy all agents in a SINGLE message with MULTIPLE parallel agent runs, one `docs-git-committer` per scope:
 
@@ -184,13 +184,13 @@ Step 17 — all agents run in parallel, each owns its scope and its own commit; 
 Step 18 — mark todos completed; validate each agent commit:
 
 ```bash
-~/.codex/plugins/ycc/skills/git-workflow/scripts/validate-commit.sh "$(git log -1 --format=%s <commit-hash>)"
+../scripts/validate-commit.sh "$(git log -1 --format=%s <commit-hash>)"
 ```
 
 Amend any non-conformant message. Across a range:
 
 ```bash
-git rebase -x '~/.codex/plugins/ycc/skills/git-workflow/scripts/validate-commit.sh "$(git log -1 --format=%s HEAD)" || echo "NEEDS FIX"' <merge-base>..HEAD
+git rebase -x '../scripts/validate-commit.sh "$(git log -1 --format=%s HEAD)" || echo "NEEDS FIX"' <merge-base>..HEAD
 ```
 
 Single commit: `git commit --amend -m "<corrected-message>"`. Also check for conflicts or issues and verify documentation quality. Do not proceed to Phase 4 until all agent commits pass validation.

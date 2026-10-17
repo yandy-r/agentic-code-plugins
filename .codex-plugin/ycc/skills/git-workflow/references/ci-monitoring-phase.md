@@ -68,7 +68,7 @@ Create `~/.codex/session-data/ci-watch/` if absent. Compute `~/.codex/session-da
 ## Step 36: Loop iteration
 
 ```
-~/.codex/plugins/ycc/shared/scripts/ci-monitor.sh \
+../../../shared/scripts/ci-monitor.sh \
   --pr <pr_number> \
   --branch <head_branch> \
   --base <base_branch> \
@@ -81,7 +81,7 @@ Create `~/.codex/session-data/ci-watch/` if absent. Compute `~/.codex/session-da
 Branch on stdout `RESULT=...` per the Loop Protocol in `ci-monitoring.md`:
 
 - `green` → render the success block (Step 37); end Phase 6.
-- `handoff` → read `RUN_ID`, `WORKFLOW`, `JOB`, `CATEGORY`, `SIGNATURE`, `LOG_EXCERPT_FILE`, `SUGGESTED_COMMIT_TYPE`, `SUGGESTED_COMMIT_SCOPE` from stdout. Apply the fix per the Failure Classification table for `CATEGORY` (in `ci-monitoring.md`). Use the direct-vs-agents decision tree of Phase 1, constrained to the failure scope. Stage the fix, validate the message with `~/.codex/plugins/ycc/skills/git-workflow/scripts/validate-commit.sh`, commit, push to the head branch (never `--force`, never `--no-verify`). Go to Step 36.
+- `handoff` → read `RUN_ID`, `WORKFLOW`, `JOB`, `CATEGORY`, `SIGNATURE`, `LOG_EXCERPT_FILE`, `SUGGESTED_COMMIT_TYPE`, `SUGGESTED_COMMIT_SCOPE` from stdout. Apply the fix per the Failure Classification table for `CATEGORY` (in `ci-monitoring.md`). Use the direct-vs-agents decision tree of Phase 1, constrained to the failure scope. Stage the fix, validate the message with `../scripts/validate-commit.sh`, commit, push to the head branch (never `--force`, never `--no-verify`). Go to Step 36.
 - `rerun-pending` → flake suspected; the script already ran `gh run rerun --failed`. Apply no fix. `sleep 30`, then Step 36.
 - `bail-recurrence` / `bail-nonfixable` / `bail-pushes` / `bail-timeout` → render a diagnosis block citing the audit log path, the `RESULT=` value, the `REASON=` line if present, and the cap that fired. End Phase 6; push nothing further.
 - `pr-not-found` / `refused-default-branch` → surface the error; do not retry.

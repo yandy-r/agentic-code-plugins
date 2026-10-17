@@ -39,7 +39,7 @@
 #   2  RELEASING.md exists but its state block is malformed
 #   3  findings: at least one missing, in-review or unlabelled row
 #
-# Rules: ~/.codex/plugins/ycc/shared/references/branching-model.md#backporting
+# Rules: ../references/branching-model.md#backporting
 
 set -euo pipefail
 

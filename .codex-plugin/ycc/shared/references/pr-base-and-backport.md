@@ -16,7 +16,7 @@ merges, and offer a backport under the release model. `code-review` uses
 One helper implements all three steps so both PR skills behave the same:
 
 ```bash
-GUARD="~/.codex/plugins/ycc/shared/scripts/pr-guard.sh"
+GUARD="../scripts/pr-guard.sh"
 ```
 
 | Exit | Meaning                                                               |
@@ -117,8 +117,8 @@ expects for its head:
 
 ```bash
 git fetch origin "<headRefName>"   # a fork PR: git fetch origin "pull/<N>/head"
-bash "~/.codex/plugins/ycc/shared/scripts/release-state.sh" get   # present=0 → skip
-EXPECTED=$(bash "~/.codex/plugins/ycc/shared/scripts/release-state.sh" base --head FETCH_HEAD)
+bash "../scripts/release-state.sh" get   # present=0 → skip
+EXPECTED=$(bash "../scripts/release-state.sh" base --head FETCH_HEAD)
 ```
 
 When `EXPECTED` differs from `baseRefName`, report a MEDIUM finding naming both branches

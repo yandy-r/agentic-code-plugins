@@ -4,6 +4,8 @@ description: Conducts multi-perspective strategic research. Use when investigati
   complex topics, comparing competitors, or gathering strategic intelligence.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Deep Research — Asymmetric Research Squad
 
 You are the orchestrator: deploy eight distinct research personas, run a crucible
@@ -53,7 +55,7 @@ Run `scripts/check-prerequisites.sh` when preparing the output directory, before
 creating anything:
 
 ```bash
-~/.codex/plugins/ycc/skills/deep-research/scripts/check-prerequisites.sh "$OUTPUT_DIR"
+scripts/check-prerequisites.sh "$OUTPUT_DIR"
 mkdir -p "$OUTPUT_DIR/persona-findings" "$OUTPUT_DIR/synthesis" "$OUTPUT_DIR/evidence"
 ```
 
@@ -64,7 +66,7 @@ absolute objective and output paths, subject, and any user scope constraints.
 
 ## References and Routing
 
-Resolve paths against `~/.codex/plugins/ycc/skills/deep-research/`. Read only the
+Resolve paths against `./`. Read only the
 reference needed for the current phase; report any unreadable file.
 **Do not read or paste all persona prompts into orchestrator context.** Each
 persona agent reads its own file. The table gives exact paths and read conditions.
@@ -228,7 +230,7 @@ final report. Write `$OUTPUT_DIR/report.md` using its structure.
 Run `scripts/validate-research.sh` when report and artifacts are ready:
 
 ```bash
-~/.codex/plugins/ycc/skills/deep-research/scripts/validate-research.sh "$OUTPUT_DIR"
+scripts/validate-research.sh "$OUTPUT_DIR"
 ```
 
 Fix missing/empty artifacts, weak citation coverage, and format issues. Report

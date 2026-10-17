@@ -4,6 +4,8 @@ description: Guides pytest testing with TDD, fixtures, and mocks. Use when addin
   Python test coverage, parametrizing pytest cases, or isolating async tests.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Python Testing Patterns
 
 Comprehensive testing strategies for Python applications using pytest, TDD methodology, and best practices.

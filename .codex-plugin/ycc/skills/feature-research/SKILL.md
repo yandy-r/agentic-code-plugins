@@ -5,6 +5,8 @@ description: Researches features with seven specialists and consolidates a featu
   planning.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Feature Research
 
 Deep research skill for application features. Goes beyond codebase analysis to research external APIs, business logic, technical specifications, UX considerations, and generate actionable recommendations. Dispatches 7 researchers in parallel — standalone sub-agents by default, or an agent team with `--team` (Codex runtime only; not available in bundle invocations) where teammates share findings with each other.
@@ -206,7 +208,7 @@ If `record the task` fails for any task, shut down any spawned teammates via `se
 Read the research prompts template:
 
 ```bash
-cat ~/.codex/plugins/ycc/skills/feature-research/templates/research-agents.md
+cat templates/research-agents.md
 ```
 
 ### Step 8: Deploy the 7 Researchers
@@ -289,7 +291,7 @@ Wait for all 7 researchers to complete their work.
 After all 7 teammates complete, validate all `research-*.md` files:
 
 ```bash
-~/.codex/plugins/ycc/skills/feature-research/scripts/validate-research.sh docs/plans/[feature-name]
+scripts/validate-research.sh docs/plans/[feature-name]
 ```
 
 If validation fails: message the relevant teammate to fix their output, wait for correction, rerun validation until pass.
@@ -319,7 +321,7 @@ Read all 7 research files from `docs/plans/[feature-name]/`.
 ### Step 13: Read Spec Template
 
 ```bash
-cat ~/.codex/plugins/ycc/skills/feature-research/templates/spec-structure.md
+cat templates/spec-structure.md
 ```
 
 ### Step 14: Generate feature-spec.md
@@ -344,7 +346,7 @@ Create `docs/plans/[feature-name]/feature-spec.md` following the template.
 Run after Step 14 creates `feature-spec.md`:
 
 ```bash
-~/.codex/plugins/ycc/skills/feature-research/scripts/validate-spec.sh docs/plans/[feature-name]/feature-spec.md
+scripts/validate-spec.sh docs/plans/[feature-name]/feature-spec.md
 ```
 
 Fix any issues reported (missing sections, empty content, formatting).

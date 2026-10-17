@@ -4,6 +4,8 @@ description: Scaffolds ycc skills and agents for ycc maintainers only. Use when 
   a ycc skill, adding a ycc agent, or extending bundle source.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # ycc Bundle Author
 
 This skill scaffolds new source-of-truth surfaces under `ycc/` — skills and optional
@@ -40,13 +42,13 @@ with a clear, specific message.
      Use `test -e` for each path and abort if any returns true.
 3. Name does not collide with an existing skill or agent. Use `ls` on
    `ycc/skills/` and `ycc/agents/` to confirm.
-4. Re-read `~/.codex/plugins/ycc/skills/bundle-author/references/when-not-to-scaffold.md`
+4. Re-read `references/when-not-to-scaffold.md`
    and check whether any anti-pattern applies to the user's request. If a match is
    detected, surface it explicitly and ask whether to proceed before continuing.
 
 ## Phase 1: Preview
 
-Read `~/.codex/plugins/ycc/skills/bundle-author/references/surface-map.md`. Present the
+Read `references/surface-map.md`. Present the
 user with the full list of files that will be created:
 
 - `ycc/skills/<skill-name>/SKILL.md` (with `user-invocable: false` stamped in the
@@ -69,11 +71,11 @@ invoke the helper script.
 Invoke the helper:
 
 ```
-~/.codex/plugins/ycc/skills/bundle-author/scripts/scaffold-skill.sh <skill-name> [--skill-only] [--with-agent]
+scripts/scaffold-skill.sh <skill-name> [--skill-only] [--with-agent]
 ```
 
 The helper copies templates from
-`~/.codex/plugins/ycc/skills/bundle-author/references/templates/` and substitutes
+`references/templates/` and substitutes
 `{{NAME}}` and `{{DESCRIPTION}}` placeholders (`references/templates/skill-template.md`,
 run when scaffolding any skill in Step 1). `--with-agent` also renders
 `references/templates/agent-template.md`; read it only to check the rendered agent file. If the helper exits with a non-zero
@@ -112,6 +114,6 @@ and keep descriptions fixed until it passes. See `ycc/evals/README.md`.
 - Never edits `ycc/.codex-plugin/plugin.json` or `.codex-plugin/marketplace.json` —
   those are maintained by the `bundle-release` workflow.
 - Refuses generic scaffolding for external repos — see
-  `~/.codex/plugins/ycc/skills/bundle-author/references/when-not-to-scaffold.md`.
+  `references/when-not-to-scaffold.md`.
 - Prefer extending an existing skill over adding a near-duplicate. Run `ls ycc/skills/`
   to confirm no existing skill covers the same domain before proceeding.

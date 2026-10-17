@@ -4,6 +4,8 @@ description: Guides Rust testing with TDD and property checks. Use when adding R
   test coverage, testing async code, or writing proptest cases and benchmarks.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Rust Testing Patterns
 
 Comprehensive Rust testing patterns for writing reliable, maintainable tests following TDD methodology.

@@ -4,6 +4,8 @@ description: Builds frontend interfaces with intentional visual direction. Use w
   designing a landing page, upgrading a bland UI, or choosing typography and color.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Frontend Design
 
 Use this when the task is not just "make it work" but "make it look designed."

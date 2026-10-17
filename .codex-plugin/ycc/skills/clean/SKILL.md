@@ -4,6 +4,8 @@ description: Removes unnecessary project-directory files with approval. Use when
   build artifacts, finding unused files, or clearing temporary files.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Project File Cleaner
 
 Orchestrate 6 parallel cleanup agents to analyze and remove unnecessary files from project directories with comprehensive safety measures and user confirmation checkpoints.
@@ -34,15 +36,15 @@ If the request concerns only Git resources, STOP before Phase 0 and deploy no ag
 ## Phase 0: Setup
 
 1. **Validate target directory** exists
-2. **Detect project type** using: `~/.codex/plugins/ycc/skills/clean/scripts/detect-project-type.sh "$TARGET_DIR"`
-3. **Read safety configuration** from `~/.codex/plugins/ycc/skills/clean/references/safety-config.md`
+2. **Detect project type** using: `scripts/detect-project-type.sh "$TARGET_DIR"`
+3. **Read safety configuration** from `references/safety-config.md`
 4. **Create working directory**: `$TARGET_DIR/.cleanup-analysis/findings/`
 5. **Initialize progress tracking** with the task tools for all phases
 6. **If --dry-run**: Display analysis plan and **STOP**
 
 ## Phase 1: Parallel Agent Deployment
 
-Read agent prompts from `~/.codex/plugins/ycc/skills/clean/references/agent-prompts.md`.
+Read agent prompts from `references/agent-prompts.md`.
 
 Deploy all 6 agents in a **SINGLE message** with **MULTIPLE parallel agent runs** using subagent type `project-file-cleaner`:
 
@@ -70,8 +72,8 @@ After all agents complete:
 
 ## Phase 3: Report Generation and User Review
 
-1. Run: `~/.codex/plugins/ycc/skills/clean/scripts/generate-report.sh "$TARGET_DIR"`
-2. Run safety validation: `~/.codex/plugins/ycc/skills/clean/scripts/validate-safety.sh "$TARGET_DIR/.cleanup-analysis/cleanup-report.md"`
+1. Run: `scripts/generate-report.sh "$TARGET_DIR"`
+2. Run safety validation: `scripts/validate-safety.sh "$TARGET_DIR/.cleanup-analysis/cleanup-report.md"`
 3. Fix any violations before proceeding
 4. **If --report-only**: Display report summary and **STOP**
 5. Present findings to user with ask the user (show report / summary / proceed / cancel)

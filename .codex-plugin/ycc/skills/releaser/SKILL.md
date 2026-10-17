@@ -5,6 +5,8 @@ description: Prepares external-project releases, notes, and release CI. Use when
   release workflow.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Generic Release Orchestrator
 
 Prepares a release for **any** project: detects the toolchain, drafts a changelog from
@@ -239,7 +241,7 @@ If a file cannot be read, say so.
   Read when: creating the Phase 8 forward-port PR interactively or resolving PR-base
   and backport-label questions (the emitted commands pass `--base <trunk>` explicitly).
 
-Scripts (invoke as `~/.codex/plugins/ycc/skills/releaser/scripts/<name>`):
+Scripts (invoke as `scripts/<name>`):
 
 - `scripts/detect-project.sh` — Run when: Phase 1 detection (emits JSON).
 - `scripts/check-release-branch.sh` — Run when: Phase 2 branch check after the

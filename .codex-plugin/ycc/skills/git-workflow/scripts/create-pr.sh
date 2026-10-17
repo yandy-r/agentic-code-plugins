@@ -61,11 +61,11 @@ fi
 # Detect the forge provider and select the matching CLI (gh / tea / glab).
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 FORGE_LIB="${SCRIPT_DIR}/../../../shared/scripts/lib/forge.sh"
-[[ -f "$FORGE_LIB" ]] || FORGE_LIB="~/.codex/plugins/ycc/shared/scripts/lib/forge.sh"
+[[ -f "$FORGE_LIB" ]] || FORGE_LIB="${SCRIPT_DIR}/../../../shared/scripts/lib/forge.sh"
 # shellcheck source=/dev/null
 source "$FORGE_LIB"
 PR_GUARD="${SCRIPT_DIR}/../../../shared/scripts/pr-guard.sh"
-[[ -f "$PR_GUARD" ]] || PR_GUARD="~/.codex/plugins/ycc/shared/scripts/pr-guard.sh"
+[[ -f "$PR_GUARD" ]] || PR_GUARD="${SCRIPT_DIR}/../../../shared/scripts/pr-guard.sh"
 
 PROVIDER="$(forge_detect_provider origin)"
 FORGE_CLI="$(forge_cli "$PROVIDER")"

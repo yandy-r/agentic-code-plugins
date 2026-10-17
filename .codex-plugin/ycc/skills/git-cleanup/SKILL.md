@@ -4,6 +4,8 @@ description: Audits stale Git resources and cleans them with approval. Use when 
   branches, removing abandoned worktrees, or closing stale PRs and issues.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # git-cleanup
 
 Audit and clean up stale git resources — local branches, remote-tracking refs,
@@ -37,7 +39,7 @@ Parse `$ARGUMENTS`:
 2. **Determine default branch**: `git symbolic-ref refs/remotes/origin/HEAD` →
    fall back to `main` / `master` if unset.
 3. **Read the release state**: run
-   `~/.codex/plugins/ycc/shared/scripts/release-state.sh get` and parse
+   `../../shared/scripts/release-state.sh get` and parse
    its `key=value` output (format and rules:
    `../../shared/references/branching-model.md`).
    - `present=0` (no `RELEASING.md`): release-model rules are off. Every later
@@ -55,7 +57,7 @@ Parse `$ARGUMENTS`:
    (`forge_detect_provider origin` → `github` / `forgejo` / `gitea` / `gitlab` /
    `unknown`; `forge_cli` → `gh` / `tea` / `glab`); the git-cleanup-specific
    operation map lives in
-   `~/.codex/plugins/ycc/skills/git-cleanup/references/host-detection.md` (read when mapping a host operation to a CLI or MCP call).
+   `references/host-detection.md` (read when mapping a host operation to a CLI or MCP call).
    Summary:
    - Prefer `mcp__github__*` tools if available for GitHub operations.
    - Else `gh auth status` for GitHub, `tea login list` for the Forgejo/Gitea
@@ -108,14 +110,14 @@ flags that emit machine-readable output.
     ```
 
     Rules and rationale (read when classifying a branch, stash, or worktree as active or deletable):
-    `~/.codex/plugins/ycc/skills/git-cleanup/references/active-code-rules.md`
+    `references/active-code-rules.md`
     (R9, R10).
 
 ## Phase 2: Active-Code Analysis
 
 This is the gating phase. **Never** recommend deletion of a resource that
 Phase 2 flags as active. Read
-`~/.codex/plugins/ycc/skills/git-cleanup/references/active-code-rules.md` before
+`references/active-code-rules.md` before
 classifying any candidate; it holds rule rationales, edge cases, and the full decision matrix.
 
 For each candidate branch, worktree, PR, and issue, mark as **active** if any

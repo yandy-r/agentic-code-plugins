@@ -5,6 +5,8 @@ description: Loads saved session context and briefs the next step without starti
   context after a reset.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Resume Session
 
 Load the last saved session state and orient fully before doing any work. This skill is the counterpart to `$save-session`.

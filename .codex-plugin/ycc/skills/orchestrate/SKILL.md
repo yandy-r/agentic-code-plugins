@@ -5,6 +5,8 @@ description: Coordinates specialized agents in dependency-resolved batches. Use 
   multiple specialists.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Multi-Agent Orchestration Skill
 
 You are an orchestration expert coordinating multiple specialized agents to accomplish complex tasks. **Your role is to coordinate agents, not do the work yourself.** **Operational context:** Worktree isolation is on by default; all parallel and sequential agents share one feature worktree. --no-worktree runs in the current checkout. Standalone sub-agents are default.
@@ -35,7 +37,7 @@ Strip flags from `$ARGUMENTS` and set `TEAM_FLAG=true|false`, `DRY_RUN=true|fals
 
 ## Gates (hold across the whole run)
 
-1. No task description after stripping flags: print the usage block from `~/.codex/plugins/ycc/skills/orchestrate/references/dispatch-playbook.md` section 1 (read it only on this abort path), then abort.
+1. No task description after stripping flags: print the usage block from `references/dispatch-playbook.md` section 1 (read it only on this abort path), then abort.
 2. `--team` from a Cursor or Codex bundle: abort with a clear message. `--worktree` works everywhere via `git worktree add`; on Cursor emit the `git worktree add` commands as instructions instead of auto-creating.
 3. `--team` without `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`: abort with `--team requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1. Use --parallel instead, or set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in your Codex settings if you intentionally want agent-team dispatch.`
 4. Set all flag variables before any side effect.
@@ -50,16 +52,16 @@ Strip flags from `$ARGUMENTS` and set `TEAM_FLAG=true|false`, `DRY_RUN=true|fals
 **Step 1**: run the analysis script (outputs complexity estimate, decomposition approach, likely agent types, parallel vs sequential recommendation):
 
 ```bash
-~/.codex/plugins/ycc/skills/orchestrate/scripts/analyze-task.sh "$TASK_DESCRIPTION"
+scripts/analyze-task.sh "$TASK_DESCRIPTION"
 ```
 
-**Step 2**: read `~/.codex/plugins/ycc/skills/orchestrate/references/agent-catalog.md` (agents by category, capabilities, use cases; read now, use its Contents to jump).
+**Step 2**: read `references/agent-catalog.md` (agents by category, capabilities, use cases; read now, use its Contents to jump).
 
 **Step 3**: assess the task: scope (feature, bug, refactor, docs, infrastructure), components involved, complexity (Simple 1-2 agents, Medium 3-5, Complex 6+), and whether subtasks are independent or sequential.
 
 ## Phase 1: Task Decomposition & Team Creation
 
-**Step 4**: read `~/.codex/plugins/ycc/skills/orchestrate/references/task-breakdown.md` (patterns for decomposing by feature area, technical layer, cross-cutting concern, and dependency).
+**Step 4**: read `references/task-breakdown.md` (patterns for decomposing by feature area, technical layer, cross-cutting concern, and dependency).
 
 **Step 5**: register standalone subtasks with `record the task`, tracking batch completion in-context. Read `references/dispatch-playbook.md` section 10 now for exact registration formats. With `DRY_RUN=true` or `PLAN_ONLY=true`, skip registration and proceed to Step 10.
 With `--team`, use the implicit session team (run label `orch-<FEATURE_SLUG>`) and register/wire every subtask up front; abort if `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is unset and shut down any spawned teammates on registration/wiring failure. For dry-run or plan-only, skip registration and compute the run label in memory only.
@@ -67,8 +69,8 @@ With `--team`, use the implicit session team (run label `orch-<FEATURE_SLUG>`) a
 **Step 6**: validate each subtask: clear specific scope, single responsibility, completable in one focused session, dependencies stated, success criteria clear, agent assignment justified. Optionally run:
 
 ```bash
-if [[ -f "~/.codex/plugins/ycc/skills/orchestrate/scripts/validate-agents.sh" ]]; then
-  ~/.codex/plugins/ycc/skills/orchestrate/scripts/validate-agents.sh
+if [[ -f "scripts/validate-agents.sh" ]]; then
+  scripts/validate-agents.sh
 fi
 ```
 
@@ -89,7 +91,7 @@ fi
 | Infrastructure           | `terraform-architect`, `cloudflare-architect`             |
 | DevOps/automation        | `ansible-automation-expert`, `systems-engineering-expert` |
 
-**Step 8**: read `~/.codex/plugins/ycc/skills/orchestrate/references/agent-prompts.md` for standard prompt templates and the standalone coordination block before building prompts.
+**Step 8**: read `references/agent-prompts.md` for standard prompt templates and the standalone coordination block before building prompts.
 With `--team`, use its Path B Team Communication section.
 
 **Step 9**: prepare per subtask: context, scope (files/areas), deliverables, constraints (what not to do, to avoid overlap).
@@ -107,7 +109,7 @@ Read `../../shared/references/worktree-strategy.md` when writing the `## Worktre
 
 ## Phase 3: Dry Run Check
 
-**Step 10**: when `DRY_RUN=true`, read `~/.codex/plugins/ycc/skills/orchestrate/references/dispatch-playbook.md` section 2 for the default dry-run format and the `Worktree:` line.
+**Step 10**: when `DRY_RUN=true`, read `references/dispatch-playbook.md` section 2 for the default dry-run format and the `Worktree:` line.
 With `--team --dry-run`, also use the team roster below.
 
 `--dry-run`: print the dry-run output, with the `Worktree:` line when worktree mode is active.
@@ -155,7 +157,7 @@ With `--team`, section 5 holds the Path B call shapes.
 **Step 14**: consolidate outputs by running:
 
 ```bash
-~/.codex/plugins/ycc/skills/orchestrate/scripts/summarize-results.sh
+scripts/summarize-results.sh
 ```
 
 Organize agent outputs by files created, files modified, documentation added, tests created, issues encountered.
@@ -168,16 +170,16 @@ With `--team`, confirm all teammates have received shutdown requests before comp
 **Step 17**: final summary. With `WORKTREE_MODE=true`, run this and append its output (feature worktree path, branch, and the `git worktree remove` command for manual cleanup; the worktree survives until removed, and there are no child worktrees):
 
 ```bash
-bash ~/.codex/plugins/ycc/shared/scripts/list-worktrees.sh <repo-name> <FEATURE_SLUG>
+bash ../../shared/scripts/list-worktrees.sh <repo-name> <FEATURE_SLUG>
 ```
 
-Then print the completion summary using the template in `~/.codex/plugins/ycc/skills/orchestrate/references/dispatch-playbook.md` section 6 (read it now).
+Then print the completion summary using the template in `references/dispatch-playbook.md` section 6 (read it now).
 
 ## Reference Index
 
-- `~/.codex/plugins/ycc/skills/orchestrate/references/agent-catalog.md`: read in Step 2.
-- `~/.codex/plugins/ycc/skills/orchestrate/references/task-breakdown.md`: read in Step 4.
-- `~/.codex/plugins/ycc/skills/orchestrate/references/agent-prompts.md`: read in Step 8.
-- `~/.codex/plugins/ycc/skills/orchestrate/references/dispatch-playbook.md`: usage block (section 1, abort path), dry-run and plan-only formats (sections 2-3, Phase 3), standalone dispatch call shapes (section 4, Step 12), final summary (section 6, Step 17), registration formats (section 10, Step 5), batch adapter (section 11, Step 12), quality checklists (section 7, Steps 6 and 15), coordination principles and patterns (section 8) and troubleshooting (section 9; read when agents conflict, batches misorder, or the task is unclear).
+- `references/agent-catalog.md`: read in Step 2.
+- `references/task-breakdown.md`: read in Step 4.
+- `references/agent-prompts.md`: read in Step 8.
+- `references/dispatch-playbook.md`: usage block (section 1, abort path), dry-run and plan-only formats (sections 2-3, Phase 3), standalone dispatch call shapes (section 4, Step 12), final summary (section 6, Step 17), registration formats (section 10, Step 5), batch adapter (section 11, Step 12), quality checklists (section 7, Steps 6 and 15), coordination principles and patterns (section 8) and troubleshooting (section 9; read when agents conflict, batches misorder, or the task is unclear).
 - `../../shared/references/branch-prep.md`: read in Phase 2.5 when helper behavior matters.
 - `../../shared/references/worktree-strategy.md`: read in Phase 2.5 for plan-only annotations.

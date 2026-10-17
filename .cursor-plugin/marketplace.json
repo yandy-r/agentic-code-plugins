@@ -1,0 +1,21 @@
+{
+  "name": "ycc",
+  "plugins": [
+    {
+      "name": "ycc",
+      "source": "./packages/cursor/ycc"
+    },
+    {
+      "name": "ycc-mcp",
+      "source": "./packages/cursor/ycc-mcp"
+    },
+    {
+      "name": "ycc-hooks",
+      "source": "./packages/cursor/ycc-hooks"
+    },
+    {
+      "name": "ycc-rules",
+      "source": "./packages/cursor/ycc-rules"
+    }
+  ]
+}

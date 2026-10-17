@@ -5,6 +5,8 @@ description: Audits ycc compatibility for ycc maintainers only. Use when checkin
   gaps.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # compatibility-audit
 
 This skill audits the health of every generated compatibility target for the
@@ -78,7 +80,7 @@ accepts `--repo-root=/path/to/checkout`.
 For each target `<t>` in the resolved list, invoke:
 
 ```
-~/.codex/plugins/ycc/shared/scripts/report-bundle-drift.sh --target=<t> --format=json
+../../shared/scripts/report-bundle-drift.sh --target=<t> --format=json
 ```
 
 Capture the JSON output. A non-zero exit means drift was detected or the
@@ -102,7 +104,7 @@ first non-zero exit.
 For each target `<t>`, invoke:
 
 ```
-~/.codex/plugins/ycc/skills/compatibility-audit/scripts/audit-install-assumptions.sh --target=<t> --format=json
+scripts/audit-install-assumptions.sh --target=<t> --format=json
 ```
 
 This script checks path conventions, shebang lines, executable permissions, and
@@ -115,7 +117,7 @@ is active, STOP after the first failure.
 Run once, not per-target:
 
 ```
-~/.codex/plugins/ycc/skills/compatibility-audit/scripts/audit-target-features.sh
+scripts/audit-target-features.sh
 ```
 
 This script cross-references the capability matrix loaded in Phase 0 against
@@ -209,7 +211,7 @@ obscures which target needs attention and why.
 
 For guidance on reading per-target verdicts and distinguishing expected gaps
 from actionable failures, see
-`~/.codex/plugins/ycc/skills/compatibility-audit/references/reading-the-report.md`.
+`references/reading-the-report.md`.
 
 ## Notes
 

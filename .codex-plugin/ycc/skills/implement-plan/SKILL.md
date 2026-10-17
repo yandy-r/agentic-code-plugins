@@ -5,6 +5,8 @@ description: Executes parallel-plan.md with dependency-aware implementor batches
   a batched implementation.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Parallel Plan Executor
 
 Execute a parallel implementation plan by deploying implementor agents in dependency-resolved batches. This is Step 3 of the planning workflow, transforming the plan into working code. **Operational context:** require parallel-plan.md from parallel-plan. Worktree isolation is on by default: create or reuse one feature worktree on a feature branch; `--no-worktree` uses only the current-checkout feature branch, and `--worktree` is a legacy no-op. Standalone sub-agents are the default dispatch mode.
@@ -72,7 +74,7 @@ Read `../../shared/references/agent-team-dispatch.md` §8.2 only when `--team` i
 After flag parsing, extract the feature name (first non-flag argument) and run:
 
 ```bash
-~/.codex/plugins/ycc/skills/implement-plan/scripts/check-prerequisites.sh [feature-name]
+scripts/check-prerequisites.sh [feature-name]
 ```
 
 If the script exits with error: display the error message, instruct the user to run `/parallel-plan` first to create the implementation plan, and **STOP HERE** — do not proceed.
@@ -91,7 +93,7 @@ Also read files listed in the "Critically Relevant Files" section of parallel-pl
 Run when building the execution graph (Phase 1 task extraction):
 
 ```bash
-~/.codex/plugins/ycc/skills/implement-plan/scripts/parse-dependencies.sh docs/plans/[feature-name]/parallel-plan.md
+scripts/parse-dependencies.sh docs/plans/[feature-name]/parallel-plan.md
 ```
 
 The script emits optional header lines (`WT_PARENT_PATH=<path>`, `WT_FEATURE_SLUG=<slug>` — present only when the plan has a `## Worktree Setup` section) followed by per-task rows (`TASK_ID|TASK_TITLE|DEPENDENCIES`). Row fields and the monorepo `.plans-config` behavior are documented in `references/plan-inputs.md`.
@@ -142,7 +144,7 @@ Execute the dependency-ready standalone batches described below.
 
 ### Path A — Standalone Sub-Agent Batches (default)
 
-Read `../../shared/references/standalone-dispatch.md` for the `Agent` contract; use its §§9–10 for dependency-ready batches. Coordinate agents, do not implement tasks yourself. Read `~/.codex/plugins/ycc/skills/implement-plan/references/agent-task-prompt.md` once before the loop. Per ready task, one `Agent` call per batch message: `subagent_type=implementor`, `description="Implement [Task ID]: [Title]"`, full substituted template.
+Read `../../shared/references/standalone-dispatch.md` for the `Agent` contract; use its §§9–10 for dependency-ready batches. Coordinate agents, do not implement tasks yourself. Read `references/agent-task-prompt.md` once before the loop. Per ready task, one `Agent` call per batch message: `subagent_type=implementor`, `description="Implement [Task ID]: [Title]"`, full substituted template.
 
 **When `WORKTREE_ACTIVE=true`**, every task prompt (parallel and sequential) carries the lines below; when `WORKTREE_ACTIVE=false` (`--no-worktree`) use `Working directory: ${REPO_ROOT}` and `All parallel agents in this batch share the current feature branch; batching guarantees no two agents touch the same file.` Never pass `isolation: "worktree"`. Agents read the plan, shared context and "READ THESE BEFORE TASK" files first, implement only assigned files/instructions, lint and compile/parse modified files, then report files created/modified and issues.
 
@@ -175,7 +177,7 @@ Read `../../shared/references/agent-team-dispatch.md` §8.2 (plus standalone-dis
 
 ### Step 10: Display Summary
 
-When `WORKTREE_ACTIVE=true`, first capture: `bash ~/.codex/plugins/ycc/shared/scripts/list-worktrees.sh "${WT_REPO_NAME}" "${WT_FEATURE_SLUG}"`.
+When `WORKTREE_ACTIVE=true`, first capture: `bash ../../shared/scripts/list-worktrees.sh "${WT_REPO_NAME}" "${WT_FEATURE_SLUG}"`.
 
 Print the completion summary from `references/output-formats.md` (Completion summary), including the `## Worktree Status` section only when `WORKTREE_ACTIVE=true` and the Goal Signals block verbatim as the last lines. Use `PASS` only when the matching `## Success Criteria` criterion is met; otherwise `FAIL` (e.g. `FILES_CHANGED_NONEMPTY: FAIL` when the "Files Changed" section enumerated no files).
 

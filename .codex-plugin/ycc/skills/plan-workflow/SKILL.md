@@ -5,6 +5,8 @@ description: Use when validating existing research docs before planning, running
   and validates plans with checkpoints.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Unified Planning Workflow
 
 One command to research, analyze, and plan feature implementation. Default dispatch is standalone parallel sub-agents via `Agent`; `--team` (Codex runtime only; not available in bundle invocations) runs stages as teammates under the implicit session team with `the task tracker`, `send follow-up instructions` coordination, and coordinated shutdown. Combines `shared-context` + `parallel-plan` with checkpoints.
@@ -84,7 +86,7 @@ Apply critical gates 1–3. **feature-name** = first non-flag argument.
 ### Step 2: Resolve Plans Directory
 
 ```bash
-source ~/.codex/plugins/ycc/shared/scripts/resolve-plans-dir.sh
+source ../../shared/scripts/resolve-plans-dir.sh
 feature_dir="$(get_feature_plan_dir "[feature-name]")"
 ```
 
@@ -93,7 +95,7 @@ Handles monorepo detection, `.plans-config` files, and git root resolution autom
 ### Step 3: Run State Detection
 
 ```bash
-~/.codex/plugins/ycc/skills/plan-workflow/scripts/check-state.sh [feature-name]
+scripts/check-state.sh [feature-name]
 ```
 
 Reports whether `${feature_dir}/` exists, `shared.md`, `parallel-plan.md`, and any research files.
@@ -144,8 +146,8 @@ If the flag is absent, abort with guidance to use `--parallel`. Do NOT silently 
 
 ### Step 8: Read Research Prompts
 
-- Standard mode: read `~/.codex/plugins/ycc/skills/plan-workflow/references/research-agents.md` — read when spawning Phase 1 research agents in standard mode.
-- Optimized mode: read `~/.codex/plugins/ycc/skills/plan-workflow/references/research-agents-optimized.md` — read when `--optimized` replaces the 4 researchers with 5 unified analysts.
+- Standard mode: read `references/research-agents.md` — read when spawning Phase 1 research agents in standard mode.
+- Optimized mode: read `references/research-agents-optimized.md` — read when `--optimized` replaces the 4 researchers with 5 unified analysts.
 
 Substitute `{{FEATURE_NAME}}` (feature directory name) and `{{FEATURE_DIR}}` (`${feature_dir}`, resolved in Step 2).
 
@@ -176,10 +178,10 @@ With `--team`, spawn the teammates registered in Step 9 in one message and confi
 
 ```bash
 # Standard mode (4-file research-*.md set):
-~/.codex/plugins/ycc/skills/plan-workflow/scripts/validate-research-artifacts.sh "${feature_dir}"
+scripts/validate-research-artifacts.sh "${feature_dir}"
 
 # Optimized mode (5-file unified analysis-*.md set):
-~/.codex/plugins/ycc/skills/plan-workflow/scripts/validate-research-artifacts.sh "${feature_dir}" --optimized
+scripts/validate-research-artifacts.sh "${feature_dir}" --optimized
 ```
 
 Append `--optimized` whenever the flag was passed (gate 8). On failure, apply the fix loop (gate 9). Do not proceed to shared.md synthesis until validation passes.
@@ -199,12 +201,12 @@ After validation passes, read the input set for the active mode:
 
 ### Step 14: Generate shared.md
 
-Read `~/.codex/plugins/ycc/skills/plan-workflow/references/shared-structure.md` — read when writing `shared.md`. Create `${feature_dir}/shared.md` following the template exactly.
+Read `references/shared-structure.md` — read when writing `shared.md`. Create `${feature_dir}/shared.md` following the template exactly.
 
 ### Step 15: Validate shared.md
 
 ```bash
-~/.codex/plugins/ycc/skills/plan-workflow/scripts/validate-shared.sh "${feature_dir}/shared.md"
+scripts/validate-shared.sh "${feature_dir}/shared.md"
 ```
 
 Fix any errors before proceeding.
@@ -242,7 +244,7 @@ If running in `--plan-only` mode, verify `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
 
 ### Step 18: Read Analysis Prompts
 
-Read `~/.codex/plugins/ycc/skills/plan-workflow/references/planning-agents.md` — read when spawning Phase 5 analysis agents (standard mode). Same variables: `{{FEATURE_NAME}}`, `{{FEATURE_DIR}}`.
+Read `references/planning-agents.md` — read when spawning Phase 5 analysis agents (standard mode). Same variables: `{{FEATURE_NAME}}`, `{{FEATURE_DIR}}`.
 
 ### Step 19: Create Analysis Tasks (if `--team`)
 
@@ -272,10 +274,10 @@ With `--team`, spawn the tasks registered in Step 19 in one message and confirm 
 
 ```bash
 # Standard mode (3-file set: analysis-context, analysis-code, analysis-tasks):
-~/.codex/plugins/ycc/skills/plan-workflow/scripts/validate-analysis-artifacts.sh "${feature_dir}"
+scripts/validate-analysis-artifacts.sh "${feature_dir}"
 
 # Optimized mode (5-file unified set):
-~/.codex/plugins/ycc/skills/plan-workflow/scripts/validate-analysis-artifacts.sh "${feature_dir}" --optimized
+scripts/validate-analysis-artifacts.sh "${feature_dir}" --optimized
 ```
 
 Pass → Step 22. Fail → fix loop (gate 9), re-validate.
@@ -284,10 +286,10 @@ Pass → Step 22. Fail → fix loop (gate 9), re-validate.
 
 ```bash
 # Standard mode:
-~/.codex/plugins/ycc/skills/plan-workflow/scripts/persist-or-fail.sh "${feature_dir}"
+scripts/persist-or-fail.sh "${feature_dir}"
 
 # Optimized mode:
-~/.codex/plugins/ycc/skills/plan-workflow/scripts/persist-or-fail.sh "${feature_dir}" --optimized
+scripts/persist-or-fail.sh "${feature_dir}" --optimized
 ```
 
 Exit 0 → Phase 7. Exit 1 → prints `MISSING_FILES` and `ACTION_REQUIRED`; re-dispatch the failing agent, re-run until exit 0 (gate 7). In optimized mode the `MISSING_FILES` set is the 5 unified files.
@@ -312,7 +314,7 @@ Send shutdown requests to all analysis teammates.
 
 ### Step 25: Read Plan Template
 
-Read `~/.codex/plugins/ycc/skills/plan-workflow/references/plan-structure.md` — read when generating `parallel-plan.md`.
+Read `references/plan-structure.md` — read when generating `parallel-plan.md`.
 
 ### Step 26: Generate parallel-plan.md
 
@@ -328,7 +330,7 @@ Structural validation (`validate-workflow-plan.sh`) runs **once**, on the final 
 
 ### Step 28: Read Validation Prompts
 
-Read `~/.codex/plugins/ycc/skills/plan-workflow/references/validation-agents.md` — read when spawning Phase 9 validators (standard or optimized).
+Read `references/validation-agents.md` — read when spawning Phase 9 validators (standard or optimized).
 
 ### Step 29: Create Validation Tasks (if `--team`)
 
@@ -367,7 +369,7 @@ Fix issues: correct invalid file paths, resolve circular dependencies, add missi
 After all fixes, run once on the final artifact (before visual/completion):
 
 ```bash
-~/.codex/plugins/ycc/skills/plan-workflow/scripts/validate-workflow-plan.sh "${feature_dir}/parallel-plan.md"
+scripts/validate-workflow-plan.sh "${feature_dir}/parallel-plan.md"
 ```
 
 Fix any structural errors it reports (missing `### Phase` is an error); do not proceed until it exits 0.

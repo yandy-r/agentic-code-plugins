@@ -100,7 +100,7 @@ mv "$PLAN_PATH" "$(dirname -- "$PLAN_PATH")/completed/"
 After archiving the plan, run:
 
 ```bash
-bash ~/.codex/plugins/ycc/shared/scripts/list-worktrees.sh \
+bash ../../../shared/scripts/list-worktrees.sh \
   "${WT_REPO_NAME}" "${WT_FEATURE_SLUG}"
 ```
 

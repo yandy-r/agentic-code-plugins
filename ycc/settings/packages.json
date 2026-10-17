@@ -25,7 +25,7 @@
         },
         "codex": {
           "status": "included",
-          "listed": false,
+          "listed": true,
           "mechanism": "native",
           "components": ["skills", "shared"],
           "requires": [],
@@ -39,11 +39,11 @@
           "gates": [
             "v6.0.0 listing PR after rename: package validators, lockstep preflight, per-target migration and dedupe tests, and clean-machine fork installs pass"
           ],
-          "notes": "Current catalog is local-ycc-plugins with ./plugins/ycc and stays active until the flip; planned listing is .agents/plugins/marketplace.json with a local source at ./.codex-plugin/ycc."
+          "notes": "Listed in the ycc Codex catalog (.agents/plugins/marketplace.json) with a local source at ./.codex-plugin/ycc; installs together with ycc-mcp. Replaces the legacy local-ycc-plugins catalog."
         },
         "cursor": {
           "status": "included",
-          "listed": false,
+          "listed": true,
           "mechanism": "native",
           "components": ["skills", "agents", "commands", "shared"],
           "requires": [],
@@ -68,7 +68,7 @@
       "runtimes": {
         "claude": {
           "status": "included",
-          "listed": false,
+          "listed": true,
           "mechanism": "native",
           "components": ["mcp"],
           "requires": [],
@@ -79,11 +79,11 @@
           "gates": [
             "v6.0.0 listing flip: package validators, lockstep preflight, per-target migration and dedupe tests, and clean-machine fork installs pass"
           ],
-          "notes": "Planned in v6; unspiked."
+          "notes": "Native MCP-only plugin."
         },
         "codex": {
           "status": "included",
-          "listed": false,
+          "listed": true,
           "mechanism": "native",
           "components": ["mcp"],
           "requires": [],
@@ -94,11 +94,11 @@
           "gates": [
             "v6.0.0 listing flip: package validators, lockstep preflight, per-target migration and dedupe tests, and clean-machine fork installs pass"
           ],
-          "notes": "Planned; unspiked on Codex."
+          "notes": "Native MCP-only plugin; carries the MCP servers the Codex ycc plugin used to ship. Listed together with ycc."
         },
         "cursor": {
           "status": "included",
-          "listed": false,
+          "listed": true,
           "mechanism": "native",
           "components": ["mcp"],
           "requires": [],
@@ -110,7 +110,7 @@
             "v6.0.0 listing flip: package validators, lockstep preflight, per-target migration and dedupe tests, and clean-machine fork installs pass",
             "Interactive installation and installed-plugin runtime verification"
           ],
-          "notes": "Planned; unspiked."
+          "notes": "Native MCP-only plugin."
         }
       }
     },
@@ -120,7 +120,7 @@
       "runtimes": {
         "claude": {
           "status": "included",
-          "listed": false,
+          "listed": true,
           "mechanism": "native",
           "components": ["hooks"],
           "requires": [],
@@ -135,7 +135,7 @@
             "Claude Code 2.1.300 or later documented as the minimum",
             "Tested command-level installer dedupe that preserves user-owned hooks"
           ],
-          "notes": "Native plugin hooks/hooks.json needs Claude Code 2.1.300 or later; native rollout waits for installer dedupe (hooks floor plus dedupe gate)."
+          "notes": "Native plugin hooks/hooks.json needs Claude Code 2.1.300 or later; older clients keep installer-managed hooks. After enabling ycc-hooks@ycc, install.sh migrate --target claude --apply prunes the installer hooks."
         },
         "codex": {
           "status": "excluded",
@@ -157,7 +157,7 @@
         },
         "cursor": {
           "status": "included",
-          "listed": false,
+          "listed": true,
           "mechanism": "native",
           "components": ["hooks"],
           "requires": [],
@@ -182,7 +182,7 @@
       "runtimes": {
         "claude": {
           "status": "included",
-          "listed": false,
+          "listed": true,
           "mechanism": "native",
           "components": [],
           "requires": ["ycc", "ycc-mcp", "ycc-hooks"],
@@ -193,7 +193,7 @@
           "gates": [
             "Proof of automatic dependency installation on the candidate baseline and the latest client before listing"
           ],
-          "notes": "Planned; blocked by the automatic dependency installation proof gate."
+          "notes": "Meta plugin that installs ycc, ycc-mcp, and ycc-hooks through Claude plugin dependencies."
         }
       }
     },
@@ -227,7 +227,7 @@
       "runtimes": {
         "cursor": {
           "status": "included",
-          "listed": false,
+          "listed": true,
           "mechanism": "native",
           "components": ["rules"],
           "requires": [],
@@ -239,7 +239,7 @@
             "v6.0.0 listing flip: package validators, lockstep preflight, per-target migration and dedupe tests, and clean-machine fork installs pass",
             "Interactive installation and installed-plugin runtime verification"
           ],
-          "notes": "Planned; unspiked. No Claude ycc-rules: Claude rules stay on install.sh (see installer-fallback claude)."
+          "notes": "Cursor-only rules package. No Claude ycc-rules: Claude rules stay on install.sh (see installer-fallback claude)."
         }
       }
     },

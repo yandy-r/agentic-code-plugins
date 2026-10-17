@@ -48,7 +48,7 @@ With MCP, prefer `mcp__github__list_pull_requests` with `head=<branch>`.
 
 ## Step 22b: Resolve base, guard sync merges, offer backport
 
-Follow `../../../shared/references/pr-base-and-backport.md` with `GUARD=~/.codex/plugins/ycc/shared/scripts/pr-guard.sh`:
+Follow `../../../shared/references/pr-base-and-backport.md` with `GUARD=../../../shared/scripts/pr-guard.sh`:
 
 1. `git fetch origin`, then `BASE=$(bash "$GUARD" base [--base <branch>])` — pass `--base` only when the user gave it. Use `$BASE` everywhere below.
 2. `bash "$GUARD" sync-check --base "$BASE"` — exit 3: do not create the PR; show the reason, cite `branching-model.md#rules`, stop (Phase 6 does not run).
@@ -58,12 +58,12 @@ Exit 2 from any call (malformed `RELEASING.md`) stops Phase 5 with the parse err
 
 ## Steps 23–24: Template and context
 
-Read `~/.codex/plugins/ycc/skills/git-workflow/templates/pr-template.md` (title guidelines, description structure, review checklist, testing guidance, when to use draft).
+Read `../templates/pr-template.md` (title guidelines, description structure, review checklist, testing guidance, when to use draft).
 
 Gather context:
 
 ```bash
-~/.codex/plugins/ycc/skills/git-workflow/scripts/create-pr.sh --analyze --base "$BASE"
+../scripts/create-pr.sh --analyze --base "$BASE"
 ```
 
 Output: current branch, base (`$BASE`), commit history since divergence, changed-files summary, documentation changes, suggested title and scope.
@@ -80,7 +80,7 @@ Must follow `<type>(<scope>): <description>`.
 Validate with the same rules as commits; revise until it passes:
 
 ```bash
-~/.codex/plugins/ycc/skills/git-workflow/scripts/validate-commit.sh "<pr-title>"
+../scripts/validate-commit.sh "<pr-title>"
 ```
 
 Examples:

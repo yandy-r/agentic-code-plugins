@@ -5,6 +5,8 @@ description: Converts research and planning documents into structured tracking i
   issues from a PRP plan.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Source Documents to GitHub Issues
 
 Convert planning and research output into structured GitHub issues with tracking hierarchy, labels, and priority classification. Parse source documents to extract tasks, features, deliverables, and context, then create well-organized GitHub issues via GitHub MCP server (preferred) or `gh` CLI (fallback).
@@ -81,7 +83,7 @@ Determine the source path:
 ### Step 2: Run Validation
 
 ```bash
-~/.codex/plugins/ycc/skills/research-to-issues/scripts/validate-prerequisites.sh "<source-path>" --type "<type-if-specified>"
+scripts/validate-prerequisites.sh "<source-path>" --type "<type-if-specified>"
 ```
 
 The script auto-detects the source type and outputs `DETECTED_TYPE: <type>`. Parse this from stdout.
@@ -106,11 +108,11 @@ Read the parsing reference for the detected source type:
 
 | Detected Type | Reference File                                                                      |
 | ------------- | ----------------------------------------------------------------------------------- |
-| deep-research | `~/.codex/plugins/ycc/skills/research-to-issues/references/parse-deep-research.md` |
-| feature-spec  | `~/.codex/plugins/ycc/skills/research-to-issues/references/parse-feature-spec.md`  |
-| parallel-plan | `~/.codex/plugins/ycc/skills/research-to-issues/references/parse-parallel-plan.md` |
-| prp-plan      | `~/.codex/plugins/ycc/skills/research-to-issues/references/parse-prp-plan.md`      |
-| prd           | `~/.codex/plugins/ycc/skills/research-to-issues/references/parse-prd.md`           |
+| deep-research | `references/parse-deep-research.md` |
+| feature-spec  | `references/parse-feature-spec.md`  |
+| parallel-plan | `references/parse-parallel-plan.md` |
+| prp-plan      | `references/parse-prp-plan.md`      |
+| prd           | `references/parse-prd.md`           |
 
 Follow the extraction instructions in the reference to produce:
 
@@ -120,7 +122,7 @@ Follow the extraction instructions in the reference to produce:
 
 ### Step 5: Classify Priority
 
-Read `~/.codex/plugins/ycc/skills/research-to-issues/references/label-taxonomy.md` for priority assignment rules by source type. Apply priority labels to each item.
+Read `references/label-taxonomy.md` for priority assignment rules by source type. Apply priority labels to each item.
 
 ---
 
@@ -136,11 +138,11 @@ Construct a complete plan:
 
 ### Step 7: Compute Labels
 
-Collect all unique labels needed. Read `~/.codex/plugins/ycc/skills/research-to-issues/references/label-taxonomy.md` for the full color scheme. Always include the `source:{type}` provenance label.
+Collect all unique labels needed. Read `references/label-taxonomy.md` for the full color scheme. Always include the `source:{type}` provenance label.
 
 ### Step 8: Display Plan
 
-Read `~/.codex/plugins/ycc/skills/research-to-issues/references/plan-display-format.md` and display the plan using the format appropriate for the detected source type.
+Read `references/plan-display-format.md` and display the plan using the format appropriate for the detected source type.
 
 ### Step 9: Check for Dry Run
 
@@ -172,8 +174,8 @@ Select the template based on source type:
 
 | Source Type                      | Template                                                                     |
 | -------------------------------- | ---------------------------------------------------------------------------- |
-| deep-research, feature-spec, prd | `~/.codex/plugins/ycc/skills/research-to-issues/templates/feature-issue.md` |
-| parallel-plan, prp-plan          | `~/.codex/plugins/ycc/skills/research-to-issues/templates/task-issue.md`    |
+| deep-research, feature-spec, prd | `templates/feature-issue.md` |
+| parallel-plan, prp-plan          | `templates/task-issue.md`    |
 
 **MCP (preferred):** `mcp__github__create_issue` with owner, repo, title, body, labels array.
 
@@ -194,7 +196,7 @@ Same process as Step 11 for anti-scope items, research gaps, and decision items 
 
 ### Step 13: Create Tracking Issues
 
-Compose tracking issue bodies using `~/.codex/plugins/ycc/skills/research-to-issues/templates/tracking-issue.md`. Populate checkbox lists with links to child issue numbers (e.g., `- [ ] #42 Set up data models`).
+Compose tracking issue bodies using `templates/tracking-issue.md`. Populate checkbox lists with links to child issue numbers (e.g., `- [ ] #42 Set up data models`).
 
 **MCP (preferred):** `mcp__github__create_issue` with title `"Phase {N}: {title}"` or `"Batch {N}: {title}"`, body, labels.
 

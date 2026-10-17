@@ -90,7 +90,7 @@ one human approval the bounded, destructive-capable loop depends on. Therefore:
 2. Invoke the monitor:
 
    ```
-   ~/.codex/plugins/ycc/shared/scripts/release-ci-monitor.sh \
+   ../../../shared/scripts/release-ci-monitor.sh \
      --tag v<new-version> \
      --workflow <detected-or-passed> \
      --repo <owner/name> \
@@ -131,7 +131,7 @@ The monitor wrote one JSONL line to the audit log with the failed run's metadata
 2. **Validate the commit message**:
 
    ```
-   ~/.codex/plugins/ycc/skills/git-workflow/scripts/validate-commit.sh "<message>"
+   ../../git-workflow/scripts/validate-commit.sh "<message>"
    ```
 
 3. **Pre-push branch-protection check** on the branch that was released — the trunk,
@@ -224,7 +224,7 @@ The monitor wrote one JSONL line to the audit log with the failed run's metadata
    "$PUBLISHER" "$TAG" "$NOTES_PATH" --mode=create --confirm || recovery publish
    ```
 
-   Set `TAG=v<new-version>`, `FIX_SHA`, `RELEASED_SHA` (released commit), `NOTES_PATH`, `RELEASE_BRANCH` and `PUBLISHER=~/.codex/plugins/ycc/skills/releaser/scripts/publish-release.sh` from trusted state. Preflight failure mutates nothing. Delete failure: inspect actual release/tag state for partial deletion, no retries. Tag restore failure: release absent, local tag may be missing or old. Tag push failure: release absent, local tag kept at `FIX_SHA`, remote tag may be absent — manual recovery is finishing the tag push then publishing once; do not restart the transaction. Publish failure: remote tag already at `FIX_SHA`, release may be absent — retry the publisher manually, not another delete-and-recreate. Always print `RECOVERY_STEP` plus observed refs.
+   Set `TAG=v<new-version>`, `FIX_SHA`, `RELEASED_SHA` (released commit), `NOTES_PATH`, `RELEASE_BRANCH` and `PUBLISHER=../scripts/publish-release.sh` from trusted state. Preflight failure mutates nothing. Delete failure: inspect actual release/tag state for partial deletion, no retries. Tag restore failure: release absent, local tag may be missing or old. Tag push failure: release absent, local tag kept at `FIX_SHA`, remote tag may be absent — manual recovery is finishing the tag push then publishing once; do not restart the transaction. Publish failure: remote tag already at `FIX_SHA`, release may be absent — retry the publisher manually, not another delete-and-recreate. Always print `RECOVERY_STEP` plus observed refs.
 
    After publication succeeds, correlate the fresh release event: poll within the remaining wall-clock budget for a NEW `release`-event run of `<file>` whose `headSha == FIX_SHA` and `createdAt >= REPUBLISH_STARTED` (`gh run list --repo <owner/name> --workflow <file> --event release --json databaseId,headSha,createdAt`). Zero matches: `bail-timeout`; multiple: `loop-blocked`. The pre-re-cut run cannot match: its head SHA predates the fix. Set `RETRY_RUN_ID`/`RETRY_SHA` from that run.
 

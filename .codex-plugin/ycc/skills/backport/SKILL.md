@@ -4,6 +4,8 @@ description: Backports merged trunk PRs to maintenance branches. Use when backpo
   a fix, opening backport PRs, or auditing pending backports.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Backport
 
 Move a fix that already landed on the trunk to one or more maintenance branches, the way
@@ -43,7 +45,7 @@ Validation — stop with the usage line on failure:
 
 ## Phase 1 — Preflight
 
-1. **Forge.** Source `~/.codex/plugins/ycc/shared/scripts/lib/forge.sh` and run
+1. **Forge.** Source `../../shared/scripts/lib/forge.sh` and run
    `forge_detect_provider origin`. If the result is not `github`, print the manual steps
    below (fill `X.Y` from `--to` or the state's `latest_maintenance`, the SHA from the
    merged PR) and stop:
@@ -64,7 +66,7 @@ Validation — stop with the usage line on failure:
    first."
 
 3. **Release state.** Run
-   `bash "~/.codex/plugins/ycc/shared/scripts/release-state.sh" get` from the repo:
+   `bash "../../shared/scripts/release-state.sh" get` from the repo:
 
    | Result                                  | Action                                                                                                                                        |
    | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -82,7 +84,7 @@ Read-only; it creates no worktree, branch, label or PR. Lines: the given `releas
 else every entry of `MAINTENANCE`. For each line:
 
 ```bash
-bash "~/.codex/plugins/ycc/shared/scripts/backport-audit.sh" release/X.Y [--since REF]
+bash "../../shared/scripts/backport-audit.sh" release/X.Y [--since REF]
 ```
 
 Exit 0 is clean, 3 has findings, 1 and 2 are errors (show stderr; stop on 2). Output
@@ -108,7 +110,7 @@ The work list is a set of `(PR, target, merge_sha, title)` rows.
 Run when `--pending` is passed (Phase 2 work-list build):
 
 ```bash
-bash "~/.codex/plugins/ycc/skills/backport/scripts/find-pending.sh" --repo .
+bash "scripts/find-pending.sh" --repo .
 ```
 
 Each stdout line is `<pr>\t<release/X.Y>\t<merge_sha>\t<title>`. Relay every stderr
@@ -150,12 +152,12 @@ Process rows in order (lowest PR first). For each row:
 Run for each planned row in Phase 3 order:
 
 ```bash
-bash "~/.codex/plugins/ycc/skills/backport/scripts/cherry-pick-pr.sh" \
+bash "scripts/cherry-pick-pr.sh" \
   <pr> <release/X.Y> --sha <merge_sha> --repo .
 ```
 
 The script fetches `origin/release/X.Y`, creates the branch and a worktree through
-`~/.codex/plugins/ycc/shared/scripts/setup-worktree.sh` (under
+`../../shared/scripts/setup-worktree.sh` (under
 `<repo>/.codex/worktrees/`, or `YCC_WORKTREE_ROOT`), and runs `git cherry-pick -x`
 (`-m 1` for a true merge commit). It never pushes. Parse its `key=value` stdout:
 
@@ -267,7 +269,7 @@ For each opened backport PR, run the loop documented in
 Protocol"), exactly as `$pr-autofix` Phase 7 does — policy is not restated here:
 
 ```bash
-bash "~/.codex/plugins/ycc/shared/scripts/ci-monitor.sh" \
+bash "../../shared/scripts/ci-monitor.sh" \
   --pr <M> --branch <backport-branch> --base release/X.Y \
   --max-pushes 5 --max-same-failure 3 --timeout-min 30 \
   --log-file ~/.codex/session-data/ci-watch/<M>-<utc-timestamp>.log
@@ -277,7 +279,7 @@ bash "~/.codex/plugins/ycc/shared/scripts/ci-monitor.sh" \
 - `handoff` → apply the fix inside the backport worktree (formatter for `lint`/`format`;
   a `pr-comment-fixer` agent with the log excerpt for `type-check`/`unit-test`/`build`),
   commit with a Conventional Commit validated by
-  `~/.codex/plugins/ycc/skills/git-workflow/scripts/validate-commit.sh`, push the backport
+  `../git-workflow/scripts/validate-commit.sh`, push the backport
   branch, re-invoke.
 - `rerun-pending` → wait ~30s, re-invoke. `green` → done. Any `bail-*` → report the
   diagnosis and stop the loop for that PR.
@@ -285,5 +287,5 @@ bash "~/.codex/plugins/ycc/shared/scripts/ci-monitor.sh" \
 ## Related
 
 - Rules and manual steps: `../../shared/references/branching-model.md`
-- Release state: `~/.codex/plugins/ycc/shared/scripts/release-state.sh`
+- Release state: `../../shared/scripts/release-state.sh`
 - Worktrees: `../../shared/references/worktree-strategy.md`
