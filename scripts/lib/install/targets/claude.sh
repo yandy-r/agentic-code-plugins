@@ -42,7 +42,7 @@ claude_reads_agents_skills() { return 1; }
 # Claude marketplace — registers ycc as a marketplace via the canonical CLI:
 #
 #   local mode:  claude plugin marketplace add <repo-path>            --scope user
-#   repo  mode:  claude plugin marketplace add yandy-r/claude-plugins --scope user
+#   repo  mode:  claude plugin marketplace add yandy-r/agentic-code-plugins --scope user
 #                followed by:
 #                claude plugin install ycc@ycc --scope user
 #
@@ -79,7 +79,7 @@ register_claude_marketplace() {
     if [[ "$mode" == "local" ]]; then
         source_arg="$(realpath "${SCRIPT_DIR}")"
     else
-        source_arg="yandy-r/claude-plugins"
+        source_arg="yandy-r/agentic-code-plugins"
     fi
 
     local settings="${HOME}/.claude/settings.json"
@@ -261,7 +261,7 @@ sync_claude_target() {
     local base_ran=0
     if step_enabled base; then
         if [[ "${MODE:-local}" == "repo" ]]; then
-            printf '\n%sClaude: register github repo as marketplace (yandy-r/claude-plugins)%s\n' "${BOLD}" "${NC}"
+            printf '\n%sClaude: register github repo as marketplace (yandy-r/agentic-code-plugins)%s\n' "${BOLD}" "${NC}"
         else
             printf '\n%sClaude: register repo checkout as local marketplace%s\n' "${BOLD}" "${NC}"
         fi
@@ -337,7 +337,7 @@ sync_claude_target() {
     printf '\n%sClaude %s complete.%s\n' "${BOLD}" "${COMMAND}" "${NC}"
     if [[ $base_ran -eq 1 ]]; then
         if [[ "${MODE:-local}" == "repo" ]]; then
-            warn "Run /reload-plugins or start a new Claude Code session. The 'ycc' marketplace in ~/.claude/settings.json now tracks the github source yandy-r/claude-plugins."
+            warn "Run /reload-plugins or start a new Claude Code session. The 'ycc' marketplace in ~/.claude/settings.json now tracks the github source yandy-r/agentic-code-plugins."
             warn "Updates: rerun 'claude plugin install ycc@ycc --scope user' (or use the in-Claude /plugins UI) to pull the latest published commit."
             warn "The Claude settings file now contains the CLI-written marketplace entry. Re-running the settings step merges repo-managed keys and preserves that entry."
         else

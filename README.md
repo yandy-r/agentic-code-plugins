@@ -115,7 +115,7 @@ For Claude Code, install the published `ycc` plugin from the marketplace:
 
 ```bash
 # Add the marketplace
-/plugin marketplace add yandy-r/claude-plugins
+/plugin marketplace add yandy-r/agentic-code-plugins
 
 # Install the bundle
 /plugin install ycc@ycc

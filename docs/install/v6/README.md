@@ -9,8 +9,8 @@
 > `install.sh migrate` is implemented as a dry-run-first command for Claude,
 > Codex, and Cursor; `install.sh --package` remains planned, not implemented.
 > The live install commands in `docs/install/` are unchanged and remain the
-> supported install route. The repository name is also unchanged today:
-> `yandy-r/claude-plugins`.
+> supported install route. The repository was renamed to
+> `yandy-r/agentic-code-plugins`.
 
 This directory is a draft tree only. It is not linked from the root README or
 the live `docs/install/README.md`; nothing here affects production navigation.

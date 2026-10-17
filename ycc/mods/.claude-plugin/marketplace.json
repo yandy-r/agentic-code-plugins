@@ -1,12 +1,12 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "ycc-mods",
-  "description": "Claude Code mods from yandy-r/claude-plugins: plugins whose hooks module draws UI and hooks into Claude Code itself.",
+  "description": "Claude Code mods from yandy-r/agentic-code-plugins: plugins whose hooks module draws UI and hooks into Claude Code itself.",
   "owner": {
     "name": "yandy-r"
   },
   "metadata": {
-    "repository": "https://github.com/yandy-r/claude-plugins"
+    "repository": "https://github.com/yandy-r/agentic-code-plugins"
   },
   "plugins": [
     {

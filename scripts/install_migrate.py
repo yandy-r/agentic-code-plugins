@@ -35,6 +35,16 @@ from validate_codex_native import check_catalog, check_package
 
 ROOT = Path(__file__).resolve().parent.parent
 PACKAGES = ("ycc", "ycc-mcp")
+# Repo-mode catalog entries written before the GitHub rename pointed at this URL. This literal is
+# historical data: install_migrate.py is deliberately not in rename_repo.ALLOWLIST_FILES.
+PRE_RENAME_REPO_URL = "https://github.com/yandy-r/claude-plugins.git"
+
+
+def legacy_repo_entry() -> dict[str, Any]:
+    """Return the exact repo-mode catalog entry the installer wrote before the repository rename."""
+    entry = build_entry("repo", "")
+    entry["source"] = {**entry["source"], "url": PRE_RENAME_REPO_URL}
+    return entry
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -464,6 +474,7 @@ class Migration:
             build_entry("local", "./.agents/plugins/ycc"),
             build_entry("local", "./plugins/ycc"),
             build_entry("repo", ""),
+            legacy_repo_entry(),
         ]
         writable = catalog.get("name") == "local-ycc-plugins" and not path.is_symlink() and safe_parent(path)
         if not writable:

@@ -66,7 +66,7 @@ class CodexMarketplaceTestCase(unittest.TestCase):
             data["plugins"][0]["source"],
             {
                 "source": "git-subdir",
-                "url": "https://github.com/yandy-r/claude-plugins.git",
+                "url": "https://github.com/yandy-r/agentic-code-plugins.git",
                 "path": "./.codex-plugin/ycc",
                 "ref": "main",
             },
@@ -89,7 +89,7 @@ class CodexMarketplaceTestCase(unittest.TestCase):
         other = {"name": "other", "source": {"source": "github", "repo": "a/b"}}
         legacy = {
             "name": "ycc",
-            "source": {"source": "github", "repo": "yandy-r/claude-plugins", "ref": "main"},
+            "source": {"source": "github", "repo": "yandy-r/agentic-code-plugins", "ref": "main"},
         }
         self.dest.write_text(json.dumps({"name": "custom", "plugins": [other, legacy]}), encoding="utf-8")
         self.merge("repo")
@@ -103,7 +103,7 @@ class CodexMarketplaceTestCase(unittest.TestCase):
             data["plugins"][1]["source"],
             {
                 "source": "git-subdir",
-                "url": "https://github.com/yandy-r/claude-plugins.git",
+                "url": "https://github.com/yandy-r/agentic-code-plugins.git",
                 "path": "./.codex-plugin/ycc",
                 "ref": "main",
             },

@@ -68,7 +68,7 @@ and nothing here is a command to run:
   },
   "extraKnownMarketplaces": {
     "ycc": {
-      "source": { "source": "github", "repo": "yandy-r/claude-plugins", "ref": "main" },
+      "source": { "source": "github", "repo": "yandy-r/agentic-code-plugins", "ref": "main" },
       "autoUpdate": true
     }
   }
