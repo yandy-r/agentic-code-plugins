@@ -38,7 +38,7 @@ REACH_IN_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"worktree-strategy\.md"),
     # Prose deferrals: "the skill's `references/...`", "the shared `x.md` reference"
     # (including when wrapped across lines or escaped inside a TOML string).
-    re.compile(r"skill's(?:\s|\\n)+`references/"),
+    re.compile(r"skill['\u2019]s(?:\s|\\n)+`references/"),
     re.compile(r"shared(?:\s|\\n)+`[\w.-]+\.md`(?:\s|\\n)+reference"),
 )
 
@@ -65,7 +65,10 @@ def scan_surface(glob: str) -> tuple[list[Path], list[str]]:
 
 
 class StandaloneAgentReferenceTests(unittest.TestCase):
+    """Standalone agent bodies stay free of source-checkout reach-ins."""
+
     def test_agent_surfaces_have_no_source_reach_ins(self) -> None:
+        """Every source and generated agent surface is non-empty and clean."""
         for label, glob in SURFACES:
             with self.subTest(surface=label):
                 files, offenders = scan_surface(glob)
@@ -77,6 +80,7 @@ class StandaloneAgentReferenceTests(unittest.TestCase):
                 )
 
     def test_matcher_flags_synthetic_reach_ins(self) -> None:
+        """Each reach-in form is flagged once, on the line where it starts."""
         samples = (
             "see `ycc/skills/demo/references/x.md`",
             "from `_shared/scripts/lib/x.sh`",
@@ -84,6 +88,7 @@ class StandaloneAgentReferenceTests(unittest.TestCase):
             "see {{package-root}}/shared/references/x.md",
             "${CLAUDE_PLUGIN_ROOT}/skills/demo",
             "rules in the demo skill's `references/rules.md`",
+            "rules in the demo skill\u2019s `references/rules.md`",
             "per the bundle's shared `branching-model.md` reference",
             "per the bundle's shared\n`branching-model.md` reference",
             "open `worktree-strategy.md` first",
@@ -94,6 +99,7 @@ class StandaloneAgentReferenceTests(unittest.TestCase):
                 self.assertEqual(find_reach_ins(f"intro\n{sample}\n")[0][0], 2)
 
     def test_matcher_ignores_project_paths(self) -> None:
+        """Ordinary project output paths are not reach-ins."""
         self.assertEqual(find_reach_ins("write to `docs/plans/x.md` and `docs/prps/reviews/y.md`\n"), [])
 
 
