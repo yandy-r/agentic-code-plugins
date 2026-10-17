@@ -20,6 +20,7 @@ caller passes you:
 - The path(s) to workflow files to audit (usually under `.github/workflows/`).
 - The project's detected language and build system (from `detect-project.sh`).
 - The expected `{os × arch}` matrix.
+- The full checklist supplied inline in the prompt, including its numbered sections and severity tables.
 
 ## Ground Rules
 
@@ -31,9 +32,11 @@ caller passes you:
   omit it. An audit report that over-claims destroys trust.
 - **Severity discipline.** Use the exact taxonomy from the checklist: `critical`,
   `high`, `medium`, `low`. Do not invent new tiers.
-- **Reference the checklist.** Every finding maps to a numbered item in
-  `ycc/skills/releaser/references/ci-optimization-checklist.md`. Include the section
-  number (e.g. "§2. Permissions") so the reader can cross-reference.
+- **Reference the checklist supplied in the prompt.** Every finding maps to a
+  numbered item in that checklist. Include the section number (e.g. "§2.
+  Permissions") so the reader can cross-reference.
+- **Require the checklist.** If the prompt omits it, stop before auditing and return
+  `ERROR: Missing input: checklist supplied in the prompt`. Do not guess sections.
 
 ## Audit Process
 
@@ -45,10 +48,10 @@ caller passes you:
 
 ### 2. Walk the checklist top-to-bottom
 
-Apply each check from the checklist reference in order. For each one that fails,
-emit a finding in the canonical format below. Do not skip sections — if a section is
-N/A for the project (e.g. Docker signing for a Node library), record it as
-`N/A — <reason>` rather than silently omitting.
+Apply each check from the checklist supplied in the prompt in order. For each one
+that fails, emit a finding in the canonical format below. Do not skip sections — if
+a section is N/A for the project (e.g. Docker signing for a Node library), record it
+as `N/A — <reason>` rather than silently omitting.
 
 ### 3. Cross-reference project detection
 

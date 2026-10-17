@@ -30,7 +30,7 @@
 #   - mods       validates the Claude Code mods under ycc/mods and their marketplace
 #   - practices  ratchets skill/agent/rule authoring practices against
 #                scripts/practices-baseline.json (unit tests + validator + optional
-#                `claude plugin validate`)
+#                `claude plugin validate`) and checks standalone agent references
 #   - scope      tests the changed-path -> target mapping behind --changed
 set -euo pipefail
 
@@ -330,6 +330,8 @@ run_target() {
         practices)
             echo "== validate: practices unit tests =="
             python3 "${REPO_ROOT}/scripts/test_validate_practices.py" || fail "test_validate_practices.py"
+            echo "== validate: standalone agent references =="
+            python3 "${REPO_ROOT}/scripts/test_standalone_agent_references.py" || fail "test_standalone_agent_references.py"
             echo "== validate: practices ratchet =="
             "${REPO_ROOT}/scripts/validate-practices.sh" || fail "validate-practices.sh"
             ;;

@@ -52,6 +52,7 @@ Agent(subagent_type="<type>", description="<role and short title>", prompt="<ful
 - Track the orchestrator's own progress with `TaskCreate`, `TaskGet`, `TaskList`,
   and `TaskUpdate` when needed. These tools neither dispatch agents nor retrieve results.
 - Keep every dispatched agent associated with its role and expected deliverable.
+- Keep agent guidance self-contained: inline any skill/shared reference content needed by the agent in its dispatch prompt; standalone agent installs do not ship those files.
 
 ---
 

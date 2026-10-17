@@ -81,7 +81,7 @@ validate_scope_targets_for_path() {
         scripts/validate-practices.sh | scripts/validate_practices.py) echo "practices" ;;
         .claude/rules/*) echo "practices" ;;
         scripts/practices_parse.py | scripts/practices_rules.py | scripts/practices-baseline.json) echo "practices" ;;
-        scripts/test_validate_practices.py) echo "practices" ;;
+        scripts/test_validate_practices.py | scripts/test_standalone_agent_references.py) echo "practices" ;;
         scripts/test-validate-scope.sh) echo "scope" ;;
 
         # Generators, shared libs, validate.sh itself, anything unrecognised.

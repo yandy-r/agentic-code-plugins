@@ -117,9 +117,11 @@ branch and backport detail covers `references/release-branches.md`.
 Three modes: `--ci-config=generate` fails on an existing release-like workflow, else
 copies the language template from `references/ci-templates/` (quality gate
 `references/ci-optimization-checklist.md`) and writes the required workflow README
-entry; `--ci-config=audit` delegates to the `ycc:releaser` agent and saves the report
-to `docs/prps/reviews/ci-release-audit.md`; no flag skips with the reminder that this
-is separate from `--ci`. Read `references/ci-workflow-modes.md` before Phase 6.
+entry; `--ci-config=audit` delegates to the `ycc:releaser` agent with workflow paths,
+detected language/build system, expected matrix, and the full checklist inline in
+the prompt, then saves the report to `docs/prps/reviews/ci-release-audit.md`; no flag
+skips with the reminder that this is separate from `--ci`. Read
+`references/ci-workflow-modes.md` before Phase 6.
 
 ## Phase 7..9: Dry-Run, Commands, Summary
 
