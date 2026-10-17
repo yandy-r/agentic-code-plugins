@@ -6,8 +6,8 @@
 - **Target release:** v6.0.0
 - **Tracking:** Linear YAN-1127; GitHub [#294](https://github.com/yandy-r/claude-plugins/issues/294)
 - **Release gates and switches:** [RELEASING.md, Unfinished work](../../../RELEASING.md#unfinished-work)
-- **Research inputs:** [recommendation](../../research/agentic-code-plugins/recommendation.md),
-  [roadmap](../../research/agentic-code-plugins/roadmap.json)
+- **Research inputs:** [recommendation](../../research/ystack/recommendation.md),
+  [roadmap](../../research/ystack/roadmap.json)
 - **Contribution rules:** [CONTRIBUTING.md](../../../CONTRIBUTING.md)
 
 ## Context
@@ -145,7 +145,7 @@ findings are pinned to opencode v2.0.29; other versions are unverified. The `plu
   the workflow's `id-token: write` permission for registry authentication and provenance —
   no npm token is stored or mapped in the repository. Maintainer prerequisite: register this
   exact trusted publisher on npmjs.com for `@yandy-r/ycc-opencode` — repository owner
-  `yandy-r`, repository `claude-plugins`, workflow filename `release.yml`, GitHub
+  `yandy-r`, repository `ystack`, workflow filename `release.yml`, GitHub
   environment `release` — allowing `npm publish`. The `@yandy-r` npm scope is already
   owned; no token setup is required. Also restrict `v*` tag creation. These package-specific
   trusted publisher settings have not been verified here, and no publish was attempted.
@@ -264,6 +264,6 @@ This ADR changes no generated bundle, marketplace, or manifest.
 - Spike dossiers: [claude-namespace](../spikes/claude-namespace.md), [claude-hooks](../spikes/claude-hooks.md),
   [codex-marketplace](../spikes/codex-marketplace.md), [cursor-plugin](../spikes/cursor-plugin.md),
   [opencode-config-hook](../spikes/opencode-config-hook.md), [npx-skills](../spikes/npx-skills.md).
-- Decision inputs: [recommendation](../../research/agentic-code-plugins/recommendation.md)
-  (owner decisions of 2026-10-14 in section 0) and [roadmap](../../research/agentic-code-plugins/roadmap.json).
+- Decision inputs: [recommendation](../../research/ystack/recommendation.md)
+  (owner decisions of 2026-10-14 in section 0) and [roadmap](../../research/ystack/roadmap.json).
 - Release rules and switches: [RELEASING.md](../../../RELEASING.md).

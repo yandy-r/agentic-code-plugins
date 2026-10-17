@@ -107,7 +107,7 @@ or repo-mode `git-subdir`); symlinks `~/.codex/plugins/ycc` and `~/.agents/plugi
 → repo `.codex-plugin/ycc`; standalone slice copies in `~/.codex/skills/<name>`
 (+ `_shared`) or consolidated `~/.agents/skills` copies; TOML MCP servers merged
 by the `mcp` installer step; custom agents in `~/.codex/agents/*.toml` (install.sh-only
-in v6). The research recommendation (`docs/research/agentic-code-plugins/recommendation.md:120`)
+in v6). The research recommendation (`docs/research/ystack/recommendation.md:120`)
 proposes an `install.sh migrate --target codex` command that removes
 `ycc@local-ycc-plugins` + symlinks, adds the repo marketplace, and installs
 `ycc@ycc` + `ycc-mcp@ycc`. **No `migrate` command exists** (`install.sh:442–447`:

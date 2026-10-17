@@ -14,7 +14,7 @@ This is a maintainer-facing hidden packaging change, not a new public installati
 4. Use a non-writing drift check, then native `claude plugin validate` for each generated plugin. Existing Codex generator patterns provide a precedent for check/dry-run behavior; avoid requiring maintainers to install a plugin to detect stale files.
 5. Run the isolated acceptance flow below. Report generation, manifest validation, dependency installation, and actual hook execution as distinct outcomes; passing one does not establish the others.
 
-Evidence: `AGENTS.md:50-66`; `scripts/generate_codex_plugin.py:101-125`; `scripts/validate.sh:261-268`; `docs/research/agentic-code-plugins/roadmap.json:149-159`; `ycc/settings/packages.json:117-196`. Current `validate.sh --only packages` validates the model/graph, not future generated Claude payload freshness.
+Evidence: `AGENTS.md:50-66`; `scripts/generate_codex_plugin.py:101-125`; `scripts/validate.sh:261-268`; `docs/research/ystack/roadmap.json:149-159`; `ycc/settings/packages.json:117-196`. Current `validate.sh --only packages` validates the model/graph, not future generated Claude payload freshness.
 
 ### Acceptance: isolated local marketplace
 

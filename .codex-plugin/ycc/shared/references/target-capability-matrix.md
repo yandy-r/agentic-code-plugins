@@ -71,7 +71,7 @@ The hidden `ycc-all` meta plugin still awaits automatic-install proof; Cursor an
 dependency field, and the `agents` target is a directory convention, not a package system.
 Claude rules, settings, and statusline stay on `install.sh`.
 
-The recommendation in `docs/research/agentic-code-plugins/recommendation.md` is qualified by
+The recommendation in `docs/research/ystack/recommendation.md` is qualified by
 `ycc/settings/packages.json` and the later verdicts in `docs/internal/spikes/`:
 
 - `claude-hooks.md`: plugin `WorktreeCreate` was observed on 2.1.300, not 2.1.143. The hidden

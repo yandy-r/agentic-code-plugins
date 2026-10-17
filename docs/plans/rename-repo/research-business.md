@@ -8,7 +8,7 @@ YAN-1134 / [#304](https://github.com/yandy-r/claude-plugins/issues/304) is safet
 
 - `docs/internal/adr/0001-package-model-and-versioning.md:41-57` separates repository transport identity from marketplace/plugin identities.
 - `RELEASING.md:55-85`, especially the rename switch at line 83, requires behind-the-scenes preparation followed by an owner-led reference-flip PR.
-- `docs/research/agentic-code-plugins/roadmap.json`, `rename-prep` and `flip-rename`, supplies acceptance and activation context; older package proposals do not override the ADR.
+- `docs/research/ystack/roadmap.json`, `rename-prep` and `flip-rename`, supplies acceptance and activation context; older package proposals do not override the ADR.
 - `AGENTS.md:18-22` distinguishes source from generated targets.
 
 ## User Stories
