@@ -14,20 +14,23 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from generate_cursor_packages import MIN_CURSOR_VERSION  # noqa: E402
+from generate_cursor_packages import MIN_CURSOR_VERSION, build_marketplace  # noqa: E402
 from package_model import Package, PackageModel, RuntimePackage, load_package_model  # noqa: E402
 from validate_cursor_native import cursor_native_errors, main, resource_errors  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 VERSION = "1.2.3"
-MARKETPLACE_ABSENCE_ERROR = ".cursor-plugin/marketplace.json must not exist before the listing flip"
+MARKETPLACE_ABSENCE_ERROR = ".cursor-plugin/marketplace.json must not exist when no Cursor packages are listed"
+MARKETPLACE_PARITY_ERROR = (
+    ".cursor-plugin/marketplace.json: catalog must match exactly the listed Cursor packages and sources"
+)
 
 
-def cursor_package(key: str, *components: str) -> Package:
+def cursor_package(key: str, *components: str, listed: bool = False) -> Package:
     runtime = RuntimePackage(
         runtime="cursor",
         status="included",
-        listed=False,
+        listed=listed,
         mechanism="native",
         components=tuple(components),
         requires=(),
@@ -75,7 +78,7 @@ class CursorNativeValidationTests(unittest.TestCase):
         payload.update(changes)
         return payload
 
-    def add_skills_package(self, **manifest_changes: Any) -> Package:
+    def add_skills_package(self, *, listed: bool = False, **manifest_changes: Any) -> Package:
         self.write_json(
             Path("packages/cursor/ycc/.cursor-plugin/plugin.json"),
             self.manifest("ycc", **manifest_changes),
@@ -84,9 +87,9 @@ class CursorNativeValidationTests(unittest.TestCase):
             Path("packages/cursor/ycc/skills/demo/SKILL.md"),
             "Run ${CURSOR_PLUGIN_ROOT}/skills/demo/SKILL.md when requested.\n",
         )
-        return cursor_package("ycc", "skills", "agents", "commands", "shared")
+        return cursor_package("ycc", "skills", "agents", "commands", "shared", listed=listed)
 
-    def add_hooks_package(self, *, hooks: Any = None, executable: bool = True) -> Package:
+    def add_hooks_package(self, *, hooks: Any = None, executable: bool = True, listed: bool = False) -> Package:
         self.write_json(
             Path("packages/cursor/ycc-hooks/.cursor-plugin/plugin.json"),
             self.manifest("ycc-hooks"),
@@ -97,9 +100,9 @@ class CursorNativeValidationTests(unittest.TestCase):
         script = self.write_text(Path("packages/cursor/ycc-hooks/hooks/herdr-session-start.sh"), "#!/bin/sh\nexit 0\n")
         if executable:
             script.chmod(0o755)
-        return cursor_package("ycc-hooks", "hooks")
+        return cursor_package("ycc-hooks", "hooks", listed=listed)
 
-    def add_mcp_package(self, *, mcp_text: str | None = None, **manifest_changes: Any) -> Package:
+    def add_mcp_package(self, *, mcp_text: str | None = None, listed: bool = False, **manifest_changes: Any) -> Package:
         changes: dict[str, Any] = {
             "variables": {"type": "object", "properties": {"TOKEN": {"type": "string"}}},
             "mcpServers": "./mcp.json",
@@ -108,7 +111,7 @@ class CursorNativeValidationTests(unittest.TestCase):
         self.write_json(Path("packages/cursor/ycc-mcp/.cursor-plugin/plugin.json"), self.manifest("ycc-mcp", **changes))
         text = mcp_text or json.dumps({"mcpServers": {"fixture": {"env": {"TOKEN": "${TOKEN}"}}}})
         self.write_text(Path("packages/cursor/ycc-mcp/mcp.json"), text)
-        return cursor_package("ycc-mcp", "mcp")
+        return cursor_package("ycc-mcp", "mcp", listed=listed)
 
     def assert_has_error(self, errors: list[str], expected: str) -> None:
         self.assertTrue(any(expected in error for error in errors), f"expected {expected!r} in {errors!r}")
@@ -236,6 +239,70 @@ class CursorNativeValidationTests(unittest.TestCase):
         errors = cursor_native_errors(self.root, fixture_model(package))
         self.assertIn(MARKETPLACE_ABSENCE_ERROR, errors)
         self.assert_has_error(errors, "unreadable or malformed JSON")
+
+    def test_listed_partial_and_full_marketplaces_pass_only_when_exact_and_schema_valid(self) -> None:
+        partial = fixture_model(
+            self.add_skills_package(listed=True),
+            self.add_hooks_package(),
+            self.add_mcp_package(listed=True),
+        )
+        errors = cursor_native_errors(self.root, partial)
+        self.assert_has_error(errors, "marketplace.json: unreadable or malformed JSON")
+        self.write_json(Path(".cursor-plugin/marketplace.json"), build_marketplace(partial.packages))
+        self.assertEqual(cursor_native_errors(self.root, partial), [])
+
+        full = fixture_model(
+            self.add_skills_package(listed=True),
+            self.add_hooks_package(listed=True),
+            self.add_mcp_package(listed=True),
+        )
+        self.assert_has_error(cursor_native_errors(self.root, full), MARKETPLACE_PARITY_ERROR)
+        self.write_json(Path(".cursor-plugin/marketplace.json"), build_marketplace(full.packages))
+        self.assertEqual(cursor_native_errors(self.root, full), [])
+
+    def test_listed_marketplace_rejects_wrong_name_source_extra_and_schema_violations(self) -> None:
+        model = fixture_model(self.add_skills_package(listed=True), self.add_mcp_package())
+        cases = (
+            {"name": "other", "plugins": [{"name": "ycc", "source": "./packages/cursor/ycc"}]},
+            {"name": "ycc", "plugins": [{"name": "ycc", "source": "packages/cursor/ycc"}]},
+            {
+                "name": "ycc",
+                "plugins": [
+                    {"name": "ycc", "source": "./packages/cursor/ycc"},
+                    {"name": "ycc-mcp", "source": "./packages/cursor/ycc-mcp"},
+                ],
+            },
+        )
+        for payload in cases:
+            with self.subTest(payload=payload):
+                self.write_json(Path(".cursor-plugin/marketplace.json"), payload)
+                self.assertEqual(
+                    cursor_native_errors(self.root, model),
+                    [MARKETPLACE_PARITY_ERROR],
+                )
+        self.write_json(
+            Path(".cursor-plugin/marketplace.json"),
+            {"name": "ycc", "plugins": [{"name": "Bad Name", "source": "./packages/cursor/ycc"}]},
+        )
+        errors = cursor_native_errors(self.root, model)
+        self.assert_has_error(errors, "does not match")
+        self.assert_has_error(errors, MARKETPLACE_PARITY_ERROR)
+
+    def test_marketplace_symlinks_are_diagnostics_in_listed_and_unlisted_states(self) -> None:
+        target = self.write_json(
+            Path("outside.json"),
+            {"name": "ycc", "plugins": [{"name": "ycc", "source": "./packages/cursor/ycc"}]},
+        )
+        unlisted = fixture_model(self.add_skills_package())
+        listed = fixture_model(self.add_skills_package(listed=True))
+        link = self.root / ".cursor-plugin/marketplace.json"
+        link.parent.mkdir(parents=True, exist_ok=True)
+        link.symlink_to(target)
+        unlisted_errors = cursor_native_errors(self.root, unlisted)
+        self.assertIn(MARKETPLACE_ABSENCE_ERROR, unlisted_errors)
+        self.assert_has_error(unlisted_errors, "managed-path symlink is not allowed")
+        listed_errors = cursor_native_errors(self.root, listed)
+        self.assertEqual(listed_errors, [".cursor-plugin/marketplace.json: managed-path symlink is not allowed"])
 
     def test_malformed_version_source_is_a_diagnostic(self) -> None:
         package = self.add_skills_package()

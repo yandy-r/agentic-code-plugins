@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Check package-model parity with native manifests, component trees and catalogs.
 
-Included native packages must exist even while unlisted. Claude ycc remains in
-its canonical source tree; Codex retains its legacy combined ycc payload and
-catalog until the listing flip. File-copy and npm rows are not native trees.
+Included native packages must exist even while unlisted. Codex retains its
+legacy combined ycc payload and catalog while no native Codex package is listed.
+Listed rows drive the native Codex and Cursor catalogs; file-copy/npm rows do not.
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 import generate_codex_plugin as codex
+import generate_cursor_packages as cursor
 from package_model import PackageModel, load_package_model
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -102,6 +103,8 @@ def _native_tree_errors(root: Path, model: PackageModel) -> list[str]:
                     errors.append(f"{rel}: missing modeled {component} component ({target.relative_to(root)})")
             modeled = set(entry.components)
             allowed_extra = UNMODELED_COMPONENT_EXCEPTIONS.get((key, runtime), frozenset())
+            if (key, runtime) == ("ycc", "codex") and codex.repository_native_enabled(model.packages):
+                allowed_extra = frozenset()
             for component in RECOGNIZED_COMPONENTS:
                 if component in modeled or component in allowed_extra:
                     continue
@@ -143,22 +146,30 @@ def validate(root: Path, model: PackageModel) -> list[str]:
     errors = _native_tree_errors(root, model)
     errors.extend(_claude_catalog_errors(root, model))
 
-    if (root / CURSOR_CATALOG).exists():
-        errors.append(".cursor-plugin/marketplace.json must not exist before the listing flip")
-
-    # This catalog intentionally discovers the installed legacy combined ycc,
-    # not the unlisted native export. Do not compare its local path to repo trees.
-    codex_catalog = root / codex.NATIVE_MARKETPLACE
     try:
-        if load_object(codex_catalog) != codex.build_repo_marketplace():
-            errors.append(f"{codex_catalog}: legacy discovered Codex catalog changed before the listing flip")
+        expected_cursor = cursor.build_marketplace(model.packages)
+        cursor_path = root / CURSOR_CATALOG
+        if cursor_path.is_symlink() or cursor_path.parent.is_symlink():
+            errors.append(f"{CURSOR_CATALOG}: managed-path symlink is not allowed")
+        elif expected_cursor is None:
+            if cursor_path.exists():
+                errors.append(".cursor-plugin/marketplace.json must not exist when no Cursor packages are listed")
+        elif load_object(cursor_path) != expected_cursor:
+            errors.append(f"{cursor_path}: catalog must match exactly the listed Cursor packages and sources")
     except ValueError as exc:
         errors.append(str(exc))
 
-    for package in model.packages:
-        for entry in package.runtimes:
-            if entry.runtime in {"cursor", "codex"} and entry.listed:
-                errors.append(f"{package.key}@{entry.runtime}: listing requires the catalog listing flip")
+    # The unlisted legacy catalog discovers the installed combined ycc, not a
+    # repository tree. Once listed, compare against the model-driven native roots.
+    codex_catalog = root / codex.NATIVE_MARKETPLACE
+    try:
+        listing_error = codex.partial_codex_listing_error(model.packages)
+        if listing_error is not None:
+            errors.append(listing_error)
+        if load_object(codex_catalog) != codex.build_repository_marketplace(model.packages):
+            errors.append(f"{codex_catalog}: catalog must match the Codex package listing state")
+    except ValueError as exc:
+        errors.append(str(exc))
     return errors
 
 

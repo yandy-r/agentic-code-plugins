@@ -16,6 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import generate_codex_plugin as codex  # noqa: E402
+import generate_cursor_packages as cursor  # noqa: E402
 import validate_packages as validator  # noqa: E402
 from package_model import (  # noqa: E402
     REPO_ROOT,
@@ -25,8 +26,7 @@ from package_model import (  # noqa: E402
     load_package_model,
 )
 
-CURSOR_GATE = ".cursor-plugin/marketplace.json must not exist before the listing flip"
-LISTING_FLIP = "listing requires the catalog listing flip"
+CURSOR_GATE = ".cursor-plugin/marketplace.json must not exist when no Cursor packages are listed"
 
 
 def runtime(
@@ -141,7 +141,7 @@ class ValidatePackagesTests(unittest.TestCase):
                 if row.runtime == "claude" and row.listed:
                     listed.append({"name": entry_package.key, "source": f"./{root}"})
         self.write_json(validator.CLAUDE_CATALOG, {"name": "ycc", "plugins": listed})
-        self.write_json(codex.NATIVE_MARKETPLACE, codex.build_repo_marketplace())
+        self.write_json(codex.NATIVE_MARKETPLACE, codex.build_repository_marketplace(self.model.packages))
 
     def errors(self, model: PackageModel | None = None) -> list[str]:
         return validator.validate(self.root, model if model is not None else self.model)
@@ -235,6 +235,10 @@ class ValidatePackagesTests(unittest.TestCase):
         self.write_json(Path(".codex-plugin/ycc/.mcp.json"), {"mcpServers": {}})
         self.assertEqual(self.errors(), [])
 
+        listed_model = with_listed(with_listed(self.model, "ycc", {"codex"}), "ycc-mcp", {"codex"})
+        self.write_json(codex.NATIVE_MARKETPLACE, codex.build_repository_marketplace(listed_model.packages))
+        self.assert_has_error(self.errors(listed_model), ".codex-plugin/ycc: unmodeled mcp component present")
+
     def test_component_exceptions_do_not_apply_to_addons(self) -> None:
         (self.root / "packages/claude/ycc-mcp/rules").mkdir()
         (self.root / "packages/claude/ycc-mcp/settings").mkdir()
@@ -308,14 +312,54 @@ class ValidatePackagesTests(unittest.TestCase):
         self.write_json(validator.CURSOR_CATALOG, {"name": "ycc"})
         self.assertIn(CURSOR_GATE, self.errors())
 
-    def test_listing_flip_gate_for_cursor_and_codex_rows(self) -> None:
-        errors = self.errors(with_listed(self.model, "ycc", {"cursor", "codex"}))
-        self.assert_has_error(errors, f"ycc@cursor: {LISTING_FLIP}")
-        self.assert_has_error(errors, f"ycc@codex: {LISTING_FLIP}")
+    def test_listed_cursor_and_codex_catalogs_are_validated(self) -> None:
+        listed = with_listed(
+            with_listed(with_listed(self.model, "ycc", {"cursor", "codex"}), "ycc-mcp", {"cursor"}),
+            "ycc-mcp",
+            {"codex"},
+        )
+        errors = self.errors(listed)
+        self.assert_has_error(errors, "marketplace.json: unreadable or malformed JSON")
+        self.assert_has_error(errors, "catalog must match the Codex package listing state")
 
-    def test_codex_legacy_catalog_drift(self) -> None:
+        self.write_json(codex.NATIVE_MARKETPLACE, codex.build_repository_marketplace(listed.packages))
+        self.write_json(validator.CURSOR_CATALOG, cursor.build_marketplace(listed.packages))
+        self.assertEqual(self.errors(listed), [])
+
+        self.rewrite(
+            validator.CURSOR_CATALOG,
+            lambda payload: payload["plugins"].append(dict(payload["plugins"][0], name="duplicate")),
+        )
+        self.assert_has_error(self.errors(listed), "catalog must match exactly the listed Cursor packages")
+
+    def test_partial_codex_listing_is_rejected(self) -> None:
+        for key in ("ycc", "ycc-mcp"):
+            with self.subTest(listed=key):
+                partial = with_listed(self.model, key, {"codex"})
+                # Partial listing keeps the legacy catalog, so only the listing error appears.
+                self.assertEqual(
+                    self.errors(partial),
+                    [codex.partial_codex_listing_error(partial.packages)],
+                )
+                self.assert_has_error(self.errors(partial), "partial Codex listing is not allowed")
+
+    def test_cursor_catalog_symlinks_are_rejected_before_parity(self) -> None:
+        listed = with_listed(self.model, "ycc", {"cursor"})
+        self.write_json(Path("outside.json"), cursor.build_marketplace(listed.packages))
+        link = self.root / validator.CURSOR_CATALOG
+        link.parent.mkdir(parents=True, exist_ok=True)
+        link.symlink_to(self.root / "outside.json")
+        self.assert_has_error(self.errors(listed), "managed-path symlink is not allowed")
+        self.assert_has_error(self.errors(), "managed-path symlink is not allowed")
+        link.unlink()
+        link.parent.rmdir()
+        (self.root / "elsewhere").mkdir()
+        link.parent.symlink_to(self.root / "elsewhere", target_is_directory=True)
+        self.assert_has_error(self.errors(), "managed-path symlink is not allowed")
+
+    def test_codex_catalog_drift(self) -> None:
         self.rewrite(codex.NATIVE_MARKETPLACE, lambda payload: payload["plugins"][0].update(name="renamed"))
-        self.assert_has_error(self.errors(), "legacy discovered Codex catalog changed before the listing flip")
+        self.assert_has_error(self.errors(), "catalog must match the Codex package listing state")
 
     def test_missing_codex_catalog_is_a_diagnostic(self) -> None:
         (self.root / codex.NATIVE_MARKETPLACE).unlink()

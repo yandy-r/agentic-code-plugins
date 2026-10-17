@@ -106,7 +106,7 @@ def rewrites_for(target: str, home: Path) -> list[tuple[str, str]]:
             ("~/.codex/plugins/ycc/skills/", "~/.codex/skills/"),
             ("~/.codex/plugins/ycc/shared/", "~/.codex/skills/_shared/"),
             ("../../../shared/", "../../_shared/"),
-            ("../../shared/references/", "../_shared/references/"),
+            ("../../shared/", "../_shared/"),
             # Native prompt templates: expand the placeholder to the installed standalone location.
             (f"{NATIVE_ROOT_PLACEHOLDER}/shared/references/", f"{home}/.codex/skills/_shared/references/"),
         ]

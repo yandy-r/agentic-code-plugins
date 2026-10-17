@@ -6,9 +6,9 @@ against the vendored official cursor/plugins schemas, and the components the
 model selects via Cursor's default component folders (skills/, agents/,
 commands/, rules/, hooks/hooks.json, mcp.json at package root).
 
-Selection keys on runtime == "cursor", status == "included", mechanism ==
-"native" — never on `listed`: unlisted packages still generate; the root
-marketplace.json ships only at the v6 listing flip and is never written here.
+Native payload selection keys on runtime == "cursor", status == "included",
+mechanism == "native", independently of `listed`. The root marketplace is
+written only when native packages are listed, and contains exactly those packages.
 
 The installer-fallback row (file-copy) is generated separately: its config
 stays byte-identical to the hand-maintained ycc/settings/cursor/cli-config.json.
@@ -37,6 +37,7 @@ from package_model import Package, PackageModel, RuntimePackage, load_package_mo
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_ROOT = Path("packages/cursor")
+MARKETPLACE_PATH = Path(".cursor-plugin/marketplace.json")
 SOURCE_PLUGIN_PATH = Path("ycc/.claude-plugin/plugin.json")
 SOURCE_MCP_PATH = Path("mcp-configs/mcp.json")
 SOURCE_CLI_CONFIG_PATH = Path("ycc/settings/cursor/cli-config.json")
@@ -129,6 +130,25 @@ def manifest_author() -> dict[str, str]:
 
 def load_plugin_schema() -> dict[str, Any]:
     return read_json(SCHEMA_DIR / "plugin.schema.json")
+
+
+def build_marketplace(packages: Iterable[Package]) -> dict[str, Any] | None:
+    """Build the schema-valid catalog of listed native packages, or keep it absent."""
+    entries = [
+        {"name": package.key, "source": f"./{package_root(package).as_posix()}"}
+        for package in native_packages(packages)
+        if (runtime := cursor_runtime(package)) is not None and runtime.listed
+    ]
+    if not entries:
+        return None
+    catalog = {"name": "ycc", "plugins": entries}
+    schema = read_json(SCHEMA_DIR / "marketplace.schema.json")
+    validator = Draft7Validator(schema, format_checker=FormatChecker())
+    errors = sorted(validator.iter_errors(catalog), key=lambda error: str(error.path))
+    if errors:
+        detail = "; ".join(error.message for error in errors)
+        raise ValueError(f"{MARKETPLACE_PATH}: violates the vendored Cursor schema: {detail}")
+    return catalog
 
 
 # --- schema validation (vendored official cursor/plugins schema subset) ----
@@ -296,7 +316,8 @@ def guard_managed_paths(dest_root: Path, inventory: Iterable[Path], owned_roots:
     """Reject managed symlinks and file/directory conflicts before writing."""
     if dest_root.is_symlink() or (dest_root.exists() and not dest_root.is_dir()):
         raise ValueError(f"output root must be a non-symlink directory: {dest_root}")
-    files = set(inventory)
+    # The marketplace is managed even in the absent state, before any unlink.
+    files = set(inventory) | {MARKETPLACE_PATH}
     roots = tuple(owned_roots)
     for rel in (*files, *roots):
         for depth in range(1, len(rel.parts) + 1):
@@ -321,7 +342,7 @@ def guard_managed_paths(dest_root: Path, inventory: Iterable[Path], owned_roots:
 
 
 def native_owned_files(dest_root: Path, roots: Iterable[Path]) -> set[Path]:
-    files: set[Path] = set()
+    files: set[Path] = {MARKETPLACE_PATH} if (dest_root / MARKETPLACE_PATH).is_file() else set()
     for rel in roots:
         root = dest_root / rel
         if root.is_file():
@@ -450,6 +471,9 @@ def build_output() -> tuple[dict[Path, Payload], tuple[Path, ...]]:
     roots = native_package_roots(model.packages)
     selected = native_packages(model.packages)
     output = native_payloads(model, selected)
+    marketplace = build_marketplace(model.packages)
+    if marketplace is not None:
+        output[MARKETPLACE_PATH] = json_payload(marketplace)
     for package in selected:
         runtime = cursor_runtime(package)
         assert runtime is not None
@@ -466,8 +490,8 @@ def build_output() -> tuple[dict[Path, Payload], tuple[Path, ...]]:
 
 def write_all(dest_root: Path, dry_run: bool = False) -> set[Path]:
     output, roots = build_output()
-    # Retire only the former owned payload directories, never the manifest
-    # directory itself or a future marketplace file.
+    # Retire only the former payload directories, never the manifest directory
+    # itself: the marketplace is owned separately from its neighboring files.
     roots += tuple(Path(".cursor-plugin") / unit for unit in ("skills", "agents", "rules", "config"))
     return write_payloads(dest_root, output, roots, dry_run)
 
@@ -476,8 +500,6 @@ def run_check(dest_root: Path = REPO_ROOT) -> int:
     output, roots = build_output()
     roots += tuple(Path(".cursor-plugin") / unit for unit in ("skills", "agents", "rules", "config"))
     diffs = check_payloads(dest_root, output, roots)
-    if (dest_root / ".cursor-plugin/marketplace.json").exists():
-        diffs.append("root Cursor marketplace must remain absent until the listing flip")
     if diffs:
         print("Cursor packages drift; run ./scripts/generate-cursor-packages.sh", file=sys.stderr)
         for diff in diffs:

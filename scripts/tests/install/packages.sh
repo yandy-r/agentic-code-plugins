@@ -44,17 +44,27 @@ home="$(new_home)"
 install_must_succeed "${home}" install --target codex --package ycc --mode local --skills-home native
 out="${INSTALL_OUT}"
 calls="$(cat "${home}/claude-calls.log" 2>/dev/null)"
-assert_contains "${calls}" "codex plugin add ycc@local-ycc-plugins" "codex ycc package installs ycc through the codex CLI"
-assert_contains "$(cat "${home}/.agents/plugins/marketplace.json" 2>/dev/null)" '"ycc"' "codex ycc package registers the marketplace"
+if repo_codex_native; then
+    assert_contains "${calls}" "codex plugin add ycc@ycc" "codex ycc package installs the listed selector"
+    assert_contains "${calls}" "codex plugin add ycc-mcp@ycc" "codex ycc package installs its listed MCP companion"
+    assert_contains "${calls}" "codex plugin marketplace add ${REPO_ROOT}" "codex ycc package registers the native marketplace"
+else
+    assert_contains "${calls}" "codex plugin add ycc@local-ycc-plugins" "codex ycc package installs ycc through the codex CLI"
+    assert_contains "$(cat "${home}/.agents/plugins/marketplace.json" 2>/dev/null)" '"ycc"' "codex ycc package registers the marketplace"
+fi
 assert_contains "$(cat "${home}/.codex/config.toml" 2>/dev/null)" 'model = "gpt-6-astra"' "codex ycc package merges settings"
 if [[ -L "${home}/.codex/AGENTS.md" && -L "${home}/.codex/rules/default.rules" ]]; then ok "codex ycc package links rules"; else ko "codex ycc package links rules" "${out}"; fi
 if [[ -n "${codex_first_agent}" && -f "${home}/.codex/agents/${codex_first_agent}" ]]; then ok "codex ycc package (local) copies agents"; else ko "codex ycc package (local) copies agents" "${out}"; fi
 
-# Repo mode: marketplace JSON only, but the agents slice still lands.
+# Repo mode registers the marketplace; the agents slice still lands.
 home="$(new_home)"
 install_must_succeed "${home}" install --target codex --package ycc --mode repo --skills-home native
 out="${INSTALL_OUT}"
+if repo_codex_native; then
+    assert_contains "$(cat "${home}/claude-calls.log" 2>/dev/null)" "codex plugin marketplace add https://github.com/yandy-r/ystack.git --ref main" "codex ycc package (repo) registers the native marketplace"
+else
 assert_contains "$(cat "${home}/.agents/plugins/marketplace.json" 2>/dev/null)" '"ycc"' "codex ycc package (repo) registers the marketplace"
+fi
 if [[ -n "${codex_first_agent}" && -f "${home}/.codex/agents/${codex_first_agent}" ]]; then ok "codex ycc package (repo) still copies agents"; else ko "codex ycc package (repo) still copies agents" "${out}"; fi
 
 home="$(new_home)"
@@ -93,6 +103,7 @@ MD
 }
 
 for mode in local repo; do
+    if ! repo_codex_native; then
     for skills_home in native agents; do
         home="$(new_home)"
         cat > "${home}/.codex/config.toml" <<'TOML'
@@ -112,6 +123,9 @@ TOML
         if grep -rqF -- "${LEGACY_PLUGIN_ROOT}" "${home}/.codex/plugins/cache/other-marketplace/ycc/1.0.0"; then ko "codex foreign native (${mode}, ${skills_home}) payload has no legacy flat-path references"; else ok "codex foreign native (${mode}, ${skills_home}) payload has no legacy flat-path references"; fi
         if [[ -f "${home}/.codex/plugins/cache/other-marketplace/ycc/1.0.0/shared/scripts/helper.sh" ]]; then ok "codex foreign native (${mode}, ${skills_home}) keeps its relocatable shared helper"; else ko "codex foreign native (${mode}, ${skills_home}) keeps its relocatable shared helper"; fi
     done
+    else
+        skip_listed "codex foreign-native detection (${mode}, native/agents)"
+    fi
 
     # Not a native install: a cache alone, a disabled entry, or a stale
     # marketplace entry never suppress registration.
@@ -144,7 +158,11 @@ TOML
         out="${INSTALL_OUT}"
         assert_contains "$(cat "${home}/claude-calls.log" 2>/dev/null)" "codex plugin add ycc@" "codex ${fixture} (${mode}) still registers ycc"
         assert_not_contains "${out}" "not re-registering" "codex ${fixture} (${mode}) is not treated as a native install"
+        if repo_codex_native; then
+            assert_contains "$(cat "${home}/claude-calls.log" 2>/dev/null)" "codex plugin marketplace add" "codex ${fixture} (${mode}) registers the native marketplace"
+        else
         if [[ -f "${home}/.agents/plugins/marketplace.json" ]]; then ok "codex ${fixture} (${mode}) writes the marketplace"; else ko "codex ${fixture} (${mode}) writes the marketplace" "${out}"; fi
+        fi
         if codex_deliveries_ok "${home}"; then ok "codex ${fixture} (${mode}) delivers agents, settings and rules"; else ko "codex ${fixture} (${mode}) delivers agents, settings and rules" "${out}"; fi
         case "${fixture}" in
             cache-only | disabled+cache)
@@ -167,6 +185,7 @@ PY
     done
 done
 
+if ! repo_codex_native; then
 # A copied legacy bundle is not a relocatable native export: its payload text
 # points back at ~/.codex/plugins/ycc, and there is no local plugin symlink to
 # satisfy those references. Enabled TOML plus that cache must not suppress
@@ -186,7 +205,11 @@ assert_contains "$(cat "${home}/claude-calls.log" 2>/dev/null)" "codex plugin ad
 assert_not_contains "${out}" "not re-registering" "legacy foreign cache is not reported as a native install"
 assert_contains "$(cat "${home}/.agents/plugins/marketplace.json" 2>/dev/null)" '"ycc"' "legacy foreign cache install writes the marketplace"
 if [[ -f "${home}/.codex/plugins/cache/other-marketplace/ycc/1.0.0/.codex-plugin/plugin.json" ]]; then ok "legacy foreign cache payload is preserved"; else ko "legacy foreign cache payload is preserved"; fi
+else
+    skip_listed "legacy foreign cache registration"
+fi
 
+if ! repo_codex_native; then
 # A REAL generate_codex_skills.write_tree(native_paths=True) export is the
 # relocatable payload. It intentionally keeps one legacy-layout sentence in the
 # verbatim target-capability-matrix doc; that documentation must not make the
@@ -222,6 +245,10 @@ assert_not_contains "$(cat "${home}/claude-calls.log" 2>/dev/null)" "codex plugi
 assert_contains "${out}" "other-marketplace" "real native export names the foreign marketplace"
 if [[ ! -e "${home}/.agents/plugins/marketplace.json" && ! -L "${home}/.agents/plugins/ycc" ]]; then ok "real native export registers no local ycc"; else ko "real native export registers no local ycc"; fi
 if codex_deliveries_ok "${home}"; then ok "real native export still delivers agents, settings and rules"; else ko "real native export still delivers agents, settings and rules" "${out}"; fi
+else
+    skip_listed "real native export foreign detection"
+fi
+if ! repo_codex_native; then
 # Own already-enabled native install must refresh rather than hit the foreign
 # marketplace skip. A stale marketplace entry makes the refresh observable.
 home="$(new_home)"
@@ -237,7 +264,11 @@ assert_contains "$(cat "${home}/claude-calls.log" 2>/dev/null)" "codex plugin ad
 assert_not_contains "$(cat "${home}/.agents/plugins/marketplace.json" 2>/dev/null)" "stale" "codex own native install refreshes the marketplace"
 if [[ -L "${home}/.agents/plugins/ycc" && -f "${home}/.codex/agents/${codex_first_agent}" ]]; then ok "codex own native install refreshes the link and agents"; else ko "codex own native install refreshes the link and agents" "${out}"; fi
 assert_not_contains "${out}" "not re-registering" "codex own native install is not skipped as foreign"
+else
+    skip_listed "codex own legacy-native refresh"
+fi
 
+if ! repo_codex_native; then
 # Legacy / missing Codex plugin CLI: 'codex plugin add --help' fails, so the
 # installer writes the plugin enablement itself. Only the exact own table is
 # enabled — never unrelated plugins from the shipped source config — and
@@ -299,6 +330,9 @@ ok = (
 sys.exit(0 if ok else 1)
 PY
 then ok "codex legacy CLI keeps earlier managed github/cloudflare enablement true"; else ko "codex legacy CLI keeps earlier managed github/cloudflare enablement true" "$(cat "${home}/.codex/config.toml")"; fi
+else
+    skip_listed "codex legacy CLI enablement and managed-settings preservation"
+fi
 
 echo
 echo "== install.sh install --package: cursor closures =="

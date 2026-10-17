@@ -28,6 +28,7 @@ from generate_codex_common import (
     model_invocation_disabled,
     parse_frontmatter,
 )
+from package_model import load_package_model
 
 TEXT_SUFFIXES = frozenset(
     {
@@ -67,7 +68,7 @@ def rewrite_plugin_paths(text: str) -> str:
     def replace(match: object) -> str:
         path_text = match.group(1)
         if path_text.startswith("_shared/"):
-            return f"{HOME_INSTALL_PLUGIN_ROOT}/shared/{path_text[len('_shared/'):]}"
+            return f"{HOME_INSTALL_PLUGIN_ROOT}/shared/{path_text[len('_shared/') :]}"
         return f"{HOME_INSTALL_PLUGIN_ROOT}/skills/{path_text}"
 
     return __import__("re").sub(pattern, replace, text)
@@ -391,10 +392,18 @@ def compare_trees(generated: Path, repo_dest: Path, expected_files: set[Path]) -
     return diffs
 
 
+def repository_native_paths() -> bool:
+    """Use relocatable native paths once the repository Codex catalog flips."""
+    from generate_codex_plugin import build_repository_marketplace
+
+    return build_repository_marketplace(load_package_model().packages)["name"] == "ycc"
+
+
 def run_check() -> int:
+    native_paths = repository_native_paths()
     with tempfile.TemporaryDirectory() as tmp:
         temp_root = Path(tmp)
-        written = write_tree(temp_root, dry_run=False)
+        written = write_tree(temp_root, dry_run=False, native_paths=native_paths)
         diffs = compare_trees(temp_root, PLUGIN_ROOT, written)
         if diffs:
             print(
@@ -422,11 +431,12 @@ def main() -> None:
             sys.exit(1)
         sys.exit(run_check())
 
+    native_paths = repository_native_paths()
     if args.dry_run:
-        write_tree(PLUGIN_ROOT, dry_run=True)
+        write_tree(PLUGIN_ROOT, dry_run=True, native_paths=native_paths)
         return
 
-    write_tree(PLUGIN_ROOT, dry_run=False)
+    write_tree(PLUGIN_ROOT, dry_run=False, native_paths=native_paths)
     count = sum(1 for path in PLUGIN_ROOT.rglob("*") if path.is_file())
     print(f"Wrote {count} files under {PLUGIN_ROOT}")
 

@@ -46,7 +46,11 @@ fi
 before="$(migrate_snapshot "${home}")"
 install_must_succeed "${home}" migrate --target all
 assert_contains "${INSTALL_OUT}" "claude,codex,cursor" "all resolves only supported migrations"
-assert_contains "${INSTALL_OUT}" "YAN-1140" "unlisted Codex preview explains listing gate"
+if repo_codex_native; then
+    assert_contains "${INSTALL_OUT}" "Codex: would add marketplace" "listed Codex preview forecasts the native migration"
+else
+    assert_contains "${INSTALL_OUT}" "YAN-1140" "unlisted Codex preview explains listing gate"
+fi
 [[ "$(migrate_snapshot "${home}")" == "${before}" ]] && ok "all preview changes no HOME bytes or entries" || ko "all preview changes no HOME bytes or entries"
 
 # Real managed state first, then a user-owned command in the same event group.
@@ -338,8 +342,13 @@ TOML
 
 home="$(new_home)"; migrate_codex_fixture "${home}"
 before="$(migrate_snapshot "${home}")"
-if out="$(run_install "${home}" migrate --target codex --apply)"; then ko "Codex production gate fails closed"; else ok "Codex production gate fails closed"; fi
-[[ "$(migrate_snapshot "${home}")" == "${before}" ]] && ok "Codex gate fails before any CLI or cleanup" || ko "Codex gate fails before any CLI or cleanup"
+if ! repo_codex_native; then
+    if out="$(run_install "${home}" migrate --target codex --apply)"; then ko "Codex production gate fails closed"; else ok "Codex production gate fails closed"; fi
+    [[ "$(migrate_snapshot "${home}")" == "${before}" ]] && ok "Codex gate fails before any CLI or cleanup" || ko "Codex gate fails before any CLI or cleanup"
+else
+    skip_listed "Codex production gate fails closed"
+    skip_listed "Codex gate fails before any CLI or cleanup"
+fi
 install_must_succeed "${home}" migrate --target codex --marketplace-source "${native_source}"
 [[ "$(migrate_snapshot "${home}")" == "${before}" ]] && ok "eligible Codex preview invokes no CLI or cleanup" || ko "eligible Codex preview invokes no CLI or cleanup"
 for failure in command native-off; do

@@ -47,13 +47,24 @@ def with_cursor_runtime(model: PackageModel, key: str, **changes: object) -> Pac
     return PackageModel(model.schema_version, model.version_source, packages)
 
 
+def unlisted(model: PackageModel) -> PackageModel:
+    """Return a copy of the model with every runtime explicitly unlisted."""
+    packages = tuple(
+        replace(package, runtimes=tuple(replace(entry, listed=False) for entry in package.runtimes))
+        for package in model.packages
+    )
+    return PackageModel(model.schema_version, model.version_source, packages)
+
+
 class CursorNativePackageTests(unittest.TestCase):
     def setUp(self) -> None:
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
         self.tmp = Path(temp.name)
         self.dest = self.tmp / "repo"
-        self.model = load_package_model()
+        # Explicit unlisted fixture: independent of which real packages are currently listed.
+        self.model = unlisted(load_package_model())
+        self.patch_generator("load_package_model", lambda: self.model)
 
     def snapshot(self, root: Path) -> dict[Path, bytes]:
         return {path.relative_to(root): path.read_bytes() for path in root.rglob("*") if path.is_file()}
@@ -313,17 +324,98 @@ class CursorNativePackageTests(unittest.TestCase):
                 self.assert_all_modes_raise(self.dest)
                 self.assertFalse(self.dest.exists())
 
-    def test_listed_and_status_do_not_gate_generation_and_deferred_is_pruned(self) -> None:
+    def test_listing_controls_catalog_not_payloads_and_unlisting_prunes_catalog(self) -> None:
+        generator.write_all(self.dest)
+        unlisted_payloads = self.snapshot(self.dest)
         listed = with_cursor_runtime(with_cursor_runtime(self.model, "ycc-mcp", listed=True), "ycc-hooks", listed=True)
         with patch.object(generator, "load_package_model", return_value=listed):
             inventory = generator.write_all(self.dest)
+            self.assertEqual(generator.run_check(self.dest), 0)
         self.assertIn(MCP_ROOT / MANIFEST, inventory)
         self.assertIn(HOOKS_ROOT / MANIFEST, inventory)
-        self.assertFalse((self.dest / LEGACY_ROOT / "marketplace.json").exists())
+        self.assertIn(generator.MARKETPLACE_PATH, inventory)
+        marketplace = self.json_at(self.dest, generator.MARKETPLACE_PATH)
+        self.assertEqual(
+            marketplace,
+            {
+                "name": "ycc",
+                "plugins": [
+                    {"name": "ycc-mcp", "source": "./packages/cursor/ycc-mcp"},
+                    {"name": "ycc-hooks", "source": "./packages/cursor/ycc-hooks"},
+                ],
+            },
+        )
+        listed_payloads = self.snapshot(self.dest)
+        del listed_payloads[generator.MARKETPLACE_PATH]
+        self.assertEqual(listed_payloads, unlisted_payloads)
+        neighbor = self.dest / LEGACY_ROOT / "keep.json"
+        neighbor.write_bytes(b"keep\n")
+        with contextlib.redirect_stderr(io.StringIO()) as errors:
+            self.assertEqual(generator.run_check(self.dest), 1)
+        self.assertIn(f"extra in output: {generator.MARKETPLACE_PATH}", errors.getvalue())
+        with contextlib.redirect_stdout(io.StringIO()) as actions:
+            generator.write_all(self.dest, dry_run=True)
+        self.assertIn(f"Would remove {generator.MARKETPLACE_PATH}", actions.getvalue())
+        self.assertTrue((self.dest / generator.MARKETPLACE_PATH).is_file())
         deferred = with_cursor_runtime(self.model, "ycc-hooks", status="deferred")
         with patch.object(generator, "load_package_model", return_value=deferred):
             generator.write_all(self.dest)
         self.assertFalse((self.dest / HOOKS_ROOT).exists())
+        self.assertFalse((self.dest / generator.MARKETPLACE_PATH).exists())
+        self.assertEqual(neighbor.read_bytes(), b"keep\n")
+
+    def test_full_marketplace_has_one_schema_valid_entry_per_native_directory(self) -> None:
+        model = self.model
+        for package in generator.native_packages(model.packages):
+            model = with_cursor_runtime(model, package.key, listed=True)
+        with patch.object(generator, "load_package_model", return_value=model):
+            generator.write_all(self.dest)
+        marketplace = self.json_at(self.dest, generator.MARKETPLACE_PATH)
+        self.assertEqual(marketplace, generator.build_marketplace(model.packages))
+        schema = generator.read_json(generator.SCHEMA_DIR / "marketplace.schema.json")
+        self.assertEqual(list(generator.Draft7Validator(schema).iter_errors(marketplace)), [])
+        entries = marketplace["plugins"]
+        self.assertEqual({entry["name"] for entry in entries}, {"ycc", "ycc-rules", "ycc-mcp", "ycc-hooks"})
+        self.assertEqual(len(entries), len({entry["source"] for entry in entries}))
+        for entry in entries:
+            self.assertEqual(entry["source"], f"./packages/cursor/{entry['name']}")
+            self.assertTrue((self.dest / entry["source"] / MANIFEST).is_file())
+
+    def test_marketplace_builder_ignores_ineligible_listed_rows(self) -> None:
+        model = with_cursor_runtime(self.model, "ycc-hooks", listed=True, status="deferred")
+        model = with_cursor_runtime(model, "installer-fallback", listed=True)
+        self.assertIsNone(generator.build_marketplace(model.packages))
+        self.assertIsNone(generator.build_marketplace(()))
+        package = next(package for package in self.model.packages if package.key == "ycc-mcp")
+        package = replace(
+            package,
+            key="Invalid_Name",
+            runtimes=tuple(replace(row, listed=True) if row.runtime == "cursor" else row for row in package.runtimes),
+        )
+        with self.assertRaisesRegex(ValueError, "vendored Cursor schema"):
+            generator.build_marketplace((package,))
+
+    def test_listed_marketplace_check_reports_missing_and_stale_without_mutation(self) -> None:
+        model = with_cursor_runtime(self.model, "ycc-mcp", listed=True)
+        with patch.object(generator, "load_package_model", return_value=model):
+            generator.write_all(self.dest)
+            marketplace = self.dest / generator.MARKETPLACE_PATH
+            marketplace.unlink()
+            before = self.snapshot(self.dest)
+            with contextlib.redirect_stderr(io.StringIO()) as errors:
+                self.assertEqual(generator.run_check(self.dest), 1)
+            self.assertIn(f"missing file: {generator.MARKETPLACE_PATH}", errors.getvalue())
+            self.assertEqual(self.snapshot(self.dest), before)
+            marketplace.write_text(json.dumps({"name": "ycc", "plugins": []}), encoding="utf-8")
+            before = self.snapshot(self.dest)
+            with contextlib.redirect_stderr(io.StringIO()) as errors:
+                self.assertEqual(generator.run_check(self.dest), 1)
+            self.assertIn(f"drift: {generator.MARKETPLACE_PATH}", errors.getvalue())
+            self.assertEqual(self.snapshot(self.dest), before)
+            generator.write_all(self.dest)
+            self.assertEqual(
+                self.json_at(self.dest, generator.MARKETPLACE_PATH), generator.build_marketplace(model.packages)
+            )
 
     def test_missing_version_source_fails_before_any_write(self) -> None:
         version_source = self.tmp / "version.json"
@@ -336,6 +428,22 @@ class CursorNativePackageTests(unittest.TestCase):
     def test_manifest_schema_violations_fail_before_any_write(self) -> None:
         author = {"name": "yandy-r", "email": "not-an-email"}
         with patch.object(generator, "manifest_author", return_value=author):
+            self.assert_all_modes_raise(self.dest)
+        self.assertFalse(self.dest.exists())
+
+    def test_marketplace_schema_violations_fail_before_any_write(self) -> None:
+        model = with_cursor_runtime(self.model, "ycc-mcp", listed=True)
+        read_json = generator.read_json
+
+        def schema_fixture(path: Path) -> object:
+            if path.name == "marketplace.schema.json":
+                return {"type": "object", "required": ["unsupported"]}
+            return read_json(path)
+
+        with (
+            patch.object(generator, "load_package_model", return_value=model),
+            patch.object(generator, "read_json", side_effect=schema_fixture),
+        ):
             self.assert_all_modes_raise(self.dest)
         self.assertFalse(self.dest.exists())
 
@@ -354,6 +462,48 @@ class CursorNativePackageTests(unittest.TestCase):
                 self.assert_all_modes_raise(dest)
                 self.assertEqual(self.snapshot(dest), before)
                 self.assertEqual(self.snapshot(target), {Path("keep"): b"untouched\n"})
+
+    def test_marketplace_symlinks_are_rejected_in_listed_and_absent_states(self) -> None:
+        target = self.tmp / "outside.json"
+        target.write_bytes(b"untouched\n")
+        listed = with_cursor_runtime(self.model, "ycc-mcp", listed=True)
+        for index, model in enumerate((self.model, listed)):
+            for dangling in (False, True):
+                with self.subTest(listed=bool(index), dangling=dangling):
+                    dest = self.tmp / f"marketplace-symlink-{index}-{dangling}"
+                    link = dest / generator.MARKETPLACE_PATH
+                    link.parent.mkdir(parents=True)
+                    link.symlink_to(target if not dangling else self.tmp / "missing")
+                    with patch.object(generator, "load_package_model", return_value=model):
+                        self.assert_all_modes_raise(dest)
+                    self.assertTrue(link.is_symlink())
+                    self.assertFalse((dest / "packages").exists())
+                    self.assertEqual(target.read_bytes(), b"untouched\n")
+
+    def test_marketplace_parent_symlinks_and_directory_conflicts_are_rejected(self) -> None:
+        target = self.tmp / "outside"
+        target.mkdir()
+        linked_dest = self.tmp / "linked-parent"
+        linked_dest.mkdir()
+        (linked_dest / LEGACY_ROOT).symlink_to(target, target_is_directory=True)
+        self.assert_all_modes_raise(linked_dest)
+        self.assertEqual(list(target.iterdir()), [])
+        conflict_dest = self.tmp / "directory-conflict"
+        (conflict_dest / generator.MARKETPLACE_PATH).mkdir(parents=True)
+        self.assert_all_modes_raise(conflict_dest)
+        self.assertFalse((conflict_dest / "packages").exists())
+
+    def test_checked_in_tree_matches_the_real_manifest_listing_state(self) -> None:
+        real = load_package_model()
+        with patch.object(generator, "load_package_model", return_value=real):
+            with contextlib.redirect_stderr(io.StringIO()) as errors:
+                self.assertEqual(generator.run_check(REPO_ROOT), 0, errors.getvalue())
+            expected = generator.build_marketplace(real.packages)
+            marketplace = REPO_ROOT / generator.MARKETPLACE_PATH
+            if expected is None:
+                self.assertFalse(marketplace.exists())
+            else:
+                self.assertEqual(json.loads(marketplace.read_text(encoding="utf-8")), expected)
 
     def test_legacy_payload_roots_are_retired_but_neighboring_files_survive(self) -> None:
         legacy_skills = self.dest / LEGACY_ROOT / "skills/stale"

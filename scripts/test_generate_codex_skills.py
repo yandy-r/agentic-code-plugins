@@ -10,6 +10,7 @@ import sys
 import tempfile
 import unittest
 from collections import Counter
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -30,6 +31,8 @@ class NativeResourceTestCase(unittest.TestCase):
         cls.temp = tempfile.TemporaryDirectory()
         cls.root = Path(cls.temp.name)
         cls.written = skills.write_tree(cls.root, False, native_paths=True)
+        cls.legacy_root = cls.root / "legacy-baseline"
+        skills.write_tree(cls.legacy_root, False, native_paths=False)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -113,7 +116,7 @@ class NativeResourceTestCase(unittest.TestCase):
     def test_rewritten_bundled_resources_resolve_inside_emitted_tree(self) -> None:
         checked = 0
         for rel in sorted(self.written):
-            legacy = PLUGIN_ROOT / rel
+            legacy = self.legacy_root / rel
             if not legacy.is_file() or not skills.should_transform_text(legacy):
                 continue
             if rel.as_posix() == "shared/references/target-capability-matrix.md":
@@ -126,7 +129,7 @@ class NativeResourceTestCase(unittest.TestCase):
 
     def test_resource_invariant_rejects_extra_parent_traversal(self) -> None:
         rel = Path("skills/git-workflow/references/commit-phases.md")
-        legacy = (PLUGIN_ROOT / rel).read_text()
+        legacy = (self.legacy_root / rel).read_text()
         content = (self.root / rel).read_text()
         # Simulate a bad native renderer in memory; never mutate authored/generated files.
         mutated, changes = re.subn(r"\.\./scripts/analyze-changes\.sh", "../../scripts/analyze-changes.sh", content)
@@ -259,16 +262,52 @@ class SharedReferenceRelocationTestCase(unittest.TestCase):
 
 
 class LegacyCompatibilityTestCase(unittest.TestCase):
-    def test_default_and_explicit_legacy_trees_match_checked_in_bytes(self) -> None:
+    def test_default_and_explicit_legacy_trees_match(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             default = Path(tmp) / "default"
             explicit = Path(tmp) / "explicit"
             written = skills.write_tree(default, False)
             self.assertEqual(written, skills.write_tree(explicit, False, native_paths=False))
-            self.assertEqual(skills.compare_trees(default, PLUGIN_ROOT, written), [])
             for rel in sorted(written):
                 with self.subTest(path=rel):
                     self.assertEqual((default / rel).read_bytes(), (explicit / rel).read_bytes())
+
+    def test_repository_tree_matches_its_listing_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            written = skills.write_tree(root, False, native_paths=skills.repository_native_paths())
+            self.assertEqual(skills.compare_trees(root, PLUGIN_ROOT, written), [])
+
+    def test_repository_native_paths_tracks_codex_listing(self) -> None:
+        model = skills.load_package_model()
+        expected = all(
+            any(
+                row.runtime == "codex" and row.status == "included" and row.mechanism == "native" and row.listed
+                for row in package.runtimes
+            )
+            for package in model.packages
+            if package.key in {"ycc", "ycc-mcp"}
+        )
+        self.assertEqual(skills.repository_native_paths(), expected)
+        for listed, expected_native in (((), False), (("ycc",), False), (("ycc", "ycc-mcp"), True)):
+            fixture = replace(
+                model,
+                packages=tuple(
+                    replace(
+                        package,
+                        runtimes=tuple(
+                            (replace(entry, listed=package.key in listed) if entry.runtime == "codex" else entry)
+                            for entry in package.runtimes
+                        ),
+                    )
+                    for package in model.packages
+                ),
+            )
+            with (
+                self.subTest(listed=listed),
+                patch.object(skills, "load_package_model", return_value=fixture),
+            ):
+                self.assertEqual(skills.repository_native_paths(), expected_native)
 
 
 if __name__ == "__main__":
