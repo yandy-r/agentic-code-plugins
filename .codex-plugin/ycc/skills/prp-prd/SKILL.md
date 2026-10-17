@@ -4,6 +4,8 @@ description: Develops problem-first PRDs through interactive discovery. Use when
   a feature PRD, clarifying product requirements, or testing a product hypothesis.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Product Requirements Document Generator
 
 > Adapted from PRPs-agentic-eng by Wirasm. Part of the PRP workflow series.

@@ -130,13 +130,13 @@ human-owned and never rewritten.
 
 ### Scripts
 
-- `~/.codex/plugins/ycc/shared/scripts/release-state.sh get` prints the state as
+- `../scripts/release-state.sh get` prints the state as
   `key=value` (`present=0` when there is no file).
-- `~/.codex/plugins/ycc/shared/scripts/release-state.sh base` prints the PR base
+- `../scripts/release-state.sh base` prints the PR base
   for HEAD: the maintenance branch it was cut from, else the trunk.
-- `~/.codex/plugins/ycc/shared/scripts/release-state.sh check` reports table drift
+- `../scripts/release-state.sh check` reports table drift
   and branches missing on origin.
-- `~/.codex/plugins/ycc/shared/scripts/release-state-update.sh <op>` changes the
+- `../scripts/release-state-update.sh <op>` changes the
   state and re-renders the table. It never commits.
 
 ## Missing or malformed state

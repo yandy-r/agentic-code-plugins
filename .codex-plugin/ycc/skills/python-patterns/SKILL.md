@@ -4,6 +4,8 @@ description: Guides idiomatic Python design and resource handling. Use when refa
   Python modules, adding type hints, or choosing a concurrency model.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Python Development Patterns
 
 Idiomatic Python patterns and best practices for building robust, efficient, and maintainable applications.

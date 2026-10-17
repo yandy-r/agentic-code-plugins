@@ -5,6 +5,8 @@ description: Guides framework-agnostic TypeScript types, modules, and async code
   CJS libraries.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # TypeScript Development Patterns
 
 Idiomatic TypeScript patterns for building safe, maintainable, inference-friendly

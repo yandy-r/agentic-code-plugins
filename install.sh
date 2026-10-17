@@ -671,6 +671,7 @@ if [[ ${#ONLY_STEPS[@]} -gt 0 ]]; then
 fi
 
 resolve_targets "${TARGET}"
+[[ "${COMMAND}" == "remove" ]] || print_native_deprecation_hints "${TARGETS[@]}"
 if [[ -n "${PACKAGE}" ]]; then
     [[ "${TARGET}" == "all" ]] && PACKAGE_ALL_TARGETS_REQUESTED=1
     package_preflight_targets

@@ -5,6 +5,8 @@ description: Use when comparing two implementation options or walking through tr
   for approval.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Plan Skill
 
 Create conversational implementation plan before code. Default output stays in chat; heavier artifact-producing tracks documented in references/planning-tracks.md.
@@ -65,15 +67,15 @@ Read request and referenced files. Ambiguous request: ask one focused question b
 Read `../../shared/references/standalone-dispatch.md` when dispatching Path C or after approval for execution; use §§8–9 for planner worktree/batch directives in any mode.
 Read `../../shared/references/agent-team-dispatch.md` only when `--team` is passed (Path B); prefix `plan-`, flat roster, canonical lifecycle.
 
-Read `~/.codex/plugins/ycc/skills/plan/references/planner-prompts.md` when building Path A prompt or appending parallel directives to any persona prompt.
-Read `~/.codex/plugins/ycc/skills/plan/references/personas-and-merge.md` when selecting Path B/C roster, dry-run output, failure policy or merging perspectives.
-Read `~/.codex/plugins/ycc/skills/plan/references/enhanced-personas.md` only when `--enhanced` is passed, for security/UX prompts.
+Read `references/planner-prompts.md` when building Path A prompt or appending parallel directives to any persona prompt.
+Read `references/personas-and-merge.md` when selecting Path B/C roster, dry-run output, failure policy or merging perspectives.
+Read `references/enhanced-personas.md` only when `--enhanced` is passed, for security/UX prompts.
 
 Dry-run: print exact selected roster format; no spawning; if visual also print `visual generation would run`; exit. Otherwise dispatch selected roster. Team completes cleanup before validation/relay. Path A planner owns format, worked examples, sizing/phasing and red-flag checks.
 
 ### Step 2.5 — Validate the plan before relaying
 
-Read `~/.codex/plugins/ycc/skills/plan/references/plan-validation.md` after planner return/merge; run all four checks. Missing required structure or parallel annotations: re-dispatch with missing-section directive. Missing expected sections/paths/perspectives: append visible validation notes.
+Read `references/plan-validation.md` after planner return/merge; run all four checks. Missing required structure or parallel annotations: re-dispatch with missing-section directive. Missing expected sections/paths/perspectives: append visible validation notes.
 With `--team`, re-dispatch only after prior teammates have completed shutdown.
 
 ## Step 3 — Relay
@@ -105,6 +107,6 @@ Read `../../shared/references/visual-mode.md` only when visual requested, for fo
 
 ## After approval
 
-Read `~/.codex/plugins/ycc/skills/plan/references/planning-tracks.md` when choosing execution/report/commit handoff or comparing planning tracks. Small parallel features can execute in conversation; rigorous report/validation/archive needs PRP-format file and `$prp-implement --parallel`. `implement-plan` consumes parallel-plan.md. Review via code-review; commit via git-workflow --commit or prp-commit.
+Read `references/planning-tracks.md` when choosing execution/report/commit handoff or comparing planning tracks. Small parallel features can execute in conversation; rigorous report/validation/archive needs PRP-format file and `$prp-implement --parallel`. `implement-plan` consumes parallel-plan.md. Review via code-review; commit via git-workflow --commit or prp-commit.
 
 Use plan for new features, architecture changes, complex refactors, multi-file work or ambiguous requirements. Internal-only changes can skip enhanced security/UX roster; exposure or user touchpoints justify it.

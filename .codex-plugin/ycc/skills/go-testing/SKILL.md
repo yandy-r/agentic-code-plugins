@@ -4,6 +4,8 @@ description: Guides Go testing with TDD, table-driven tests, and fuzzing. Use wh
   adding Go test coverage, writing benchmarks, or fuzzing input validation.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Go Testing Patterns
 
 Comprehensive Go testing patterns for writing reliable, maintainable tests following TDD methodology.

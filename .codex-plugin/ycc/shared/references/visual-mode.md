@@ -150,11 +150,11 @@ force-write rule is mandatory — not optional — for `plan --visual`. Under
 
 In-body references to skill assets use the plugin-root variable, e.g.:
 
-- `~/.codex/plugins/ycc/skills/visual-plan/SKILL.md`
-- `~/.codex/plugins/ycc/skills/plan/SKILL.md`
-- `~/.codex/plugins/ycc/skills/prp-plan/SKILL.md`
-- `~/.codex/plugins/ycc/skills/parallel-plan/SKILL.md`
-- `~/.codex/plugins/ycc/skills/plan-workflow/SKILL.md`
+- `../../skills/visual-plan/SKILL.md`
+- `../../skills/plan/SKILL.md`
+- `../../skills/prp-plan/SKILL.md`
+- `../../skills/parallel-plan/SKILL.md`
+- `../../skills/plan-workflow/SKILL.md`
 
 The hand-off is always expressed as the skill invocation
 `visual-plan <absolute-plan-path>`, with `<absolute-plan-path>` resolved by

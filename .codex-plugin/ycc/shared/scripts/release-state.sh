@@ -23,7 +23,7 @@
 #   2  RELEASING.md exists but its state block is malformed
 #
 # Format reference:
-#   ~/.codex/plugins/ycc/shared/references/branching-model.md#state-block
+#   ../references/branching-model.md#state-block
 
 set -euo pipefail
 

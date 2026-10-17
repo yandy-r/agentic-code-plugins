@@ -11,7 +11,7 @@
 - Prompt: practices-researcher
 - Prompt: recommendations-agent
 
-> **Contract**: Each of these 7 researchers feeds the `prp-plan` synthesizer in Phase 6. They are dispatched standalone via the `Agent` tool (see `../../../shared/references/standalone-dispatch.md`). Each researcher returns its findings inline as structured rows that map directly to a section of the PRP plan template at `~/.codex/plugins/ycc/skills/prp-plan/references/plan-template.md`, **AND** additionally writes the same discovery table to a backstop file at `docs/prps/plans/.prp-research/<feature-slug>/<role-name>.md` using the `Write` tool, so the findings are never lost even if the inline return is interrupted or truncated. All 7 use `prp-researcher`, distinguished by `description` and the role-specific prompt below (omit `name` for standalone calls).
+> **Contract**: Each of these 7 researchers feeds the `prp-plan` synthesizer in Phase 6. They are dispatched standalone via the `Agent` tool (see `../../../shared/references/standalone-dispatch.md`). Each researcher returns its findings inline as structured rows that map directly to a section of the PRP plan template at `plan-template.md`, **AND** additionally writes the same discovery table to a backstop file at `docs/prps/plans/.prp-research/<feature-slug>/<role-name>.md` using the `Write` tool, so the findings are never lost even if the inline return is interrupted or truncated. All 7 use `prp-researcher`, distinguished by `description` and the role-specific prompt below (omit `name` for standalone calls).
 
 ## Roster
 

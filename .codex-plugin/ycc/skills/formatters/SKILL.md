@@ -4,6 +4,8 @@ description: Bootstraps project linting and formatting tools. Use when installin
   formatters, adding lint scripts, or wiring lint CI and pre-commit hooks.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Formatters Bootstrap
 
 Installs a best-practices lint/format environment into a target project. Does not reimplement linter dispatch — it drives the repo's own `scripts/style.sh init --copy|--sync` machinery and adds documentation, aliases, CI, and hook wiring on top.
@@ -12,7 +14,7 @@ Installs a best-practices lint/format environment into a target project. Does no
 
 ## Current Target Context
 
-- **Profile detection** (complete `key=value` output, `project_root` last): !`~/.codex/plugins/ycc/skills/formatters/scripts/profile-style.sh`
+- **Profile detection** (complete `key=value` output, `project_root` last): !`scripts/profile-style.sh`
 
 Context injection is one scoped helper call: no `pwd`, `head`, `2>/dev/null`, or pipeline. Compound pipelines are host-permission behavior (a headless caller allowlist may reject them even when each segment is allowed), and `head -30` previously dropped profile keys. Do not widen `allowed-tools` with `head`, `find`, `wc`, or `pwd`; run each helper as a single command.
 
@@ -58,7 +60,7 @@ Validation:
 
 ### Phase 1 — Profile
 
-Run `~/.codex/plugins/ycc/skills/formatters/scripts/profile-style.sh "$TARGET"` as one command. Keep every key (including `project_root`, `docs_target`, and hook/CI keys); parse the returned text in the caller. If an applier needs `--profile-file`, save that complete text with Write rather than an outer redirect or pipeline.
+Run `scripts/profile-style.sh "$TARGET"` as one command. Keep every key (including `project_root`, `docs_target`, and hook/CI keys); parse the returned text in the caller. If an applier needs `--profile-file`, save that complete text with Write rather than an outer redirect or pipeline.
 
 Stack-flag resolution:
 
@@ -108,7 +110,7 @@ Note each item that will be skipped (existing config, manifest detected, etc.).
 Invoke the self-contained installer shipped inside the skill:
 
 ```
-STYLE_SH="~/.codex/plugins/ycc/skills/formatters/scripts/bundle/style.sh"
+STYLE_SH="scripts/bundle/style.sh"
 ```
 
 Build `init_args`:
@@ -133,19 +135,19 @@ Unless suppressed, run each applier. Each writes to a distinct file so they can 
 1. **Aliases** (skipped if `NO_ALIASES=true`):
 
    ```
-   ~/.codex/plugins/ycc/skills/formatters/scripts/apply-aliases.sh --target "$TARGET" [--force]
+   scripts/apply-aliases.sh --target "$TARGET" [--force]
    ```
 
 2. **Docs** (skipped if `NO_DOCS=true`):
 
    ```
-   ~/.codex/plugins/ycc/skills/formatters/scripts/apply-docs.sh --target "$TARGET" --profile-file "$PROFILE_FILE" [--force]
+   scripts/apply-docs.sh --target "$TARGET" --profile-file "$PROFILE_FILE" [--force]
    ```
 
 3. **CI** (only when `CI=true`):
 
    ```
-   ~/.codex/plugins/ycc/skills/formatters/scripts/apply-ci.sh --target "$TARGET" --profile-file "$PROFILE_FILE" [--force] [--no-autofix]
+   scripts/apply-ci.sh --target "$TARGET" --profile-file "$PROFILE_FILE" [--force] [--no-autofix]
    ```
 
    Pass `--no-autofix` when `NO_AUTOFIX=true` to install only the check workflow. The check workflow runs on every PR and on pushes to the default branch and `release/**`. The autofix workflow runs on same-repo PRs to the default branch (`origin/HEAD`, falling back to `main`), applies `./scripts/style.sh format` + `lint --fix`, and pushes fixes back as `github-actions[bot]`; fork PRs are skipped because `GITHUB_TOKEN` cannot push to them.
@@ -153,7 +155,7 @@ Unless suppressed, run each applier. Each writes to a distinct file so they can 
 4. **Hooks** (run when `HOOKS=true`, OR when the target already has a `lefthook.yml` / `.husky/pre-commit` — i.e., `has_lefthook=true` or `has_husky=true` in the profile):
 
    ```
-   ~/.codex/plugins/ycc/skills/formatters/scripts/apply-hooks.sh --target "$TARGET" --profile-file "$PROFILE_FILE" [--force]
+   scripts/apply-hooks.sh --target "$TARGET" --profile-file "$PROFILE_FILE" [--force]
    ```
 
    The auto-trigger keeps managed `style-lint` / `style-format` commands in sync on every `--sync` re-run without forcing first-time hook installation on users who never asked for it. `apply-hooks.sh` is idempotent: when managed commands are already present, it logs a no-op; otherwise it merges them in (lefthook) or skips if a non-empty `.husky/pre-commit` exists without `--force` (husky).

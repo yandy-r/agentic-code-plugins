@@ -3,7 +3,7 @@
 # (backport) and backport-audit.sh (backport --audit, releaser's
 # patch gate). Sourced, not executed.
 #
-# Rules: ~/.codex/plugins/ycc/shared/references/branching-model.md#backporting
+# Rules: ../../references/branching-model.md#backporting
 
 # A conventional-commit fix title: "fix:", "fix(scope):", "fix!:".
 # shellcheck disable=SC2034  # used by the scripts that source this file

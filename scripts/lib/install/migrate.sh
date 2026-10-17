@@ -44,3 +44,17 @@ run_migrate_command() {
     [[ -n "${marketplace_source}" ]] && command+=(--marketplace-source "${marketplace_source}")
     "${command[@]}"
 }
+
+# print_native_deprecation_hints <target>... — v6 lists native packages for
+# claude, codex and cursor, so install/sync there is the fallback path. Hints go
+# to stderr to keep scripted stdout stable; other targets have no native listing.
+print_native_deprecation_hints() {
+    local target
+    for target in "$@"; do
+        case "${target}" in
+            claude|codex|cursor)
+                warn "deprecated: ${target} native packages are listed in the ycc marketplace as of v6.0.0; installer copies are the fallback. Preview the move with: $(basename "$0") migrate --target ${target}" >&2
+                ;;
+        esac
+    done
+}

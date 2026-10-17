@@ -4,13 +4,15 @@ description: Initializes project AI-agent docs and workspace conventions. Use wh
   generating agent rules docs, adding GitHub templates, or bootstrapping project rules.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Codex CLI Workspace Initialization
 
 Profiles the project, authors the canonical tool-neutral `AGENTS.md` rules file (with a compatibility `@AGENTS.md`-importing `CLAUDE.md` shim and optional Claude-only notes), and optionally emits GitHub issue templates and git convention files — all flag-driven, non-destructive by default.
 
 ## Current Project Context
 
-- **Profile detection** (complete `key=value` output, `project_root` first): !`~/.codex/plugins/ycc/skills/init/scripts/profile-project.sh`
+- **Profile detection** (complete `key=value` output, `project_root` first): !`scripts/profile-project.sh`
 
 Context injection is deliberately one scoped helper call: no `pwd`, `ls | head`, `2>/dev/null`, or other shell pipeline/redirect. Some hosts reject compound pipelines as a whole even when each segment is allowed, and `head` truncated the profile (dropping keys such as `has_releasing_md`). Do not widen `allowed-tools` with `find`, `head`, `wc`, or `pwd`.
 
@@ -69,7 +71,7 @@ Defaults: all booleans off; no profile override. `--update` and `--force` are mu
 
 ### Phase 1 — Profile
 
-1. Run `~/.codex/plugins/ycc/skills/init/scripts/profile-project.sh` once, with no pipeline, `head`, or `2>/dev/null`, and parse the complete `key=value` output into variables (the Current Project Context above already holds the same output; re-run only after it changes). See `references/project-profile-heuristics.md` for the key list.
+1. Run `scripts/profile-project.sh` once, with no pipeline, `head`, or `2>/dev/null`, and parse the complete `key=value` output into variables (the Current Project Context above already holds the same output; re-run only after it changes). See `references/project-profile-heuristics.md` for the key list.
 2. If `PROFILE` flag is set, override `primary_language` with that value.
 3. If `is_empty=true` OR `primary_language=unknown`: ask the user conversationally for project name, purpose, and primary language. Set `project_name`, `project_purpose`, and `primary_language` from their answers.
 4. If `UPDATE=false` AND at least two of `has_claude_md`, `has_agents_md`, `has_cursor_rules`, `has_issue_templates`, `has_gitmessage`, `has_gitignore` are true: warn the user "Existing doc/workflow files detected — consider re-running with `--update` for structured refresh, or `--force` to overwrite. Continuing with default skip-on-conflict behavior."
@@ -84,7 +86,7 @@ Skip this phase when `DOCS_ONLY=true`.
 Otherwise, estimate source file count with the single scoped helper (no pipeline; walk errors stay visible, output is capped at 51 files):
 
 ```bash
-~/.codex/plugins/ycc/skills/init/scripts/count-source-files.sh --repo .
+scripts/count-source-files.sh --repo .
 ```
 
 It prints `count=<n>`, `capped=true|false`, `cap=50`. If `capped=true` (i.e., >50 files), dispatch `codebase-research-analyst` with a prompt requesting:
@@ -97,7 +99,7 @@ Feed the agent's output into the `AGENTS.md` rendering in Phase 3 (conventions a
 
 ### Phase 3 — Render templates
 
-Load each applicable `.tmpl` file from `~/.codex/plugins/ycc/skills/init/templates/`. Substitute all `{{PLACEHOLDER}}` variables using profile values from Phase 1 (and Phase 2 if run). For language-conditional blocks (`{{#IF_RUST}}...{{/IF_RUST}}` etc.), include only the block matching `primary_language`. Leave `{{#IF_RELEASE_MODEL}}...{{/IF_RELEASE_MODEL}}` blocks (in `AGENTS.md.tmpl` and `github/labels.md.tmpl`) unresolved — Phase 5 (dry run) or Phase 5.5 resolves them. Render all files in memory — do NOT write yet. `scripts/render-template.sh --template <bundled-template> [--profile -]` (profile on stdin; needs Bash 3.2+ and Python 3) renders a template without writing (a thin wrapper over `scripts/render-template.py`). It only reads templates under the skill's own `templates/` directory. A command that `profile-project.sh` reports as `unknown` renders as `# not detected` inside fenced shell blocks, and any template that would put it into YAML (`run:`) or a checklist guards it with `IF_*_CMD` / `IF_NO_*_CMD` blocks instead (lefthook `pre-push` is omitted, with a comment, when no test command is detected). If `profile-project.sh` warns that `jq` is missing, say so in the Phase 1 summary: JS/TS commands could not be detected and will render as `# not detected`. Mixed-language profiles keep the language blocks of every component language in `secondary_languages`.
+Load each applicable `.tmpl` file from `templates/`. Substitute all `{{PLACEHOLDER}}` variables using profile values from Phase 1 (and Phase 2 if run). For language-conditional blocks (`{{#IF_RUST}}...{{/IF_RUST}}` etc.), include only the block matching `primary_language`. Leave `{{#IF_RELEASE_MODEL}}...{{/IF_RELEASE_MODEL}}` blocks (in `AGENTS.md.tmpl` and `github/labels.md.tmpl`) unresolved — Phase 5 (dry run) or Phase 5.5 resolves them. Render all files in memory — do NOT write yet. `scripts/render-template.sh --template <bundled-template> [--profile -]` (profile on stdin; needs Bash 3.2+ and Python 3) renders a template without writing (a thin wrapper over `scripts/render-template.py`). It only reads templates under the skill's own `templates/` directory. A command that `profile-project.sh` reports as `unknown` renders as `# not detected` inside fenced shell blocks, and any template that would put it into YAML (`run:`) or a checklist guards it with `IF_*_CMD` / `IF_NO_*_CMD` blocks instead (lefthook `pre-push` is omitted, with a comment, when no test command is detected). If `profile-project.sh` warns that `jq` is missing, say so in the Phase 1 summary: JS/TS commands could not be detected and will render as `# not detected`. Mixed-language profiles keep the language blocks of every component language in `secondary_languages`.
 
 Rendering map:
 
@@ -138,8 +140,8 @@ Skip this phase when `DOCS_ONLY=true`.
 Run the catalog generators:
 
 ```bash
-~/.codex/plugins/ycc/skills/init/scripts/generate-mcp-catalog.sh
-~/.codex/plugins/ycc/skills/init/scripts/generate-agent-catalog.sh
+scripts/generate-mcp-catalog.sh
+scripts/generate-agent-catalog.sh
 ```
 
 Present all available options as checkboxes organized by category. Pre-check items that align with the detected profile (language, infrastructure, workflow). Let the user freely adjust the selection before proceeding.
@@ -173,7 +175,7 @@ Decide whether to create `RELEASING.md` (the project's branching and release rul
 
 Runs instead of Phases 2–6.5 (profile only), for repos that already have a long `CLAUDE.md`. Never silently rewrites it.
 
-1. Run `~/.codex/plugins/ycc/skills/init/scripts/migrate-rules.sh --repo . --dry-run` (a Bash 3.2 entrypoint for `scripts/migrate-rules.py`, which shares the `@AGENTS.md` import parser in `_shared/scripts/rules_pointer.py` (via `scripts/rules_file_lib.py`) with release-model's `pointer-targets.sh`) and show the full output: the move diff for `AGENTS.md` and `CLAUDE.md`, new line counts, and the **content-loss list** (the full text of any replaced legacy pointer `AGENTS.md`, sections skipped as duplicates, and merge conflicts). Nothing is written.
+1. Run `scripts/migrate-rules.sh --repo . --dry-run` (a Bash 3.2 entrypoint for `scripts/migrate-rules.py`, which shares the `@AGENTS.md` import parser in `_shared/scripts/rules_pointer.py` (via `scripts/rules_file_lib.py`) with release-model's `pointer-targets.sh`) and show the full output: the move diff for `AGENTS.md` and `CLAUDE.md`, new line counts, and the **content-loss list** (the full text of any replaced legacy pointer `AGENTS.md`, sections skipped as duplicates, and merge conflicts). Nothing is written.
 2. With `DRY_RUN=true`, stop here.
 3. Otherwise ask once: "Apply this migration?" The script refuses outside the git root, over uncommitted changes, or for git-ignored/symlinked rules files; `--allow-non-git` is the explicit opt-in for those cases. Every apply first copies both files to a timestamped backup directory (printed in the output) and writes via temp file + atomic rename, restoring from the backup if the pair cannot be completed. Routing is heading-based and shown per section: only exact Claude runtime headings stay in `CLAUDE.md`; everything else moves to `AGENTS.md`, and headings that merely mention Claude are routed to `AGENTS.md` and listed as ambiguous for review. On yes, run the same command with `--yes` instead of `--dry-run`. On no, stop; nothing changed.
 4. Content moves to `AGENTS.md`; only exact Claude runtime headings remain after `@AGENTS.md`. Nothing is deleted (a replaced legacy pointer's full text is printed), ambiguous headings are reported, and no duplicate H1/headings are created. Report the new line counts per Phase 7.
@@ -233,11 +235,11 @@ If the formatters skill exits with an error, record the failure in the Phase 7 s
 
 ### Phase 7 — Summary report
 
-Produce a summary using `~/.codex/plugins/ycc/skills/init/templates/workspace-report.md` as the base. Extend it with these sections appended after the existing MCP/agents tables:
+Produce a summary using `templates/workspace-report.md` as the base. Extend it with these sections appended after the existing MCP/agents tables:
 
 **Docs emitted** — list each path written, or "skipped: user chose keep". State explicitly when the user opted out of the CLAUDE.md shim (requires Claude Code 2.1.277+ for native AGENTS.md fallback).
 
-**Rules files** — one line per rules file that exists after the run (`AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`, `.cursor/rules/*.mdc`) with its line count, e.g. `AGENTS.md: 31 lines`. Mark any file over 200 lines `⚠ over 200 lines — long rules files lose adherence; trim or run --migrate-rules`. Run `~/.codex/plugins/ycc/skills/init/scripts/rules-report.sh` to produce these lines; do not estimate.
+**Rules files** — one line per rules file that exists after the run (`AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`, `.cursor/rules/*.mdc`) with its line count, e.g. `AGENTS.md: 31 lines`. Mark any file over 200 lines `⚠ over 200 lines — long rules files lose adherence; trim or run --migrate-rules`. Run `scripts/rules-report.sh` to produce these lines; do not estimate.
 
 **GitHub templates emitted** — list each `.github/` path written (omit section if `TEMPLATES=false`).
 

@@ -4,6 +4,8 @@ description: Builds local-only visual recaps from Git diffs. Use when recapping 
   finished branch, visualizing a commit range, or reviewing working-tree changes visually.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Visual Recap (LOCAL-ONLY)
 
 `/visual-recap` builds a visual plan **from** a diff, not toward one. It is the reverse of
@@ -43,7 +45,7 @@ Hard rules for this skill:
   (`env AGENT_NATIVE_PLANS_MODE=local-files npx -y @agent-native/core@0.59.1 plan local serve --open`,
   127.0.0.1, ephemeral port). There is no hosted link and no shareable URL.
 - **Diffs are sourced through the shared collector**
-  `~/.codex/plugins/ycc/shared/scripts/visual-recap-collect.sh`, which uses
+  `../../shared/scripts/visual-recap-collect.sh`, which uses
   local git refs only — so it behaves identically against the public `github` remote and
   the private Forgejo `origin` (no vendor PR API, no hardcoded host or trunk branch).
 
@@ -69,7 +71,7 @@ absolute path printed on stdout as the resolved bundle path:
 # (none)         → tracked working-tree diff vs HEAD
 # <base>..<head> → explicit range
 # <branch>       → branch as head; base = merge-base against tracked upstream
-~/.codex/plugins/ycc/shared/scripts/visual-recap-collect.sh $ARGUMENTS
+../../shared/scripts/visual-recap-collect.sh $ARGUMENTS
 ```
 
 The collector writes a bundle under `docs/prps/reviews/visual/<slug>/`:
@@ -176,7 +178,7 @@ include one or more `wireframe` blocks. Prose and file diffs are not a substitut
 showing what changed visually.
 
 Before authoring ANY wireframe, **read
-`~/.codex/plugins/ycc/skills/visual-recap/references/wireframe.md` in full** — it is the
+`references/wireframe.md` in full** — it is the
 single source of truth for HTML wireframe quality (`.wf-*` classes, `[data-icon]` Tabler
 set, `surface` presets, `--wf-*` tokens, before/after comparability, skeleton states).
 Do not author wireframes from memory. Show the changed entry point, the main changed
@@ -220,7 +222,7 @@ intentionally unavailable.
   signing secrets, or `.env` values. Never copy these into any block, snippet, caption,
   or note — redact them (`sk-•••`). This mirrors the repo's hardcoded-secret rule.
 - **No egress.** This skill performs no hosted upload. The shared
-  `~/.codex/plugins/ycc/shared/scripts/visual-egress-guard.sh` exists for the
+  `../../shared/scripts/visual-egress-guard.sh` exists for the
   consent-gated hosted path used by `visual-plan`; it is NOT invoked here because
   this recap never leaves the machine.
 

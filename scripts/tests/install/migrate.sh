@@ -53,6 +53,16 @@ else
 fi
 [[ "$(migrate_snapshot "${home}")" == "${before}" ]] && ok "all preview changes no HOME bytes or entries" || ko "all preview changes no HOME bytes or entries"
 
+# v6 deprecation hints: install/sync on a listed native target points at migrate;
+# remove and targets without a native listing stay quiet.
+home="$(new_home)"
+install_must_succeed "${home}" sync --target claude --intent settings --global
+assert_contains "${INSTALL_OUT}" "migrate --target claude" "claude sync prints the native deprecation hint"
+install_must_succeed "${home}" remove --target claude --intent settings --global
+assert_not_contains "${INSTALL_OUT}" "deprecated:" "remove prints no deprecation hint"
+install_must_succeed "${home}" sync --target agents --intent skills
+assert_not_contains "${INSTALL_OUT}" "deprecated:" "agents sync prints no deprecation hint"
+
 # Real managed state first, then a user-owned command in the same event group.
 home="$(new_home)"
 install_must_succeed "${home}" sync --target claude --intent settings,hooks,mcp --global

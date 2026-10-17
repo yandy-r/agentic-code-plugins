@@ -12,8 +12,8 @@
 - Hosted Plans app
 
 Reference for ycc skills that drive the Agent-Native visual-planning runtime — currently
-`~/.codex/plugins/ycc/skills/visual-plan/SKILL.md` and
-`~/.codex/plugins/ycc/skills/visual-recap/SKILL.md`. Both skills cite this doc so the install
+`../../skills/visual-plan/SKILL.md` and
+`../../skills/visual-recap/SKILL.md`. Both skills cite this doc so the install
 pin, the auth/reconnect flow, the connector names, the localhost bridge, and the egress
 policy stay convergent. Fix them here, not per skill (DRY).
 
@@ -108,7 +108,7 @@ Hosted upload is **OFF by default** and **consent-gated**:
 - No plan content leaves the machine unless the operator passes an explicit `--share` flag
   that names the destination host `plan.agent-native.com`.
 - All hosted egress MUST be routed through
-  `~/.codex/plugins/ycc/shared/scripts/visual-egress-guard.sh` so the consent check
+  `../scripts/visual-egress-guard.sh` so the consent check
   and destination allowlist are enforced in one place.
 - Localhost bridge usage (above) is not egress: it stays on 127.0.0.1 and writes nothing
   remote.

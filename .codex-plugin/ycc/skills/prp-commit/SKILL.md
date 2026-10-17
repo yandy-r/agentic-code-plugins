@@ -5,6 +5,8 @@ description: Stages selected changes and creates one Conventional Commit. Use wh
   documentation orchestration.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Smart Commit
 
 > Adapted from PRPs-agentic-eng by Wirasm. Part of the PRP workflow series.

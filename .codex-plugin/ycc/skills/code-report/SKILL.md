@@ -4,6 +4,8 @@ description: Generates implementation reports from executed parallel plans. Use 
   documenting completed work, listing changed files, or recording test guidance.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Code Report Generator
 
 Generate structured implementation reports documenting changes made during plan execution. This is an **optional Step 4** in the planning workflow, providing comprehensive documentation of what was implemented.
@@ -55,7 +57,7 @@ Extract the feature name from `$ARGUMENTS` (first non-flag argument).
 Run the prerequisites check script in Step 1, before reading planning documents:
 
 ```bash
-~/.codex/plugins/ycc/skills/code-report/scripts/check-prerequisites.sh [feature-name]
+scripts/check-prerequisites.sh [feature-name]
 ```
 
 If the script exits with error:
@@ -158,7 +160,7 @@ Remove --dry-run flag to generate the report.
 Read the report template:
 
 ```bash
-cat ~/.codex/plugins/ycc/skills/code-report/templates/report-structure.md
+cat templates/report-structure.md
 ```
 
 ### Step 8: Generate Report Content

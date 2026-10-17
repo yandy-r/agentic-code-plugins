@@ -23,16 +23,16 @@ audit schema, and loop protocol that all four skills implement.
 
 Two execution scripts share the same contract:
 
-- **PR mode** — `~/.codex/plugins/ycc/shared/scripts/ci-monitor.sh`
+- **PR mode** — `../scripts/ci-monitor.sh`
   watches checks on a PR head branch (used by `git-workflow`, `prp-pr`,
   `pr-autofix`).
-- **Release mode** — `~/.codex/plugins/ycc/shared/scripts/release-ci-monitor.sh`
+- **Release mode** — `../scripts/release-ci-monitor.sh`
   watches the release-event workflow run for a published tag (used by
   `releaser` Phase 8.5). See the "Release mode" section below for the
   mode-specific contract.
 
 Failure classification and signature computation are shared between both
-scripts via `~/.codex/plugins/ycc/shared/scripts/lib/ci-classify.sh`.
+scripts via `../scripts/lib/ci-classify.sh`.
 This document and the scripts are the single source of truth — every consumer
 must not diverge from either.
 
@@ -196,7 +196,7 @@ the skill.
 
      Apply fix per the Failure Classification table strategy for `CATEGORY`.
      Validate the commit message via
-     `~/.codex/plugins/ycc/skills/git-workflow/scripts/validate-commit.sh`.
+     `../../skills/git-workflow/scripts/validate-commit.sh`.
      Push to head branch (no `--force`, no `--no-verify`).
      Delete or ignore `LOG_EXCERPT_FILE` after reading.
      Goto step 3.
@@ -389,7 +389,7 @@ branch-ref dispatch is unavailable, only after the original publish-success,
 
 ```
 gh release delete <tag> --cleanup-tag --yes
-~/.codex/plugins/ycc/skills/releaser/scripts/publish-release.sh \
+../../skills/releaser/scripts/publish-release.sh \
   <tag> <notes-path> --mode=create --confirm
 ```
 
@@ -435,11 +435,11 @@ re-cut.
 
 ## References
 
-- `~/.codex/plugins/ycc/shared/scripts/ci-monitor.sh` — PR-mode execution script
-- `~/.codex/plugins/ycc/shared/scripts/release-ci-monitor.sh` — release-mode execution script
-- `~/.codex/plugins/ycc/shared/scripts/lib/ci-classify.sh` — shared failure classification + signature lib
-- `~/.codex/plugins/ycc/skills/git-workflow/SKILL.md` — Phase 6 (PR CI monitoring loop)
-- `~/.codex/plugins/ycc/skills/prp-pr/SKILL.md` — Phase 7 (PR CI monitoring loop)
-- `~/.codex/plugins/ycc/skills/pr-autofix/SKILL.md` — Phase 7 (PR CI monitoring loop)
-- `~/.codex/plugins/ycc/skills/releaser/SKILL.md` — Phase 8.5 (release CI monitoring loop)
-- `~/.codex/plugins/ycc/skills/git-workflow/scripts/validate-commit.sh` — commit message validator
+- `../scripts/ci-monitor.sh` — PR-mode execution script
+- `../scripts/release-ci-monitor.sh` — release-mode execution script
+- `../scripts/lib/ci-classify.sh` — shared failure classification + signature lib
+- `../../skills/git-workflow/SKILL.md` — Phase 6 (PR CI monitoring loop)
+- `../../skills/prp-pr/SKILL.md` — Phase 7 (PR CI monitoring loop)
+- `../../skills/pr-autofix/SKILL.md` — Phase 7 (PR CI monitoring loop)
+- `../../skills/releaser/SKILL.md` — Phase 8.5 (release CI monitoring loop)
+- `../../skills/git-workflow/scripts/validate-commit.sh` — commit message validator

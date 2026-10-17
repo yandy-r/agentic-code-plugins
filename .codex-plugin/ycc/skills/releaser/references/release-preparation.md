@@ -29,7 +29,7 @@ Before anything else, verify:
 5. Read the project's release model:
 
    ```
-   ~/.codex/plugins/ycc/shared/scripts/release-state.sh get
+   ../../../shared/scripts/release-state.sh get
    ```
 
    - `present=0` (no `RELEASING.md`): say so once and offer to run `$release-model`
@@ -39,7 +39,7 @@ Before anything else, verify:
    - `present=1`: keep `model` and `trunk`. The model's rules are in
      `../../../shared/references/branching-model.md`; how this skill
      applies them is in
-     `~/.codex/plugins/ycc/skills/releaser/references/release-branches.md`.
+     `release-branches.md`.
 
 If any check fails, STOP and surface a specific remediation — do not continue past
 Phase 0 with known-bad preconditions.
@@ -49,7 +49,7 @@ Phase 0 with known-bad preconditions.
 Run:
 
 ```
-~/.codex/plugins/ycc/skills/releaser/scripts/detect-project.sh
+../scripts/detect-project.sh
 ```
 
 The helper emits a single JSON document to stdout describing:
@@ -109,7 +109,7 @@ The release model (from `release-state.sh get`) decides how commit types map to 
 Once the version is confirmed, run:
 
 ```
-~/.codex/plugins/ycc/skills/releaser/scripts/check-release-branch.sh <new-version>
+../scripts/check-release-branch.sh <new-version>
 ```
 
 - Exit 0: keep its `kind`, `branch`, `creates_maintenance`, `backport_label` and
@@ -126,7 +126,7 @@ When the branch check reports `model=release-branches` and `kind=patch`, confirm
 every fix meant for the line reached it **before** writing any file:
 
 ```
-~/.codex/plugins/ycc/shared/scripts/backport-audit.sh release/X.Y
+../../../shared/scripts/backport-audit.sh release/X.Y
 ```
 
 Follow "Backport gate" in `references/release-branches.md`: `missing` and `in-review`
@@ -153,7 +153,7 @@ Unless `--skip-notes` was passed:
 1. Invoke the changelog helper and capture its stdout:
 
    ```
-   ~/.codex/plugins/ycc/skills/releaser/scripts/draft-changelog.sh [--exclude-internal] [--template <path>] <new-version> [<from-ref>]
+   ../scripts/draft-changelog.sh [--exclude-internal] [--template <path>] <new-version> [<from-ref>]
    ```
 
    Pass an explicit `<from-ref>` when the default (`git describe --tags --abbrev=0`)
@@ -172,7 +172,7 @@ Unless `--skip-notes` was passed:
 3. Update `CHANGELOG.md` by prepending a slim version of the same content — Summary and
    per-category sections only, no `<details>` blocks — above any `## [Unreleased]`
    marker. If no `CHANGELOG.md` exists, create one using the template seeded from
-   `~/.codex/plugins/ycc/skills/releaser/references/release-notes-template.md`.
+   `release-notes-template.md`.
 
 Ask the user to review the drafted Summary and Upgrade Notes sections before moving on.
 
@@ -200,7 +200,7 @@ printed a non-empty `creates_maintenance=release/X.Y`, also record the new maint
 branch so the state change lands in the release commit:
 
 ```
-~/.codex/plugins/ycc/shared/scripts/release-state-update.sh --add-maintenance release/X.Y
+../../../shared/scripts/release-state-update.sh --add-maintenance release/X.Y
 ```
 
 It edits only `RELEASING.md` (and may move a branch past the support window to

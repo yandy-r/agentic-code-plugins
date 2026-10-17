@@ -5,6 +5,8 @@ description: Applies saved code-review findings and updates artifact status. Use
   as Fixed or Failed.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Review Fix
 
 Apply fixes for saved `$code-review` artifacts: filter findings, group
@@ -121,7 +123,7 @@ suggested fix/Missing files/Eligible). `M == 0` → `No eligible findings to fix
 
 Read the batching contract before building batches:
 
-`~/.codex/plugins/ycc/skills/review-fix/references/plan.md`
+`references/plan.md`
 
 Post the plan as a `Fix Plan:` block (counts M/G/B/W, per-batch listing with
 IDs, `file:line`, severity and file counts). Worktree mode prints the
@@ -146,7 +148,7 @@ If `DRY_RUN=true` and `AGENT_TEAM_MODE=true`, defer the final exit to Phase 4 C.
 
 Read fixer prompt contract, Path B/C fan-out and failure handling:
 
-`~/.codex/plugins/ycc/skills/review-fix/references/fixer-dispatch.md`
+`references/fixer-dispatch.md`
 
 Branch based on `PARALLEL_MODE` and `AGENT_TEAM_MODE`:
 
@@ -159,7 +161,7 @@ Branch based on `PARALLEL_MODE` and `AGENT_TEAM_MODE`:
 ### Worktree-mode lifecycle (`WORKTREE_ACTIVE=true`)
 
 Read when `WORKTREE_ACTIVE=true`: the "Worktree-mode lifecycle" section of
-`~/.codex/plugins/ycc/skills/review-fix/references/plan.md` and
+`references/plan.md` and
 `../../shared/references/worktree-strategy.md` §1.
 All batches run inside
 `$PARENT_PATH`; validation per batch:
@@ -184,7 +186,7 @@ rollback; user decides.
 
 Read report template and worktree summary:
 
-`~/.codex/plugins/ycc/skills/review-fix/references/fix-report.md`
+`references/fix-report.md`
 
 Write to `docs/prps/reviews/fixes/<source-name>-fixes.md` under the active
 checkout root. In worktree mode, stage and commit the report alongside fix

@@ -17,7 +17,7 @@ and the releaser behaves as it always has.
 
 ## Branch check output
 
-`~/.codex/plugins/ycc/skills/releaser/scripts/check-release-branch.sh <version>` prints
+`../scripts/check-release-branch.sh <version>` prints
 `key=value` lines on success (exit 0). Keep them for later phases.
 
 | Key                   | Meaning                                                                                  |
@@ -45,7 +45,7 @@ A patch is tagged only when `release/X.Y` has every fix meant for it
 `model=release-branches` and `kind=patch`, run:
 
 ```
-~/.codex/plugins/ycc/shared/scripts/backport-audit.sh release/X.Y
+../../../shared/scripts/backport-audit.sh release/X.Y
 ```
 
 Stdout is one `<status>\t<pr>\t<merge_sha>\t<title>\t<detail>` row per PR checked, then
@@ -110,7 +110,7 @@ Use the same from-ref for the Phase 2 commit scan (`git log <from-ref>..HEAD`) a
 When `creates_maintenance` is set, Phase 5 also runs:
 
 ```
-~/.codex/plugins/ycc/shared/scripts/release-state-update.sh --add-maintenance release/X.Y
+../../../shared/scripts/release-state-update.sh --add-maintenance release/X.Y
 ```
 
 It adds `release/X.Y` as the newest maintenance branch, moves branches outside the

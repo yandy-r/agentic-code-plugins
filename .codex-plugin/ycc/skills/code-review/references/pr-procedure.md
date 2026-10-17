@@ -32,7 +32,7 @@ Skip this phase entirely when `WORKTREE_MODE=false` (i.e., `--no-worktree` was p
 
    ```bash
    PARENT_WORKTREE_PATH=$(
-     bash "~/.codex/plugins/ycc/shared/scripts/setup-worktree.sh" \
+     bash "../../../shared/scripts/setup-worktree.sh" \
        parent "${REPO}" "pr-<N>" --base-ref "${PR_HEAD}"
    )
    ```

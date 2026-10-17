@@ -4,6 +4,8 @@ description: Creates whole-project blueprints and bootstraps new software. Use w
   defining a project charter, choosing system architecture, or scaffolding an idea.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Project Blueprint Generator
 
 > The whole-software charter. Sits at the top of the funnel — upstream of `prp-prd`, `prp-spec`, and every other planning
@@ -55,7 +57,7 @@ Determine whether this is greenfield, an existing repo, or a re-run.
 1. Run the shared profiler (read its `key=value` output; do NOT reimplement profiling):
 
    ```bash
-   ~/.codex/plugins/ycc/skills/init/scripts/profile-project.sh
+   ../init/scripts/profile-project.sh
    ```
 
    If the script is unavailable (non-Claude target / missing path), fall back gracefully:
@@ -178,7 +180,7 @@ the coercion in the Decisions Log — this guarantees the orchestrated `--profil
 Likewise, coerce a release-model answer to `trunk-only | release-branches | undecided` (unsure
 or "not yet" → `undecided`) and record it in the Decisions Log.
 
-See `~/.codex/plugins/ycc/skills/blueprint/references/bootstrap-mapping.md` for the full
+See `references/bootstrap-mapping.md` for the full
 key→flag mapping used when generating the Bootstrap section.
 
 **GATE**: Wait for the user.

@@ -5,6 +5,8 @@ description: Creates parallel-plan.md from existing shared.md through plan-workf
   parallel implementation tasks.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 ## MANDATORY FORCED MODE - READ FIRST
 
 This skill is a thin alias. It ALWAYS runs canonical `plan-workflow` with
@@ -95,7 +97,7 @@ Build the **effective `$ARGUMENTS`** for canonical `plan-workflow`:
 it is a legacy no-op; user-supplied redundant `--plan-only` / `--no-checkpoint`
 are dropped, not duplicated.)
 
-1. Read `~/.codex/plugins/ycc/skills/plan-workflow/SKILL.md`.
+1. Read `../plan-workflow/SKILL.md`.
 2. Execute as orchestrator with the effective `$ARGUMENTS` above substituted for `$ARGUMENTS`, so the canonical parser itself sets `PLAN_ONLY=true` and `NO_CHECKPOINT=true` (those variables are explanatory only — never invocation syntax).
 3. On completion print the plan summary and STOP. Never implement.
 

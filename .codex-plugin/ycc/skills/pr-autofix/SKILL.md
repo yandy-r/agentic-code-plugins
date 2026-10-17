@@ -4,6 +4,8 @@ description: Applies GitHub PR comments and resolves review threads. Use when fi
   reviewer feedback, processing bot comments, or driving comment fixes through CI.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # PR Autofix
 
 Vendor-neutral counterpart to `coderabbit:autofix`. Pulls every comment surface on a GitHub PR (review threads, file-level review comments, top-level PR conversation) from any author (bot or human), dispatches per-comment fix agents, resolves threads on successful fixes, replies-then-resolves skipped comments, leaves Failed threads open with a failure reply, and optionally drives the PR to green via the bounded CI auto-fix loop (`--ci`).
@@ -50,10 +52,10 @@ Paths are relative to this skill directory unless they are absolute plugin paths
 - `scripts/resolve-thread.sh` — run in Phase 6 (`resolve`, `reply`, `react`, `issue-reply`).
 - `scripts/post-summary.sh` — run in Phase 8 for the consolidated summary comment (its template lives in the script and never includes raw reviewer prompts).
 - `../../shared/references/ci-monitoring.md` — authoritative CI policy (caps, classification, termination, safety, bail taxonomy). Read in Phase 7; do not restate it.
-- `~/.codex/plugins/ycc/shared/scripts/ci-monitor.sh` — single-shot CI checker.
+- `../../shared/scripts/ci-monitor.sh` — single-shot CI checker.
 - `../../shared/references/goal-pairing.md` — shared `/goal` contract.
 - `../../shared/references/standalone-dispatch.md` — read when using `--parallel`.
-- `~/.codex/plugins/ycc/skills/git-workflow/scripts/validate-commit.sh` — commit message validator.
+- `../git-workflow/scripts/validate-commit.sh` — commit message validator.
 - `ycc/agents/pr-comment-fixer.md` — per-comment fixer agent contract.
 
 ---
@@ -131,7 +133,7 @@ If `--ci` was passed and any refusal fires, append: `--ci will not run because t
 
 ```bash
 JSONL_FILE="$(mktemp /tmp/pr-autofix-comments.XXXXXX.jsonl)"
-bash "~/.codex/plugins/ycc/skills/pr-autofix/scripts/fetch-pr-comments.sh" \
+bash "scripts/fetch-pr-comments.sh" \
   --pr "$PR_NUMBER" \
   --out "$JSONL_FILE"
 ```
@@ -198,7 +200,7 @@ If no fixer returned `Fixed`, create no commit. Otherwise:
   Refs: PR #${PR_NUMBER}
   ```
 
-Validate commit messages via `~/.codex/plugins/ycc/skills/git-workflow/scripts/validate-commit.sh` before pushing. Commit messages must pass the outbound sanitizer (no raw reviewer text).
+Validate commit messages via `../git-workflow/scripts/validate-commit.sh` before pushing. Commit messages must pass the outbound sanitizer (no raw reviewer text).
 
 Never `--no-verify`. Never `--force` / `--force-with-lease`.
 
@@ -256,7 +258,7 @@ A thin wrapper over the loop shared with `$prp-pr` Phase 7 and `$git-workflow` P
 If at least one comment was `Apply`'d (Fixed or Failed) or `Skip`'d, post one consolidated summary comment:
 
 ```bash
-bash "~/.codex/plugins/ycc/skills/pr-autofix/scripts/post-summary.sh" \
+bash "scripts/post-summary.sh" \
   --pr "$PR_NUMBER" \
   --fixed "$FIXED_COUNT" \
   --failed "$FAILED_COUNT" \

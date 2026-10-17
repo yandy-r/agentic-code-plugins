@@ -5,6 +5,8 @@ description: Orchestrates commits, documentation updates, pushes, and PRs. Use w
   through a full Git workflow.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Git Workflow Manager
 
 Analyzes changes, writes Conventional Commit messages, coordinates documentation updates (parallel agents when the change is large), and optionally pushes, opens a PR, and monitors CI.
@@ -91,7 +93,7 @@ Every later phase keys off the action set.
 Read `references/commit-phases.md` before Phase 0 for exact commands, the dry-run report template, the documentation rules, the commit-message steps, the `docs-git-committer` agent prompt, agent-result validation (including the `git rebase -x` check), and the summary template. Key decisions:
 
 - Strategy: direct commit vs parallel agents (single message, multiple Agent calls, one `docs-git-committer` per scope; todos per agent).
-- Read `templates/documentation-decision.md` (Step 6), `templates/commit-types.md` (Step 8), `templates/agent-prompts.md` (Step 14) when the step is reached.
+- Read `templates/documentation-decision.md` (Step 6), `templates/commit-types.md` (Step 8), `templates/agent-prompts.md` (Step 14) when the step is reached. Before Step 14 dispatch, expand every `<installed ycc plugin root>` in the agent prompt to the absolute plugin root derived from this installed SKILL.md; send absolute helper/reference paths and retain the project cwd.
 - Documentation: feature docs only for new user-facing features, significant API changes, complex flows, breaking changes; directory-level `AGENTS.md` only for critical directory-specific patterns.
 - Step 12/21: `git push` only when `push ∈ actions`.
 
@@ -127,4 +129,4 @@ Read `references/examples-and-troubleshooting.md` for the commit/docs/agent/PR/o
 - `references/examples-and-troubleshooting.md` — read for checklists, examples, or when a step fails.
 - `templates/commit-types.md`, `templates/documentation-decision.md`, `templates/agent-prompts.md`, `templates/pr-template.md` — read at Steps 8, 6, 14, 23.
 - `scripts/analyze-changes.sh` (Step 2), `scripts/validate-commit.sh` (Steps 10, 18, 25, 36), `scripts/create-pr.sh` (Step 24; `--analyze --base "$BASE"`; defensive existing-PR check).
-- Shared: `../../shared/references/{forge-detection,pr-base-and-backport,ci-monitoring,goal-pairing}.md`, `~/.codex/plugins/ycc/shared/scripts/{pr-guard,ci-monitor}.sh`. `branch-prep.md` does not apply: this skill never creates branches.
+- Shared: `../../shared/references/{forge-detection,pr-base-and-backport,ci-monitoring,goal-pairing}.md`, `../../shared/scripts/{pr-guard,ci-monitor}.sh`. `branch-prep.md` does not apply: this skill never creates branches.

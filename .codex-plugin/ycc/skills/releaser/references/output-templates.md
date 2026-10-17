@@ -77,17 +77,17 @@ When the user passed `--publish[=create|edit|auto]`, after they review the rende
 notes, run:
 
 ```
-~/.codex/plugins/ycc/skills/releaser/scripts/publish-release.sh v<new-version> <notes-path> --mode=<mode>
+../scripts/publish-release.sh v<new-version> <notes-path> --mode=<mode>
 ```
 
 **Examples:**
 
 ```
 # Preview only — prints the resolved gh command without executing it:
-~/.codex/plugins/ycc/skills/releaser/scripts/publish-release.sh v1.4.0 docs/releases/v1.4.0.md --mode=auto
+../scripts/publish-release.sh v1.4.0 docs/releases/v1.4.0.md --mode=auto
 
 # Apply — executes the resolved gh command:
-~/.codex/plugins/ycc/skills/releaser/scripts/publish-release.sh v1.4.0 docs/releases/v1.4.0.md --mode=auto --confirm
+../scripts/publish-release.sh v1.4.0 docs/releases/v1.4.0.md --mode=auto --confirm
 ```
 
 This prints the resolved `gh` command without executing it. Re-run with `--confirm` to

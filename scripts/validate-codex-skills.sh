@@ -120,6 +120,10 @@ sys.exit(1 if failed else 0)
 PY
 }
 
+strip_scaffold_paths() {
+  sed -E 's#\$\{CLAUDE_PLUGIN_ROOT\}/skills/\{\{[A-Z_]+\}\}/##g' "$1" 2>/dev/null
+}
+
 BAD=0
 POLICY_FILES=()
 while IFS= read -r -d '' f; do
@@ -133,9 +137,11 @@ while IFS= read -r -d '' f; do
   else
     pattern='/ycc:|\bycc:|CLAUDE_PLUGIN_ROOT|~/.claude/|\.claude-plugin/|TeamCreate|TeamDelete|TaskCreate|TaskUpdate|TaskList|TaskGet|SendMessage|AskUserQuestion|TodoWrite|subagent_type:'
   fi
-  if grep -qE "$pattern" "$f" 2>/dev/null; then
+  # Scaffold placeholders (`${CLAUDE_PLUGIN_ROOT}/skills/{{NAME}}/`) describe the
+  # Claude-source skill a template will create; the native generator keeps them.
+  if strip_scaffold_paths "$f" | grep -qE "$pattern"; then
     echo "FORBIDDEN pattern in $f:" >&2
-    grep -nE "$pattern" "$f" >&2 || true
+    strip_scaffold_paths "$f" | grep -nE "$pattern" >&2 || true
     BAD=1
   fi
   POLICY_FILES+=("$f")

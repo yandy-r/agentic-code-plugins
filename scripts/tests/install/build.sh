@@ -15,6 +15,16 @@ declare -A BUILD_PASSES=(
     [agents]="skills"
 )
 
+# codex_bundle_landed <home> — the legacy layout symlinks the plugin; a listed
+# repository installs ycc@ycc through the (stubbed) Codex CLI instead.
+codex_bundle_landed() {
+    if repo_codex_native; then
+        grep -q "codex plugin add ycc@ycc" "$1/claude-calls.log" 2>/dev/null
+    else
+        [[ -L "$1/.codex/plugins/ycc" ]]
+    fi
+}
+
 echo "== install.sh install: base builds each bundle before syncing =="
 
 home="$(new_home)"
@@ -30,7 +40,7 @@ done
 assert_contains "${out}" "Running scripts/style.sh format --modified" "build formats modified repository files"
 assert_not_contains "${out}" "Skipping" "real build skips nothing"
 if [[ -f "${home}/.cursor/skills/backport/SKILL.md" && -f "${home}/.config/opencode/skills/backport/SKILL.md" \
-    && -L "${home}/.codex/plugins/ycc" && -f "${home}/.agents/skills/backport/SKILL.md" ]]; then
+    && -f "${home}/.agents/skills/backport/SKILL.md" ]] && codex_bundle_landed "${home}"; then
     ok "built bundles land in every target"
 else
     ko "built bundles land in every target"
@@ -51,7 +61,7 @@ done
 assert_contains "${out}" "Skipping repository formatting" "skip-build skips the repo style pass"
 assert_not_contains "${out}" "Running " "skip-build runs no build script"
 if [[ -f "${home}/.cursor/skills/backport/SKILL.md" && -f "${home}/.config/opencode/skills/backport/SKILL.md" \
-    && -L "${home}/.codex/plugins/ycc" && -f "${home}/.agents/skills/backport/SKILL.md" ]]; then
+    && -f "${home}/.agents/skills/backport/SKILL.md" ]] && codex_bundle_landed "${home}"; then
     ok "skip-build still syncs every target"
 else
     ko "skip-build still syncs every target"

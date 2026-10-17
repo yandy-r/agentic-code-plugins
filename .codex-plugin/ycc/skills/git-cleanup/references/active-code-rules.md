@@ -26,7 +26,7 @@ The rules are ordered by specificity. Evaluate them all — multiple matches
 strengthen confidence in the classification.
 
 R9 and R10 apply only when the repo has a `RELEASING.md`
-(`~/.codex/plugins/ycc/shared/scripts/release-state.sh get` prints
+(`../../../shared/scripts/release-state.sh get` prints
 `present=1`). Without one, R1–R8 are the whole rule set. A malformed state block
 (exit 2) stops the audit before any rule runs: show the parse error and point at
 `$release-model --audit`.
@@ -169,7 +169,7 @@ repository's default branch, or any user-supplied `--protect=<pattern>`. With a
 ```
 git symbolic-ref refs/remotes/origin/HEAD          # default branch
 # User-supplied patterns from --protect flags
-~/.codex/plugins/ycc/shared/scripts/release-state.sh get
+../../../shared/scripts/release-state.sh get
 # present=1 → protect `trunk` and each entry of `maintenance`
 ```
 
@@ -213,7 +213,7 @@ protect it. Branches in the state's `frozen` list match too and are flagged
 **How to check:**
 
 ```
-~/.codex/plugins/ycc/shared/scripts/release-state.sh get   # maintenance=, frozen=
+../../../shared/scripts/release-state.sh get   # maintenance=, frozen=
 git for-each-ref refs/heads/release/ --format='%(refname:short)'
 git for-each-ref refs/remotes/ --format='%(refname:short)' | grep -E '^[^/]+/release/'
 ```

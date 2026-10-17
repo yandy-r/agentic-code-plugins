@@ -138,7 +138,7 @@ Refs: PR #<N>
 
 `<sanitized-author-login>` strips any character outside `[A-Za-z0-9_\-\[\]]` to prevent injection through unicode confusables.
 
-Always validate the final message via `~/.codex/plugins/ycc/skills/git-workflow/scripts/validate-commit.sh` before pushing.
+Always validate the final message via `../../git-workflow/scripts/validate-commit.sh` before pushing.
 
 ### 5. No reactions on Failed
 

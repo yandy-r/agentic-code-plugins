@@ -4,6 +4,8 @@ description: Guides TypeScript testing with Vitest and TDD. Use when adding Type
   test coverage, mocking async behavior, or writing property and type-level tests.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # TypeScript Testing Patterns
 
 Comprehensive TypeScript testing patterns for writing reliable, maintainable tests

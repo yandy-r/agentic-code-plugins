@@ -115,7 +115,7 @@ At the end of REPORT, append to the fix report:
 Populate the `<output of list-worktrees.sh>` block by running:
 
 ```bash
-bash "~/.codex/plugins/ycc/shared/scripts/list-worktrees.sh" \
+bash "../../../shared/scripts/list-worktrees.sh" \
   "${REPO}" "${SLUG}"
 ```
 

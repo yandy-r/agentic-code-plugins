@@ -4,6 +4,8 @@ description: Reviews local changes or GitHub PRs and saves actionable findings. 
   when reviewing a PR, requesting a full local review, or creating a review-fix artifact.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Code Review
 
 Review local changes or a GitHub PR; save machine-parseable findings for
@@ -118,7 +120,7 @@ Non-GitHub provider: state limitation, offer local mode; do not call `gh pr`.
 Prefer available `mcp__github__*` for fetch/view/review; otherwise use `gh`.
 If neither is available, warn and fall back to local-only review without publish.
 
-Read `~/.codex/plugins/ycc/skills/code-review/references/pr-procedure.md`
+Read `references/pr-procedure.md`
 only after selecting PR mode; it contains setup commands, validation examples,
 posting procedure and edge cases. Read canonical schema for REPORT:
 `../../shared/references/review-artifact-format.md`.

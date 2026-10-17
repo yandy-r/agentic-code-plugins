@@ -149,7 +149,7 @@ Every git-operation skill adds a detection step before any host call:
 
 ```bash
 # shellcheck source=/dev/null
-source "~/.codex/plugins/ycc/shared/scripts/lib/forge.sh"
+source "../scripts/lib/forge.sh"
 provider="$(forge_detect_provider origin)"
 cli="$(forge_cli "$provider")"
 forge_auth_ok "$provider" || { echo "Auth needed for $provider"; exit 2; }

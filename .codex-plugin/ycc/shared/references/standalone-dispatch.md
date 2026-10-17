@@ -159,7 +159,7 @@ Set `REPO_ROOT=$(git rev-parse --show-toplevel)`. Inspect `git status --porcelai
 unrelated dirty files: stop and ask user to stash, commit or clean. Then:
 
 ```bash
-FEATURE_BRANCH=$(bash ~/.codex/plugins/ycc/shared/scripts/prepare-feature-branch.sh "${WT_FEATURE_SLUG}")
+FEATURE_BRANCH=$(bash ../scripts/prepare-feature-branch.sh "${WT_FEATURE_SLUG}")
 ```
 
 Do not skip it. Narrative-only branch instructions let agents commit to `main`. Contract:
@@ -167,7 +167,7 @@ Do not skip it. Narrative-only branch instructions let agents commit to `main`. 
 the prepared branch; echoes path, store as `WT_PARENT_PATH`):
 
 ```bash
-WT_PARENT_PATH=$(bash ~/.codex/plugins/ycc/shared/scripts/setup-worktree.sh parent "${WT_REPO_NAME}" "${WT_FEATURE_SLUG}")
+WT_PARENT_PATH=$(bash ../scripts/setup-worktree.sh parent "${WT_REPO_NAME}" "${WT_FEATURE_SLUG}")
 ```
 
 Then move plan artifacts once (never `cp`, `rsync` or sync; never move back); companions such as
@@ -175,7 +175,7 @@ Then move plan artifacts once (never `cp`, `rsync` or sync; never move back); co
 validation/reports/archive inside `$WT_PARENT_PATH`:
 
 ```bash
-PLAN_PATH=$(bash ~/.codex/plugins/ycc/shared/scripts/move-plan-to-worktree.sh "<plan-path>" "$WT_PARENT_PATH" ["<companion>" ...])
+PLAN_PATH=$(bash ../scripts/move-plan-to-worktree.sh "<plan-path>" "$WT_PARENT_PATH" ["<companion>" ...])
 ```
 
 `WORKTREE_ACTIVE=false`: skip worktree setup and the move; keep original plan path and run in

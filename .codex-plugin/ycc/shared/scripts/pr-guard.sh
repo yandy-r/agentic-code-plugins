@@ -34,8 +34,8 @@
 #   3  sync-check refused the PR
 #
 # Rules and definitions:
-#   ~/.codex/plugins/ycc/shared/references/pr-base-and-backport.md
-#   ~/.codex/plugins/ycc/shared/references/branching-model.md#rules
+#   ../references/pr-base-and-backport.md
+#   ../references/branching-model.md#rules
 
 set -euo pipefail
 

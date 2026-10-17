@@ -5,6 +5,8 @@ description: Creates verified shared.md research context through plan-workflow. 
   researching without generating a plan.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 ## MANDATORY FORCED MODE - READ FIRST
 
 This skill is a thin alias. It ALWAYS runs canonical `plan-workflow` with
@@ -74,7 +76,7 @@ Build the **effective `$ARGUMENTS`** for canonical `plan-workflow`:
 
 (`--team` / `--dry-run` only if the user passed them; user-supplied redundant `--research-only` / `--no-checkpoint` are dropped, not duplicated.)
 
-1. Read `~/.codex/plugins/ycc/skills/plan-workflow/SKILL.md`.
+1. Read `../plan-workflow/SKILL.md`.
 2. Execute as orchestrator with the effective `$ARGUMENTS` above substituted for `$ARGUMENTS`, so the canonical parser itself sets `RESEARCH_ONLY=true` and `NO_CHECKPOINT=true` (those variables are explanatory only — never invocation syntax).
 3. On completion print the research summary and STOP. Never plan or implement.
 

@@ -27,7 +27,7 @@
 #      or a gh query failed
 #   2  RELEASING.md exists but its state block is malformed
 #
-# Rules: ~/.codex/plugins/ycc/shared/references/branching-model.md#backporting
+# Rules: ../../../shared/references/branching-model.md#backporting
 
 set -euo pipefail
 

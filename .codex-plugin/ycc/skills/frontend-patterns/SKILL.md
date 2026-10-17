@@ -4,6 +4,8 @@ description: Guides React and Next.js component architecture and performance. Us
   when composing components, managing React state, or optimizing rendering and accessibility.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Frontend Development Patterns
 
 Non-obvious React/Next.js rules. Standard React API usage is assumed.

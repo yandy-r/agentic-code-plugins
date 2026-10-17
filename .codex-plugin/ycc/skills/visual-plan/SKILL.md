@@ -4,6 +4,8 @@ description: Renders existing plans as interactive visual documents. Use when vi
   a text plan, creating a plan wireframe, or reviewing planned architecture visually.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Visual Plan (Agent-Native Plans)
 
 Turn an ordinary text plan into a structured, reviewable visual plan. Build the plan a reader would normally
@@ -103,7 +105,7 @@ exact tag names, required fields, and prop shapes.
    stdout as `OUT`:
 
    ```
-   ~/.codex/plugins/ycc/skills/visual-plan/scripts/derive-visual-dir.sh <plan> --mkdir
+   scripts/derive-visual-dir.sh <plan> --mkdir
    ```
 
    Gather the plan's exact text — do not invent source content.
@@ -148,16 +150,16 @@ exact tag names, required fields, and prop shapes.
 These are provider-neutral quality bars. Read the relevant one IN FULL before
 authoring; do not paraphrase from memory:
 
-- `~/.codex/plugins/ycc/skills/visual-plan/references/document-quality.md` — read
+- `references/document-quality.md` — read
   before authoring any plan document: the
   plan-document quality bar and block families.
-- `~/.codex/plugins/ycc/skills/visual-plan/references/canvas.md` — read before
+- `references/canvas.md` — read before
   building a canvas surface: canvas /
   artboard / annotation mechanics and patch ops.
-- `~/.codex/plugins/ycc/skills/visual-plan/references/wireframe.md` — read before
+- `references/wireframe.md` — read before
   authoring wireframe blocks: the HTML
   wireframe quality bar (`.wf-*` tokens, surfaces, icons, skeletons).
-- `~/.codex/plugins/ycc/skills/visual-plan/references/exemplar.md` — read when
+- `references/exemplar.md` — read when
   checking composition or anti-patterns: a worked
   example plus the anti-patterns to avoid.
 
@@ -188,7 +190,7 @@ the operational rules for this skill:
   uploaded, run:
 
   ```
-  ~/.codex/plugins/ycc/shared/scripts/visual-egress-guard.sh \
+  ../../shared/scripts/visual-egress-guard.sh \
     --payload <OUT> --destination plan.agent-native.com \
     --consent plan.agent-native.com
   ```

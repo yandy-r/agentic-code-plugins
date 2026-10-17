@@ -3,7 +3,7 @@
 Use `prepare-feature-branch.sh` before any worktree setup or implementor-agent dispatch, except in dry-run or plan-only paths that do not touch git. Worktree setup adopts the prepared `feat/<slug>` branch when it exists.
 
 ```bash
-FEATURE_BRANCH=$(bash ~/.codex/plugins/ycc/shared/scripts/prepare-feature-branch.sh "${FEATURE_SLUG}")
+FEATURE_BRANCH=$(bash ../scripts/prepare-feature-branch.sh "${FEATURE_SLUG}")
 ```
 
 The helper echoes the prepared branch name on success.

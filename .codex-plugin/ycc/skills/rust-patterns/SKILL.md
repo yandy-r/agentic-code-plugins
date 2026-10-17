@@ -4,6 +4,8 @@ description: Guides idiomatic Rust ownership, errors, and concurrency. Use when 
   borrow or lifetime design, structuring crates, or choosing traits and error types.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # Rust Development Patterns
 
 Idiomatic Rust patterns and best practices for building safe, performant, and maintainable applications.

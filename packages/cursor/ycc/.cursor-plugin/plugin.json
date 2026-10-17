@@ -1,7 +1,7 @@
 {
   "name": "ycc",
   "displayName": "ycc",
-  "version": "5.3.0",
+  "version": "6.0.0",
   "description": "Main ycc plugin: skills, agents, and shared helpers. status-bar@ycc-mods is versioned independently and stays outside this manifest.",
   "author": {
     "name": "yandy-r"

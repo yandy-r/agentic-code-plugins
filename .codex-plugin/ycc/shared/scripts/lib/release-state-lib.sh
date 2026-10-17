@@ -4,7 +4,7 @@
 # release-state-update.sh; not meant to be executed directly.
 #
 # The block and table format is specified in
-# ~/.codex/plugins/ycc/shared/references/branching-model.md#state-block.
+# ../../references/branching-model.md#state-block.
 #
 # Parsed values are stored in plain globals (RS_MODEL, RS_TRUNK, ...) so the
 # library works on bash 3.2 (macOS) as well as bash 5.

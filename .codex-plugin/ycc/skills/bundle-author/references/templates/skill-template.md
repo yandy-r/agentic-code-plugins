@@ -32,5 +32,5 @@ TODO: describe what the skill emits to the user.
 ## Notes
 
 - Add references under `references/` for static content.
-- Add bash helpers under `scripts/` invoked as `~/.codex/plugins/ycc/skills/{{NAME}}/scripts/<name>.sh`.
+- Add bash helpers under `scripts/` invoked as `${CLAUDE_PLUGIN_ROOT}/skills/{{NAME}}/scripts/<name>.sh`.
 - Regenerate bundles with `./scripts/sync.sh` after adding this skill.

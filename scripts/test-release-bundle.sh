@@ -635,7 +635,7 @@ if OUT="$(YCC_REPO_ROOT="${FIX}" "${SCRIPTS}/draft-notes.sh" 6.0.0 2>&1)"; then
   NOTES="$(cat "${FIX}/docs/releases/6.0.0.md")"
   assert_contains "notes: packages section" "${NOTES}" "## Packages"
   assert_contains "notes: table headings" "${NOTES}" "| Package | Runtime | Status | Mechanism | Listed | Version or target | Notes |"
-  assert_contains "notes: included hidden package" "${NOTES}" "| ycc-hooks | cursor | included | native | no | 6.0.0 |"
+  assert_contains "notes: included listed package" "${NOTES}" "| ycc-hooks | cursor | included | native | yes | 6.0.0 |"
   assert_contains "notes: deferred target" "${NOTES}" "| ycc-agents | claude | deferred | native | no | target v7.0.0 |"
   assert_contains "notes: excluded target" "${NOTES}" "| ycc-hooks | codex | excluded | native | no | target v6.0.0 |"
   assert_contains "notes: opencode npm release" "${NOTES}" "| @yandy-r/ycc-opencode | opencode | included | npm | no | 6.0.0 | experimental; opt-in; not yet published"

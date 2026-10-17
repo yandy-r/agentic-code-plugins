@@ -5,6 +5,8 @@ description: Writes lightweight single-pass PRP feature specs. Use when specifyi
   prp-plan.
 ---
 
+Bundled paths are relative to this SKILL.md's directory (the installed location shown by Codex); in reference documents, use that document's directory. Resolve them to absolute paths and run helpers by absolute path while keeping the user's project as cwd.
+
 # PRP Spec
 
 Generate a concise, actionable feature specification in a single pass. Lighter than `feature-research` (no multi-agent team), more technically directed than a PRD (includes technical approach and integration points).
