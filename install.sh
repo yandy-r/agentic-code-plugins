@@ -202,11 +202,11 @@ Options:
                                 marketplace entry, then runs 'codex plugin
                                 add'. cursor/opencode rsync the bundles.
                         repo  — register the upstream github repo
-                                yandy-r/agentic-code-plugins as the marketplace
+                                yandy-r/ystack as the marketplace
                                 source. claude target adds the github slug
                                 via the CLI; codex target writes a
                                 {source: git-subdir,
-                                url: https://github.com/yandy-r/agentic-code-plugins.git,
+                                url: https://github.com/yandy-r/ystack.git,
                                 path: ./.codex-plugin/ycc,
                                 ref: main} marketplace entry and skips
                                 local generation/symlink/agents-sync.
@@ -425,7 +425,7 @@ Examples:
   # with a copy (emits an info/warn line per file). No --force needed.
 
   # Repo mode (track the upstream github repo instead of the local checkout):
-  $(basename "$0") install --target claude --mode repo             # register yandy-r/agentic-code-plugins
+  $(basename "$0") install --target claude --mode repo             # register yandy-r/ystack
                                                                      # as a github marketplace source
   $(basename "$0") install --target codex  --mode repo             # write the codex marketplace.json
                                                                      # with {source: git-subdir, url: ...,

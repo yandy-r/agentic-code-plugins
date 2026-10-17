@@ -98,7 +98,7 @@ reloading Codex:
 ```
 
 Repo mode writes a git-subdir marketplace entry — Codex clones
-`https://github.com/yandy-r/agentic-code-plugins.git` at `main` and pulls the bundle
+`https://github.com/yandy-r/ystack.git` at `main` and pulls the bundle
 from the `./.codex-plugin/ycc` subdirectory:
 
 ```bash

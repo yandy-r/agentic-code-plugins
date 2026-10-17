@@ -59,7 +59,7 @@
     "ycc": {
       "source": {
         "source": "github",
-        "repo": "yandy-r/agentic-code-plugins",
+        "repo": "yandy-r/ystack",
         "ref": "main"
       },
       "autoUpdate": true

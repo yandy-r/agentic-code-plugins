@@ -29,7 +29,7 @@ from generate_codex_mcp import CODEX_MCP_PATH, build_codex_mcp_config, write_cod
 from generate_codex_skills import write_tree
 from package_model import Package, PackageModel, load_package_model
 
-REPOSITORY_URL = "https://github.com/yandy-r/agentic-code-plugins"
+REPOSITORY_URL = "https://github.com/yandy-r/ystack"
 REPO_ROOT = CODEX_PLUGIN_CONTAINER.parent
 NATIVE_MARKETPLACE = Path(".agents/plugins/marketplace.json")
 NATIVE_COMPONENTS = {frozenset({"skills", "shared"}), frozenset({"mcp"})}

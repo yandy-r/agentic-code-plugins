@@ -5,8 +5,8 @@
   "author": {
     "name": "yandy-r"
   },
-  "repository": "https://github.com/yandy-r/agentic-code-plugins",
-  "homepage": "https://github.com/yandy-r/agentic-code-plugins",
+  "repository": "https://github.com/yandy-r/ystack",
+  "homepage": "https://github.com/yandy-r/ystack",
   "license": "MIT",
   "keywords": [
     "codex",
@@ -24,7 +24,7 @@
       "Read",
       "Write"
     ],
-    "websiteURL": "https://github.com/yandy-r/agentic-code-plugins",
+    "websiteURL": "https://github.com/yandy-r/ystack",
     "brandColor": "#0F766E"
   }
 }

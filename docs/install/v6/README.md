@@ -10,7 +10,7 @@
 > Codex, and Cursor; `install.sh --package` remains planned, not implemented.
 > The live install commands in `docs/install/` are unchanged and remain the
 > supported install route. The repository was renamed to
-> `yandy-r/agentic-code-plugins`.
+> `yandy-r/ystack`.
 
 This directory is a draft tree only. It is not linked from the root README or
 the live `docs/install/README.md`; nothing here affects production navigation.

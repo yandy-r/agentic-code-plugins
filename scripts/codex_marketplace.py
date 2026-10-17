@@ -202,7 +202,7 @@ def build_entry(mode: str, plugin_src: str) -> dict[str, Any]:
     elif mode == "repo":
         source_block = {
             "source": "git-subdir",
-            "url": "https://github.com/yandy-r/agentic-code-plugins.git",
+            "url": "https://github.com/yandy-r/ystack.git",
             "path": "./.codex-plugin/ycc",
             "ref": "main",
         }
