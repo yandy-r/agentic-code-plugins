@@ -297,6 +297,7 @@ run_target() {
             "${REPO_ROOT}/scripts/validate-codex-plugin.sh" || fail "validate-codex-plugin.sh"
             python3 "${REPO_ROOT}/scripts/test_generate_codex_plugin.py" || fail "test_generate_codex_plugin.py"
             python3 "${REPO_ROOT}/scripts/test_validate_codex_native.py" || fail "test_validate_codex_native.py"
+            python3 "${REPO_ROOT}/scripts/test_codex_native_smoke.py" || fail "test_codex_native_smoke.py"
             run_codex_native_export || fail "Codex native export"
             ;;
         config)

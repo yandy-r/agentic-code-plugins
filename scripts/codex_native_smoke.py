@@ -208,8 +208,9 @@ def check_checkout(add_path: Path, expected_ref: str, profile: str) -> None:
     elif profile == "sparse":
         expected = {".agents/plugins", ".codex-plugin/ycc", ".codex-plugin/ycc-mcp"}
         missing = sorted(expected - set(selected))
-        if sparse.returncode or missing:
-            raise ValueError(f"sparse selection {selected} missing {missing}")
+        unexpected = sorted(set(selected) - expected)
+        if sparse.returncode or missing or unexpected or len(selected) != len(set(selected)):
+            raise ValueError(f"sparse selection {selected} missing {missing} unexpected {unexpected}")
         for key in ("core.sparseCheckout", "core.sparseCheckoutCone"):
             if git("config", "--get", key).stdout.strip() != "true":
                 raise ValueError(f"sparse staged checkout lacks {key}=true")
