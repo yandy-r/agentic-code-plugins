@@ -81,10 +81,8 @@ Ambiguous with the conflicting evidence documented.
 
 ## Release model
 
-The caller runs the shared `release-state.sh get` helper and passes its
-`key=value` output (`present`, `trunk`, `maintenance`, `frozen`, …) with the
-invocation options. The rules behind it live in the bundle's shared
-`branching-model.md` reference.
+The caller runs `release-state.sh get` and passes its `key=value` output
+(`present`, `trunk`, `maintenance`, `frozen`, …) with the invocation options.
 
 - `present=0`: skip this section entirely; the rules above are complete.
 - No state passed but a `RELEASING.md` exists at the repo root: do not guess
@@ -97,18 +95,19 @@ invocation options. The rules behind it live in the bundle's shared
   - Protect `trunk` and every `maintenance` branch (rule 7).
   - Classify every local or remote `release/*` branch that is not in
     `maintenance` and not otherwise protected as **Retired maintenance
-    branch** — never Stale, even when `RELEASING.md` mentions it. Flag the
-    ones in `frozen` "frozen by RELEASING.md". For each, write the archive
-    command (`git tag archive/<branch> <branch>`, plus a tag push for a remote
-    branch) before the deletion command, and note that deletion needs
-    explicit per-item confirmation.
+    branch** — never Stale or part of a bulk apply. This classification takes
+    precedence over activity rules 1–3, 5, 6, and 8; protected names and open-PR
+    bases still take precedence over retirement. A retired branch heading an open
+    PR stays retired; note the PR in the report. Flag the ones in `frozen`
+    "frozen by RELEASING.md". For each, write the archive command
+    (`git tag archive/<branch> <branch>`, plus a tag push for a remote branch)
+    before the deletion command, and note that deletion needs explicit per-item
+    confirmation.
   - Report branches whose name contains `sync` and merge commits newer than
     `stale-days`, not on the trunk, whose subject matches
     `^Merge (remote-tracking )?branch '?([A-Za-z0-9._-]+/)?(main|master|trunk|develop|<trunk>)'? into`
-    as **Anti-patterns (informational)**. They change no classification.
-
-Details, commands, and precedence: rules R7, R9 and R10 in the git-cleanup
-skill's `references/active-code-rules.md`.
+    as **Anti-patterns (informational)**. They change no classification, never
+    block deletion, and never produce a cleanup command.
 
 ## Approach
 
@@ -119,8 +118,9 @@ skill's `references/active-code-rules.md`.
 3. Capture repo context: default branch, remotes, host CLI availability,
    whether MCP GitHub tools are loaded, and the release state (see "Release
    model").
-4. For each in-scope domain, run the collection commands from the skill's
-   Phase 1 (machine-readable `--format` / porcelain / `--json` output).
+4. For each in-scope domain, run the read-only collection commands supplied in
+   the dispatch prompt (machine-readable `--format` / porcelain / `--json` output).
+   If they are missing, stop and return `ERROR: Missing input: collection commands`.
 5. For each candidate, evaluate the eight active-code rules. Record which
    rule(s) fired.
 6. Classify into Protected / Active / Stale / Ambiguous (plus Retired

@@ -261,9 +261,10 @@ For large repos where Phase 2's active-code scan is expensive, delegate to
 `git-cleanup` agent via the native `subagent` tool. The agent performs the read-only
 audit (Phases 1-3) and returns the structured report inline without writing
 files; this skill writes it to `.git-cleanup/report.md` (Phase 3) and
-orchestrates Phases 4-6. Pass the Phase 0 `release-state.sh get` output with the other
-options so the agent applies the same protected set and release-model rules
-(a malformed state has already stopped the run in Phase 0).
+orchestrates Phases 4-6. Pass the Phase 1 collection commands inline in the dispatch
+prompt, along with the invocation options and Phase 0 `release-state.sh get` output,
+so the agent can collect each in-scope domain and apply the same protected set and
+release-model rules (a malformed state has already stopped the run in Phase 0).
 
 ## Important Notes
 

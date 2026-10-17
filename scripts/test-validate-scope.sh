@@ -105,6 +105,7 @@ expect_targets "practices baseline selects practices" "practices" scripts/practi
 expect_targets "claude rules select practices" "practices" .claude/rules/scripts.md
 expect_targets "non-md claude rules file selects practices" "practices" .claude/rules/sub/notes.txt
 expect_targets "practices rules module selects practices" "practices" scripts/practices_rules.py
+expect_targets "standalone agent reference test selects practices" "practices" scripts/test_standalone_agent_references.py
 expect_targets "package parity validator selects packages" "packages" scripts/validate_packages.py
 expect_targets "package parity tests select packages" "packages" scripts/test_validate_packages.py
 expect_targets "live install docs select packages" "packages" docs/install/cursor.md

@@ -856,8 +856,10 @@ test_git_cleanup_wiring() {
       "git-cleanup: $(basename "$file") reads release-state.sh by full path"
   done
   # Codex agents reject CLAUDE_PLUGIN_ROOT, so the skill passes the state in.
-  assert_contains "$(cat "$GIT_CLEANUP_SKILL")" "release-state.sh get\` output with the other" \
+  assert_contains "$(cat "$GIT_CLEANUP_SKILL")" "Phase 0 \`release-state.sh get\` output" \
     "git-cleanup: skill passes the release state to the agent"
+  assert_contains "$(cat "$GIT_CLEANUP_SKILL")" "Pass the Phase 1 collection commands inline" \
+    "git-cleanup: skill passes the collection commands to the agent"
   assert_contains "$(cat "$GIT_CLEANUP_AGENT")" "passes its" \
     "git-cleanup: agent consumes the caller's release state"
   for file in "$GIT_CLEANUP_SKILL" "$GIT_CLEANUP_AGENT" "$GIT_CLEANUP_RULES"; do

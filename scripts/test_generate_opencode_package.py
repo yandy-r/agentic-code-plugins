@@ -216,8 +216,6 @@ class OpencodeNpmPackageTests(unittest.TestCase):
 
     def test_concrete_legacy_bundle_references_are_relocated(self) -> None:
         cases = (
-            ("agents/pr-comment-fixer.md", "{{package-root}}/skills/pr-autofix/references/prompt-injection-safety.md"),
-            ("agents/releaser.md", "{{package-root}}/skills/releaser/references/ci-optimization-checklist.md"),
             (
                 "shared/references/forge-detection.md",
                 "{{package-root}}/skills/git-cleanup/references/host-detection.md",
@@ -229,12 +227,6 @@ class OpencodeNpmPackageTests(unittest.TestCase):
         for rel, expected in cases:
             with self.subTest(rel=rel):
                 self.assertIn(expected, (self.root / rel).read_text(encoding="utf-8"))
-        for name in ("implementor", "planner"):
-            with self.subTest(agent=name):
-                self.assertNotIn(
-                    "worktree-strategy.md",
-                    (self.root / "agents" / f"{name}.md").read_text(encoding="utf-8"),
-                )
         legacy = re.compile(r"\.opencode-plugin/(?:skills|agents)/")
         preserved = generator.verbatim_outputs(__import__("generate_opencode_skills")) | {
             "skills/bundle-author/SKILL.md",

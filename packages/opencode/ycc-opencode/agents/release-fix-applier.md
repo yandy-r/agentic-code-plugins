@@ -121,7 +121,7 @@ PROJECT TYPE-CHECK COMMAND: pnpm typecheck   # may be omitted
 PROJECT BUILD COMMAND:      pnpm build       # may be omitted
 ```
 
-The category is the canonical classification from `_shared/scripts/lib/ci-classify.sh`. Treat it as the source of truth for _what kind_ of failure you are fixing.
+The category is the canonical classification supplied by the dispatcher's CI classifier. Treat it as the source of truth for _what kind_ of failure you are fixing.
 
 ## Workflow
 
