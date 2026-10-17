@@ -188,6 +188,7 @@ run_config_part() {
             python3 "${REPO_ROOT}/scripts/test_generate_codex_mcp.py" || fail "test_generate_codex_mcp.py"
             echo "== validate: codex marketplace helper =="
             python3 "${REPO_ROOT}/scripts/test_codex_marketplace.py" || fail "test_codex_marketplace.py"
+            python3 "${REPO_ROOT}/scripts/test_codex_install.py" || fail "test_codex_install.py"
             ;;
         install-sync)
             echo "== validate: install sync CLI =="

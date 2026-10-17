@@ -123,6 +123,39 @@ def snapshot_key(home: Path, snapshot: Path) -> str:
     return str(snapshot.relative_to(home))
 
 
+def validate_cache_path(relative: str) -> Path:
+    rel = Path(relative)
+    if rel.is_absolute() or ".." in rel.parts or len(rel.parts) < 5 or rel.parts[:3] != ("plugins", "cache", "ycc"):
+        raise ValueError(f"unsafe native cache ownership path: {relative}")
+    return rel
+
+
+def validate_recorded_snapshots(home: Path, state: dict[str, Any]) -> None:
+    """Reject local edits in any previously owned snapshot before mutating."""
+    for relative, expected in state["caches"].items():
+        cache = home / validate_cache_path(relative)
+        guarded(cache)
+        if cache.exists() and inventory(cache) != expected:
+            raise ValueError(f"native cache is edited or foreign; retained: {cache}")
+
+
+def write_verified_toml(destination: Path, text: str, expected_marketplace: dict[str, Any] | None = None) -> None:
+    """Parse and verify ``text`` with tomllib before touching ``destination``."""
+    guarded(destination)
+    try:
+        parsed = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as error:
+        raise ValueError(
+            f"cannot update {destination} (for example, 'marketplaces' is a closed inline table); "
+            f"convert it to a '[marketplaces.<name>]' section and retry ({error})"
+        ) from error
+    if expected_marketplace is not None:
+        marketplaces = parsed.get("marketplaces")
+        if not isinstance(marketplaces, dict) or marketplaces.get("ycc") != expected_marketplace:
+            raise ValueError(f"failed to register [marketplaces.ycc] in {destination}")
+    atomic_write(destination, text)
+
+
 def install(mode: str, use_cli: bool) -> None:
     if not repository_native_enabled(load_package_model().packages):
         raise ValueError("repository native Codex packages are not listed together")
@@ -137,14 +170,14 @@ def install(mode: str, use_cli: bool) -> None:
         if git_source
         else {"source_type": "local", "source": str(ROOT)}
     )
-    registered = config(destination).get("marketplaces", {}).get("ycc")
+    marketplaces = config(destination).get("marketplaces", {})
+    if not isinstance(marketplaces, dict):
+        raise ValueError(f"marketplaces in {destination} must be a table")
+    registered = marketplaces.get("ycc")
     if registered is not None and registered != expected:
         raise ValueError("marketplace ycc has a different source; retained (remove it or change source explicitly)")
-    # Record registration ownership before a CLI that can partially succeed
-    # runs; a registration the user already had is never claimed.
-    if registered is None:
-        state["marketplace"] = expected
-        save_state(state)
+
+    validate_recorded_snapshots(home, state)
 
     sources = {package: ROOT / ".codex-plugin" / package for package in MIGRATION_PACKAGES}
     versions: dict[str, str] = {}
@@ -160,16 +193,37 @@ def install(mode: str, use_cli: bool) -> None:
             if actual != inventory(source) and actual != state["caches"].get(snapshot_key(home, cache)):
                 raise ValueError(f"native cache is edited or foreign; retained: {cache}")
 
+    fallback_text: str | None = None
+    if not use_cli and registered is None:
+        current_text = destination.read_text(encoding="utf-8") if destination.exists() else ""
+        fallback_text = (
+            current_text + f'\n[marketplaces.ycc]\nsource_type = "local"\nsource = {json.dumps(str(ROOT))}\n'
+        )
+        # Verify the resulting TOML before saving ownership state or mutating disk.
+        try:
+            parsed = tomllib.loads(fallback_text)
+        except tomllib.TOMLDecodeError as error:
+            raise ValueError(
+                f"cannot append [marketplaces.ycc] to {destination} (for example, 'marketplaces' is a closed "
+                f"inline table); convert it to '[marketplaces.<name>]' and retry ({error})"
+            ) from error
+        if parsed.get("marketplaces", {}).get("ycc") != expected:
+            raise ValueError(f"failed to register [marketplaces.ycc] in {destination}")
+
+    # Record registration ownership before a CLI that can partially succeed
+    # runs; a registration the user already had is never claimed.
+    if registered is None:
+        state["marketplace"] = expected
+        save_state(state)
+
     if use_cli:
         target = REPOSITORY if git_source else str(ROOT)
         cli("plugin", "marketplace", "add", target, *(["--ref", "main"] if git_source else []))
     else:
         if mode == "repo":
             print("[!!] Codex plugin CLI unavailable; using this checkout's native snapshot instead of fetching main.")
-        if registered is None:
-            text = destination.read_text(encoding="utf-8") if destination.exists() else ""
-            text += f'\n[marketplaces.ycc]\nsource_type = "local"\nsource = {json.dumps(str(ROOT))}\n'
-            atomic_write(destination, text)
+        if fallback_text is not None:
+            write_verified_toml(destination, fallback_text, expected)
 
     for package, source in sources.items():
         package_root = home / "plugins/cache/ycc" / package
@@ -179,12 +233,15 @@ def install(mode: str, use_cli: bool) -> None:
         before = set(package_root.iterdir()) if package_root.is_dir() else set()
         if use_cli:
             cli("plugin", "add", f"{package}@ycc")
-            # Record the CLI's actual bytes: --mode repo may fetch another version.
+            # Record only newly created snapshots or the active version's replacement;
+            # older recorded versions keep their original fingerprints.
             if package_root.is_dir():
                 for snapshot in package_root.iterdir():
-                    ours = snapshot not in before or snapshot_key(home, snapshot) in state["caches"]
-                    if snapshot.is_dir() and ours:
-                        state["caches"][snapshot_key(home, snapshot)] = inventory(snapshot)
+                    if not snapshot.is_dir():
+                        continue
+                    snap_key = snapshot_key(home, snapshot)
+                    if snapshot not in before or (snapshot == cache and snap_key in state["caches"]):
+                        state["caches"][snap_key] = inventory(snapshot)
         else:
             if not cache.exists() or inventory(cache) != inventory(source):
                 if cache.exists():
@@ -214,9 +271,7 @@ def remove(use_cli: bool) -> None:
     kept: dict[str, Any] = {}
     kept_packages: set[str] = set()
     for relative, expected in state["caches"].items():
-        rel = Path(relative)
-        if rel.is_absolute() or ".." in rel.parts or len(rel.parts) < 5 or rel.parts[:3] != ("plugins", "cache", "ycc"):
-            raise ValueError(f"unsafe native cache ownership path: {relative}")
+        rel = validate_cache_path(relative)
         cache = home / rel
         if not cache.exists() and not cache.is_symlink():
             continue
@@ -260,7 +315,7 @@ def remove(use_cli: bool) -> None:
         if registered == owned_marketplace and destination.exists():
             updated = delete_toml_entries(destination.read_text(encoding="utf-8"), [["marketplaces", "ycc"]])
             if updated.strip():
-                atomic_write(destination, updated)
+                write_verified_toml(destination, updated)
             else:
                 destination.unlink()
         state.pop("marketplace", None)

@@ -378,6 +378,32 @@ assert_contains "$(cat "${home}/.codex/plugins/cache/ycc/ycc/${listed_version}/s
 assert_contains "$(cat "${home}/.codex/plugins/cache/ycc/ycc-mcp/foreign-version/sentinel")" foreign "listed remove preserves unknown native version"
 assert_contains "$(cat "${home}/.codex/config.toml")" '[marketplaces.ycc]' "listed remove keeps registration needed by retained native snapshots"
 
+# A closed inline marketplaces table is valid TOML; the no-CLI fallback must
+# refuse rather than append text that breaks the whole config file.
+STUB_BIN="${listed_fallback_bin}"
+home="$(new_home)"
+mkdir -p "${home}/.codex"
+printf 'marketplaces = { foreign = { source_type = "local", source = "/foreign" } }\n' > "${home}/.codex/config.toml"
+inline_before="$(cat "${home}/.codex/config.toml")"
+out="$(run_install "${home}" install --target codex --only base --skills-home native)"
+if [[ "${out}" == *"closed inline table"* ]]; then ok "listed fallback refuses inline marketplaces table"; else ko "listed fallback refuses inline marketplaces table" "${out}"; fi
+[[ "$(cat "${home}/.codex/config.toml")" == "${inline_before}" ]] && ok "listed fallback leaves inline config unchanged" || ko "listed fallback leaves inline config unchanged"
+if ! [[ -e "${home}/.config/ycc/codex-native-install.json" ]]; then ok "listed fallback claims no ownership on refusal"; else ko "listed fallback claims no ownership on refusal"; fi
+
+# Native settings removal must forward --force to remove an edited managed leaf.
+home="$(new_home)"
+install_must_succeed "${home}" sync --target codex --intent settings
+python3 - "${home}/.codex/config.toml" <<'PY'
+import sys
+from pathlib import Path
+path = Path(sys.argv[1])
+text = path.read_text()
+text = "\n".join('model = "user-edited"' if line.startswith("model =") else line for line in text.splitlines()) + "\n"
+path.write_text(text)
+PY
+install_must_succeed "${home}" remove --target codex --intent settings --force
+assert_not_contains "$(cat "${home}/.codex/config.toml" 2>/dev/null)" 'user-edited' "listed settings removal forwards --force for edited leaf"
+
 INSTALL="${listed_install_saved}"
 STUB_BIN="${listed_stub_saved}"
 unset CODEX_LISTED_FIXTURE

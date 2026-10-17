@@ -492,7 +492,12 @@ remove_codex_target() {
     if step_enabled settings; then
         printf '\n%sCodex: remove managed config (config.toml)%s\n' "${BOLD}" "${NC}"
         if codex_repository_native_enabled; then
-            python3 "${SCRIPT_DIR}/scripts/codex_install.py" settings --groups "$(config_groups_for_target codex)" --remove
+            local -a native_settings=(
+                python3 "${SCRIPT_DIR}/scripts/codex_install.py"
+                settings --groups "$(config_groups_for_target codex)" --remove
+            )
+            [[ "${FORCE:-0}" == 1 ]] && native_settings+=(--force)
+            "${native_settings[@]}"
         else
             remove_settings "codex-config" "${SCRIPT_DIR}/.codex-plugin/config/config.toml" \
                 "${codex_dir}/config.toml" "$(config_groups_for_target codex)"
