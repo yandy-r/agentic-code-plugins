@@ -83,6 +83,32 @@ class NativeInstallSafetyTests(unittest.TestCase):
             self.assertEqual(current[key], fingerprint)
         self.assertEqual(len(current), 4)
 
+    def test_cli_version_differing_from_checkout_refreshes_and_removes_cleanly(self) -> None:
+        """`--mode repo` can fetch another version than the checkout; repeated installs must track it."""
+
+        def fetching_cli(*args: str, **kwargs: object) -> None:
+            if args[:2] != ("plugin", "add"):
+                return
+            package = args[2].split("@")[0]
+            cache = self.home / ".codex/plugins/cache/ycc" / package / "1.0.1"
+            if cache.exists():
+                shutil.rmtree(cache)
+            cache.mkdir(parents=True)
+            (cache / "payload").write_text(self.fetched)
+
+        with patch.object(installer, "cli", side_effect=fetching_cli):
+            for self.fetched in ("first", "second", "third"):
+                installer.install("repo", True)
+            for package in installer.MIGRATION_PACKAGES:
+                key = f"plugins/cache/ycc/{package}/1.0.1"
+                self.assertEqual(
+                    installer.load_state()["caches"][key],
+                    installer.inventory(self.home / ".codex" / key),
+                )
+            installer.remove(True)
+        self.assertFalse((self.home / ".codex/plugins/cache/ycc").exists())
+        self.assertFalse(installer.state_path().exists())
+
     def test_fallback_refuses_closed_inline_marketplaces_without_mutation(self) -> None:
         config = self.home / ".codex/config.toml"
         config.parent.mkdir()

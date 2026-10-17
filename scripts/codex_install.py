@@ -240,7 +240,7 @@ def install(mode: str, use_cli: bool) -> None:
                     if not snapshot.is_dir():
                         continue
                     snap_key = snapshot_key(home, snapshot)
-                    if snapshot not in before or (snapshot == cache and snap_key in state["caches"]):
+                    if snapshot not in before or snap_key in state["caches"]:
                         state["caches"][snap_key] = inventory(snapshot)
         else:
             if not cache.exists() or inventory(cache) != inventory(source):
