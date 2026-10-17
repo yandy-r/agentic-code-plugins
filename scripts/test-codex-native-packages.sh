@@ -179,8 +179,8 @@ matrix_case() {
   local name=$1 first=$2 second=$3; shift 3
   case_home=$root/$name
   run "$name-register" "$codex" plugin marketplace add "$url" --ref "$commit" "$@" --json
+  run "$name-checkout" "$python" "$checks" checkout "$root/logs/$name-register.stdout" "$commit" "$name"
   if ((public)); then
-    run "$name-checkout" "$python" "$checks" checkout "$root/logs/$name-register.stdout" "$commit" "$name"
     run "$name-staging" "$python" "$checks" staging "$root/logs/$name-register.stdout" "$name" "$source_root"
   else
     run "$name-staging" "$python" "$checks" staging "$root/logs/$name-register.stdout" "$name"
