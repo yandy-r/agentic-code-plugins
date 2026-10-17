@@ -34,7 +34,7 @@ agents, commands) are rewritten by the kind of file that holds the reference:
   resolved against the rendered tree at setup.
 
 References to runtime state that is not a package asset (session-data/,
-sessions/, file-templates/, settings/, ...) keep their user-global paths, and
+sessions/, settings/, ...) keep their user-global paths, and
 files in VERBATIM_SKILL_FILES stay byte-identical because they describe every
 deployment target literally.
 

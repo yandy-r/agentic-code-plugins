@@ -21,11 +21,11 @@ You are handling the git commit and documentation for: [FEATURE SCOPE]
 
 ## Standard: Documentation Templates
 
-Read these templates BEFORE creating documentation:
-- Feature docs: ~/.config/opencode/file-templates/feature-doc.template.md
-- AGENTS.md: ~/.config/opencode/file-templates/agents.template.md
-- Architecture docs: ~/.config/opencode/file-templates/arch.template.md
-- API docs: ~/.config/opencode/file-templates/api.template.md
+Use the built-in structure for each doc type from the docs-git-committer agent (or a project template if one exists):
+- Feature docs: built-in feature doc structure
+- AGENTS.md: built-in AGENTS.md structure
+- Architecture docs: built-in architecture structure
+- API docs: built-in API structure
 
 ## Standard: Your Tasks
 
@@ -56,7 +56,7 @@ If validation fails, revise the message and re-validate until it passes.
 - GitHub operations (PRs, issues) are NOT your responsibility — the main skill handles those
 - Do NOT push (main skill handles that)
 - Focus ONLY on your assigned scope
-- Read templates BEFORE creating documentation
+- Resolve the documentation structure BEFORE creating documentation (dispatch template, project template if present, then built-in structure)
 
 ## Documentation Decision Guidance
 
@@ -108,7 +108,7 @@ Key changes:
 
 Read BEFORE documenting:
 
-- Feature docs: ~/.config/opencode/file-templates/feature-doc.template.md
+- Feature docs: use the built-in feature doc structure from the docs-git-committer agent (or a project template if one exists)
 
 ## New Feature: Your Tasks
 
@@ -126,7 +126,7 @@ Read BEFORE documenting:
 
 - This is a new feature, so feature docs ARE NEEDED
 - Keep docs concise and user-focused
-- Use the feature-doc.template.md format
+- Use the built-in feature doc structure from the docs-git-committer agent (or a project template if one exists)
 - Commit message should use "feat" type
 
 ```
@@ -183,8 +183,8 @@ This changes the following APIs:
 
 Read BEFORE documenting:
 
-- API docs: ~/.config/opencode/file-templates/api.template.md
-- Feature docs: ~/.config/opencode/file-templates/feature-doc.template.md (if needed)
+- API docs: use the built-in API structure from the docs-git-committer agent (or a project template if one exists)
+- Feature docs: use the built-in feature doc structure (if needed)
 
 ## API Changes: Your Tasks
 
@@ -260,8 +260,8 @@ This is a CRITICAL security pattern that must be followed consistently.
 
 Read BEFORE documenting:
 
-- AGENTS.md: ~/.config/opencode/file-templates/agents.template.md
-- Architecture docs: ~/.config/opencode/file-templates/arch.template.md
+- AGENTS.md: use the built-in AGENTS.md structure from the docs-git-committer agent (or a project template if one exists)
+- Architecture docs: use the built-in architecture structure from the docs-git-committer agent (or a project template if one exists)
 
 ## Security Pattern: Your Tasks
 
