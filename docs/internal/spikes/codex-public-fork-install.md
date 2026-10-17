@@ -114,3 +114,18 @@ PASS helper output present=0; user repository remains clean; no legacy symlink
 - Payload bytes are version `5.3.0`, not the final `v6.0.0` payload.
 - Production listing/routing flip remains YAN-1140; existing `local-ycc-plugins` migration/dedupe remains YAN-1139. Both gates stay closed; catalogs stay hidden.
 - The public fixture is retained for replay until a cleanup decision; sandbox and transcript paths under `/tmp` are ephemeral per-run values, not stable identifiers.
+
+## 2026-10-17 Follow-up: Staged Checkout Proof (YAN-1200 / #337)
+
+The results and sanitized public-install excerpts above remain historical evidence from **2026-10-16**, not a claim that the current public replay passes. The checkout checker now verifies Codex's staged checkout HEAD against the pinned fixture SHA and its exact sparse selection in both the default local-fixture and public profiles: full must have no sparse selection; sparse must select exactly `.agents/plugins`, `.codex-plugin/ycc`, and `.codex-plugin/ycc-mcp`.
+
+- Default harness runs with `--keep` passed on `codex-cli 0.161.0` and official `codex-cli 0.160.0`, using pinned local fixture `dc4cc59449ff6bc77a0da6342009051b5217256d`. Retained transcripts are `/tmp/codex-native-packages.FJ51SQ/transcript.log` and `/tmp/codex-native-packages.xPZx4a/transcript.log`, respectively. Both record `PASS full checkout` with HEAD equal to the pin and `sparse selection=none`, and `PASS sparse checkout` with HEAD equal to the pin and `sparse selection=['.agents/plugins', '.codex-plugin/ycc', '.codex-plugin/ycc-mcp']`. Independent payload installs, cache bytes/executable bits, cache-relative helper, MCP metadata, and catalog-only rejection checks passed.
+- A current public replay on official `0.160.0` successfully fetched the documented immutable `a0df68c5862180947bd4fb207861f1a87d718a24` SHA, then exited 1 at fixture proof: its payload bytes/executable bits no longer match the current native export, including changed MCP configuration. Transcript: `/tmp/codex-native-packages.GDfRzT/transcript.log`. It did not reach current public staged-checkout/install proof. This is a stale immutable-fixture limitation, not a successful current public replay or evidence of a transport failure.
+- No fixture-proof bypass or refresh of the separate public fixture repository was made. No production catalogs or installer routing changed; the closed gates above remain closed. All retained `/tmp` paths are ephemeral.
+
+Default local-fixture replay and checkout-checker unit tests (commands for replay; the evidence above is from the retained harness runs):
+
+```bash
+./scripts/test-codex-native-packages.sh --keep
+python3 -m unittest discover -s scripts -p 'test_codex_native_smoke.py'
+```
