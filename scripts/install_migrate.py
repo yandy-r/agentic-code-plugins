@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from codex_marketplace import build_entry, validate_marketplace_catalog
-from generate_codex_plugin import native_packages, native_version
+from generate_codex_plugin import build_repository_marketplace, native_packages, native_version
 from install_slices import (
     SPECS,
     namespace_pattern,
@@ -379,8 +379,7 @@ class Migration:
             return
         if not self.apply:
             print(
-                f"Codex: would add marketplace {source}, install ycc@ycc and ycc-mcp@ycc, "
-                "and verify installed/enabled"
+                f"Codex: would add marketplace {source}, install ycc@ycc and ycc-mcp@ycc, and verify installed/enabled"
             )
             print(
                 "Codex: would retire only proven legacy config, links and cache after successful verification; "
@@ -499,7 +498,14 @@ class Migration:
         return path, catalog, kept, retained
 
 
-def codex_eligible(source: Path) -> None:
+def codex_eligible(source: Path, *, external: bool = False) -> None:
+    """Gate one marketplace source, defaulting to the repository listing state.
+
+    The repository itself is only eligible once the modeled catalog flips to the
+    native distribution (every migration PACKAGES row listed). An explicit
+    --marketplace-source export is opt-in and stays eligible while each listed
+    entry's payload is present, as before.
+    """
     catalog_path = source / ".agents/plugins/marketplace.json"
     if not source.is_dir() or source.is_symlink():
         raise ValueError(f"untrusted marketplace source: {source}")
@@ -509,11 +515,17 @@ def codex_eligible(source: Path) -> None:
         raise ValueError("native catalog not listed (YAN-1140)")
     entries = {item["name"]: item for item in catalog["plugins"]}
     model = load_package_model()
-    check_catalog(source, native_packages(model.packages))
+    shipped = native_packages(model.packages)
     for name in PACKAGES:
         runtime = model.lookup(name, "codex")
         if runtime is None or runtime.status != "included" or runtime.mechanism != "native" or runtime.opt_in:
             raise ValueError(f"ineligible native Codex package: {name}")
+        if not external and not runtime.listed:
+            raise ValueError(f"unlisted native Codex package: {name}")
+    check_catalog(source, shipped, include_unlisted=external)
+    if not external and catalog != build_repository_marketplace(shipped):
+        raise ValueError("repository catalog has not flipped to the native listing (YAN-1210)")
+    for name in PACKAGES:
         if entries.get(name, {}).get("source") != {"source": "local", "path": f"./.codex-plugin/{name}"}:
             raise ValueError(f"missing native source for {name}")
         package_root = source / ".codex-plugin" / name
@@ -542,7 +554,10 @@ def main() -> int:
         # Preflight the whole selection before applying any target.
         if "codex" in targets:
             try:
-                codex_eligible(args.marketplace_source)
+                codex_eligible(
+                    args.marketplace_source,
+                    external=args.marketplace_source.resolve() != ROOT.resolve(),
+                )
             except (OSError, ValueError) as error:
                 eligible = False
                 print(f"[!!] Codex native gate: {error}")

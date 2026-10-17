@@ -18,7 +18,7 @@ from unittest.mock import patch
 import generate_codex_plugin as generator
 from generate_codex_common import SOURCE_MCP_PATH
 from generate_codex_mcp import CODEX_MCP_PATH, build_codex_mcp_config
-from package_model import load_package_model
+from package_model import PackageModel, load_package_model
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = REPO_ROOT / "scripts/generate_codex_plugin.py"
@@ -80,19 +80,20 @@ class NativeExportTests(unittest.TestCase):
         self.assertEqual(catalog["name"], "ycc")
         self.assertEqual([entry["name"] for entry in catalog["plugins"]], ["ycc", "ycc-mcp"])
         for entry in catalog["plugins"]:
-            self.assertEqual(entry["source"], {"source": "local", "path": f'./.codex-plugin/{entry["name"]}'})
+            self.assertEqual(entry["source"], {"source": "local", "path": f"./.codex-plugin/{entry['name']}"})
             self.assertEqual(entry["policy"], {"installation": "AVAILABLE", "authentication": "ON_INSTALL"})
             self.assertEqual(entry["category"], "Productivity")
             self.assertNotIn("listed", entry)
         legacy = self.tmp / "legacy"
-        legacy_inventory = generator.write_all(legacy, dry_run=False)
+        with patch.object(generator, "load_package_model", return_value=self.model_with_listed()):
+            legacy_inventory = generator.write_all(legacy, dry_run=False)
         self.assertEqual(len(legacy_inventory), 6)
         for rel in (MCP_ROOT / ".codex-plugin/plugin.json", MCP_ROOT / ".mcp.json"):
             self.assertEqual((legacy / rel).read_bytes(), (self.dest / rel).read_bytes())
         self.assertEqual(self.json_at(legacy, CATALOG), generator.build_repo_marketplace())
 
     def test_catalog_filtering_and_unsupported_native_components(self) -> None:
-        model = load_package_model()
+        model = self.model_with_listed()
         self.assertEqual(generator.build_native_marketplace(model.packages)["plugins"], [])
         self.assertEqual(len(generator.build_native_marketplace(model.packages, include_unlisted=True)["plugins"]), 2)
         hooks = next(package for package in model.packages if package.key == "ycc-hooks")
@@ -294,7 +295,7 @@ class NativeExportTests(unittest.TestCase):
         self.assertEqual(self.snapshot(target), {Path("keep"): b"untouched\n"})
 
     def test_removed_mcp_selection_is_pruned_in_native_and_default_profiles(self) -> None:
-        model = load_package_model()
+        model = self.model_with_listed()
         packages = tuple(
             (
                 replace(
@@ -312,7 +313,8 @@ class NativeExportTests(unittest.TestCase):
         excluded_model = replace(model, packages=packages)
         generator.generate_native_tree(self.dest)
         legacy = self.tmp / "legacy"
-        generator.write_all(legacy, dry_run=False)
+        with patch.object(generator, "load_package_model", return_value=model):
+            generator.write_all(legacy, dry_run=False)
         keep = legacy / SKILLS_ROOT / "skills/keep"
         keep.parent.mkdir(parents=True)
         keep.write_bytes(b"legacy skills\n")
@@ -406,16 +408,95 @@ class NativeExportTests(unittest.TestCase):
         def serialized(payload: dict) -> bytes:
             return (json.dumps(payload, indent=2) + "\n").encode("utf-8")
 
+        model = load_package_model()
+        catalog = generator.build_repository_marketplace(model.packages)
+        skills = next(package for package in model.packages if package.key == "ycc")
+        manifest = (
+            generator.build_native_manifest(skills, generator.native_version(model))
+            if catalog["name"] == "ycc"
+            else generator.build_plugin_manifest()
+        )
         self.assertEqual(
-            serialized(generator.build_plugin_manifest()),
+            serialized(manifest),
             (REPO_ROOT / SKILLS_ROOT / ".codex-plugin/plugin.json").read_bytes(),
         )
-        self.assertEqual(serialized(generator.build_repo_marketplace()), (REPO_ROOT / CATALOG).read_bytes())
-        generator.write_all(self.dest, dry_run=False)
-        legacy_files = (SKILLS_ROOT / ".codex-plugin/plugin.json", SKILLS_ROOT / ".mcp.json", CATALOG)
-        for rel in legacy_files + (CODEX_MCP_PATH.relative_to(REPO_ROOT),):
+        self.assertEqual(serialized(catalog), (REPO_ROOT / CATALOG).read_bytes())
+        inventory = generator.write_all(self.dest, dry_run=False)
+        for rel in inventory:
             self.assertEqual((self.dest / rel).read_bytes(), (REPO_ROOT / rel).read_bytes())
-        self.assertEqual((self.dest / SKILLS_ROOT / ".mcp.json").read_bytes(), SOURCE_MCP_PATH.read_bytes())
+
+        legacy = self.tmp / "legacy"
+        with patch.object(generator, "load_package_model", return_value=self.model_with_listed()):
+            generator.write_all(legacy, dry_run=False)
+        self.assertEqual(
+            (legacy / SKILLS_ROOT / ".codex-plugin/plugin.json").read_bytes(),
+            serialized(generator.build_plugin_manifest()),
+        )
+        self.assertEqual((legacy / CATALOG).read_bytes(), serialized(generator.build_repo_marketplace()))
+        self.assertEqual((legacy / SKILLS_ROOT / ".mcp.json").read_bytes(), SOURCE_MCP_PATH.read_bytes())
+        self.assertEqual((legacy / CODEX_MCP_PATH.relative_to(REPO_ROOT)).read_bytes(), CODEX_MCP_PATH.read_bytes())
+
+    @staticmethod
+    def model_with_listed(*names: str) -> PackageModel:
+        model = load_package_model()
+        listed = set(names)
+        packages = tuple(
+            replace(
+                package,
+                runtimes=tuple(
+                    replace(entry, listed=package.key in listed) if entry.runtime == "codex" else entry
+                    for entry in package.runtimes
+                ),
+            )
+            for package in model.packages
+        )
+        return replace(model, packages=packages)
+
+    def test_repository_catalog_flips_on_any_listed_native_package(self) -> None:
+        unlisted = self.model_with_listed()
+        self.assertEqual(
+            generator.build_repository_marketplace(unlisted.packages),
+            generator.build_repo_marketplace(),
+        )
+        for listed in (("ycc",), ("ycc-mcp",), ("ycc", "ycc-mcp")):
+            with self.subTest(listed=listed):
+                model = self.model_with_listed(*listed)
+                catalog = generator.build_repository_marketplace(model.packages)
+                self.assertEqual(catalog["name"], "ycc")
+                self.assertEqual([entry["name"] for entry in catalog["plugins"]], list(listed))
+                for entry in catalog["plugins"]:
+                    self.assertEqual(entry["source"], {"source": "local", "path": f"./.codex-plugin/{entry['name']}"})
+
+    def test_listed_repository_writes_native_payloads_and_roundtrips_to_legacy(self) -> None:
+        repo = self.tmp / "repo"
+        unlisted = self.model_with_listed()
+        with patch.object(generator, "load_package_model", return_value=unlisted):
+            generator.write_all(repo, dry_run=False)
+            generator.write_tree(repo / SKILLS_ROOT, False, native_paths=False)
+            unlisted_snapshot = self.snapshot(repo)
+            self.assertEqual(generator.run_check(repo), 0)
+
+        partial = self.model_with_listed("ycc")
+        with patch.object(generator, "load_package_model", return_value=partial):
+            with contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(generator.run_check(repo), 1)
+            generator.write_all(repo, dry_run=False)
+            self.assertEqual(generator.run_check(repo), 0)
+            catalog = self.json_at(repo, CATALOG)
+            self.assertEqual([entry["name"] for entry in catalog["plugins"]], ["ycc"])
+            skills = self.json_at(repo, SKILLS_ROOT / ".codex-plugin/plugin.json")
+            self.assertNotIn("mcpServers", skills)
+            self.assertFalse((repo / SKILLS_ROOT / ".mcp.json").exists())
+            self.assertTrue((repo / MCP_ROOT / ".mcp.json").is_file())
+            self.assertNotIn(
+                "~/.codex/plugins/ycc",
+                (repo / SKILLS_ROOT / "skills/git-workflow/SKILL.md").read_text(encoding="utf-8"),
+            )
+
+        with patch.object(generator, "load_package_model", return_value=unlisted):
+            generator.write_all(repo, dry_run=False)
+            self.assertEqual(generator.run_check(repo), 0)
+        self.assertEqual(self.snapshot(repo), unlisted_snapshot)
 
 
 if __name__ == "__main__":

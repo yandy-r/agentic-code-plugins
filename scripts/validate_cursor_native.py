@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate generated Cursor-native packages against the vendored schema and local-resource rules."""
+"""Validate Cursor-native payloads and the listed catalog against vendored schemas."""
 
 from __future__ import annotations
 
@@ -11,11 +11,13 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from generate_cursor_packages import (
+    MARKETPLACE_PATH,
     MIN_CURSOR_VERSION,
     OUTPUT_ROOT,
     REPO_ROOT,
     SCHEMA_DIR,
     SUPPORTED_HOOK_EVENTS,
+    build_marketplace,
     cursor_runtime,
     native_packages,
 )
@@ -25,8 +27,6 @@ from package_model import PackageModel, load_package_model
 ROOT_REF = re.compile(r"\$\{CURSOR_PLUGIN_ROOT\}/([^\s\"'`)>\]\\]+)")
 HOME_REF = re.compile(r"(?:~|\$\{?HOME\}?)/\.cursor/([A-Za-z0-9_./-]+)")
 INSTALLER_ONLY_HOME = ("agents/", "skills/", "mcp-library", "plugins/")
-
-MARKETPLACE_PATH = Path(".cursor-plugin/marketplace.json")
 
 
 class ValidationInputError(ValueError):
@@ -134,12 +134,11 @@ def _plugin_errors(
 def cursor_native_errors(root: Path, model: PackageModel) -> list[str]:
     """Validate the generated Cursor-native packages rooted at ``root``.
 
-    The root marketplace stays absent until the listing flip: the
-    must-not-exist gate always fires on its presence, and whenever the file
-    is nevertheless present it must additionally satisfy the vendored
-    marketplace schema. Package manifests, hooks, MCP wiring, and resource
-    references are checked for every included native package in ``model``.
-    Malformed or unreadable inputs become diagnostics, never tracebacks.
+    A root marketplace exists exactly when included native packages are listed,
+    matches that selection and its package-root sources exactly, and satisfies
+    the vendored schema. Package manifests, hooks, MCP wiring, and resource
+    references are checked for every included native package in ``model``,
+    independently of listing. Malformed inputs become diagnostics, not tracebacks.
     """
     errors: list[str] = []
     validator = plugin_schema_validator()
@@ -152,9 +151,14 @@ def cursor_native_errors(root: Path, model: PackageModel) -> list[str]:
         version = raw_version
     except ValidationInputError as exc:
         errors.append(str(exc))
+    expected_marketplace = build_marketplace(model.packages)
     marketplace = root / MARKETPLACE_PATH
-    if marketplace.exists():
-        errors.append(".cursor-plugin/marketplace.json must not exist before the listing flip")
+    marketplace_present = marketplace.exists() or marketplace.is_symlink()
+    if expected_marketplace is None and marketplace_present:
+        errors.append(".cursor-plugin/marketplace.json must not exist when no Cursor packages are listed")
+    if marketplace.is_symlink() or marketplace.parent.is_symlink():
+        errors.append(f"{MARKETPLACE_PATH}: managed-path symlink is not allowed")
+    elif marketplace_present or expected_marketplace is not None:
         try:
             data = load(marketplace)
         except ValidationInputError as exc:
@@ -163,6 +167,8 @@ def cursor_native_errors(root: Path, model: PackageModel) -> list[str]:
             errors.extend(
                 f"{marketplace}: {error.message}" for error in marketplace_schema_validator().iter_errors(data)
             )
+            if expected_marketplace is not None and data != expected_marketplace:
+                errors.append(f"{MARKETPLACE_PATH}: catalog must match exactly the listed Cursor packages and sources")
     for package in native_packages(model.packages):
         runtime = cursor_runtime(package)
         assert runtime is not None

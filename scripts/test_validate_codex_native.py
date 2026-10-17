@@ -7,14 +7,16 @@ import copy
 import json
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
 import codex_marketplace as marketplace
 import generate_codex_plugin as generator
+import install_migrate as migrate
 import validate_codex_native as validator
-from package_model import load_package_model
+from package_model import PackageModel, load_package_model
 
 
 class CodexMarketplaceSchemaTests(unittest.TestCase):
@@ -175,8 +177,11 @@ class CodexMarketplaceSchemaTests(unittest.TestCase):
         legacy = generator.build_repo_marketplace()
         self.assertEqual(legacy["plugins"][0]["source"], {"source": "local", "path": "./plugins/ycc"})
         native = generator.build_native_marketplace(model.packages, include_unlisted=True)
-        self.assertEqual(generator.build_native_marketplace(model.packages)["plugins"], [])
-        for catalog in (legacy, native):
+        repository = generator.build_repository_marketplace(model.packages)
+        unlisted = self.model_with_listed()
+        self.assertEqual(generator.build_native_marketplace(unlisted.packages)["plugins"], [])
+        self.assertEqual(generator.build_repository_marketplace(unlisted.packages), legacy)
+        for catalog in (legacy, native, repository):
             before = copy.deepcopy(catalog)
             validator.check_catalog_structure(catalog, self.path)
             self.assertEqual(catalog, before)
@@ -225,6 +230,58 @@ class CodexMarketplaceSchemaTests(unittest.TestCase):
             self.write_catalog(catalog)
             with self.assertRaisesRegex(ValueError, "legacy discovered catalog changed"):
                 validator.validate(self.root, native=False)
+
+    @staticmethod
+    def model_with_listed(*names: str) -> PackageModel:
+        model = load_package_model()
+        listed = set(names)
+        packages = tuple(
+            replace(
+                package,
+                runtimes=tuple(
+                    replace(entry, listed=package.key in listed) if entry.runtime == "codex" else entry
+                    for entry in package.runtimes
+                ),
+            )
+            for package in model.packages
+        )
+        return replace(model, packages=packages)
+
+    def test_repository_validator_and_migration_gate_follow_listing_state(self) -> None:
+        for listed in (("ycc",), ("ycc-mcp",), ("ycc", "ycc-mcp")):
+            with self.subTest(listed=listed), tempfile.TemporaryDirectory() as tmp:
+                repo, export = Path(tmp) / "repo", Path(tmp) / "export"
+                model = self.model_with_listed(*listed)
+                with (
+                    patch.object(generator, "load_package_model", return_value=model),
+                    patch.object(validator, "load_package_model", return_value=model),
+                    patch.object(migrate, "load_package_model", return_value=model),
+                ):
+                    generator.write_all(repo, dry_run=False)
+                    self.assertEqual(generator.run_check(repo), 0)
+                    validator.validate(repo, native=False)
+                    if set(listed) == set(migrate.PACKAGES):
+                        migrate.codex_eligible(repo)
+                    else:
+                        # Partial listing is schema-valid but never authorizes migration.
+                        with self.assertRaisesRegex(ValueError, "unlisted native Codex package"):
+                            migrate.codex_eligible(repo)
+                    # An explicit external export includes unlisted packages and stays eligible.
+                    generator.generate_native_tree(export)
+                    validator.validate(export, native=True)
+                    migrate.codex_eligible(export, external=True)
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            unlisted = self.model_with_listed()
+            with (
+                patch.object(generator, "load_package_model", return_value=unlisted),
+                patch.object(validator, "load_package_model", return_value=unlisted),
+                patch.object(migrate, "load_package_model", return_value=unlisted),
+            ):
+                generator.write_all(repo, dry_run=False)
+                validator.validate(repo, native=False)
+                with self.assertRaisesRegex(ValueError, "native catalog not listed"):
+                    migrate.codex_eligible(repo)
 
 
 if __name__ == "__main__":

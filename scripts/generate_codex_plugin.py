@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
-"""
-Generate Codex-native plugin metadata and marketplace files.
+"""Generate Codex plugin metadata and listing-driven repository catalogs.
+
+With no listed included/native Codex row, preserve the combined legacy ycc and
+local-ycc-plugins catalog. Any listed row switches all included native payloads
+to their modeled components and catalogs exactly the listed packages. Explicit
+--native-output exports remain opt-in and include unlisted packages.
 """
 
 from __future__ import annotations
@@ -21,7 +25,6 @@ from generate_codex_common import (
     PLUGIN_MANIFEST_PATH,
     PLUGIN_MCP_PATH,
     PLUGIN_ROOT,
-    REPO_MARKETPLACE_PATH,
     SOURCE_MCP_PATH,
     SOURCE_PLUGIN_PATH,
 )
@@ -147,6 +150,12 @@ def build_native_marketplace(packages: Iterable[Package], *, include_unlisted: b
     catalog = {"name": "ycc", "interface": {"displayName": "YCC"}, "plugins": entries}
     validate_marketplace_catalog(catalog)
     return catalog
+
+
+def build_repository_marketplace(packages: Iterable[Package]) -> dict:
+    """Return the legacy catalog until any eligible native package is listed."""
+    catalog = build_native_marketplace(packages)
+    return catalog if catalog["plugins"] else build_repo_marketplace()
 
 
 def native_version(model: PackageModel) -> str:
@@ -306,44 +315,66 @@ def write_json(path: Path, payload: dict) -> None:
 
 
 def write_all(dest_root: Path, dry_run: bool) -> set[Path]:
-    files: set[Path] = set()
+    """Write legacy metadata or complete model-shaped native payloads after listing."""
     model = load_package_model()
     packages = native_packages(model.packages)
-    roots = tuple(root for root in native_package_roots(model.packages) if root != Path(".codex-plugin/ycc"))
-    dormant = native_metadata(
+    catalog = build_repository_marketplace(packages)
+    listed = catalog["name"] == "ycc"
+    roots = native_package_roots(model.packages)
+    if not listed:
+        roots = tuple(root for root in roots if root != Path(".codex-plugin/ycc"))
+    metadata = native_metadata(
         model,
         (
-            package
-            for package in packages
-            if set(next(r for r in package.runtimes if r.runtime == "codex").components) == {"mcp"}
+            packages
+            if listed
+            else (
+                package
+                for package in packages
+                if set(next(r for r in package.runtimes if r.runtime == "codex").components) == {"mcp"}
+            )
         ),
     )
-    files.update(dormant)
-    manifest_path = dest_root / PLUGIN_MANIFEST_PATH.relative_to(CODEX_PLUGIN_CONTAINER.parent)
-    mcp_path = dest_root / PLUGIN_MCP_PATH.relative_to(CODEX_PLUGIN_CONTAINER.parent)
-    marketplace_path = dest_root / REPO_MARKETPLACE_PATH.relative_to(CODEX_PLUGIN_CONTAINER.parent)
-    codex_mcp_path = dest_root / CODEX_MCP_PATH.relative_to(CODEX_PLUGIN_CONTAINER.parent)
-
-    files.add(manifest_path.relative_to(dest_root))
-    files.add(codex_mcp_path.relative_to(dest_root))
-    files.add(mcp_path.relative_to(dest_root))
-    files.add(marketplace_path.relative_to(dest_root))
+    manifest_rel = PLUGIN_MANIFEST_PATH.relative_to(REPO_ROOT)
+    mcp_rel = PLUGIN_MCP_PATH.relative_to(REPO_ROOT)
+    metadata[NATIVE_MARKETPLACE] = catalog
+    if not listed:
+        metadata[manifest_rel] = build_plugin_manifest()
+    announced = set(metadata) | {CODEX_MCP_PATH.relative_to(REPO_ROOT)}
+    if not listed:
+        announced.add(mcp_rel)
+    files = set(announced)
     guard_managed_paths(dest_root, files, roots, (Path(".codex-plugin/ycc"), *selected_roots(files, roots)))
 
+    # Skills normally arrive from generate_codex_skills during sync. Listed
+    # output must also own its relocatable skills tree for standalone and
+    # --check runs; a previously listed repository is restored to legacy paths.
+    restore_legacy = not listed and (dest_root / manifest_rel).is_file() and not (dest_root / mcp_rel).exists()
+    if restore_legacy:
+        guard_managed_paths(dest_root, (), (Path(".codex-plugin/ycc"),), ())
+    if listed:
+        for package in packages:
+            runtime = next(entry for entry in package.runtimes if entry.runtime == "codex")
+            if set(runtime.components) == {"skills", "shared"}:
+                root = Path(".codex-plugin") / package.key
+                files.update(root / path for path in write_tree(dest_root / root, dry_run, native_paths=True))
+    elif restore_legacy:
+        write_tree(dest_root / ".codex-plugin/ycc", dry_run, native_paths=False)
+
     if dry_run:
-        for path in sorted(files):
+        for path in sorted(announced):
             print(f"Would write {path}")
         for rel in sorted(native_extras(dest_root, files, roots)):
             print(f"Would remove {rel}")
         return files
 
-    write_json(manifest_path, build_plugin_manifest())
-    mcp_path.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(SOURCE_MCP_PATH, mcp_path)
-    write_json(marketplace_path, build_repo_marketplace())
-    write_codex_mcp_config(codex_mcp_path)
-    for rel, payload in dormant.items():
+    for rel, payload in metadata.items():
         write_json(dest_root / rel, payload)
+    if not listed:
+        mcp_path = dest_root / mcp_rel
+        mcp_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(SOURCE_MCP_PATH, mcp_path)
+    write_codex_mcp_config(dest_root / CODEX_MCP_PATH.relative_to(REPO_ROOT))
     prune_native_output(dest_root, files, roots)
     return files
 
@@ -374,12 +405,15 @@ def run_check(repo_root: Path | None = None) -> int:
     if repo_root is None:
         repo_root = REPO_ROOT
     model = load_package_model()
-    roots = tuple(root for root in native_package_roots(model.packages) if root != Path(".codex-plugin/ycc"))
+    listed = build_repository_marketplace(model.packages)["name"] == "ycc"
+    roots = native_package_roots(model.packages)
+    if not listed:
+        roots = tuple(root for root in roots if root != Path(".codex-plugin/ycc"))
     with tempfile.TemporaryDirectory() as tmp:
         temp_root = Path(tmp)
         files = write_all(temp_root, dry_run=False)
         guard_managed_paths(repo_root, files, roots, (Path(".codex-plugin/ycc"), *selected_roots(files, roots)))
-        diffs = compare_files(temp_root, repo_root, files)
+        diffs = compare_files(temp_root, repo_root, files, compare_executable=listed)
         diffs.extend(f"extra in output: {rel}" for rel in sorted(native_extras(repo_root, files, roots)))
         if diffs:
             print(

@@ -91,7 +91,7 @@ def check_package(root: Path, package: Package, version: str) -> None:
         require(child.name in allowed, child, "unexpected native package component (hooks are unsupported)")
 
 
-def check_catalog(root: Path, packages: tuple[Package, ...]) -> None:
+def check_catalog(root: Path, packages: tuple[Package, ...], *, include_unlisted: bool = True) -> None:
     path = root / generator.NATIVE_MARKETPLACE
     catalog = load_json(path)
     check_catalog_structure(catalog, path)
@@ -101,7 +101,8 @@ def check_catalog(root: Path, packages: tuple[Package, ...]) -> None:
     require(isinstance(entries, list), path, "expected a plugins list")
     require(all(isinstance(entry, dict) for entry in entries), path, "expected plugin objects")
     names = [entry.get("name") for entry in entries]
-    expected_names = {package.key for package in packages}
+    expected_catalog = generator.build_native_marketplace(packages, include_unlisted=include_unlisted)
+    expected_names = {entry["name"] for entry in expected_catalog["plugins"]}
     require(
         len(names) == len(expected_names) and set(names) == expected_names,
         path,
@@ -125,7 +126,7 @@ def check_catalog(root: Path, packages: tuple[Package, ...]) -> None:
             f"{name}: source resolves outside the export",
         )
     require(
-        catalog == generator.build_native_marketplace(packages, include_unlisted=True),
+        catalog == expected_catalog,
         path,
         "catalog differs from the model-driven native catalog",
     )
@@ -135,8 +136,9 @@ def validate(root: Path, native: bool) -> None:
     model = load_package_model()
     packages = generator.native_packages(model.packages)
     version = generator.native_version(model)
-    if native:
-        check_catalog(root, packages)
+    listed = generator.build_repository_marketplace(packages)["name"] == "ycc"
+    if native or listed:
+        check_catalog(root, packages, include_unlisted=native)
         for package in packages:
             check_package(root, package, version)
         # Unrelated neighboring roots are deliberately outside generator ownership.

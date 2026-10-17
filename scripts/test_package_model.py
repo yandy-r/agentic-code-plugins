@@ -47,9 +47,19 @@ class CheckedInModelTests(unittest.TestCase):
         covered = {r.runtime for p in load_package_model().packages for r in p.runtimes}
         self.assertEqual(covered, set(RUNTIME))
 
-    def test_only_claude_ycc_is_listed(self) -> None:
-        listed = [(p.key, r.runtime) for p in load_package_model().packages for r in p.runtimes if r.listed]
-        self.assertEqual(listed, [("ycc", "claude")])
+    def test_listed_rows_are_included_native_packages(self) -> None:
+        for package in load_package_model().packages:
+            for entry in package.runtimes:
+                if entry.listed:
+                    self.assertEqual((entry.status, entry.mechanism), ("included", "native"))
+
+    def test_codex_and_cursor_listing_is_a_data_change(self) -> None:
+        data = clone()
+        for package in data["packages"].values():
+            for name, entry in package["runtimes"].items():
+                if name in {"codex", "cursor"} and entry["status"] == "included" and entry["mechanism"] == "native":
+                    entry["listed"] = True
+        self.assertEqual(validate_package_model(data, repo_root=REPO_ROOT, schema=SCHEMA), [])
 
     def test_codex_ycc_hooks_excluded(self) -> None:
         entry = load_package_model().lookup("ycc-hooks", "codex")
