@@ -9,13 +9,13 @@
 ## Standalone dispatch (Path B)
 
 Follow the spawn/return contract in
-`~/.codex/plugins/ycc/shared/references/standalone-dispatch.md` for
+`standalone-dispatch.md` for
 how reviewers are dispatched and how their results are collected.
 
 Dispatch 3 standalone `code-reviewer` sub-agents in parallel in a single
 message with multiple `Agent` calls. Use the mode-appropriate roster
 (Local / Quick Mode Roster or PR Mode Roster) and the Standard Findings Format
-from `~/.codex/plugins/ycc/shared/references/review-checklist.md`.
+from `review-checklist.md`.
 That reference defines the roster, severity rubric, findings-format directive
 and merge procedure. Prompt contract follows below.
 
@@ -35,11 +35,11 @@ Each reviewer prompt includes the instruction "flag only gaps that affect correc
    reviewer needs — reviewers are read-only and cannot run commands.
 2. Relevant context (AGENTS.md rules, PRP artifacts, PR description) — PR mode only.
 3. Its assigned focus / categories and what to check (from the roster tables
-   in `review-checklist.md` — `~/.codex/plugins/ycc/shared/references/review-checklist.md`).
+   in `review-checklist.md` — `review-checklist.md`).
 4. The severity rubric.
 5. A directive to return findings in the **Standard Findings Format** below.
 6. (Path B only) The spawn/return contract loaded by the caller from
-   `~/.codex/plugins/ycc/shared/references/standalone-dispatch.md`.
+   `standalone-dispatch.md`.
    The reviewer is dispatched read-only (Read/Grep/Glob): it returns its
    findings inline as the `Agent` result and never writes files or runs
    commands. The prompt must supply the diff and any command output the
@@ -67,7 +67,7 @@ bundles ship without team tools — use `--parallel` there).
 You must follow the agent-team lifecycle. Do not mix standalone sub-agents
 with team dispatch. Every `Agent` call must include `name=`.
 If up-front `record the task` fails, abort the skill. See
-`~/.codex/plugins/ycc/shared/references/agent-team-dispatch.md`
+`agent-team-dispatch.md`
 for the full lifecycle contract.
 
 1. Confirm implicit session team is available

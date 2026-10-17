@@ -170,5 +170,5 @@ prompts, platform availability) live in the shared reference — read it before 
 `/goal` loop:
 
 ```
-~/.codex/plugins/ycc/shared/references/goal-pairing.md
+../../../shared/references/goal-pairing.md
 ```

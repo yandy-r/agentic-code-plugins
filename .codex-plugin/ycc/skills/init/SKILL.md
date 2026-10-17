@@ -157,7 +157,7 @@ If `DRY_RUN=true`:
 
 ### Phase 5.5 — Release model
 
-Decide whether to create `RELEASING.md` (the project's branching and release rules — see `~/.codex/plugins/ycc/shared/references/branching-model.md`), then resolve the `IF_RELEASE_MODEL` blocks.
+Decide whether to create `RELEASING.md` (the project's branching and release rules — see `../../shared/references/branching-model.md`), then resolve the `IF_RELEASE_MODEL` blocks.
 
 1. **Choose the action** (first match wins):
    - `has_releasing_md=true` → skip. The project already has a release model; init reads only its presence (`$release-model --audit` validates it).

@@ -212,7 +212,7 @@ Read when generating the plan with WORKTREE_MODE=true (default); omit all worktr
 **Worktree annotations** (default — `WORKTREE_MODE=true`; skipped when `--no-worktree`): insert a `## Worktree Setup` section immediately after the title/overview and before the first batch. When `WORKTREE_MODE=false`, omit all worktree annotations. Use
 `<feature-slug>` = the sanitized feature name (same as `${feature_dir}` basename).
 Format exactly as defined in
-`~/.codex/plugins/ycc/shared/references/worktree-strategy.md` §2:
+`../../../shared/references/worktree-strategy.md` §2:
 
 ```markdown
 ## Worktree Setup
@@ -230,11 +230,11 @@ add a `**Children**:` list. Do **not** add per-task `**Worktree**:` lines.
 > WORKTREE MODE: Annotate the generated `parallel-plan.md` with a single
 > `## Worktree Setup` section (containing only the `**Parent**:` line) placed
 > before the first batch, following
-> `~/.codex/plugins/ycc/shared/references/worktree-strategy.md` §2.
+> `../../../shared/references/worktree-strategy.md` §2.
 > All tasks — parallel and sequential — share this one feature worktree path.
 > Do NOT add a `**Children**:` list. Do NOT add per-task `**Worktree**:` lines.
 
 In the `--team` Path B additionally cross-reference
-`~/.codex/plugins/ycc/shared/references/agent-team-dispatch.md` §7 for
+`../../../shared/references/agent-team-dispatch.md` §7 for
 shared-worktree team dispatch: all parallel teammates operate against the same
 feature worktree path, not separate per-task paths.

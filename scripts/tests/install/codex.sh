@@ -152,6 +152,42 @@ if [[ ! -e "${home}/.codex/skills/init/agents/openai.yaml" ]]; then ok "codex sl
 if ! grep -rq '[~]/.codex/plugins/ycc/s' "${home}/.codex/skills"; then ok "codex skills slice re-points plugin paths"; else ko "codex skills slice re-points plugin paths"; fi
 if ! grep -rq '\.\./\.\./\.\./shared/' "${home}/.codex/skills"; then ok "codex skills slice re-points relative shared paths"; else ko "codex skills slice re-points relative shared paths"; fi
 
+# Real generated Codex slice resolves top-level, nested, and prompt-template shared references.
+if python3 - "${REPO_ROOT}" <<'PY'
+import sys, tempfile
+from pathlib import Path
+
+repo = Path(sys.argv[1])
+sys.path.insert(0, str(repo / "scripts"))
+import generate_codex_skills, install_slices
+
+with tempfile.TemporaryDirectory() as tmp:
+    tmp_path = Path(tmp)
+    plugin = tmp_path / "plugin"
+    home = tmp_path / "home with space"
+    generate_codex_skills.write_tree(plugin, dry_run=False)
+    entries = {p.name: p for p in sorted((plugin / "skills").iterdir())}
+    entries["_shared"] = plugin / "shared"
+    rewrites = install_slices.rewrites_for("codex", home)
+    pattern = install_slices.namespace_pattern("codex")
+    skills = home / ".codex/skills"
+    skills.mkdir(parents=True)
+    for name, src in entries.items():
+        install_slices.stage(name, src, skills, rewrites, pattern)
+    prompt = (skills / "plan-workflow/references/planning-agents.md").read_text()
+    assert "<installed ycc plugin root>" not in prompt, prompt
+    assert "Native prompt substitution" not in prompt, prompt
+    expected_ref = skills / "_shared/references/worktree-strategy.md"
+    assert str(expected_ref) in prompt and expected_ref.is_file()
+    for rel in ("prp-plan/SKILL.md", "orchestrate/references/dispatch-playbook.md"):
+        doc = skills / rel
+        text = doc.read_text()
+        assert "shared/references/" not in text.replace("_shared/references/", ""), rel
+        prefix = "../_shared/references/" if rel.endswith("SKILL.md") else "../../_shared/references/"
+        assert prefix in text and (doc.parent / prefix / "worktree-strategy.md").resolve().is_file(), rel
+PY
+then ok "codex slice resolves top-level, nested, and prompt-template shared references"; else ko "codex slice resolves top-level, nested, and prompt-template shared references"; fi
+
 # Codex slices are standalone: removing them never touches the plugin.
 home="$(new_home)"
 mkdir -p "${home}/.agents/plugins" "${home}/.codex/agents" "${home}/.codex/plugins"

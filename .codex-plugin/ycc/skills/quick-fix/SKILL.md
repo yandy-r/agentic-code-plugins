@@ -46,7 +46,7 @@ The remaining text is the inline review payload.
 Parse the inline payload — the quick-review findings subset of the shared
 Review Artifact Format:
 
-`~/.codex/plugins/ycc/shared/references/review-artifact-format.md`
+`../../shared/references/review-artifact-format.md`
 
 Build an in-memory list of `Finding` objects:
 

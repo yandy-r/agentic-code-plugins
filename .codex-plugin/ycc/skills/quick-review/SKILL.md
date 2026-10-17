@@ -78,7 +78,7 @@ Single-Pass Checklist** and **Severity Rubric**. Flag only gaps that affect
 correctness or the stated requirements. From:
 
 ```
-~/.codex/plugins/ycc/shared/references/review-checklist.md
+../../shared/references/review-checklist.md
 ```
 
 ### Path B / C — fan-out (`PARALLEL_MODE` or `AGENT_TEAM_MODE`)
@@ -87,9 +87,9 @@ Generate `TIMESTAMP=$(date +%Y%m%d-%H%M%S)` once; reuse it for run-id
 `quick-<TIMESTAMP>`, the team name, and any later `quick-<TIMESTAMP>-review.md`.
 Read only on this path:
 
-- `~/.codex/plugins/ycc/shared/references/review-dispatch.md`
-- `~/.codex/plugins/ycc/shared/references/standalone-dispatch.md` (`--parallel`)
-- `~/.codex/plugins/ycc/shared/references/agent-team-dispatch.md` (`--team`)
+- `../../shared/references/review-dispatch.md`
+- `../../shared/references/standalone-dispatch.md` (`--parallel`)
+- `../../shared/references/agent-team-dispatch.md` (`--team`)
 
 Use the Local / Quick Mode Roster and Standard Findings Format from
 `review-checklist.md`; merge via its Merge Procedure into one list for Phase 3.
@@ -117,7 +117,7 @@ Compute:
 **Print** the review to stdout in the quick-mode variant of the Review Artifact
 Format, **without** writing a file. Read the schema:
 
-`~/.codex/plugins/ycc/shared/references/review-artifact-format.md`
+`../../shared/references/review-artifact-format.md`
 
 Header: `# Quick Review — Uncommitted Changes`, `**Mode**: Quick (inline)`,
 `**Author**: local`, `**Branch**: <current-branch>`,

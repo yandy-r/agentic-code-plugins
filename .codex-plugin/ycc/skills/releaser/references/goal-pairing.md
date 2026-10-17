@@ -15,7 +15,7 @@ The Phase 8.5 loop's `RESULT=` markers (from `release-ci-monitor.sh`, sharing th
 
 - **Keep looping** — `handoff` (8.5.3 fix-and-validate) and `rerun-pending` (8.5.2 wait-and-retry). Recoverable progress markers, not endpoints.
 - **Done** — `RESULT=green`, with the Phase 9 summary showing "Release CI loop outcome: `green`" and the audit-log path (`CI_GREEN: PASS`, `AUDIT_LOG_PRINTED: PASS`).
-- **Stop** — any terminal `bail-*` (`bail-recurrence`, `bail-nonfixable`, `bail-pushes`, `bail-timeout`, `not-found`) or `loop-blocked`. `release-ci-monitor.sh` exhausts recoverable retries internally before emitting a bail, so a printed terminal marker means no further automatic progress is possible. The evaluator distinguishes "loop again" from "stop" by `green` vs `bail-*`/`loop-blocked` in the Phase 9 summary — never by re-classifying bail codes. See `~/.codex/plugins/ycc/shared/references/ci-monitoring.md` ("Release mode") for the authoritative bail taxonomy.
+- **Stop** — any terminal `bail-*` (`bail-recurrence`, `bail-nonfixable`, `bail-pushes`, `bail-timeout`, `not-found`) or `loop-blocked`. `release-ci-monitor.sh` exhausts recoverable retries internally before emitting a bail, so a printed terminal marker means no further automatic progress is possible. The evaluator distinguishes "loop again" from "stop" by `green` vs `bail-*`/`loop-blocked` in the Phase 9 summary — never by re-classifying bail codes. See `../../../shared/references/ci-monitoring.md` ("Release mode") for the authoritative bail taxonomy.
 
 Recommended condition template (set this **after** you have approved Phases 2 and 5, published with `--publish --confirm`, and authorized the loop at 8.5.1):
 
@@ -33,5 +33,5 @@ if not achieved.
 The transcript-output contract and shared caveats (worktree cwd, interactive failure prompts, platform availability) live in the shared reference — read it before relying on a `/goal` loop:
 
 ```
-~/.codex/plugins/ycc/shared/references/goal-pairing.md
+../../../shared/references/goal-pairing.md
 ```

@@ -5,11 +5,13 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import sys
 import tempfile
 import unittest
 from collections import Counter
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -57,6 +59,7 @@ class NativeResourceTestCase(unittest.TestCase):
     def assert_resource_paths(self, rel: Path, legacy: str, content: str) -> int:
         references = re.findall(r"~/\.codex/plugins/ycc/([a-zA-Z0-9_./{},#-]+)", legacy)
         references += ["shared/" + tail for tail in re.findall(r"(?:\.\./)+_shared/([a-zA-Z0-9_./{},#-]+)", legacy)]
+        references += re.findall(r"(?:\.\./)+(shared/references/[a-zA-Z0-9_./{},#-]+)", legacy)
         counts = Counter(ref.split("#", 1)[0].rstrip(".,") for ref in references if "{{" not in ref)
         for reference, count in counts.items():
             if not reference:
@@ -80,8 +83,14 @@ class NativeResourceTestCase(unittest.TestCase):
             ending = r"(?=<)" if tail.startswith("../") and not tail.strip("./") else r"(?=$|[\s\"'`()<>#.,:;])"
             pattern = r"(?<![\w./~${}-])(" + prefix + re.escape(tail) + ")" + ending
             emitted = re.findall(pattern, content)
-            # Count legacy spellings already local before rewriting, e.g. SCRIPT_DIR primaries.
-            self.assertEqual(len(emitted), count + len(re.findall(pattern, legacy)), (rel, reference, emitted))
+            already_rewritten = (
+                len(re.findall(r"(?:\.\./)+" + re.escape(reference) + ending, legacy))
+                if rel.suffix == ".md" and reference.startswith("shared/references/")
+                else 0
+            )
+            self.assertEqual(
+                len(emitted), count + len(re.findall(pattern, legacy)) - already_rewritten, (rel, reference, emitted)
+            )
             for value in emitted:
                 if value.startswith(skills.NATIVE_PLUGIN_PLACEHOLDER + "/"):
                     target = self.root / value.removeprefix(skills.NATIVE_PLUGIN_PLACEHOLDER + "/")
@@ -178,6 +187,75 @@ class NativeResourceTestCase(unittest.TestCase):
         content = (self.root / "skills/bundle-release/SKILL.md").read_text(encoding="utf-8")
         self.assertIn("ycc/.claude-plugin/plugin.json", content)
         self.assertNotIn("ycc/.codex-plugin/plugin.json", content)
+
+
+class SharedReferenceRelocationTestCase(unittest.TestCase):
+    def test_changed_references_resolve_without_legacy_home_plugin(self) -> None:
+        references = {
+            "skills/prp-pr/SKILL.md": {"pr-base-and-backport.md": 2, "forge-detection.md": 2},
+            "skills/research-to-issues/SKILL.md": {"forge-detection.md": 1},
+            "skills/prp-plan/SKILL.md": {"worktree-strategy.md": 3},
+            "skills/orchestrate/references/dispatch-playbook.md": {"worktree-strategy.md": 1},
+        }
+        for native in (False, True):
+            with self.subTest(native=native), tempfile.TemporaryDirectory() as tmp:
+                sandbox = Path(tmp)
+                home = sandbox / "isolated home"
+                home.mkdir()
+                original = sandbox / "checkout/.codex-plugin/ycc"
+                skills.write_tree(original, False, native_paths=native)
+                relocated = sandbox / "relocated install with spaces/ycc"
+                relocated.parent.mkdir()
+                shutil.move(original, relocated)
+                self.assertFalse((home / ".codex/plugins/ycc").exists())
+                with patch.dict(os.environ, {"HOME": str(home)}):
+                    for document, expected in references.items():
+                        content = (relocated / document).read_text(encoding="utf-8")
+                        for name, count in expected.items():
+                            emitted = re.findall(r"([^\s`\"'()<>]+/" + re.escape(name) + r"(?:#[\w-]+)?)", content)
+                            self.assertEqual(len(emitted), count, (document, name, emitted))
+                            for reference in emitted:
+                                path = Path(reference.split("#", 1)[0]).expanduser()
+                                target = (relocated / Path(document).parent / path).resolve()
+                                self.assertTrue(target.is_relative_to(relocated), (document, reference, target))
+                                self.assertTrue(target.is_file(), (document, reference, target))
+                forwarded = (relocated / "skills/plan-workflow/references/planning-agents.md").read_text(
+                    encoding="utf-8"
+                )
+                self.assertIn("Before forwarding any prompt", forwarded)
+                prompt_root = re.search(r"\(resolve `([^`]+)` from this document's directory\)", forwarded)
+                self.assertIsNotNone(prompt_root)
+                absolute_root = (relocated / "skills/plan-workflow/references" / prompt_root.group(1)).resolve()
+                self.assertEqual(absolute_root, relocated)
+                placeholders = re.findall(re.escape(skills.NATIVE_PLUGIN_PLACEHOLDER) + r"/([\w./-]+)", forwarded)
+                self.assertIn("shared/references/worktree-strategy.md", placeholders)
+                for resource in placeholders:
+                    self.assertTrue((absolute_root / resource).is_file(), resource)
+
+    def test_default_markdown_never_depends_on_home_for_shared_references(self) -> None:
+        verbatim = {skills.plugin_output_path(Path(rel)).relative_to(PLUGIN_ROOT) for rel in VERBATIM_SKILL_FILES}
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            checked = 0
+            for rel in sorted(skills.write_tree(root, False)):
+                if rel.suffix != ".md" or rel in verbatim:
+                    continue
+                with self.subTest(path=rel):
+                    self.assertNotIn("~/.codex/plugins/ycc/shared/references/", (root / rel).read_text())
+                    checked += 1
+            self.assertGreater(checked, 100)
+
+    def test_default_preserves_legacy_executables_and_other_resource_paths(self) -> None:
+        raw = (
+            "---\nname: sample\ndescription: sample\n---\n"
+            "Read ${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/forge-detection.md#gitlab.\n"
+            "Run ${CLAUDE_PLUGIN_ROOT}/skills/_shared/scripts/pr-guard.sh.\n"
+            "See ${CLAUDE_PLUGIN_ROOT}/skills/git-workflow/templates/commit-types.md.\n"
+        )
+        rendered = skills.transform_skill_markdown(raw, {})
+        self.assertIn("../../shared/references/forge-detection.md#gitlab.", rendered)
+        self.assertIn("~/.codex/plugins/ycc/shared/scripts/pr-guard.sh.", rendered)
+        self.assertIn("~/.codex/plugins/ycc/skills/git-workflow/templates/commit-types.md.", rendered)
 
 
 class LegacyCompatibilityTestCase(unittest.TestCase):

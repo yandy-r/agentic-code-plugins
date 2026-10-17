@@ -23,7 +23,7 @@ run` — and skip to Phase 9. Never enter the loop without a live release to wat
 
 The contract (exit codes, `RESULT=` signaling, JSONL audit log, failure classification,
 signature dedup, default-branch refusal) mirrors `ci-monitor.sh` verbatim. See
-`~/.codex/plugins/ycc/shared/references/ci-monitoring.md`,
+`../../../shared/references/ci-monitoring.md`,
 section "Release mode", for the single source of truth.
 
 **GitHub-only:** the release-CI auto-fix loop is GitHub-only — it depends on
@@ -33,7 +33,7 @@ equivalent. On a non-GitHub remote `release-ci-monitor.sh` returns
 the loop is GitHub-only, render an 8.5.4-style diagnosis, and exit Phase 8.5
 cleanly without retrying. (Release _creation_ in Phase 8 remains provider-aware
 via `tea release create`; only this post-publish monitoring loop is gated.) See
-`~/.codex/plugins/ycc/shared/references/forge-detection.md`.
+`../../../shared/references/forge-detection.md`.
 
 ### 8.5.0 Detect retry strategy
 

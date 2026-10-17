@@ -117,7 +117,7 @@ Gather codebase intelligence across 8 categories and 5 traces.
 
 When `ENHANCED_MODE=true`, run `~/.codex/plugins/ycc/skills/prp-plan/scripts/preflight-enhanced-agents.sh` and abort with the script's stderr if it exits non-zero. This catches missing agent dependencies before any researcher is dispatched. The script auto-derives the plugin root from its own install location; no argument needed at runtime.
 
-Read `~/.codex/plugins/ycc/shared/references/standalone-dispatch.md` when `AGENT_TEAM_MODE=false` for standalone research dispatch; read `~/.codex/plugins/ycc/shared/references/agent-team-dispatch.md` only when `--team` is passed for Path C lifecycle.
+Read `../../shared/references/standalone-dispatch.md` when `AGENT_TEAM_MODE=false` for standalone research dispatch; read `../../shared/references/agent-team-dispatch.md` only when `--team` is passed for Path C lifecycle.
 
 ### Path A — Sequential (default)
 
@@ -127,7 +127,7 @@ Dispatch a single `prp-researcher` agent via the `Agent` tool, in codebase mode,
 
 By default (`WORKTREE_MODE=true`), append the following directive to the researcher prompt. Omit when `--no-worktree` was passed (`WORKTREE_MODE=false`):
 
-> **WORKTREE MODE:** The plan you are helping to build will include worktree annotations. In the emitted plan, include a `## Worktree Setup` section with a single `**Parent**:` line naming the feature worktree; no `**Children**:` list; no per-task `**Worktree**:` annotations. All tasks (parallel and sequential) share this one feature worktree path. Follow `ycc/skills/_shared/references/worktree-strategy.md` for the naming scheme and annotation format.
+> **WORKTREE MODE:** The plan you are helping to build will include worktree annotations. In the emitted plan, include a `## Worktree Setup` section with a single `**Parent**:` line naming the feature worktree; no `**Children**:` list; no per-task `**Worktree**:` annotations. All tasks (parallel and sequential) share this one feature worktree path. Follow `../../shared/references/worktree-strategy.md` for the naming scheme and annotation format.
 
 ### Path B — Parallel sub-agents (`PARALLEL_MODE=true`)
 
@@ -140,13 +140,13 @@ sub-agents** using the **`Agent`** tool (omit `name`):
 | `quality-research`  | Error Handling, Logging, Tests         | State Changes, Patterns |
 | `infra-research`    | Configuration, Dependencies            | Data Flow               |
 
-Dispatch without `name` or `run_in_background`. Results may arrive asynchronously; wait for all results before synthesis and end the turn while results are pending. In addition to returning findings, instruct each researcher to write its discovery table to a backstop file at `docs/prps/plans/.prp-research/<feature-slug>/<role>.md` (`patterns-research.md`, `quality-research.md`, `infra-research.md`) using the `Write` tool, mirroring the phrasing `feature-research`'s researcher prompts use ("Write your findings to: ..."). The backstop guarantees the findings survive even if the inline return is interrupted or truncated. See `~/.codex/plugins/ycc/shared/references/standalone-dispatch.md` for the full contract.
+Dispatch without `name` or `run_in_background`. Results may arrive asynchronously; wait for all results before synthesis and end the turn while results are pending. In addition to returning findings, instruct each researcher to write its discovery table to a backstop file at `docs/prps/plans/.prp-research/<feature-slug>/<role>.md` (`patterns-research.md`, `quality-research.md`, `infra-research.md`) using the `Write` tool, mirroring the phrasing `feature-research`'s researcher prompts use ("Write your findings to: ..."). The backstop guarantees the findings survive even if the inline return is interrupted or truncated. See `../../shared/references/standalone-dispatch.md` for the full contract.
 
 **IMPORTANT — Researcher prompt constraints**: Tell each researcher to keep code snippets to **5 lines max** per finding and limit the total response to the discovery table format only — no prose summaries.
 
 By default (`WORKTREE_MODE=true`), append the following directive to each researcher prompt. Omit when `--no-worktree` was passed (`WORKTREE_MODE=false`):
 
-> **WORKTREE MODE:** The plan you are helping to build will include worktree annotations. In the emitted plan, include a `## Worktree Setup` section with a single `**Parent**:` line naming the feature worktree; no `**Children**:` list; no per-task `**Worktree**:` annotations. All tasks (parallel and sequential) share this one feature worktree path. Follow `ycc/skills/_shared/references/worktree-strategy.md` for the naming scheme and annotation format.
+> **WORKTREE MODE:** The plan you are helping to build will include worktree annotations. In the emitted plan, include a `## Worktree Setup` section with a single `**Parent**:` line naming the feature worktree; no `**Children**:` list; no per-task `**Worktree**:` annotations. All tasks (parallel and sequential) share this one feature worktree path. Follow `../../shared/references/worktree-strategy.md` for the naming scheme and annotation format.
 
 After all 3 return: merge tables, de-duplicate, verify all 8 categories covered.
 
@@ -308,7 +308,7 @@ All tasks — parallel and sequential — share this one feature worktree path. 
 
 > **Plan-file handoff**: leave the emitted plan file in `docs/prps/plans/<name>.plan.md` (in the main checkout). The implementor (`prp-implement`) will **move** it into the feature worktree once the worktree is created — do not pre-write the plan to a worktree path, and do not copy it. See `worktree-strategy.md` §7.
 
-Follow `ycc/skills/_shared/references/worktree-strategy.md` for the full naming scheme and annotation contract.
+Follow `../../shared/references/worktree-strategy.md` for the full naming scheme and annotation contract.
 
 ### Writing guidelines
 
@@ -357,7 +357,7 @@ This step runs after the plan is written (Phase 6) and validated (Phase 6.5), re
 
 ## Visual mode
 
-This skill exposes the shared `--visual` decorator. The canonical contract lives at `~/.codex/plugins/ycc/shared/references/visual-mode.md` — follow it for composition, timing, and hand-off rules.
+This skill exposes the shared `--visual` decorator. The canonical contract lives at `../../shared/references/visual-mode.md` — follow it for composition, timing, and hand-off rules.
 
 When `VISUAL_MODE` is set and `--dry-run` is NOT, the skill invokes `visual-plan <absolute-plan-path>` AFTER Phase 6, passing the just-written `.plan.md` path (the file written in Phase 6 and validated in Phase 6.5). `visual-plan` derives its own `visual/` output directory from that path and prints the resulting link; the skill surfaces that link in the Report block. When `--dry-run` is set, print `visual generation would run` and skip — no visual artifacts, directories, or links are produced.
 
@@ -404,7 +404,7 @@ For Path C's team lifecycle contract (sanitization, shutdown sequence, failure p
 refer to:
 
 ```
-~/.codex/plugins/ycc/shared/references/agent-team-dispatch.md
+../../shared/references/agent-team-dispatch.md
 ```
 
 The `validate-prp-plan.sh` script The script checks:

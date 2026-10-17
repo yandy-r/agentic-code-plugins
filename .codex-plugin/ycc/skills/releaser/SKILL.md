@@ -113,7 +113,7 @@ is separate from `--ci`. Read `references/ci-workflow-modes.md` before Phase 6.
   note) — NEVER run them. Publish via `scripts/publish-release.sh`
   (preview by default; `--confirm` applies; `--mode=edit` destructive); forge routing
   (`gh` vs `tea`) and read-when pointer cover
-  `~/.codex/plugins/ycc/shared/references/forge-detection.md`.
+  `../../shared/references/forge-detection.md`.
 - CI loop (8.5): entry only on `--ci` + `--publish` + confirmed publish success
   (else skip with the one-line warning); GitHub-only (non-GitHub exits cleanly with a
   diagnosis). Read `references/release-ci-loop.md` before entering Phase 8.5 — retry
@@ -122,7 +122,7 @@ is separate from `--ci`. Read `references/ci-workflow-modes.md` before Phase 6.
   invocation, branch-protection pre-push check, apply fix within 8.5.3 scope and dispatch per
   the 8.5.0 strategy, bail diagnosis; shared
   contract covers
-  `~/.codex/plugins/ycc/shared/references/ci-monitoring.md` "Release mode".
+  `../../shared/references/ci-monitoring.md` "Release mode".
   Constraints: never `--force`; never `--no-verify`; implicated files only; notes
   immutable without explicit opt-in. Tag/release replacement only through the explicitly
   authorized destructive fallback in 8.5.3.
@@ -213,27 +213,27 @@ If a file cannot be read, say so.
   `references/ci-templates/docker-release.yml`, `references/ci-templates/generic-release.yml`
   Read when: `--ci-config=generate` copies the matching language template.
 
-- `~/.codex/plugins/ycc/shared/references/ci-monitoring.md`
+- `../../shared/references/ci-monitoring.md`
   Read when: the Phase 8.5 loop contract (exit codes, `RESULT=` values, audit-log
   schema, signature computation) — "Release mode" section.
 
-- `~/.codex/plugins/ycc/shared/references/forge-detection.md`
+- `../../shared/references/forge-detection.md`
   Read when: the `origin` remote is forgejo/gitea and release creation routes through
   `tea` instead of `gh`.
 
-- `~/.codex/plugins/ycc/shared/references/branching-model.md`
+- `../../shared/references/branching-model.md`
   Read when: the release-model rules behind the branch check (trunk-only vs.
   release-branches, maintenance/frozen branches, backport labels).
 
-- `~/.codex/plugins/ycc/shared/references/goal-pairing.md`
+- `../../shared/references/goal-pairing.md`
   Read when: the shared `/goal` transcript-output contract and caveats, before
   relying on a `/goal` loop.
 
-- `~/.codex/plugins/ycc/shared/references/branch-prep.md`
+- `../../shared/references/branch-prep.md`
   Read when: pre-release work needs a feature branch — the release flow itself never
   creates one (Phase 8.5.3 pushes fixes to the release branch directly).
 
-- `~/.codex/plugins/ycc/shared/references/pr-base-and-backport.md`
+- `../../shared/references/pr-base-and-backport.md`
   Read when: creating the Phase 8 forward-port PR interactively or resolving PR-base
   and backport-label questions (the emitted commands pass `--base <trunk>` explicitly).
 

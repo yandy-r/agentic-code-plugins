@@ -30,6 +30,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SLICES = ("skills", "agents", "commands", "hooks")
+NATIVE_ROOT_PLACEHOLDER = "<installed ycc plugin root>"
 
 
 @dataclass(frozen=True)
@@ -105,7 +106,13 @@ def rewrites_for(target: str, home: Path) -> list[tuple[str, str]]:
             ("~/.codex/plugins/ycc/skills/", "~/.codex/skills/"),
             ("~/.codex/plugins/ycc/shared/", "~/.codex/skills/_shared/"),
             ("../../../shared/", "../../_shared/"),
+            ("../../shared/references/", "../_shared/references/"),
+            # Native prompt templates: expand the placeholder to the installed standalone location.
+            (f"{NATIVE_ROOT_PLACEHOLDER}/shared/references/", f"{home}/.codex/skills/_shared/references/"),
         ]
+    if target == "cursor":
+        # Only reference documents need rebasing; script tokens have shell quoting semantics.
+        return [("${CURSOR_PLUGIN_ROOT}/skills/_shared/references/", f"{home}/.cursor/skills/_shared/references/")]
     return []
 
 
@@ -170,6 +177,14 @@ def shipped_entries(unit: Unit) -> dict[str, Path]:
     return entries
 
 
+_NATIVE_HEADER = re.compile(
+    r"## Native prompt substitution\n\nBefore forwarding any prompt, replace every `"
+    + re.escape(NATIVE_ROOT_PLACEHOLDER)
+    + r"` with the absolute installed ycc plugin root \(resolve `[^`]*` from this document's directory\)\. "
+    r"Forward only absolute resource paths; keep the user's project as cwd\.\n\n"
+)
+
+
 def transform_tree(root: Path, rewrites: list[tuple[str, str]], pattern: re.Pattern[str] | None) -> None:
     """Apply path and namespace rewrites to every UTF-8 text file under root."""
     files = [root] if root.is_file() else [p for p in root.rglob("*") if p.is_file() and not p.is_symlink()]
@@ -181,6 +196,9 @@ def transform_tree(root: Path, rewrites: list[tuple[str, str]], pattern: re.Patt
         new = text
         for old, replacement in rewrites:
             new = new.replace(old, replacement)
+        # The root-substitution header is moot once every placeholder is expanded.
+        if new != text and new.count(NATIVE_ROOT_PLACEHOLDER) == 1:
+            new = _NATIVE_HEADER.sub("", new)
         if pattern is not None:
             new = pattern.sub(r"\1\2", new)
         if new != text:
@@ -203,12 +221,13 @@ def stage(
     name: str, src: Path, staging: Path, rewrites: list[tuple[str, str]], pattern: re.Pattern[str] | None
 ) -> Path:
     staged = staging / name
+    staging.mkdir(parents=True, exist_ok=True)
     if src.is_dir():
         shutil.copytree(src, staged, symlinks=True)
     else:
         shutil.copy2(src, staged)
-    transform_tree(staged, rewrites, pattern)
     project_cursor_init(name, staged)
+    transform_tree(staged, rewrites, pattern)
     return staged
 
 
@@ -334,7 +353,8 @@ def install_unit(unit: Unit, ctx: Context) -> int:
                 if same_entry(staged, target):
                     installed.add(name)
                     continue
-                if name not in owned and not ctx.force:
+                base = stage(name, src, staging / "base", [], None)
+                if name not in owned and not ctx.force and not same_entry(base, target):
                     print(
                         f"[err] refusing to replace {target}: not installed by ycc (re-run with --force)",
                         file=sys.stderr,
@@ -376,7 +396,12 @@ def remove_unit(unit: Unit, ctx: Context) -> int:
             if not ours and name in entries:
                 # A copy the 'base' step left behind is identical to the bundle.
                 plain = same_entry(entries[name], target)
-                ours = plain or same_entry(stage(name, entries[name], staging, ctx.rewrites, ctx.pattern), target)
+                base = stage(name, entries[name], staging / "base", [], None)
+                ours = (
+                    plain
+                    or same_entry(base, target)
+                    or same_entry(stage(name, entries[name], staging, ctx.rewrites, ctx.pattern), target)
+                )
             if ours:
                 delete_entry(target)
                 removed += 1

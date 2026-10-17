@@ -30,7 +30,7 @@ gh release upload v<new-version> <path-to-artifact> [...]
 ```
 
 Under release-branches, append the steps the branch check asked for (see
-`~/.codex/plugins/ycc/shared/references/branching-model.md`, "Models").
+`../../../shared/references/branching-model.md`, "Models").
 When `creates_maintenance=release/X.Y` (a final minor or major cut from the trunk):
 
 ```
@@ -71,7 +71,7 @@ create --tag <tag> [--note-file]` for `forgejo`/`gitea` (per the
 operation-equivalence map). The `gh release create`/`gh release upload` commands
 emitted in the Phase 8 block above are the `github` path; on a `forgejo`/`gitea`
 remote the helper drives `tea release create` instead. Log the resolved provider
-and CLI. See `~/.codex/plugins/ycc/shared/references/forge-detection.md`.
+and CLI. See `../../../shared/references/forge-detection.md`.
 
 When the user passed `--publish[=create|edit|auto]`, after they review the rendered
 notes, run:

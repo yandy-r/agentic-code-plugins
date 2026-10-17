@@ -54,6 +54,56 @@ HOME="${home}" YCC_MANAGED_CONFIG_STATE="${home}/.config/ycc/managed-config-stat
 assert_contains "$(cat "${home}/.cursor/skills/releaser/SKILL.md")" 'disable-model-invocation: true' "cursor slice retains releaser manual invocation policy"
 assert_not_contains "$(cat "${home}/.cursor/skills/init/SKILL.md")" 'disable-model-invocation' "cursor slice keeps init model-invocable"
 
+# Shared-reference paths resolve in an isolated HOME containing spaces, from a foreign cwd.
+home="${SANDBOX_ROOT}/cursor home with spaces"
+foreign="${SANDBOX_ROOT}/foreign cwd"
+mkdir -p "${home}" "${foreign}"
+if (cd "${foreign}" && HOME="${home}" YCC_MANAGED_CONFIG_STATE="${home}/.config/ycc/managed-config-state.json" \
+    python3 "${REPO_ROOT}/scripts/install_slices.py" install --target cursor --slice skills >/dev/null); then
+    ok "cursor slice installs from foreign cwd with spaced HOME"
+else
+    ko "cursor slice installs from foreign cwd with spaced HOME"
+fi
+if python3 - "${home}" "${REPO_ROOT}" <<'PY'
+from pathlib import Path
+import re
+import subprocess
+import sys
+
+home, repo = map(Path, sys.argv[1:])
+skills = home / ".cursor/skills"
+consumers = (
+    "orchestrate/references/dispatch-playbook.md",
+    "prp-plan/SKILL.md",
+    "prp-pr/SKILL.md",
+    "research-to-issues/SKILL.md",
+)
+count = 0
+for relative in consumers:
+    source = (repo / "packages/cursor/ycc/skills" / relative).read_text()
+    installed = (skills / relative).read_text()
+    assert "${CURSOR_PLUGIN_ROOT}/skills/_shared/references/" not in installed, relative
+    for suffix in re.findall(r"\$\{CURSOR_PLUGIN_ROOT\}/skills/(_shared/references/[\w.-]+\.md)", source):
+        resolved = skills / suffix
+        assert str(resolved) in installed, (relative, resolved)
+        assert resolved.is_file(), resolved
+        count += 1
+assert count >= 9, count
+PY
+then ok "cursor installed shared refs resolve"; else ko "cursor installed shared refs resolve"; fi
+
+# A base-installed raw copy remains ycc-owned when the slice rebases references.
+home="$(new_home)"
+mkdir -p "${home}/.cursor/skills"
+cp -R "${REPO_ROOT}/packages/cursor/ycc/skills/prp-pr" "${home}/.cursor/skills/"
+if HOME="${home}" YCC_MANAGED_CONFIG_STATE="${home}/.config/ycc/managed-config-state.json" \
+    python3 "${REPO_ROOT}/scripts/install_slices.py" install --target cursor --slice skills >/dev/null; then
+    ok "cursor slice replaces base copy with rebased references"
+else
+    ko "cursor slice replaces base copy with rebased references"
+fi
+assert_contains "$(cat "${home}/.cursor/skills/prp-pr/SKILL.md")" "${home}/.cursor/skills/_shared/references/" "cursor base takeover rebases references"
+
 home="$(new_home)"
 for unit in skills agents rules; do
     src="${REPO_ROOT}/packages/cursor/ycc/${unit}"

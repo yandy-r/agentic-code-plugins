@@ -29,7 +29,7 @@ This is the lightweight counterpart to `$git-workflow --pr`. Use it when you jus
   BASE=$(bash ~/.codex/plugins/ycc/shared/scripts/pr-guard.sh base [--base <base-branch>])
   ```
 
-  Without an explicit base this is the `RELEASING.md` base (`release-state.sh base`), else the repo default branch. Exit 2 means a malformed `RELEASING.md`: stop with the parse error and `$release-model --audit`. Use `$BASE` as `<base>` everywhere below. See [`../_shared/references/pr-base-and-backport.md`](../_shared/references/pr-base-and-backport.md).
+  Without an explicit base this is the `RELEASING.md` base (`release-state.sh base`), else the repo default branch. Exit 2 means a malformed `RELEASING.md`: stop with the parse error and `$release-model --audit`. Use `$BASE` as `<base>` everywhere below. See `../../shared/references/pr-base-and-backport.md`.
 
 ---
 
@@ -170,7 +170,7 @@ Use this default format:
 
 ### Backport prompt
 
-Before creating the PR, run `pr-guard.sh backport-label --base <base> --title "<PR title>"` (add `--labels` when labels are known). On `backport=1`, ask `Backport to <branch>? (yes/no)`; on yes, add the printed label to the new PR and tell the user to run `$backport <PR#>` after it merges. Details: [`../_shared/references/pr-base-and-backport.md`](../_shared/references/pr-base-and-backport.md#backport-prompt).
+Before creating the PR, run `pr-guard.sh backport-label --base <base> --title "<PR title>"` (add `--labels` when labels are known). On `backport=1`, ask `Backport to <branch>? (yes/no)`; on yes, add the printed label to the new PR and tell the user to run `$backport <PR#>` after it merges. Details: `../../shared/references/pr-base-and-backport.md#backport-prompt`.
 
 ### Create the PR
 
@@ -178,7 +178,7 @@ PR creation is provider-aware. Detect the forge provider on `origin` first
 (`forge_detect_provider origin`) and route through the matching CLI: `gh pr
 create` for `github`, `tea pull create --title --description [--head]` for
 `forgejo`/`gitea`. See
-[`../_shared/references/forge-detection.md`](../_shared/references/forge-detection.md)
+`../../shared/references/forge-detection.md`
 for the operation-equivalence map. Log the resolved provider + CLI so the user
 sees which forge the PR targeted.
 
@@ -255,13 +255,13 @@ controls). On a non-GitHub remote `ci-monitor.sh` returns
 `RESULT=unsupported-provider` (exit 2). Treat this like
 `pr-not-found`/`refused-default-branch`: report that the loop is GitHub-only and
 skip it cleanly — do not retry, do not error. See
-[`../_shared/references/forge-detection.md`](../_shared/references/forge-detection.md).
+`../../shared/references/forge-detection.md`.
 
 **Step 1 — Verify PR is monitorable:** Confirm a PR number is in scope. If not,
 hard-stop: `--ci was passed but no PR is in scope to monitor.`
 
 **Step 2 — Load policy reference:** Read
-`~/.codex/plugins/ycc/shared/references/ci-monitoring.md` to load the
+`../../shared/references/ci-monitoring.md` to load the
 failure classification table, termination policy, audit log schema, and loop
 protocol. That file is authoritative — do not restate its contents here.
 
@@ -336,7 +336,7 @@ On bail:
   Audit log: <path>
 ```
 
-See `~/.codex/plugins/ycc/shared/references/ci-monitoring.md` for the
+See `../../shared/references/ci-monitoring.md` for the
 full policy.
 
 ---
@@ -370,7 +370,7 @@ The Phase 7 loop's stdout `RESULT=` markers tell the evaluator when to keep loop
 
 - **Keep looping** — `handoff` (apply the fix per the classification table, commit, push to the PR head branch, re-invoke the monitor) and `rerun-pending` (flake suspected; sleep, then re-invoke). These are recoverable progress markers, not endpoints.
 - **Done** — `RESULT=green` (`CI_GREEN: PASS`), with the Phase 6 PR URL block already printed.
-- **Stop** — any `bail-*` (`bail-recurrence`, `bail-nonfixable`, `bail-pushes`, `bail-timeout`). All are terminal: `ci-monitor.sh` exhausts the recoverable `rerun-pending` retries internally before emitting a bail, so a printed `bail-*` means no further automatic progress is possible. The evaluator distinguishes "loop again" from "stop" by `green` vs `bail-*` in the Step 6 report — never by re-classifying bail codes. See `~/.codex/plugins/ycc/shared/references/ci-monitoring.md` for the authoritative bail taxonomy.
+- **Stop** — any `bail-*` (`bail-recurrence`, `bail-nonfixable`, `bail-pushes`, `bail-timeout`). All are terminal: `ci-monitor.sh` exhausts the recoverable `rerun-pending` retries internally before emitting a bail, so a printed `bail-*` means no further automatic progress is possible. The evaluator distinguishes "loop again" from "stop" by `green` vs `bail-*` in the Step 6 report — never by re-classifying bail codes. See `../../shared/references/ci-monitoring.md` for the authoritative bail taxonomy.
 
 Recommended condition template (`--ci` mode):
 
@@ -387,7 +387,7 @@ until all are PASS. Stop after 25 turns if not achieved.
 The transcript-output contract and shared caveats (worktree cwd, interactive failure prompts, platform availability) live in the shared reference — read it before relying on a `/goal` loop:
 
 ```
-~/.codex/plugins/ycc/shared/references/goal-pairing.md
+../../shared/references/goal-pairing.md
 ```
 
 ---

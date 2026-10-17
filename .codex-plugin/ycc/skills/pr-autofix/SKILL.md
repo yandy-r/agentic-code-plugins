@@ -20,7 +20,7 @@ Vendor-neutral counterpart to `coderabbit:autofix`. Pulls every comment surface 
 - Never mutate a comment body. Reply with the result, then resolve; the audit trail lives in the PR threads.
 - Approval is explicit: `--yes`/`-y` authorizes applying all eligible comments; `--ci` implies `--yes` unless `--ci-confirm`; `--ci-yes` only skips the one-time CI authorization prompt (it does not authorize applying comments). Without these, ask per comment via ask the user.
 - Every eligible thread is processed exactly once: applied, skipped-with-reason, deferred, or failed.
-- GitHub-only. Forgejo/Gitea lack GraphQL `resolveReviewThread`, per-comment harvesting, and `gh run` controls, with no `tea` equivalent. Phase 0 detects the provider per `~/.codex/plugins/ycc/shared/references/forge-detection.md` (capability matrix rows: "Review-thread resolution", "Per-comment PR autofix harvesting", "CI-autofix loop"); on a non-`github` remote, stop gracefully and say why.
+- GitHub-only. Forgejo/Gitea lack GraphQL `resolveReviewThread`, per-comment harvesting, and `gh run` controls, with no `tea` equivalent. Phase 0 detects the provider per `../../shared/references/forge-detection.md` (capability matrix rows: "Review-thread resolution", "Per-comment PR autofix harvesting", "CI-autofix loop"); on a non-`github` remote, stop gracefully and say why.
 
 ## Phase checklist
 
@@ -49,10 +49,10 @@ Paths are relative to this skill directory unless they are absolute plugin paths
 - `scripts/fetch-pr-comments.sh` — run in Phase 1.
 - `scripts/resolve-thread.sh` — run in Phase 6 (`resolve`, `reply`, `react`, `issue-reply`).
 - `scripts/post-summary.sh` — run in Phase 8 for the consolidated summary comment (its template lives in the script and never includes raw reviewer prompts).
-- `~/.codex/plugins/ycc/shared/references/ci-monitoring.md` — authoritative CI policy (caps, classification, termination, safety, bail taxonomy). Read in Phase 7; do not restate it.
+- `../../shared/references/ci-monitoring.md` — authoritative CI policy (caps, classification, termination, safety, bail taxonomy). Read in Phase 7; do not restate it.
 - `~/.codex/plugins/ycc/shared/scripts/ci-monitor.sh` — single-shot CI checker.
-- `~/.codex/plugins/ycc/shared/references/goal-pairing.md` — shared `/goal` contract.
-- `~/.codex/plugins/ycc/shared/references/standalone-dispatch.md` — read when using `--parallel`.
+- `../../shared/references/goal-pairing.md` — shared `/goal` contract.
+- `../../shared/references/standalone-dispatch.md` — read when using `--parallel`.
 - `~/.codex/plugins/ycc/skills/git-workflow/scripts/validate-commit.sh` — commit message validator.
 - `ycc/agents/pr-comment-fixer.md` — per-comment fixer agent contract.
 
@@ -240,7 +240,7 @@ Every reply body passes through the sanitizer (`references/prompt-injection-safe
 
 Trigger: `--ci` passed AND at least one fixer returned `Fixed` AND the Phase 5 push succeeded. Otherwise skip silently.
 
-A thin wrapper over the loop shared with `$prp-pr` Phase 7 and `$git-workflow` Phase 6. The policy lives in `~/.codex/plugins/ycc/shared/references/ci-monitoring.md`; do not restate it here. Read `references/ci-loop.md` (templates and commands) before entering this phase:
+A thin wrapper over the loop shared with `$prp-pr` Phase 7 and `$git-workflow` Phase 6. The policy lives in `../../shared/references/ci-monitoring.md`; do not restate it here. Read `references/ci-loop.md` (templates and commands) before entering this phase:
 
 1. Authorization prompt (skip if `--ci-yes`). On `no`, exit cleanly: fixes were pushed but not monitored.
 2. Initialize one audit log path under `~/.codex/session-data/ci-watch/`, reused every iteration.
@@ -300,8 +300,8 @@ Write the report to `$(git rev-parse --show-toplevel)/docs/prps/reports/pr-autof
 
 ## `/goal` pairing
 
-To drive the `--ci` loop through every `handoff` and `rerun-pending` iteration without returning control, pair with `/goal` keyed on the Phase 8 Goal Signals block (never the report file). `green` is done; any `bail-*` is terminal (stop and report, do not re-run). Condition template and evaluator rules: `references/goal-example.md`; shared contract: `~/.codex/plugins/ycc/shared/references/goal-pairing.md`.
+To drive the `--ci` loop through every `handoff` and `rerun-pending` iteration without returning control, pair with `/goal` keyed on the Phase 8 Goal Signals block (never the report file). `green` is done; any `bail-*` is terminal (stop and report, do not re-run). Condition template and evaluator rules: `references/goal-example.md`; shared contract: `../../shared/references/goal-pairing.md`.
 
 ## Related skills
 
-Comparison with `review-fix`, `quick-fix`, `prp-pr`, `coderabbit:autofix`: `references/related-skills.md`. Branch-prep and PR-base policy (`~/.codex/plugins/ycc/shared/references/branch-prep.md`, `~/.codex/plugins/ycc/shared/references/pr-base-and-backport.md`) do not apply: this skill works on an existing PR head branch and never creates branches or PRs.
+Comparison with `review-fix`, `quick-fix`, `prp-pr`, `coderabbit:autofix`: `references/related-skills.md`. Branch-prep and PR-base policy (`../../shared/references/branch-prep.md`, `../../shared/references/pr-base-and-backport.md`) do not apply: this skill works on an existing PR head branch and never creates branches or PRs.

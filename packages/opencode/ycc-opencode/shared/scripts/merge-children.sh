@@ -15,6 +15,7 @@
 #   0  always (shim: no fan-in, no errors from missing children)
 
 set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
   cat >&2 <<'EOF'
@@ -23,9 +24,8 @@ Usage: merge-children.sh <repo-name> <feature-slug> <task-id>[,<task-id>,...]
 DEPRECATED: This script is a no-op. ycc uses one feature worktree per run; there
 is no per-task child merge. Remove calls to merge-children.sh in favor of working
 entirely in the path printed by: setup-worktree.sh parent <repo> <feature-slug>
-
-See: ${SCRIPT_DIR}/../../shared/references/worktree-strategy.md
 EOF
+  printf '\nSee: %s\n' "${SCRIPT_DIR}/../references/worktree-strategy.md" >&2
   exit 1
 }
 
@@ -42,7 +42,6 @@ feature_worktree_status() {
   return 1
 }
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=worktree-paths.sh
 source "${SCRIPT_DIR}/worktree-paths.sh"
 

@@ -31,7 +31,7 @@ $resume-session ~/.codex/sessions/2024-01-15-session.tmp             # legacy-fo
 
 ### Step 0 — Read the session-state contract
 
-**Before locating any file, read `~/.codex/plugins/ycc/shared/references/session-state.md`.** It is the single source of truth for the session store (`~/.codex/session-data/`, legacy fallback `~/.codex/sessions/`), the filename forms, and the selection rules for blank / date / path arguments. Follow its "Discovery" section — do not restate or duplicate it here.
+**Before locating any file, read `../../shared/references/session-state.md`.** It is the single source of truth for the session store (`~/.codex/session-data/`, legacy fallback `~/.codex/sessions/`), the filename forms, and the selection rules for blank / date / path arguments. Follow its "Discovery" section — do not restate or duplicate it here.
 
 ### Step 1 — Find the session file
 

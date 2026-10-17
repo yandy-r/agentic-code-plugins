@@ -62,8 +62,8 @@ Read request and referenced files. Ambiguous request: ask one focused question b
 | true            | false         | B: three-persona team.                                                                          |
 | true            | true          | B enhanced: five-persona team.                                                                  |
 
-Read `~/.codex/plugins/ycc/shared/references/standalone-dispatch.md` when dispatching Path C or after approval for execution; use §§8–9 for planner worktree/batch directives in any mode.
-Read `~/.codex/plugins/ycc/shared/references/agent-team-dispatch.md` only when `--team` is passed (Path B); prefix `plan-`, flat roster, canonical lifecycle.
+Read `../../shared/references/standalone-dispatch.md` when dispatching Path C or after approval for execution; use §§8–9 for planner worktree/batch directives in any mode.
+Read `../../shared/references/agent-team-dispatch.md` only when `--team` is passed (Path B); prefix `plan-`, flat roster, canonical lifecycle.
 
 Read `~/.codex/plugins/ycc/skills/plan/references/planner-prompts.md` when building Path A prompt or appending parallel directives to any persona prompt.
 Read `~/.codex/plugins/ycc/skills/plan/references/personas-and-merge.md` when selecting Path B/C roster, dry-run output, failure policy or merging perspectives.
@@ -101,7 +101,7 @@ Runs only after Step 4 confirmation, last; never substitutes for earlier phases.
 - Otherwise write confirmed plan verbatim to `docs/prps/plans/<slug>.plan.md`; create directory, resolve absolute path. Slug: lowercase, replace non-[a-z0-9-] with hyphen, collapse/trim, cap 20, fallback untitled.
 - Invoke `visual-plan <absolute-plan-path>`; surface its URL, localhost preview or `local files only`; do not derive output directory yourself.
 
-Read `~/.codex/plugins/ycc/shared/references/visual-mode.md` only when visual requested, for force-write-first terminal decorator contract.
+Read `../../shared/references/visual-mode.md` only when visual requested, for force-write-first terminal decorator contract.
 
 ## After approval
 

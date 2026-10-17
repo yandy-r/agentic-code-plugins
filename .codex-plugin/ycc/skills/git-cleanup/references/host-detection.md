@@ -12,7 +12,7 @@
 - Logging
 
 > **Canonical source of truth:** the bundle-wide forge-detection contract lives at
-> `~/.codex/plugins/ycc/shared/references/forge-detection.md`
+> `../../../shared/references/forge-detection.md`
 > (provider values `github` / `forgejo` / `gitea` / `gitlab` / `unknown`; CLIs
 > `gh` / `tea` / `glab`; the `forge_detect_provider`, `forge_cli`, `forge_auth_ok`
 > detection law implemented in `_shared/scripts/lib/forge.sh`). Prefer that document

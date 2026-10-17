@@ -61,7 +61,7 @@ Parse `$ARGUMENTS` for:
 
 ### Phase 0: Reload the capability matrix
 
-Read `~/.codex/plugins/ycc/shared/references/target-capability-matrix.md`
+Read `../../shared/references/target-capability-matrix.md`
 in full. Hold the parsed table in context for all subsequent matrix lookups.
 Do not use stale or cached matrix data from a previous run.
 
@@ -226,5 +226,5 @@ error; it shows what would have been blocked.
   `references/templates/codex-config-fragment.toml.tmpl` (Codex target), and
   `references/templates/cursor-rule-fragment.mdc.tmpl` (Cursor target).
 - The authoritative capability verdicts live in
-  `~/.codex/plugins/ycc/shared/references/target-capability-matrix.md`.
+  `../../shared/references/target-capability-matrix.md`.
   Do not override matrix verdicts locally.

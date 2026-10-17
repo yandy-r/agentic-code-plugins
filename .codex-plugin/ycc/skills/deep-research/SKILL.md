@@ -88,7 +88,7 @@ persona agent reads its own file. The table gives exact paths and read condition
 
 ### Standalone (default)
 
-See `~/.codex/plugins/ycc/shared/references/standalone-dispatch.md` for the
+See `../../shared/references/standalone-dispatch.md` for the
 standalone-dispatch contract (Task vs Agent+team, anti-patterns, backstop policy).
 Spawn each batch in one message. Each agent writes its declared artifact. When a
 result comes back empty or cut short, re-read the matching artifact from disk and
@@ -98,7 +98,7 @@ half a batch fails, abort and report the gaps instead of fabricating results.
 
 ### Agent-team dispatch (`--team` only)
 
-Read `~/.codex/plugins/ycc/shared/references/agent-team-dispatch.md` when
+Read `../../shared/references/agent-team-dispatch.md` when
 `--team` is used. Do not mix standalone Agent calls with team Agent calls.
 
 1. Sanitize subject for team name: lowercase; replace `[^a-z0-9-]` with `-`;

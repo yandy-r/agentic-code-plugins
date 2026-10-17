@@ -309,13 +309,14 @@ class Migration:
                     if unit == "skills" and src.name == "_shared":
                         shared = src
                         continue
-                    projected = staging / src.name
+                    projected = stage(src.name, src, staging, rewrites_for("cursor", self.home), None)
                     if unit == "skills" and src.name == "init":
-                        shutil.copytree(src, projected, symlinks=True)
-                        project_cursor_init(src.name, projected)
-                        removed = self.remove(dest / src.name, (src, projected))
+                        legacy = staging / "legacy" / src.name
+                        shutil.copytree(src, legacy, symlinks=True)
+                        project_cursor_init(src.name, legacy)
+                        removed = self.remove(dest / src.name, (src, projected, legacy))
                     else:
-                        removed = self.remove(dest / src.name, (src,))
+                        removed = self.remove(dest / src.name, (src, projected))
                     if removed:
                         gone.add(src.name)
             if shared is not None:

@@ -87,7 +87,7 @@ Select the execution path from the flags: neither flag → **Path A** — sequen
 
 When worktree mode is active, every batch — regardless of Path A / B / C — runs
 inside the single feature worktree from
-`~/.codex/plugins/ycc/shared/references/worktree-strategy.md` §1. There are
+`../../../shared/references/worktree-strategy.md` §1. There are
 no per-severity child worktrees and no fan-in merge.
 
 **One-time parent setup** (only when `WORKTREE_MODE=true` was forced and

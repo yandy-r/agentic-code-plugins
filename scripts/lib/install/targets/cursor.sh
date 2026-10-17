@@ -189,14 +189,17 @@ sync_cursor_target() {
                 sync_bundle_units "$(cursor_unit_src_root "${unit}")" "${cursor_dir}" "${unit}"
             done
             if [[ " ${units[*]} " == *" skills "* ]]; then
-                python3 - "${scripts_dir}" "${cursor_dir}" <<'PY'
+                python3 - "${scripts_dir}" "${cursor_dir}" "${HOME}" <<'PY'
 import sys
 from pathlib import Path
 
 sys.path.insert(0, sys.argv[1])
 from cursor_native_resources import restore_installer_init
+from install_slices import rewrites_for, transform_tree
 
-restore_installer_init(Path(sys.argv[2]) / "skills")
+skills = Path(sys.argv[2]) / "skills"
+restore_installer_init(skills)
+transform_tree(skills, rewrites_for("cursor", Path(sys.argv[3])), None)
 PY
             fi
         fi

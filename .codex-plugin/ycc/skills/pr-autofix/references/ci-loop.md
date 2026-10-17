@@ -1,6 +1,6 @@
 # CI Loop Steps (Phase 7)
 
-Per-step detail for the `--ci` loop. Policy (caps, failure classification, termination, safety constraints, bail taxonomy) lives in `~/.codex/plugins/ycc/shared/references/ci-monitoring.md`; this file only holds the pr-autofix templates and commands.
+Per-step detail for the `--ci` loop. Policy (caps, failure classification, termination, safety constraints, bail taxonomy) lives in `../../../shared/references/ci-monitoring.md`; this file only holds the pr-autofix templates and commands.
 
 The loop is GitHub-only. Phase 0 already gates the whole skill to `github`, so it never reaches a non-GitHub remote. If `ci-monitor.sh` returns `RESULT=unsupported-provider`, surface it and exit like the other non-loop terminal results.
 

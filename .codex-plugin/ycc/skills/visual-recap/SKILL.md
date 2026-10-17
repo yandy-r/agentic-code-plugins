@@ -49,7 +49,7 @@ Hard rules for this skill:
 
 For the pinned `@agent-native/*` install, the localhost-bridge command surface,
 the hosted-only MCP connector, and the hosted-egress policy, read — do not duplicate —
-`~/.codex/plugins/ycc/shared/references/agent-native-setup.md`.
+`../../shared/references/agent-native-setup.md`.
 
 ## When to use
 
@@ -234,5 +234,5 @@ intentionally unavailable.
 
 - `visual-plan` — forward planning; faithful hosted+local MDX workflow with
   consent-gated egress. Shares the wireframe quality bar word-for-word.
-- `~/.codex/plugins/ycc/shared/references/agent-native-setup.md` — runtime
+- `../../shared/references/agent-native-setup.md` — runtime
   contract (install pin, connector, bridge, egress policy).

@@ -42,7 +42,7 @@ Issue creation is provider-aware. Detect the forge provider on `origin` first
 `gh issue create --title --body` for `github`, `tea issues create --title
 --description` for `forgejo`/`gitea`. `validate-prerequisites.sh` runs the same
 detection and gates the per-provider issue prerequisites. See
-[`{{package-root}}/shared/references/forge-detection.md`](../../shared/references/forge-detection.md)
+`{{package-root}}/shared/references/forge-detection.md`
 for the operation-equivalence map. Log the resolved provider + CLI.
 
 **Forgejo/Gitea caveats**: repo-slug resolution (`gh repo view`) and some label

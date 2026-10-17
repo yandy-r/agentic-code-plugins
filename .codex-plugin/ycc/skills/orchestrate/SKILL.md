@@ -42,8 +42,8 @@ Strip flags from `$ARGUMENTS` and set `TEAM_FLAG=true|false`, `DRY_RUN=true|fals
 5. `DRY_RUN=true` or `PLAN_ONLY=true`: no branch prep, no worktree script calls, no team or agent calls. Stop after Phase 3 output.
 6. Non-dry runs: prepare the feature branch (Phase 2.5) before any agent dispatch, or agents commit on the starting branch (usually `main`).
 7. Never pass `isolation: "worktree"` to dispatch calls: it makes one harness worktree per agent and breaks the single-worktree contract.
-8. Read `~/.codex/plugins/ycc/shared/references/standalone-dispatch.md` for standalone dispatch, worktree prep and dependency batches (sections 8-10).
-   Read `~/.codex/plugins/ycc/shared/references/agent-team-dispatch.md` only when `--team` is passed (section 8: orchestrate adapter).
+8. Read `../../shared/references/standalone-dispatch.md` for standalone dispatch, worktree prep and dependency batches (sections 8-10).
+   Read `../../shared/references/agent-team-dispatch.md` only when `--team` is passed (section 8: orchestrate adapter).
 
 ## Phase 0: Task Analysis
 
@@ -98,12 +98,12 @@ With `--team`, use its Path B Team Communication section.
 
 Follow standalone-dispatch §8 for mode decision (with this skill's inputs: no `## Worktree Setup` auto-detect, so `--no-worktree` is the only opt-out; EXECUTION_MODE and PLAN_ONLY are orchestrate-local), preparation, and agent lines. Summary inputs: `FEATURE_SLUG` per team-sanitizer (20 chars, fallback `untitled`); one shared parent worktree `<repo-root>/.codex/worktrees/<repo>-<FEATURE_SLUG>/`.
 
-When `DRY_RUN=false` and `PLAN_ONLY=false`, follow standalone-dispatch §8.2: prepare the feature branch before any worktree setup or dispatch; if `WORKTREE_MODE=true`, create one parent with `<repo-name>` + `FEATURE_SLUG` and store its echoed path as `PARENT_WORKTREE_PATH`; otherwise skip setup. No plan-move call here (orchestrate builds its own decomposition, not a pre-existing plan file). Every agent uses §8.3 directory lines; treat `PARENT_WORKTREE_PATH` as `WT_PARENT_PATH` and derive `REPO_ROOT` there. Branch-prep exit contract: `~/.codex/plugins/ycc/shared/references/branch-prep.md`.
+When `DRY_RUN=false` and `PLAN_ONLY=false`, follow standalone-dispatch §8.2: prepare the feature branch before any worktree setup or dispatch; if `WORKTREE_MODE=true`, create one parent with `<repo-name>` + `FEATURE_SLUG` and store its echoed path as `PARENT_WORKTREE_PATH`; otherwise skip setup. No plan-move call here (orchestrate builds its own decomposition, not a pre-existing plan file). Every agent uses §8.3 directory lines; treat `PARENT_WORKTREE_PATH` as `WT_PARENT_PATH` and derive `REPO_ROOT` there. Branch-prep exit contract: `../../shared/references/branch-prep.md`.
 
 - `WORKTREE_MODE=true` and `DRY_RUN=true`: no script calls; compute `<repo-root>/.codex/worktrees/<repo>-<FEATURE_SLUG>/` for the dry-run output.
 - `WORKTREE_MODE=true` and `PLAN_ONLY=true`: no script calls; add the worktree annotation to the written plan.
 
-Read `~/.codex/plugins/ycc/shared/references/worktree-strategy.md` when writing the `## Worktree Setup` plan section (section 2 annotation format).
+Read `../../shared/references/worktree-strategy.md` when writing the `## Worktree Setup` plan section (section 2 annotation format).
 
 ## Phase 3: Dry Run Check
 
@@ -179,5 +179,5 @@ Then print the completion summary using the template in `~/.codex/plugins/ycc/sk
 - `~/.codex/plugins/ycc/skills/orchestrate/references/task-breakdown.md`: read in Step 4.
 - `~/.codex/plugins/ycc/skills/orchestrate/references/agent-prompts.md`: read in Step 8.
 - `~/.codex/plugins/ycc/skills/orchestrate/references/dispatch-playbook.md`: usage block (section 1, abort path), dry-run and plan-only formats (sections 2-3, Phase 3), standalone dispatch call shapes (section 4, Step 12), final summary (section 6, Step 17), registration formats (section 10, Step 5), batch adapter (section 11, Step 12), quality checklists (section 7, Steps 6 and 15), coordination principles and patterns (section 8) and troubleshooting (section 9; read when agents conflict, batches misorder, or the task is unclear).
-- `~/.codex/plugins/ycc/shared/references/branch-prep.md`: read in Phase 2.5 when helper behavior matters.
-- `~/.codex/plugins/ycc/shared/references/worktree-strategy.md`: read in Phase 2.5 for plan-only annotations.
+- `../../shared/references/branch-prep.md`: read in Phase 2.5 when helper behavior matters.
+- `../../shared/references/worktree-strategy.md`: read in Phase 2.5 for plan-only annotations.

@@ -149,7 +149,7 @@ Dispatch a single `ycc:prp-researcher` agent via the `Agent` tool, in codebase m
 
 By default (`WORKTREE_MODE=true`), append the following directive to the researcher prompt. Omit when `--no-worktree` was passed (`WORKTREE_MODE=false`):
 
-> **WORKTREE MODE:** The plan you are helping to build will include worktree annotations. In the emitted plan, include a `## Worktree Setup` section with a single `**Parent**:` line naming the feature worktree; no `**Children**:` list; no per-task `**Worktree**:` annotations. All tasks (parallel and sequential) share this one feature worktree path. Follow `ycc/skills/_shared/references/worktree-strategy.md` for the naming scheme and annotation format.
+> **WORKTREE MODE:** The plan you are helping to build will include worktree annotations. In the emitted plan, include a `## Worktree Setup` section with a single `**Parent**:` line naming the feature worktree; no `**Children**:` list; no per-task `**Worktree**:` annotations. All tasks (parallel and sequential) share this one feature worktree path. Follow `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/worktree-strategy.md` for the naming scheme and annotation format.
 
 ### Path B — Parallel sub-agents (`PARALLEL_MODE=true`)
 
@@ -168,7 +168,7 @@ Dispatch without `name` or `run_in_background`. Results may arrive asynchronousl
 
 By default (`WORKTREE_MODE=true`), append the following directive to each researcher prompt. Omit when `--no-worktree` was passed (`WORKTREE_MODE=false`):
 
-> **WORKTREE MODE:** The plan you are helping to build will include worktree annotations. In the emitted plan, include a `## Worktree Setup` section with a single `**Parent**:` line naming the feature worktree; no `**Children**:` list; no per-task `**Worktree**:` annotations. All tasks (parallel and sequential) share this one feature worktree path. Follow `ycc/skills/_shared/references/worktree-strategy.md` for the naming scheme and annotation format.
+> **WORKTREE MODE:** The plan you are helping to build will include worktree annotations. In the emitted plan, include a `## Worktree Setup` section with a single `**Parent**:` line naming the feature worktree; no `**Children**:` list; no per-task `**Worktree**:` annotations. All tasks (parallel and sequential) share this one feature worktree path. Follow `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/worktree-strategy.md` for the naming scheme and annotation format.
 
 After all 3 return: merge tables, de-duplicate, verify all 8 categories covered.
 
@@ -330,7 +330,7 @@ All tasks — parallel and sequential — share this one feature worktree path. 
 
 > **Plan-file handoff**: leave the emitted plan file in `docs/prps/plans/<name>.plan.md` (in the main checkout). The implementor (`ycc:prp-implement`) will **move** it into the feature worktree once the worktree is created — do not pre-write the plan to a worktree path, and do not copy it. See `worktree-strategy.md` §7.
 
-Follow `ycc/skills/_shared/references/worktree-strategy.md` for the full naming scheme and annotation contract.
+Follow `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/worktree-strategy.md` for the full naming scheme and annotation contract.
 
 ### Writing guidelines
 
