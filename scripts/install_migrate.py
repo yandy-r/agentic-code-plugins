@@ -483,11 +483,8 @@ class Migration:
         retained: set[Path] = set()
         for entry in plugins:
             if isinstance(entry, dict) and entry.get("name") == "ycc":
-                ours = writable and any(
-                    entry.get("source") == candidate["source"]
-                    and all(key in candidate and value == candidate[key] for key, value in entry.items())
-                    for candidate in recognized
-                )
+                # The installer always writes the complete entry: any added, omitted, or edited field is user-owned.
+                ours = writable and entry in recognized
                 if ours:
                     print(f"[ok] removed recognized legacy ycc catalog entry from {path}")
                     continue
