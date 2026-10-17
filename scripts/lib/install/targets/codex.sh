@@ -57,6 +57,17 @@ codex_plugin_cli_supported() {
     command -v codex >/dev/null 2>&1 && codex plugin add --help >/dev/null 2>&1
 }
 
+# Keep the shell route on the generator's exact model gate, not catalog names.
+codex_repository_native_enabled() {
+    python3 "${SCRIPT_DIR}/scripts/codex_install.py" enabled
+}
+
+run_native_codex_install() {
+    local -a command=(python3 "${SCRIPT_DIR}/scripts/codex_install.py" "$1" --mode "${MODE:-local}")
+    codex_plugin_cli_supported && command+=(--cli)
+    "${command[@]}"
+}
+
 # codex_marketplace_name — the name of the marketplace holding ycc (the
 # installer keeps an existing name when it merges its entry).
 codex_marketplace_name() {
@@ -219,6 +230,8 @@ sync_codex_target() {
     # The 'skills' / 'agents' slices install standalone entries into
     # ~/.codex/skills/<name> and ~/.codex/agents/<name>.toml — no plugin.
     local do_plugin=0 do_agents=0 do_settings=0 do_rules=0 do_mcp=0
+    local native_codex=0
+    codex_repository_native_enabled && native_codex=1
     step_enabled base && do_plugin=1
     if [[ -n "${PACKAGE:-}" && ${do_plugin} -eq 1 ]]; then
         # Only the existing local catalog may be refreshed. A foreign native
@@ -258,6 +271,9 @@ sync_codex_target() {
     # checkout; repo-mode plugin registration only writes JSON.
     local do_local_plugin=0 do_build=0
     [[ $do_plugin -eq 1 && "${MODE:-local}" == "local" ]] && do_local_plugin=1
+    if [[ $do_plugin -eq 1 && $native_codex -eq 1 ]] && ! codex_plugin_cli_supported; then
+        do_local_plugin=1
+    fi
     [[ $do_local_plugin -eq 1 || $do_agents -eq 1 || ${#slices[@]} -gt 0 ]] && do_build=1
 
     command -v python3 >/dev/null 2>&1 || { err "python3 is required but not found"; exit 1; }
@@ -268,7 +284,7 @@ sync_codex_target() {
 
     local total=0
     [[ $do_build -eq 1 ]] && total=$((total + 3))
-    [[ $do_local_plugin -eq 1 ]] && total=$((total + 1))
+    [[ $do_local_plugin -eq 1 && $native_codex -eq 0 ]] && total=$((total + 1))
     [[ $do_agents -eq 1 ]] && total=$((total + 1))
     [[ $do_plugin -eq 1 ]] && total=$((total + 1))
     total=$((total + ${#slices[@]}))
@@ -322,7 +338,7 @@ sync_codex_target() {
         run_repo_style_format_modified
     fi
 
-    if [[ $do_local_plugin -eq 1 ]]; then
+    if [[ $do_local_plugin -eq 1 && $native_codex -eq 0 ]]; then
         step=$((step + 1))
         printf '\n%s[%d/%d] Link plugin tree%s\n' "${BOLD}" "$step" "$total" "${NC}"
         # Symlink (not rsync) the plugin tree so edits in .codex-plugin/ycc/ are
@@ -355,7 +371,10 @@ sync_codex_target() {
 
     if [[ $do_plugin -eq 1 ]]; then
         step=$((step + 1))
-        if [[ "${MODE:-local}" == "repo" ]]; then
+        if [[ $native_codex -eq 1 ]]; then
+            printf '\n%s[%d/%d] Install native Codex packages (ycc + ycc-mcp)%s\n' "${BOLD}" "$step" "$total" "${NC}"
+            run_native_codex_install install
+        elif [[ "${MODE:-local}" == "repo" ]]; then
             # Repo mode: Codex clones https://github.com/yandy-r/ystack.git
             # at main and resolves the bundle from ./.codex-plugin/ycc on install.
             # Bundle regeneration stays out-of-band via ./scripts/sync.sh --only codex.
@@ -368,8 +387,10 @@ sync_codex_target() {
             # so the path names the ~/.agents/plugins/ycc link from there.
             merge_codex_marketplace_json "local" "./.agents/plugins/ycc"
         fi
-        install_codex_plugin
-        enable_local_codex_plugin_leaf
+        if [[ $native_codex -eq 0 ]]; then
+            install_codex_plugin
+            enable_local_codex_plugin_leaf
+        fi
     fi
 
     local slice
@@ -387,11 +408,17 @@ sync_codex_target() {
         local codex_groups
         codex_groups="$(config_groups_for_target codex)"
         if [[ -n "${codex_groups}" ]]; then
-            merge_settings_config \
-                "codex-config" \
-                "${SCRIPT_DIR}/.codex-plugin/config/config.toml" \
-                "${HOME}/.codex/config.toml" \
-                "${codex_groups}"
+            if [[ $native_codex -eq 1 ]]; then
+                local -a native_settings=(python3 "${SCRIPT_DIR}/scripts/codex_install.py" settings --groups "${codex_groups}")
+                [[ "${FORCE:-0}" == 1 ]] && native_settings+=(--force)
+                "${native_settings[@]}"
+            else
+                merge_settings_config \
+                    "codex-config" \
+                    "${SCRIPT_DIR}/.codex-plugin/config/config.toml" \
+                    "${HOME}/.codex/config.toml" \
+                    "${codex_groups}"
+            fi
         fi
     fi
 
@@ -419,7 +446,9 @@ sync_codex_target() {
         fi
     fi
     if [[ $do_plugin -eq 1 ]]; then
-        if [[ "${MODE:-local}" == "repo" ]]; then
+        if [[ $native_codex -eq 1 ]]; then
+            warn "Restart Codex; ycc@ycc and ycc-mcp@ycc are installed. Rerun this base step to refresh their snapshots."
+        elif [[ "${MODE:-local}" == "repo" ]]; then
             warn "Restart Codex; the 'local-ycc-plugins' marketplace in ~/.agents/plugins/marketplace.json now tracks the git-subdir source https://github.com/yandy-r/ystack.git at ./.codex-plugin/ycc on main."
             warn "Updates: rerun this step (or use the Codex /plugins UI) to pull the latest published commit. No local symlink, no custom agents install."
             warn "If you also want to iterate on ycc/ source locally, regenerate the bundle with ./scripts/sync.sh --only codex and switch back to --mode local."
@@ -462,11 +491,22 @@ remove_codex_target() {
     fi
     if step_enabled settings; then
         printf '\n%sCodex: remove managed config (config.toml)%s\n' "${BOLD}" "${NC}"
-        remove_settings "codex-config" "${SCRIPT_DIR}/.codex-plugin/config/config.toml" \
-            "${codex_dir}/config.toml" "$(config_groups_for_target codex)"
+        if codex_repository_native_enabled; then
+            python3 "${SCRIPT_DIR}/scripts/codex_install.py" settings --groups "$(config_groups_for_target codex)" --remove
+        else
+            remove_settings "codex-config" "${SCRIPT_DIR}/.codex-plugin/config/config.toml" \
+                "${codex_dir}/config.toml" "$(config_groups_for_target codex)"
+        fi
     fi
     remove_slices codex skills agents
     if step_enabled base; then
+        if codex_repository_native_enabled || [[ -f "${HOME}/.config/ycc/codex-native-install.json" ]]; then
+            printf '\n%sCodex: remove owned native packages + marketplace%s\n' "${BOLD}" "${NC}"
+            run_native_codex_install remove
+            step_enabled agents || run_slice codex agents
+            printf '\n%sCodex remove complete.%s\n' "${BOLD}" "${NC}"
+            return 0
+        fi
         printf '\n%sCodex: remove plugin links, cache, custom agents + marketplace entry%s\n' "${BOLD}" "${NC}"
         uninstall_codex_plugin
         unlink_owned_link "${CODEX_PLUGIN_DIR}" "${codex_dir}/plugins/ycc"

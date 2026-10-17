@@ -452,20 +452,22 @@ class NativeExportTests(unittest.TestCase):
         )
         return replace(model, packages=packages)
 
-    def test_repository_catalog_flips_on_any_listed_native_package(self) -> None:
-        unlisted = self.model_with_listed()
-        self.assertEqual(
-            generator.build_repository_marketplace(unlisted.packages),
-            generator.build_repo_marketplace(),
-        )
-        for listed in (("ycc",), ("ycc-mcp",), ("ycc", "ycc-mcp")):
+    def test_repository_catalog_requires_the_full_migration_set(self) -> None:
+        for listed in ((), ("ycc",), ("ycc-mcp",), ("ycc", "ycc-mcp")):
             with self.subTest(listed=listed):
                 model = self.model_with_listed(*listed)
-                catalog = generator.build_repository_marketplace(model.packages)
-                self.assertEqual(catalog["name"], "ycc")
-                self.assertEqual([entry["name"] for entry in catalog["plugins"]], list(listed))
-                for entry in catalog["plugins"]:
-                    self.assertEqual(entry["source"], {"source": "local", "path": f"./.codex-plugin/{entry['name']}"})
+                catalog = generator.build_repository_marketplace(iter(model.packages))
+                complete = set(listed) == set(generator.MIGRATION_PACKAGES)
+                self.assertEqual(generator.repository_native_enabled(model.packages), complete)
+                if complete:
+                    self.assertEqual(catalog["name"], "ycc")
+                    self.assertEqual([entry["name"] for entry in catalog["plugins"]], list(listed))
+                    for entry in catalog["plugins"]:
+                        self.assertEqual(
+                            entry["source"], {"source": "local", "path": f"./.codex-plugin/{entry['name']}"}
+                        )
+                else:
+                    self.assertEqual(catalog, generator.build_repo_marketplace())
 
     def test_listed_repository_writes_native_payloads_and_roundtrips_to_legacy(self) -> None:
         repo = self.tmp / "repo"
@@ -476,14 +478,14 @@ class NativeExportTests(unittest.TestCase):
             unlisted_snapshot = self.snapshot(repo)
             self.assertEqual(generator.run_check(repo), 0)
 
-        partial = self.model_with_listed("ycc")
-        with patch.object(generator, "load_package_model", return_value=partial):
+        listed = self.model_with_listed("ycc", "ycc-mcp")
+        with patch.object(generator, "load_package_model", return_value=listed):
             with contextlib.redirect_stderr(io.StringIO()):
                 self.assertEqual(generator.run_check(repo), 1)
             generator.write_all(repo, dry_run=False)
             self.assertEqual(generator.run_check(repo), 0)
             catalog = self.json_at(repo, CATALOG)
-            self.assertEqual([entry["name"] for entry in catalog["plugins"]], ["ycc"])
+            self.assertEqual([entry["name"] for entry in catalog["plugins"]], ["ycc", "ycc-mcp"])
             skills = self.json_at(repo, SKILLS_ROOT / ".codex-plugin/plugin.json")
             self.assertNotIn("mcpServers", skills)
             self.assertFalse((repo / SKILLS_ROOT / ".mcp.json").exists())

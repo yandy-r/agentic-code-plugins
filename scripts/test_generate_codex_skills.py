@@ -280,32 +280,34 @@ class LegacyCompatibilityTestCase(unittest.TestCase):
 
     def test_repository_native_paths_tracks_codex_listing(self) -> None:
         model = skills.load_package_model()
-        expected = any(
-            row.runtime == "codex" and row.status == "included" and row.mechanism == "native" and row.listed
+        expected = all(
+            any(
+                row.runtime == "codex" and row.status == "included" and row.mechanism == "native" and row.listed
+                for row in package.runtimes
+            )
             for package in model.packages
-            for row in package.runtimes
+            if package.key in {"ycc", "ycc-mcp"}
         )
         self.assertEqual(skills.repository_native_paths(), expected)
-        for listed in (False, True):
+        for listed, expected_native in (((), False), (("ycc",), False), (("ycc", "ycc-mcp"), True)):
             fixture = replace(
                 model,
                 packages=tuple(
                     replace(
                         package,
                         runtimes=tuple(
-                            (
-                                replace(entry, listed=listed and package.key == "ycc")
-                                if entry.runtime == "codex"
-                                else entry
-                            )
+                            (replace(entry, listed=package.key in listed) if entry.runtime == "codex" else entry)
                             for entry in package.runtimes
                         ),
                     )
                     for package in model.packages
                 ),
             )
-            with self.subTest(listed=listed), patch.object(skills, "load_package_model", return_value=fixture):
-                self.assertEqual(skills.repository_native_paths(), listed)
+            with (
+                self.subTest(listed=listed),
+                patch.object(skills, "load_package_model", return_value=fixture),
+            ):
+                self.assertEqual(skills.repository_native_paths(), expected_native)
 
 
 if __name__ == "__main__":

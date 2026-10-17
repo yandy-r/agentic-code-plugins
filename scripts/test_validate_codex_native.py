@@ -3,8 +3,13 @@
 
 from __future__ import annotations
 
+import contextlib
 import copy
+import io
 import json
+import os
+import shutil
+import subprocess
 import tempfile
 import unittest
 from dataclasses import replace
@@ -15,7 +20,9 @@ from unittest.mock import patch
 import codex_marketplace as marketplace
 import generate_codex_plugin as generator
 import install_migrate as migrate
+import install_slices as slices
 import validate_codex_native as validator
+from generate_codex_skills import write_tree
 from package_model import PackageModel, load_package_model
 
 
@@ -248,7 +255,7 @@ class CodexMarketplaceSchemaTests(unittest.TestCase):
         return replace(model, packages=packages)
 
     def test_repository_validator_and_migration_gate_follow_listing_state(self) -> None:
-        for listed in (("ycc",), ("ycc-mcp",), ("ycc", "ycc-mcp")):
+        for listed in (("ycc", "ycc-mcp"),):
             with self.subTest(listed=listed), tempfile.TemporaryDirectory() as tmp:
                 repo, export = Path(tmp) / "repo", Path(tmp) / "export"
                 model = self.model_with_listed(*listed)
@@ -260,13 +267,33 @@ class CodexMarketplaceSchemaTests(unittest.TestCase):
                     generator.write_all(repo, dry_run=False)
                     self.assertEqual(generator.run_check(repo), 0)
                     validator.validate(repo, native=False)
-                    if set(listed) == set(migrate.PACKAGES):
-                        migrate.codex_eligible(repo)
-                    else:
-                        # Partial listing is schema-valid but never authorizes migration.
-                        with self.assertRaisesRegex(ValueError, "unlisted native Codex package"):
-                            migrate.codex_eligible(repo)
+                    migrate.codex_eligible(repo)
                     # An explicit external export includes unlisted packages and stays eligible.
+                    generator.generate_native_tree(export)
+                    validator.validate(export, native=True)
+                    migrate.codex_eligible(export, external=True)
+
+    def test_partial_listing_is_rejected_and_never_flips_the_repository(self) -> None:
+        for listed in (("ycc",), ("ycc-mcp",)):
+            with self.subTest(listed=listed), tempfile.TemporaryDirectory() as tmp:
+                repo, export = Path(tmp) / "repo", Path(tmp) / "export"
+                model = self.model_with_listed(*listed)
+                with (
+                    patch.object(generator, "load_package_model", return_value=model),
+                    patch.object(validator, "load_package_model", return_value=model),
+                    patch.object(migrate, "load_package_model", return_value=model),
+                ):
+                    generator.write_all(repo, dry_run=False)
+                    # Legacy output survives, including the combined ycc payload with MCP.
+                    self.assertEqual(
+                        validator.load_json(repo / generator.NATIVE_MARKETPLACE), generator.build_repo_marketplace()
+                    )
+                    self.assertTrue((repo / ".codex-plugin/ycc/.mcp.json").is_file())
+                    with self.assertRaisesRegex(ValueError, "partial Codex listing is not allowed"):
+                        validator.validate(repo, native=False)
+                    with self.assertRaisesRegex(ValueError, "native catalog not listed"):
+                        migrate.codex_eligible(repo)
+                    # An explicit export stays opt-in and eligible regardless of listing.
                     generator.generate_native_tree(export)
                     validator.validate(export, native=True)
                     migrate.codex_eligible(export, external=True)
@@ -282,6 +309,194 @@ class CodexMarketplaceSchemaTests(unittest.TestCase):
                 validator.validate(repo, native=False)
                 with self.assertRaisesRegex(ValueError, "native catalog not listed"):
                     migrate.codex_eligible(repo)
+
+
+class CodexListedMigrationTransitionTests(unittest.TestCase):
+    """Preflip combined artifacts must be retired against a listed, skills-only canonical tree."""
+
+    def setUp(self) -> None:
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        base = Path(temporary.name)
+        self.home, self.legacy_repo, self.repo = base / "home", base / "legacy", base / "repo"
+        self.home.mkdir()
+        real_root = migrate.ROOT
+        unlisted = CodexMarketplaceSchemaTests.model_with_listed()
+        self.listed = CodexMarketplaceSchemaTests.model_with_listed(*migrate.PACKAGES)
+        # Exact preflip bytes: combined manifest, MCP payload, legacy-path skills.
+        with patch.object(generator, "load_package_model", return_value=unlisted):
+            generator.write_all(self.legacy_repo, dry_run=False)
+        write_tree(self.legacy_repo / ".codex-plugin/ycc", False, native_paths=False)
+        self.legacy = self.legacy_repo / ".codex-plugin/ycc"
+        self.canonical = self.repo / ".codex-plugin/ycc"
+        self.canonical.parent.mkdir(parents=True)
+        shutil.copytree(self.legacy, self.canonical, symlinks=True)
+        (self.repo / "ycc").symlink_to(real_root / "ycc")
+        self.flipped = False
+
+        def fake_codex(command: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+            args = command[1:-1]
+            version = generator.native_version(self.listed)
+            rows = [
+                {"pluginId": f"{package}@ycc", "installed": True, "enabled": True, "version": version}
+                for package in migrate.PACKAGES
+            ]
+            if args[:3] == ["plugin", "marketplace", "add"]:
+                payload: dict = {"marketplaceName": "ycc"}
+            elif args[:2] == ["plugin", "list"]:
+                payload = {"available": [], "installed": rows}
+            else:
+                payload = {}
+            return subprocess.CompletedProcess(command, 0, stdout=json.dumps(payload), stderr="")
+
+        stack = contextlib.ExitStack()
+        self.addCleanup(stack.close)
+        stack.enter_context(patch.object(migrate, "ROOT", self.repo))
+        stack.enter_context(patch.object(slices, "REPO_ROOT", self.repo))
+        stack.enter_context(patch.dict(os.environ, {"HOME": str(self.home)}))
+        stack.enter_context(patch.object(migrate, "load_package_model", return_value=self.listed))
+        stack.enter_context(patch.object(migrate.Migration, "merge_remove"))
+        stack.enter_context(patch.object(migrate.subprocess, "run", side_effect=fake_codex))
+
+    @property
+    def skills(self) -> Path:
+        return self.home / ".codex/skills"
+
+    @property
+    def cache(self) -> Path:
+        return self.home / ".codex/plugins/cache/local-ycc-plugins/ycc"
+
+    def install_standalone(self) -> list[str]:
+        """Install every skill as a preflip installer would, in all recognized forms."""
+        self.flip_listing()
+        historical = [
+            ("~/.codex/plugins/ycc/skills/", "~/.codex/skills/"),
+            ("~/.codex/plugins/ycc/shared/", "~/.codex/skills/_shared/"),
+            ("../../../shared/", "../../_shared/"),
+            ("../../shared/references/", "../_shared/references/"),
+            ("<installed ycc plugin root>/shared/references/", f"{self.home}/.codex/skills/_shared/references/"),
+        ]
+        pattern = slices.namespace_pattern("codex")
+        self.skills.mkdir(parents=True)
+        names = sorted(path.name for path in (self.legacy / "skills").iterdir())
+        raw_canonical, raw_legacy = names[0], names[1]
+        shutil.copytree(self.canonical / "skills" / raw_canonical, self.skills / raw_canonical, symlinks=True)
+        shutil.copytree(self.legacy / "skills" / raw_legacy, self.skills / raw_legacy, symlinks=True)
+        for name in names[2:]:
+            slices.stage(name, self.legacy / "skills" / name, self.skills, historical, pattern)
+        slices.stage("_shared", self.legacy / "shared", self.skills, historical, pattern)
+        return names
+
+    def install_legacy_plugin(self) -> None:
+        for relative in (".codex/plugins/ycc", ".agents/plugins/ycc"):
+            link = self.home / relative
+            link.parent.mkdir(parents=True, exist_ok=True)
+            link.symlink_to(self.canonical)
+
+    @staticmethod
+    def snapshot(root: Path) -> dict[str, bytes | str]:
+        return {
+            str(path.relative_to(root)): os.readlink(path) if path.is_symlink() else path.read_bytes()
+            for path in sorted(root.rglob("*"))
+            if path.is_symlink() or path.is_file()
+        }
+
+    def flip_listing(self) -> None:
+        if self.flipped:
+            return
+        with patch.object(generator, "load_package_model", return_value=self.listed):
+            generator.write_all(self.repo, dry_run=False)
+        self.flipped = True
+        self.assertTrue((self.legacy / ".mcp.json").is_file())
+        self.assertFalse((self.canonical / ".mcp.json").exists())
+        self.assertNotEqual(
+            (self.legacy / ".codex-plugin/plugin.json").read_bytes(),
+            (self.canonical / ".codex-plugin/plugin.json").read_bytes(),
+        )
+
+    def migrate_codex(self, *, apply: bool = True) -> str:
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.flip_listing()
+            migrate.Migration(apply).codex(self.repo, True)
+        return out.getvalue()
+
+    def test_exact_preflip_flat_cache_links_and_standalone_skills_retire(self) -> None:
+        names = self.install_standalone()
+        self.install_legacy_plugin()
+        self.cache.parent.mkdir(parents=True)
+        shutil.copytree(self.legacy, self.cache, symlinks=True)
+        self.assertEqual(sorted(path.name for path in self.skills.iterdir()), sorted([*names, "_shared"]))
+        before = self.snapshot(self.home)
+        self.migrate_codex(apply=False)
+        self.assertEqual(self.snapshot(self.home), before)
+        out = self.migrate_codex()
+        self.assertNotIn("kept", out)
+        self.assertEqual(list(self.skills.iterdir()), [])
+        self.assertFalse(self.cache.exists())
+        for relative in (".codex/plugins/ycc", ".agents/plugins/ycc"):
+            self.assertFalse((self.home / relative).is_symlink())
+        self.assertTrue(migrate.Migration.merge_remove.called)
+
+    def test_versioned_cache_retires_exact_snapshots_and_keeps_edited_or_foreign(self) -> None:
+        exact, edited = self.cache / "exact", self.cache / "edited"
+        self.cache.mkdir(parents=True)
+        shutil.copytree(self.legacy, exact, symlinks=True)
+        shutil.copytree(self.legacy, edited, symlinks=True)
+        (edited / ".mcp.json").write_text('{"mcpServers": {"mine": {}}}\n', encoding="utf-8")
+        (self.cache / "foreign").mkdir()
+        (self.cache / "foreign/README").write_text("mine\n", encoding="utf-8")
+        out = self.migrate_codex()
+        self.assertFalse(exact.exists())
+        self.assertTrue((edited / ".mcp.json").is_file())
+        self.assertTrue((self.cache / "foreign/README").is_file())
+        self.assertIn(f"kept {edited}", out)
+        self.assertIn(f"kept {self.cache / 'foreign'}", out)
+
+    def test_canonical_skills_only_cache_retires_and_combined_snapshot_missing_mcp_is_kept(self) -> None:
+        # The canonical skills-only tree stays recognized (post-flip caches), and a
+        # combined tree missing .mcp.json is a user edit that must be kept.
+        trimmed = self.cache / "trimmed"
+        current = self.cache / "current"
+        self.cache.mkdir(parents=True)
+        shutil.copytree(self.legacy, trimmed, symlinks=True)
+        (trimmed / ".mcp.json").unlink()
+        self.flip_listing()
+        shutil.copytree(self.canonical, current, symlinks=True)
+        self.migrate_codex()
+        self.assertTrue(trimmed.is_dir())
+        self.assertFalse(current.exists())
+
+    def test_edited_and_foreign_standalone_skills_are_kept_with_shared_helpers(self) -> None:
+        names = self.install_standalone()
+        edited = names[2]
+        with (self.skills / edited / "SKILL.md").open("a", encoding="utf-8") as handle:
+            handle.write("\nlocal edit\n")
+        (self.skills / "mine").mkdir()
+        (self.skills / "mine/SKILL.md").write_text("mine\n", encoding="utf-8")
+        out = self.migrate_codex()
+        self.assertIn("local edit", (self.skills / edited / "SKILL.md").read_text(encoding="utf-8"))
+        self.assertTrue((self.skills / "mine/SKILL.md").is_file())
+        self.assertTrue((self.skills / "_shared").is_dir())
+        self.assertIn(f"kept {self.skills / edited}", out)
+        self.assertIn("retained entries may depend on it", out)
+        self.assertEqual(sorted(path.name for path in self.skills.iterdir()), sorted([edited, "mine", "_shared"]))
+
+    def test_symlinked_skills_parent_and_foreign_links_are_never_traversed(self) -> None:
+        self.install_legacy_plugin()
+        (self.home / ".codex/plugins/ycc").unlink()
+        (self.home / ".codex/plugins/ycc").symlink_to(self.home / "foreign")
+        real = self.home / "real-skills"
+        real.mkdir()
+        shutil.copytree(self.legacy / "skills", real / "all", symlinks=True)
+        (self.home / ".codex").mkdir(exist_ok=True)
+        self.skills.symlink_to(real)
+        before = self.snapshot(real)
+        out = self.migrate_codex()
+        self.assertEqual(self.snapshot(real), before)
+        self.assertTrue((self.home / ".codex/plugins/ycc").is_symlink())
+        self.assertIn("kept", out)
+        self.assertFalse((self.home / ".agents/plugins/ycc").is_symlink())
 
 
 if __name__ == "__main__":

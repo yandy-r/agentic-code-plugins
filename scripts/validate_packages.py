@@ -103,9 +103,7 @@ def _native_tree_errors(root: Path, model: PackageModel) -> list[str]:
                     errors.append(f"{rel}: missing modeled {component} component ({target.relative_to(root)})")
             modeled = set(entry.components)
             allowed_extra = UNMODELED_COMPONENT_EXCEPTIONS.get((key, runtime), frozenset())
-            if (key, runtime) == ("ycc", "codex") and any(
-                row.runtime == "codex" and row.listed for package in model.packages for row in package.runtimes
-            ):
+            if (key, runtime) == ("ycc", "codex") and codex.repository_native_enabled(model.packages):
                 allowed_extra = frozenset()
             for component in RECOGNIZED_COMPONENTS:
                 if component in modeled or component in allowed_extra:
@@ -165,6 +163,9 @@ def validate(root: Path, model: PackageModel) -> list[str]:
     # repository tree. Once listed, compare against the model-driven native roots.
     codex_catalog = root / codex.NATIVE_MARKETPLACE
     try:
+        listing_error = codex.partial_codex_listing_error(model.packages)
+        if listing_error is not None:
+            errors.append(listing_error)
         if load_object(codex_catalog) != codex.build_repository_marketplace(model.packages):
             errors.append(f"{codex_catalog}: catalog must match the Codex package listing state")
     except ValueError as exc:

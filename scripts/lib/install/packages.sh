@@ -64,10 +64,11 @@ PACKAGE_CODEX_FOREIGN_MARKETPLACE=""
 codex_native_plugin_detected() {
     PACKAGE_CODEX_FOREIGN_MARKETPLACE=""
     command -v python3 >/dev/null 2>&1 || return 1
-    local marketplace
+    local marketplace own="local-ycc-plugins"
+    codex_repository_native_enabled && own="ycc"
     marketplace="$(python3 "${SCRIPT_DIR}/scripts/package_install_plan.py" --detect-codex-native "${HOME}")" || return 1
     [[ -n "${marketplace}" ]] || return 1
-    if [[ "${marketplace}" != "local-ycc-plugins" ]]; then
+    if [[ "${marketplace}" != "${own}" ]]; then
         PACKAGE_CODEX_FOREIGN_MARKETPLACE="${marketplace}"
     fi
     return 0

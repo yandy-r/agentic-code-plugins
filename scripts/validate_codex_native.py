@@ -136,6 +136,8 @@ def validate(root: Path, native: bool) -> None:
     model = load_package_model()
     packages = generator.native_packages(model.packages)
     version = generator.native_version(model)
+    if not native and (listing_error := generator.partial_codex_listing_error(model.packages)) is not None:
+        raise ValueError(listing_error)
     listed = generator.build_repository_marketplace(packages)["name"] == "ycc"
     if native or listed:
         check_catalog(root, packages, include_unlisted=native)

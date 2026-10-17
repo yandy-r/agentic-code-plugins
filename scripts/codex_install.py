@@ -1,0 +1,314 @@
+#!/usr/bin/env python3
+"""Install the listed Codex pair (ycc + ycc-mcp) without touching legacy carriers.
+
+The shell owns build/step selection. This helper owns native marketplace
+registration, the versioned cache fallback for a missing plugin CLI, scoped
+plugin enablement, and the ownership record that makes base removal safe.
+Legacy links, caches and config are retired only by ``install.sh migrate``.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import shutil
+import subprocess
+import sys
+import tempfile
+import tomllib
+from pathlib import Path
+from typing import Any
+
+from generate_codex_plugin import MIGRATION_PACKAGES, repository_native_enabled
+from merge_managed_config import atomic_write, delete_toml_entries
+from package_model import load_package_model
+from validate_codex_native import validate
+
+ROOT = Path(__file__).resolve().parent.parent
+REPOSITORY = "https://github.com/yandy-r/ystack.git"
+SELECTORS = tuple(f"{package}@ycc" for package in MIGRATION_PACKAGES)
+LEGACY_SELECTOR = "ycc@local-ycc-plugins"
+UNSAFE_VERSIONS = {".", ".."}
+
+
+def guarded(path: Path) -> None:
+    if path.is_symlink() or any(parent.is_symlink() for parent in path.parents):
+        raise ValueError(f"refusing symlinked native install path: {path}")
+
+
+def inventory(root: Path) -> dict[str, list[Any]]:
+    """Fingerprint a complete snapshot: bytes, executable bits and empty directories."""
+    guarded(root)
+    if not root.is_dir():
+        raise ValueError(f"native package is not a directory: {root}")
+    result: dict[str, list[Any]] = {}
+    for path in sorted(root.rglob("*")):
+        if path.is_symlink():
+            raise ValueError(f"native package contains a symlink: {path}")
+        if path.is_dir():
+            result[str(path.relative_to(root))] = ["dir"]
+        else:
+            executable = bool(path.stat().st_mode & 0o111)
+            result[str(path.relative_to(root))] = [hashlib.sha256(path.read_bytes()).hexdigest(), executable]
+    return result
+
+
+def config(path: Path) -> dict[str, Any]:
+    guarded(path)
+    try:
+        return tomllib.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {}
+
+
+def state_path() -> Path:
+    return Path.home() / ".config/ycc/codex-native-install.json"
+
+
+def load_state() -> dict[str, Any]:
+    guarded(state_path())
+    try:
+        state = json.loads(state_path().read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {"caches": {}, "packages": []}
+    state.setdefault("caches", {})
+    state.setdefault("packages", [])
+    return state
+
+
+def save_state(state: dict[str, Any]) -> None:
+    guarded(state_path())
+    atomic_write(state_path(), json.dumps(state, indent=2) + "\n")
+
+
+def cli(*args: str, check: bool = True) -> None:
+    print(f"[ok] codex {' '.join(args)}", flush=True)
+    result = subprocess.run(["codex", *args], check=check)
+    if result.returncode:
+        print(f"[!!] 'codex {' '.join(args)}' returned non-zero — check 'codex plugin list'")
+
+
+def merge_config(groups: str, source_text: str, entries: list[str] | None, *, remove: bool, force: bool) -> None:
+    """Run the managed TOML merge for ``source_text``, narrowed to ``entries``."""
+    with tempfile.TemporaryDirectory(prefix="ycc-codex-config-") as temporary:
+        source = Path(temporary) / "config.toml"
+        source.write_text(source_text, encoding="utf-8")
+        command = [
+            sys.executable,
+            str(ROOT / "scripts/merge_managed_config.py"),
+            "--profile",
+            "codex-config",
+            "--source",
+            str(source),
+            "--destination",
+            str(Path.home() / ".codex/config.toml"),
+            "--groups",
+            groups,
+        ]
+        if entries is not None:
+            command += ["--entries", ",".join(entries)]
+        if remove:
+            command.append("--remove")
+        if force:
+            command.append("--force")
+        subprocess.run(command, check=True)
+
+
+def enablement_text() -> str:
+    return "".join(f'[plugins."{selector}"]\nenabled = true\n' for selector in SELECTORS)
+
+
+def snapshot_key(home: Path, snapshot: Path) -> str:
+    return str(snapshot.relative_to(home))
+
+
+def install(mode: str, use_cli: bool) -> None:
+    if not repository_native_enabled(load_package_model().packages):
+        raise ValueError("repository native Codex packages are not listed together")
+    # A skipped build may leave a stale pre-listing tree: never register it.
+    validate(ROOT, native=False)
+    home = Path.home() / ".codex"
+    destination = home / "config.toml"
+    state = load_state()
+    git_source = use_cli and mode == "repo"
+    expected = (
+        {"source_type": "git", "source": REPOSITORY, "ref": "main"}
+        if git_source
+        else {"source_type": "local", "source": str(ROOT)}
+    )
+    registered = config(destination).get("marketplaces", {}).get("ycc")
+    if registered is not None and registered != expected:
+        raise ValueError("marketplace ycc has a different source; retained (remove it or change source explicitly)")
+    # Record registration ownership before a CLI that can partially succeed
+    # runs; a registration the user already had is never claimed.
+    if registered is None:
+        state["marketplace"] = expected
+        save_state(state)
+
+    sources = {package: ROOT / ".codex-plugin" / package for package in MIGRATION_PACKAGES}
+    versions: dict[str, str] = {}
+    for package, source in sources.items():
+        version = json.loads((source / ".codex-plugin/plugin.json").read_text(encoding="utf-8")).get("version")
+        if not isinstance(version, str) or not version or Path(version).name != version or version in UNSAFE_VERSIONS:
+            raise ValueError(f"unsafe native package version for {package}: {version!r}")
+        versions[package] = version
+        cache = home / "plugins/cache/ycc" / package / version
+        guarded(cache)
+        if cache.exists():
+            actual = inventory(cache)
+            if actual != inventory(source) and actual != state["caches"].get(snapshot_key(home, cache)):
+                raise ValueError(f"native cache is edited or foreign; retained: {cache}")
+
+    if use_cli:
+        target = REPOSITORY if git_source else str(ROOT)
+        cli("plugin", "marketplace", "add", target, *(["--ref", "main"] if git_source else []))
+    else:
+        if mode == "repo":
+            print("[!!] Codex plugin CLI unavailable; using this checkout's native snapshot instead of fetching main.")
+        if registered is None:
+            text = destination.read_text(encoding="utf-8") if destination.exists() else ""
+            text += f'\n[marketplaces.ycc]\nsource_type = "local"\nsource = {json.dumps(str(ROOT))}\n'
+            atomic_write(destination, text)
+
+    for package, source in sources.items():
+        package_root = home / "plugins/cache/ycc" / package
+        cache = package_root / versions[package]
+        key = snapshot_key(home, cache)
+        owned = not cache.exists() or key in state["caches"] or package in state["packages"]
+        before = set(package_root.iterdir()) if package_root.is_dir() else set()
+        if use_cli:
+            cli("plugin", "add", f"{package}@ycc")
+            # Record the CLI's actual bytes: --mode repo may fetch another version.
+            if package_root.is_dir():
+                for snapshot in package_root.iterdir():
+                    ours = snapshot not in before or snapshot_key(home, snapshot) in state["caches"]
+                    if snapshot.is_dir() and ours:
+                        state["caches"][snapshot_key(home, snapshot)] = inventory(snapshot)
+        else:
+            if not cache.exists() or inventory(cache) != inventory(source):
+                if cache.exists():
+                    shutil.rmtree(cache)
+                cache.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copytree(source, cache)
+                print(f"[ok] Synced Codex native cache → {cache}")
+            if owned:
+                state["caches"][key] = inventory(cache)
+        if owned and package not in state["packages"]:
+            state["packages"].append(package)
+        save_state(state)
+    merge_config("plugins", enablement_text(), list(SELECTORS), remove=False, force=True)
+    print(
+        "[!!] Legacy ycc@local-ycc-plugins links, cache and config are untouched; "
+        "run ./install.sh migrate --target codex (then --apply) to retire them."
+    )
+
+
+def remove(use_cli: bool) -> None:
+    if not state_path().exists():
+        return
+    state = load_state()
+    home = Path.home() / ".codex"
+    destination = home / "config.toml"
+    config(destination)
+    kept: dict[str, Any] = {}
+    kept_packages: set[str] = set()
+    for relative, expected in state["caches"].items():
+        rel = Path(relative)
+        if rel.is_absolute() or ".." in rel.parts or len(rel.parts) < 5 or rel.parts[:3] != ("plugins", "cache", "ycc"):
+            raise ValueError(f"unsafe native cache ownership path: {relative}")
+        cache = home / rel
+        if not cache.exists() and not cache.is_symlink():
+            continue
+        try:
+            ours = inventory(cache) == expected
+        except ValueError:
+            ours = False
+        if not ours:
+            print(f"[!!] kept {cache}: edited or foreign native snapshot")
+            kept[relative] = expected
+            kept_packages.add(rel.parts[3])
+            continue
+        shutil.rmtree(cache)
+        print(f"[ok] removed native cache {cache}")
+        # Only empty package/marketplace containers; never foreign versions.
+        for parent in (cache.parent, cache.parent.parent):
+            try:
+                parent.rmdir()
+            except OSError:
+                break
+    plugins = config(destination).get("plugins", {})
+    for package in state["packages"]:
+        selector = f"{package}@ycc"
+        if (home / "plugins/cache/ycc" / package).exists():
+            kept_packages.add(package)
+        elif use_cli and plugins.get(selector, {"enabled": True}) == {"enabled": True}:
+            cli("plugin", "remove", selector, check=False)
+    removable = [f"{package}@ycc" for package in MIGRATION_PACKAGES if package not in kept_packages]
+    if removable:
+        merge_config("plugins", enablement_text(), removable, remove=True, force=False)
+    registered = config(destination).get("marketplaces", {}).get("ycc")
+    owned_marketplace = state.get("marketplace")
+    retained_caches = bool(kept or kept_packages or (home / "plugins/cache/ycc").exists())
+    if (
+        owned_marketplace is not None
+        and not retained_caches
+        and (registered == owned_marketplace or (registered is None and use_cli))
+    ):
+        if use_cli:
+            cli("plugin", "marketplace", "remove", "ycc")
+        if registered == owned_marketplace and destination.exists():
+            updated = delete_toml_entries(destination.read_text(encoding="utf-8"), [["marketplaces", "ycc"]])
+            if updated.strip():
+                atomic_write(destination, updated)
+            else:
+                destination.unlink()
+        state.pop("marketplace", None)
+    elif registered is None and not retained_caches:
+        state.pop("marketplace", None)
+    elif owned_marketplace is not None:
+        print("[!!] kept marketplace ycc: edited registration or retained native snapshots")
+    state["caches"] = kept
+    state["packages"] = [package for package in state["packages"] if package in kept_packages]
+    if kept or state["packages"] or "marketplace" in state:
+        save_state(state)
+    else:
+        state_path().unlink()
+
+
+def settings(groups: str, *, remove: bool, force: bool) -> None:
+    """Merge shipped settings, swapping the legacy plugin selector for the native pair."""
+    if not groups:
+        return
+    shipped = (ROOT / ".codex-plugin/config/config.toml").read_text(encoding="utf-8")
+    text = delete_toml_entries(shipped, [["plugins", LEGACY_SELECTOR]]) + "\n" + enablement_text()
+    entries = list(tomllib.loads(text).get("plugins", {})) if "plugins" in groups.split(",") else None
+    merge_config(groups, text, entries, remove=remove, force=force)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("command", choices=("enabled", "install", "remove", "settings"))
+    parser.add_argument("--mode", choices=("local", "repo"), default="local")
+    parser.add_argument("--cli", action="store_true")
+    parser.add_argument("--groups", default="settings,plugins")
+    parser.add_argument("--remove", action="store_true")
+    parser.add_argument("--force", action="store_true")
+    args = parser.parse_args()
+    try:
+        if args.command == "enabled":
+            return 0 if repository_native_enabled(load_package_model().packages) else 1
+        if args.command == "install":
+            install(args.mode, args.cli)
+        elif args.command == "remove":
+            remove(args.cli)
+        else:
+            settings(args.groups, remove=args.remove, force=args.force)
+    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+        print(f"[err] native Codex install stopped: {error}", file=sys.stderr)
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Generate Codex plugin metadata and listing-driven repository catalogs.
 
-With no listed included/native Codex row, preserve the combined legacy ycc and
-local-ycc-plugins catalog. Any listed row switches all included native payloads
-to their modeled components and catalogs exactly the listed packages. Explicit
---native-output exports remain opt-in and include unlisted packages.
+The repository flips to the native catalog and payloads only when every
+migration package (``MIGRATION_PACKAGES``: ycc and ycc-mcp) is an included
+native Codex row with ``listed: true``. Until then the combined legacy ycc and
+local-ycc-plugins catalog stay byte-identical, and a partial listing is a
+validator error (``partial_codex_listing_error``) rather than a half flip.
+Explicit --native-output exports remain opt-in and include unlisted packages.
 """
 
 from __future__ import annotations
@@ -36,6 +38,9 @@ REPOSITORY_URL = "https://github.com/yandy-r/ystack"
 REPO_ROOT = CODEX_PLUGIN_CONTAINER.parent
 NATIVE_MARKETPLACE = Path(".agents/plugins/marketplace.json")
 NATIVE_COMPONENTS = {frozenset({"skills", "shared"}), frozenset({"mcp"})}
+# Packages a single listed repository must ship together: the native flip is
+# all-or-nothing so the Codex installer and migration never land half of it.
+MIGRATION_PACKAGES = ("ycc", "ycc-mcp")
 
 
 def load_source_plugin() -> dict:
@@ -152,10 +157,51 @@ def build_native_marketplace(packages: Iterable[Package], *, include_unlisted: b
     return catalog
 
 
+def repository_native_enabled(packages: Iterable[Package]) -> bool:
+    """Whether the repository switches to the native catalog and payloads.
+
+    Every migration package must be an included, non-opt-in native row that is
+    listed. Partial listing keeps the legacy combined ycc payload and catalog:
+    the installer still registers ycc@local-ycc-plugins with MCP, and
+    codex_eligible refuses to migrate until the flip is complete.
+    """
+    rows = {}
+    for package in packages:
+        runtime = next((entry for entry in package.runtimes if entry.runtime == "codex"), None)
+        if runtime is not None:
+            rows[package.key] = runtime
+    return all(
+        key in rows
+        and rows[key].status == "included"
+        and rows[key].mechanism == "native"
+        and not rows[key].opt_in
+        and rows[key].listed
+        for key in MIGRATION_PACKAGES
+    )
+
+
 def build_repository_marketplace(packages: Iterable[Package]) -> dict:
-    """Return the legacy catalog until any eligible native package is listed."""
-    catalog = build_native_marketplace(packages)
-    return catalog if catalog["plugins"] else build_repo_marketplace()
+    """Return the legacy catalog until every migration package is listed."""
+    items = tuple(packages)
+    return build_native_marketplace(items) if repository_native_enabled(items) else build_repo_marketplace()
+
+
+def partial_codex_listing_error(packages: Iterable[Package]) -> str | None:
+    """Describe a partial Codex listing, or None when all or none of the flip is listed."""
+    packages = tuple(packages)
+    if repository_native_enabled(packages):
+        return None
+    listed = sorted(
+        package.key
+        for package in native_packages(packages)
+        if next(entry for entry in package.runtimes if entry.runtime == "codex").listed
+    )
+    if not listed:
+        return None
+    return (
+        f"partial Codex listing is not allowed: {listed} listed, but the native flip requires "
+        f"{list(MIGRATION_PACKAGES)} to be included, native and listed together"
+    )
 
 
 def native_version(model: PackageModel) -> str:

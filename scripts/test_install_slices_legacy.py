@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -42,6 +43,50 @@ class RetireLegacyUnlinkTest(unittest.TestCase):
             self.assertEqual(state, {str(commands): ["bad.md"]})
             self.assertFalse((commands / "ok.md").exists())
             self.assertTrue((commands / "bad.md").exists())
+
+
+class NativeStandaloneProjectionTest(unittest.TestCase):
+    """Native/listed tree projected to ~/.codex/skills keeps shared refs resolvable."""
+
+    REF = re.compile(r"(?<![\w./~-])((?:\.\./)+_shared/[A-Za-z0-9_./-]*[A-Za-z0-9_-])")
+
+    def test_relative_shared_refs_resolve_at_standalone_shared(self) -> None:
+        import generate_codex_plugin as generator
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo, home = root / "repo", root / "home"
+            home.mkdir()
+            generator.generate_native_tree(repo)
+            env = {"HOME": str(home), "YCC_MANAGED_CONFIG_STATE": str(root / "managed.json")}
+            with patch.dict(os.environ, env), patch.object(install_slices, "REPO_ROOT", repo):
+                self.assertEqual(install_slices.main(["install", "--target", "codex", "--slice", "skills"]), 0)
+
+            skills = home / ".codex" / "skills"
+            self.assertTrue((skills / "_shared" / "scripts").is_dir())
+            backport = (skills / "backport" / "SKILL.md").read_text(encoding="utf-8")
+            self.assertNotIn("../../shared/", backport)
+            shallow = set(self.REF.findall(backport))
+            self.assertTrue(shallow, "backport must reference standalone _shared")
+            self.assertTrue(any(ref.startswith("../_shared/scripts/") for ref in shallow), sorted(shallow))
+            for ref in shallow:
+                self.assertTrue((skills / "backport" / ref).resolve().exists(), ref)
+
+            deeper = 0
+            for path in skills.rglob("*"):
+                if not path.is_file() or path.is_relative_to(skills / "_shared"):
+                    continue
+                try:
+                    text = path.read_text(encoding="utf-8")
+                except UnicodeDecodeError:
+                    continue
+                self.assertNotIn("../shared/", text.replace("../_shared/", ""), str(path))
+                for ref in self.REF.findall(text):
+                    if "{" in ref or "*" in ref:
+                        continue
+                    self.assertTrue((path.parent / ref).resolve().exists(), f"{path}: {ref}")
+                    deeper += int(ref.startswith("../../_shared/"))
+            self.assertGreater(deeper, 0)
 
 
 if __name__ == "__main__":

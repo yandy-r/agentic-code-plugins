@@ -14,7 +14,13 @@ from pathlib import Path
 from typing import Any
 
 from codex_marketplace import build_entry, validate_marketplace_catalog
-from generate_codex_plugin import build_repository_marketplace, native_packages, native_version
+from generate_codex_plugin import (
+    MIGRATION_PACKAGES,
+    build_repository_marketplace,
+    native_packages,
+    native_version,
+    repository_native_enabled,
+)
 from install_slices import (
     SPECS,
     namespace_pattern,
@@ -34,7 +40,7 @@ from package_model import load_package_model
 from validate_codex_native import check_catalog, check_package
 
 ROOT = Path(__file__).resolve().parent.parent
-PACKAGES = ("ycc", "ycc-mcp")
+PACKAGES = MIGRATION_PACKAGES
 # Repo-mode catalog entries written before the GitHub rename pointed at this URL. This literal is
 # historical data: install_migrate.py is deliberately not in rename_repo.ALLOWLIST_FILES.
 PRE_RENAME_REPO_URL = "https://github.com/yandy-r/claude-plugins.git"
@@ -91,6 +97,43 @@ def identical(left: Path, right: Path) -> bool:
 
 def owned_link(path: Path, source: Path) -> bool:
     return path.is_symlink() and path.resolve() == source.resolve()
+
+
+def legacy_codex_baseline(root: Path) -> Path:
+    """Return the pre-listing combined Codex bundle for ownership comparison.
+
+    Before listing the checkout already holds it. Once a listed row flips the
+    checkout to skills-only native, render the combined form (legacy-path
+    skills, combined manifest, original .mcp.json) into `root`; the checkout
+    itself is never modified.
+    """
+    live = ROOT / ".codex-plugin/ycc"
+    if (live / ".mcp.json").is_file():
+        return live
+    from generate_codex_common import SOURCE_MCP_PATH
+    from generate_codex_plugin import build_plugin_manifest, write_json
+    from generate_codex_skills import write_tree
+
+    write_tree(root, dry_run=False, native_paths=False)
+    write_json(root / ".codex-plugin/plugin.json", build_plugin_manifest())
+    shutil.copyfile(SOURCE_MCP_PATH, root / ".mcp.json")
+    return root
+
+
+def codex_rewrite_sets(home: Path) -> tuple[list[tuple[str, str]], ...]:
+    """Return the current projected rewrites plus the historical narrow form.
+
+    Before `../../shared/` was broadened, installs projected only the plugin
+    roots and shared references into the standalone location.
+    """
+    historical = [
+        ("~/.codex/plugins/ycc/skills/", "~/.codex/skills/"),
+        ("~/.codex/plugins/ycc/shared/", "~/.codex/skills/_shared/"),
+        ("../../../shared/", "../../_shared/"),
+        ("../../shared/references/", "../_shared/references/"),
+        ("<installed ycc plugin root>/shared/references/", f"{home}/.codex/skills/_shared/references/"),
+    ]
+    return rewrites_for("codex", home), historical
 
 
 class Migration:
@@ -343,8 +386,13 @@ class Migration:
         print("Cursor: open /add-plugin and add the ycc marketplace, then select the native packages.")
         print("Cursor migrate complete; native installation is interactive, not automatic.")
 
-    def codex_skills(self) -> None:
-        """Retire exact standalone ~/.codex/skills copies; never ~/.codex/agents."""
+    def codex_skills(self, legacy: Path | None = None) -> None:
+        """Retire exact standalone ~/.codex/skills copies; never ~/.codex/agents.
+
+        An entry is ours when it equals the canonical source or the rendered
+        pre-listing combined baseline (`legacy`), raw or projected with either
+        the current or the historical rewrite set.
+        """
         unit = SPECS[("codex", "skills")][0]
         dest = self.home / unit.dest
         if not dest.is_dir() or dest.is_symlink():
@@ -358,20 +406,34 @@ class Migration:
         for src in entries.values():
             trusted_source(src, ROOT)
             reject_escaping_symlinks(src)
-        rewrites, pattern = rewrites_for("codex", self.home), namespace_pattern("codex")
-        gone: set[str] = set()
         with tempfile.TemporaryDirectory(prefix="ycc-migrate-") as tmp:
             staging = Path(tmp)
+            if legacy is None:
+                legacy = legacy_codex_baseline(staging / "legacy")
+            gone: set[str] = set()
+            rewrite_sets = codex_rewrite_sets(self.home)
+            pattern = namespace_pattern("codex")
+
+            def candidates(name: str, src: Path) -> tuple[Path, ...]:
+                legacy_src = legacy / ("shared" if name == "_shared" else f"skills/{name}")
+                found: list[Path] = []
+                for base in (src, legacy_src):
+                    if not base.exists() or any(base == existing for existing in found):
+                        continue
+                    found.append(base)
+                    for variant, rewrites in enumerate(rewrite_sets):
+                        found.append(stage(name, base, staging / f"{len(found)}-{variant}", rewrites, pattern))
+                return tuple(found)
+
             for name, src in sorted(entries.items()):
-                if name != "_shared" and self.remove(dest / name, (src, stage(name, src, staging, rewrites, pattern))):
+                if name != "_shared" and self.remove(dest / name, candidates(name, src)):
                     gone.add(name)
             if "_shared" in entries:
                 left = [e.name for e in dest.iterdir() if e.name not in gone | {"_shared"}]
                 if left:
                     print(f"[!!] kept {dest / '_shared'}: retained entries may depend on it: {', '.join(sorted(left))}")
                 else:
-                    src = entries["_shared"]
-                    self.remove(dest / "_shared", (src, stage("_shared", src, staging, rewrites, pattern)))
+                    self.remove(dest / "_shared", candidates("_shared", entries["_shared"]))
 
     def codex(self, source: Path, eligible: bool) -> None:
         if not eligible:
@@ -426,30 +488,33 @@ class Migration:
         self.merge_remove(
             "codex-config", ROOT / ".codex-plugin/config/mcp-servers.json", self.home / ".codex/config.toml", "mcp"
         )
-        legacy = ROOT / ".codex-plugin/ycc"
-        trusted_source(legacy, ROOT)
+        canonical = ROOT / ".codex-plugin/ycc"
+        trusted_source(canonical, ROOT)
         # Decide which user-catalog entries survive before retiring any link
         # they may reference.
         catalog_path, catalog, kept, retained = self.plan_codex_catalog()
-        self.codex_skills()
-        for relative in (".codex/plugins/ycc", ".agents/plugins/ycc"):
-            link = self.home / relative
-            if link in retained:
-                print(f"[!!] kept {link}: referenced by a retained user catalog entry")
-                continue
-            self.remove(link, (legacy,), links_only=True)
-        cache = self.home / ".codex/plugins/cache/local-ycc-plugins/ycc"
-        self.remove(cache, (legacy,))
-        # A versioned cache may hold other versions or user changes. Retire
-        # only byte-identical snapshots, never the whole marketplace directory.
-        if (
-            safe_parent(cache / "entry")
-            and cache.is_dir()
-            and not cache.is_symlink()
-            and not (cache / ".codex-plugin").exists()
-        ):
-            for child in sorted(cache.iterdir()):
-                self.remove(child, (legacy,))
+        with tempfile.TemporaryDirectory(prefix="ycc-migrate-") as tmp:
+            legacy = legacy_codex_baseline(Path(tmp) / "legacy")
+            sources = (canonical, legacy)
+            self.codex_skills(legacy)
+            for relative in (".codex/plugins/ycc", ".agents/plugins/ycc"):
+                link = self.home / relative
+                if link in retained:
+                    print(f"[!!] kept {link}: referenced by a retained user catalog entry")
+                    continue
+                self.remove(link, sources, links_only=True)
+            cache = self.home / ".codex/plugins/cache/local-ycc-plugins/ycc"
+            self.remove(cache, sources)
+            # A versioned cache may hold other versions or user changes. Retire
+            # only byte-identical snapshots, never the whole marketplace directory.
+            if (
+                safe_parent(cache / "entry")
+                and cache.is_dir()
+                and not cache.is_symlink()
+                and not (cache / ".codex-plugin").exists()
+            ):
+                for child in sorted(cache.iterdir()):
+                    self.remove(child, sources)
         if catalog_path is not None and catalog is not None and kept is not None:
             catalog["plugins"] = kept
             catalog_path.write_text(json.dumps(catalog, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
@@ -516,12 +581,12 @@ def codex_eligible(source: Path, *, external: bool = False) -> None:
     entries = {item["name"]: item for item in catalog["plugins"]}
     model = load_package_model()
     shipped = native_packages(model.packages)
+    if not external and not repository_native_enabled(model.packages):
+        raise ValueError("native catalog not listed: all migration packages must be listed together (YAN-1140)")
     for name in PACKAGES:
         runtime = model.lookup(name, "codex")
         if runtime is None or runtime.status != "included" or runtime.mechanism != "native" or runtime.opt_in:
             raise ValueError(f"ineligible native Codex package: {name}")
-        if not external and not runtime.listed:
-            raise ValueError(f"unlisted native Codex package: {name}")
     check_catalog(source, shipped, include_unlisted=external)
     if not external and catalog != build_repository_marketplace(shipped):
         raise ValueError("repository catalog has not flipped to the native listing (YAN-1210)")

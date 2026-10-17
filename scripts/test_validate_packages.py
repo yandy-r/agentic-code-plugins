@@ -235,7 +235,7 @@ class ValidatePackagesTests(unittest.TestCase):
         self.write_json(Path(".codex-plugin/ycc/.mcp.json"), {"mcpServers": {}})
         self.assertEqual(self.errors(), [])
 
-        listed_model = with_listed(self.model, "ycc", {"codex"})
+        listed_model = with_listed(with_listed(self.model, "ycc", {"codex"}), "ycc-mcp", {"codex"})
         self.write_json(codex.NATIVE_MARKETPLACE, codex.build_repository_marketplace(listed_model.packages))
         self.assert_has_error(self.errors(listed_model), ".codex-plugin/ycc: unmodeled mcp component present")
 
@@ -313,7 +313,11 @@ class ValidatePackagesTests(unittest.TestCase):
         self.assertIn(CURSOR_GATE, self.errors())
 
     def test_listed_cursor_and_codex_catalogs_are_validated(self) -> None:
-        listed = with_listed(with_listed(self.model, "ycc", {"cursor", "codex"}), "ycc-mcp", {"cursor"})
+        listed = with_listed(
+            with_listed(with_listed(self.model, "ycc", {"cursor", "codex"}), "ycc-mcp", {"cursor"}),
+            "ycc-mcp",
+            {"codex"},
+        )
         errors = self.errors(listed)
         self.assert_has_error(errors, "marketplace.json: unreadable or malformed JSON")
         self.assert_has_error(errors, "catalog must match the Codex package listing state")
@@ -327,6 +331,17 @@ class ValidatePackagesTests(unittest.TestCase):
             lambda payload: payload["plugins"].append(dict(payload["plugins"][0], name="duplicate")),
         )
         self.assert_has_error(self.errors(listed), "catalog must match exactly the listed Cursor packages")
+
+    def test_partial_codex_listing_is_rejected(self) -> None:
+        for key in ("ycc", "ycc-mcp"):
+            with self.subTest(listed=key):
+                partial = with_listed(self.model, key, {"codex"})
+                # Partial listing keeps the legacy catalog, so only the listing error appears.
+                self.assertEqual(
+                    self.errors(partial),
+                    [codex.partial_codex_listing_error(partial.packages)],
+                )
+                self.assert_has_error(self.errors(partial), "partial Codex listing is not allowed")
 
     def test_cursor_catalog_symlinks_are_rejected_before_parity(self) -> None:
         listed = with_listed(self.model, "ycc", {"cursor"})
