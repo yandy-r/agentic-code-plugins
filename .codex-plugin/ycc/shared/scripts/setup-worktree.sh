@@ -39,7 +39,7 @@ Usage:
   setup-worktree.sh child  <repo-name> <feature-slug> <task-id>   (deprecated)
 
 Arguments:
-  repo-name         Short name of the repository (e.g. "claude-plugins")
+  repo-name         Short name of the repository (e.g. "ystack")
   feature-slug      Kebab-case feature identifier (e.g. "add-widget")
   task-id           (child only, ignored for path) legacy parallel-task id
   --base-ref <b>    (parent only) Check out the existing branch <b> into the

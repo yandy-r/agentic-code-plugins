@@ -1,4 +1,4 @@
 {
-  "name": "ycc claude-plugins",
+  "name": "ycc ystack",
   "install": "./.cursor/install.sh"
 }

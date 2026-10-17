@@ -27,7 +27,7 @@ Arguments:
 
 Examples:
   list-worktrees.sh my-repo add-jwt-refresh
-  list-worktrees.sh claude-plugins worktree-flag
+  list-worktrees.sh ystack worktree-flag
 
 Output:
   Markdown table of matching worktrees under <repo-root>/.codex/worktrees/<repo>-<feature>/

@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Help us improve the **claude-plugins** documentation. Use this form to report
+        Help us improve the **ystack** documentation. Use this form to report
         missing, unclear, or incorrect documentation.
 
   - type: dropdown

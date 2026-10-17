@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install-lefthook.sh — idempotent lefthook bootstrap for claude-plugins
+# install-lefthook.sh — idempotent lefthook bootstrap for ystack
 #
 # Ensures the `lefthook` binary is installed and activates hooks via `lefthook install`.
 # Safe to re-run on every checkout. Supports macOS, Linux, and Git Bash on Windows.

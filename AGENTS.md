@@ -1,4 +1,4 @@
-# claude-plugins — Agent Rules
+# ystack — Agent Rules
 
 This repository ships the `ycc` development-workflow bundle: planning, implementation,
 git, research, docs, and orchestration. The Claude-facing `ycc/` tree is the source;

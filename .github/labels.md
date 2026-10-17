@@ -1,4 +1,4 @@
-# GitHub Labels for claude-plugins
+# GitHub Labels for ystack
 
 Apply these labels to keep issues and pull requests consistently categorized. Prune and
 customize for your project. `area:` labels are project-specific; add them yourself.

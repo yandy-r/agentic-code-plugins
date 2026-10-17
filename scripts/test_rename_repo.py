@@ -30,7 +30,7 @@ WRAPPER_SRC = SCRIPTS_DIR / "rename-repo.sh"
 ENGINE_SRC = SCRIPTS_DIR / "rename_repo.py"
 
 OLD = "yandy-r/claude-plugins"
-NEW = "yandy-r/agentic-code-plugins"
+NEW = "yandy-r/ystack"
 TOKEN = "@@SLUG@@"
 
 EXIT_OK = 0
@@ -317,9 +317,9 @@ class ApplyTests(RenameRepoTestCase):
     def test_apply_can_change_owner(self) -> None:
         root = self.make_root()
         before = snapshot(root)
-        result = self.rename(root, to="acme/agentic-code-plugins")
+        result = self.rename(root, to="acme/ystack")
         self.assertEqual(result.returncode, EXIT_OK, result.stderr)
-        expected = self.expected_snapshot(before, "acme/agentic-code-plugins")
+        expected = self.expected_snapshot(before, "acme/ystack")
         self.assert_snapshot_equal(snapshot(root), expected)
 
     def test_root_comes_from_script_location_not_environment_or_cwd(self) -> None:
@@ -580,7 +580,7 @@ class PythonApiTests(RenameRepoTestCase):
         before = snapshot(root)
         code, out = self.call_main(module, ["--from", OLD, "--to", NEW, "--dry-run"])
         self.assertEqual(code, EXIT_OK)
-        self.assertIn("+https://github.com/yandy-r/agentic-code-plugins.git", out)
+        self.assertIn("+https://github.com/yandy-r/ystack.git", out)
         self.assert_snapshot_equal(snapshot(root), before)
 
         code, _ = self.call_main(module, ["--from", OLD, "--to", NEW])
@@ -597,8 +597,8 @@ class RealCheckoutTests(RenameRepoTestCase):
         modes = {
             rel: stat.S_IMODE(os.stat(SCRIPTS_DIR.parent / rel, follow_symlinks=False).st_mode) for rel in ALLOWLIST
         }
-        # Before the flip the checkout carries OLD; after YAN-1138 applies the rename it carries
-        # NEW. Preview the transformation that is still possible so coverage survives the flip.
+        # Before a flip the checkout carries OLD; once the rename lands it carries NEW (the
+        # current slug). Preview the transformation that is still possible so coverage survives.
         pre_flip = any(OLD.encode() in data for data in before.values())
         source, target = (OLD, NEW) if pre_flip else (NEW, OLD)
         result = subprocess.run(

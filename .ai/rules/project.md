@@ -1,4 +1,4 @@
-# claude-plugins
+# ystack
 
 Workspace for the `ycc` Claude Code plugin — source of truth for skills, commands, and agents, with generators for Cursor and Codex compatibility bundles.
 

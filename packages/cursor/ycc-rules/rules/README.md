@@ -51,8 +51,8 @@ folders to the project's `.cursor/rules/`:
 
 ```bash
 mkdir -p .cursor/rules
-cp -r /path/to/claude-plugins/.cursor-plugin/rules/common .cursor/rules/
-cp -r /path/to/claude-plugins/.cursor-plugin/rules/python .cursor/rules/
+cp -r /path/to/ystack/.cursor-plugin/rules/common .cursor/rules/
+cp -r /path/to/ystack/.cursor-plugin/rules/python .cursor/rules/
 ```
 
 Keep directories intact to avoid colliding filenames. Choose only the stacks you

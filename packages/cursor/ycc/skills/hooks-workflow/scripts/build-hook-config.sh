@@ -34,7 +34,7 @@ Usage: build-hook-config.sh --language=<lang>
                              [--help]
 
 Produces a target-appropriate hook configuration from ycc/rules/<language>/hooks.md
-(and ycc/rules/common/hooks.md). Requires a ycc/claude-plugins source checkout
+(and ycc/rules/common/hooks.md). Requires a ycc/ystack source checkout
 containing canonical ycc/rules/*/hooks.md, the capability matrix, and the
 hooks-workflow templates (installed Cursor .mdc rules are not hook inputs).
 
@@ -138,7 +138,7 @@ resolve_repo_root_from() {
 }
 
 die_no_source_root() {
-  echo "build-hook-config.sh: no ycc/claude-plugins source checkout found${1:+ (searched from $1)}." >&2
+  echo "build-hook-config.sh: no ycc/ystack source checkout found${1:+ (searched from $1)}." >&2
   echo "This helper needs canonical ycc/rules/*/hooks.md, ycc/skills/_shared/references/target-capability-matrix.md," >&2
   echo "and ycc/skills/hooks-workflow/references/templates/ (installed Cursor .mdc rules are not hook inputs)." >&2
   echo "Run it from a source checkout or pass --repo-root=/path/to/checkout." >&2

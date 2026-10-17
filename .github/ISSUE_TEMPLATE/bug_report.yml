@@ -1,19 +1,19 @@
 name: Bug report
-description: 'Report a reproducible bug in claude-plugins'
+description: 'Report a reproducible bug in ystack'
 title: '[Bug]: '
 labels: ['type:bug', 'status:needs-triage']
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to report a bug in **claude-plugins**. Please fill out
+        Thanks for taking the time to report a bug in **ystack**. Please fill out
         the form below so we can reproduce and fix it.
 
   - type: input
     id: version
     attributes:
       label: Version
-      description: 'Version or commit hash of claude-plugins'
+      description: 'Version or commit hash of ystack'
       placeholder: 'v1.0.0 or abc1234'
     validations:
       required: true
@@ -22,7 +22,7 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: 'Where are you running claude-plugins?'
+      description: 'Where are you running ystack?'
       options:
         - Linux
         - macOS

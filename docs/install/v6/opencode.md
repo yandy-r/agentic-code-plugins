@@ -82,7 +82,7 @@ directory — not its `index.js` file — with an absolute `file://` entry:
 
 ```json
 {
-  "plugins": ["file:///abs/path/to/claude-plugins/packages/opencode/ycc-opencode"]
+  "plugins": ["file:///abs/path/to/ystack/packages/opencode/ycc-opencode"]
 }
 ```
 

@@ -261,7 +261,7 @@
             "docs/internal/spikes/opencode-config-hook.md"
           ],
           "gates": [
-            "CI publishes with provenance through release.yml on a maintainer-pushed product tag using npm trusted publishing (OIDC, no token): GitHub-hosted runner, Node 24, pinned npm@11.21.1, release environment approval, and a package-specific trusted publisher on npmjs.com for owner yandy-r, repo claude-plugins, workflow release.yml, environment release with npm publish allowed (settings not verified; no publish attempted)"
+            "CI publishes with provenance through release.yml on a maintainer-pushed product tag using npm trusted publishing (OIDC, no token): GitHub-hosted runner, Node 24, pinned npm@11.21.1, release environment approval, and a package-specific trusted publisher on npmjs.com for owner yandy-r, repo ystack, workflow release.yml, environment release with npm publish allowed (settings not verified; no publish attempted)"
           ],
           "notes": "Experimental and opt-in in v6; the @yandy-r npm scope is already owned. The V2 setup hook registers components and delivers instructions through the context hook; install.sh file copy stays the primary opencode path."
         }

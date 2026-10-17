@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cloud Agent repository bootstrap for the ycc claude-plugins repo.
+# Cloud Agent repository bootstrap for the ycc ystack repo.
 # Idempotent: safe to re-run against cached or partially prepared state.
 #
 # Mirrors the verification loop documented in CLAUDE.md / AGENTS.md:

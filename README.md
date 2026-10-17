@@ -1,4 +1,4 @@
-# claude-plugins
+# ystack
 
 A single Claude Code plugin (`ycc`) bundling workflow orchestration, parallel planning, documentation, research, and project management. The repository also generates native compatibility bundles for Cursor, Codex, and opencode.
 
@@ -252,7 +252,7 @@ removed, then run `./scripts/sync.sh` and `./scripts/validate.sh`.
 ## Repository layout
 
 ```
-claude-plugins/
+ystack/
 ├── .claude-plugin/
 │   └── marketplace.json     # marketplace registry (single ycc entry)
 ├── .agents/

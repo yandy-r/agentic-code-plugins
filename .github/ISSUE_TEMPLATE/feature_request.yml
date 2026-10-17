@@ -1,12 +1,12 @@
 name: Feature request
-description: 'Propose a new feature for claude-plugins'
+description: 'Propose a new feature for ystack'
 title: '[Feature]: '
 labels: ['type:feature', 'status:needs-triage']
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for suggesting a feature for **claude-plugins**! Please describe what
+        Thanks for suggesting a feature for **ystack**! Please describe what
         you'd like and why it matters.
 
   - type: dropdown

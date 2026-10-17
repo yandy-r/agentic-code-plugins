@@ -1,4 +1,4 @@
-# lefthook.yml — git hook manager for claude-plugins
+# lefthook.yml — git hook manager for ystack
 #
 # Install with ./scripts/install-lefthook.sh or `npm install` (the `prepare`
 # script triggers `lefthook install`). See docs/lefthook-usage.md for details.

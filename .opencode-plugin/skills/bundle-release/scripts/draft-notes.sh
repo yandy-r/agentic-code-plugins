@@ -15,7 +15,7 @@ resolve_repo_root() {
             printf '%s\n' "${root}"
             return 0
         fi
-        echo "draft-notes.sh: FAIL: YCC_REPO_ROOT does not point at claude-plugins: ${YCC_REPO_ROOT}" >&2
+        echo "draft-notes.sh: FAIL: YCC_REPO_ROOT does not point at ystack: ${YCC_REPO_ROOT}" >&2
         exit 1
     fi
 
@@ -32,7 +32,7 @@ resolve_repo_root() {
         return 0
     fi
 
-    echo "draft-notes.sh: FAIL: could not resolve claude-plugins repo root" >&2
+    echo "draft-notes.sh: FAIL: could not resolve ystack repo root" >&2
     echo "  run from the repository checkout or use the source-tree script" >&2
     exit 1
 }

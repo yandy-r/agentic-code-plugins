@@ -57,7 +57,7 @@ trust_level = "trusted"
 [projects."/mnt/nvme1/Games"]
 trust_level = "trusted"
 
-[projects."/home/yandy/Projects/github.com/yandy-r/claude-plugins"]
+[projects."/home/yandy/Projects/github.com/yandy-r/ystack"]
 trust_level = "trusted"
 
 [projects."/home/yandy/Projects/github.com/itcn/website"]

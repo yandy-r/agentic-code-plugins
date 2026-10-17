@@ -1,6 +1,6 @@
 # `docs/` — Repository Documentation
 
-Hand-maintained documentation for the `claude-plugins` repository. The
+Hand-maintained documentation for the `ystack` repository. The
 top-level `README.md` covers user-facing plugin surfaces (skills, commands,
 agents) and links to focused guides here for install details, implementation
 plans, release notes, review artifacts, and ad-hoc recommendations.

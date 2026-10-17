@@ -10,7 +10,7 @@
 #                          [PATH]
 #                          [--help]
 #
-# Requires a ycc/claude-plugins SOURCE CHECKOUT: a directory containing
+# Requires a ycc/ystack SOURCE CHECKOUT: a directory containing
 # ycc/skills and scripts/generate_*.py. Installed native and file-copy
 # bundles do not contain those generator sources, so discovery never accepts
 # them (no marketplace or plugin manifest is required or consulted).
@@ -42,7 +42,7 @@ Wraps the generate_*.py --check entry points and emits a per-target drift
 report. Exit 0 iff every target is clean. Exit 1 on drift. Exit 2 on
 usage error.
 
-Requires a ycc/claude-plugins source checkout with ycc/skills and
+Requires a ycc/ystack source checkout with ycc/skills and
 scripts/generate_*.py. Installed native/file-copy bundles omit these sources.
 Pass --repo-root=PATH (or positional PATH) to search it and its ancestors;
 explicit input is authoritative. Otherwise searches PWD, then script ancestors.
@@ -121,7 +121,7 @@ resolve_repo_root_from() {
 }
 
 die_no_source_root() {
-  echo "report-bundle-drift.sh: no ycc/claude-plugins source checkout found${1:+ (searched from $1)}." >&2
+  echo "report-bundle-drift.sh: no ycc/ystack source checkout found${1:+ (searched from $1)}." >&2
   echo "This helper needs a source checkout containing ycc/skills and scripts/generate_*.py;" >&2
   echo "installed native and file-copy bundles do not contain them. Run it from the source" >&2
   echo "checkout or pass --repo-root=/path/to/checkout." >&2

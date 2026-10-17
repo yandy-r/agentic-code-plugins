@@ -1,4 +1,4 @@
-// commitlint.config.cjs — Conventional Commits 1.0.0 for claude-plugins
+// commitlint.config.cjs — Conventional Commits 1.0.0 for ystack
 //
 // Types and rules mirror the policy documented in CLAUDE.md. Scope is
 // intentionally free-form to support the repo's existing scope taxonomy

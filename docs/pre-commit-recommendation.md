@@ -1,4 +1,4 @@
-# Pre-commit Hooks — Recommendation for claude-plugins
+# Pre-commit Hooks — Recommendation for ystack
 
 Pre-commit hooks catch formatting errors, lint violations, and broken tests before they reach CI, shortening the feedback loop for every contributor.
 
