@@ -49,14 +49,14 @@ the Cursor and Codex spikes establish no minimum at all.
 
 ### Names
 
-| Item        | Decision                                                                                                                     | State                                                           |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Repository  | Renamed to `ystack` (from `claude-plugins`, briefly `agentic-code-plugins`). Old GitHub names redirect; never recreate them. | Done. GitHub and Forgejo renamed; references flipped on `main`. |
-| Marketplace | `ycc` for Claude, Codex, and Cursor. The Codex catalog renames from `local-ycc-plugins` at the flip.                         | Current for Claude; Codex rename planned.                       |
-| Namespace   | `ycc:` stays for skills and agents in v6.                                                                                    | Current.                                                        |
-| Claude mods | `ycc-mods` unchanged (`status-bar@ycc-mods`).                                                                                | Current.                                                        |
-| npm scope   | `@yandy-r/ycc-opencode` for the experimental opencode package.                                                               | `@yandy-r` owned; package not published.                        |
-| "acc"       | Prose or branding only. Never an identifier.                                                                                 | Policy.                                                         |
+| Item        | Decision                                                                                                                     | State                                                            |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Repository  | Renamed to `ystack` (from `claude-plugins`, briefly `agentic-code-plugins`). Old GitHub names redirect; never recreate them. | Done. GitHub and Forgejo renamed; references flipped on `main`.  |
+| Marketplace | `ycc` for Claude, Codex, and Cursor. The Codex catalog renamed from `local-ycc-plugins` at the flip.                         | Current for Claude, Codex, and Cursor (Codex renamed in v6.0.0). |
+| Namespace   | `ycc:` stays for skills and agents in v6.                                                                                    | Current.                                                         |
+| Claude mods | `ycc-mods` unchanged (`status-bar@ycc-mods`).                                                                                | Current.                                                         |
+| npm scope   | `@yandy-r/ycc-opencode` for the experimental opencode package.                                                               | `@yandy-r` owned; package not published.                         |
+| "acc"       | Prose or branding only. Never an identifier.                                                                                 | Policy.                                                          |
 
 Package ids use the component as the name and `ycc` as the marketplace: `ycc-mcp@ycc`,
 `ycc-hooks@ycc`, `ycc-rules@ycc` (Cursor only), `ycc-all@ycc` (Claude meta), and

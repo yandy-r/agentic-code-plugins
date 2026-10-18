@@ -114,8 +114,9 @@ Spike test versions are data points, not claimed minimums:
   on a clean host: `claude plugin install ycc-all@ycc` installed the three
   packages. Dependency
   support on the 2.1.143 candidate baseline and any lower dependency-capable
-  version are **not established**; install `ycc@ycc`, `ycc-mcp@ycc`, and
-  `ycc-hooks@ycc` individually on older clients.
+  version are **not established**. On those clients, install `ycc@ycc` and
+  `ycc-mcp@ycc` individually; `ycc-hooks@ycc` needs Claude Code 2.1.300 or later,
+  so clients below that keep the installer-managed hooks.
 
 ## Native Vs Fallback
 

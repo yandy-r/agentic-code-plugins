@@ -140,7 +140,8 @@ agent plugin marketplace add https://github.com/yandy-r/ystack   # then pick pac
 
 Rules, instructions, settings, and Codex custom agents stay on `install.sh`.
 Already installed through `install.sh`? Preview the move onto the native
-packages with `./install.sh migrate --target <claude|codex|cursor>` (see
+packages with `./install.sh migrate --target codex` (or `--target claude` /
+`--target cursor`; see
 [Migrating To Native Packages](docs/install/README.md#migrating-to-native-packages)).
 
 Or enable in `~/.claude/settings.json`:

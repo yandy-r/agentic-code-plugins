@@ -115,7 +115,7 @@
       }
     },
     "ycc-hooks": {
-      "description": "Hooks for ycc: worktree placement on Claude Code, session reporting on Cursor.",
+      "description": "Lifecycle hooks for ycc.",
       "version_policy": "lockstep",
       "runtimes": {
         "claude": {
