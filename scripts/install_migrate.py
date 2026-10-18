@@ -13,7 +13,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 from codex_marketplace import build_entry, validate_marketplace_catalog
 from generate_codex_plugin import (
@@ -158,12 +158,22 @@ def git_tree_id(path: Path, algorithm: str) -> str | None:
     return root.hex() if root is not None else None
 
 
-def released_codex_trees(root: Path) -> tuple[str, frozenset[str]] | None:
+class ReleasedTrees(NamedTuple):
+    """Committed `.codex-plugin/ycc` tree ids; `shallow` when older history is missing."""
+
+    algorithm: str
+    trees: frozenset[str]
+    shallow: bool
+
+
+def released_codex_trees(root: Path) -> ReleasedTrees | None:
     """Return every `.codex-plugin/ycc` tree id in this checkout's HEAD history.
 
     A legacy cache is a verbatim copy of the checkout's bundle at install
     time, so an untouched snapshot of an older release equals one of these
-    trees. Read-only; None when git or this checkout's history is unavailable.
+    trees. A shallow checkout still matches the releases it holds and reports
+    itself shallow. Read-only; None when git or this checkout's history is
+    unavailable.
     """
 
     # Inherited GIT_DIR/GIT_WORK_TREE/... (e.g. from a hook) would point git elsewhere.
@@ -178,6 +188,7 @@ def released_codex_trees(root: Path) -> tuple[str, frozenset[str]] | None:
         if Path(git("rev-parse", "--show-toplevel").strip()).resolve() != root.resolve():
             return None
         algorithm = git("rev-parse", "--show-object-format").strip()
+        shallow = git("rev-parse", "--is-shallow-repository").strip() == "true"
         commits = git("rev-list", "--full-history", "HEAD", "--", ".codex-plugin/ycc").split()
         if algorithm not in {"sha1", "sha256"} or not commits:
             return None
@@ -186,7 +197,7 @@ def released_codex_trees(root: Path) -> tuple[str, frozenset[str]] | None:
     except (OSError, subprocess.CalledProcessError):
         return None
     trees = frozenset(line.split()[0] for line in checked.splitlines() if line.endswith(" tree"))
-    return algorithm, trees
+    return ReleasedTrees(algorithm, trees, shallow)
 
 
 def codex_rewrite_sets(home: Path) -> tuple[list[tuple[str, str]], ...]:
@@ -211,7 +222,7 @@ class Migration:
         self.home = Path.home()
 
     @functools.cached_property
-    def released_trees(self) -> tuple[str, frozenset[str]] | None:
+    def released_trees(self) -> ReleasedTrees | None:
         """Load released_codex_trees(ROOT) once, reporting when it is unavailable."""
         released = released_codex_trees(ROOT)
         if released is None:
@@ -237,10 +248,17 @@ class Migration:
             print(f"[!!] kept {path}: symlinked parent directory")
             return False
         ours = any(owned_link(path, src) or (not links_only and identical(path, src)) for src in sources)
-        if not ours and history and not links_only and (released := self.released_trees) is not None:
-            ours = git_tree_id(path, released[0]) in released[1]
+        released = self.released_trees if not ours and history and not links_only else None
+        if released is not None:
+            ours = git_tree_id(path, released.algorithm) in released.trees
         if not ours:
-            print(f"[!!] kept {path}: edited or ownership uncertain")
+            if released is not None and released.shallow:
+                print(
+                    f"[!!] kept {path}: not in this shallow checkout's history; "
+                    "run 'git fetch --unshallow' and rerun migrate"
+                )
+            else:
+                print(f"[!!] kept {path}: edited or ownership uncertain")
             return False
         print(f"[ok] {'remove' if self.apply else 'would remove'} {path}")
         if self.apply:
