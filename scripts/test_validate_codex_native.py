@@ -334,7 +334,11 @@ class CodexListedMigrationTransitionTests(unittest.TestCase):
         (self.repo / "ycc").symlink_to(real_root / "ycc")
         self.flipped = False
 
-        def fake_codex(command: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+        real_run = subprocess.run
+
+        def fake_codex(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            if command[0] != "codex":
+                return real_run(command, **kwargs)  # type: ignore[call-overload]
             args = command[1:-1]
             version = generator.native_version(self.listed)
             rows = [
@@ -353,7 +357,19 @@ class CodexListedMigrationTransitionTests(unittest.TestCase):
         self.addCleanup(stack.close)
         stack.enter_context(patch.object(migrate, "ROOT", self.repo))
         stack.enter_context(patch.object(slices, "REPO_ROOT", self.repo))
-        stack.enter_context(patch.dict(os.environ, {"HOME": str(self.home)}))
+        git_env = {
+            "HOME": str(self.home),
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_AUTHOR_NAME": "fixture",
+            "GIT_AUTHOR_EMAIL": "fixture@example.invalid",
+            "GIT_COMMITTER_NAME": "fixture",
+            "GIT_COMMITTER_EMAIL": "fixture@example.invalid",
+        }
+        # Drop inherited GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE/... (exported by hooks) so
+        # fixture git commands can never reach an outer repository; restored on exit.
+        isolated = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+        stack.enter_context(patch.dict(os.environ, {**isolated, **git_env}, clear=True))
         stack.enter_context(patch.object(migrate, "load_package_model", return_value=self.listed))
         stack.enter_context(patch.object(migrate.Migration, "merge_remove"))
         stack.enter_context(patch.object(migrate.subprocess, "run", side_effect=fake_codex))
@@ -420,6 +436,102 @@ class CodexListedMigrationTransitionTests(unittest.TestCase):
             self.flip_listing()
             migrate.Migration(apply).codex(self.repo, True)
         return out.getvalue()
+
+    def older_release(self, version: str = "5.3.0") -> Path:
+        """Return a preflip tree from an older release the current checkout can no longer render."""
+        old = self.home.parent / f"release-{version}"
+        shutil.copytree(self.legacy, old, symlinks=True)
+        manifest = old / ".codex-plugin/plugin.json"
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+        data["version"] = version
+        manifest.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        skill = sorted((old / "skills").iterdir())[0] / "SKILL.md"
+        with skill.open("a", encoding="utf-8") as handle:
+            handle.write(f"\nrelease {version} wording\n")
+        return old
+
+    def git(self, *args: str) -> str:
+        return subprocess.run(["git", "-C", str(self.repo), *args], check=True, capture_output=True, text=True).stdout
+
+    def commit_release(self, *trees: Path) -> None:
+        """Record each tree, in order, as a past .codex-plugin/ycc commit, keeping the work tree."""
+        aside = self.home.parent / "aside"
+        self.canonical.rename(aside)
+        self.git("init", "-q")
+        for tree in trees:
+            shutil.copytree(tree, self.canonical, symlinks=True)
+            # An empty index forces re-hashing: copytree keeps mtimes and same-size
+            # releases may reuse inodes, so a stat-clean index could skip changes.
+            self.git("read-tree", "--empty")
+            self.git("add", "-f", ".codex-plugin/ycc")
+            self.git("commit", "-q", "-m", f"release {tree.name}")
+            committed = self.git("rev-parse", "HEAD:.codex-plugin/ycc").strip()
+            self.assertEqual(committed, migrate.git_tree_id(tree, "sha1"))
+            shutil.rmtree(self.canonical)
+        aside.rename(self.canonical)
+
+    def test_same_checkout_upgrade_retires_untouched_older_snapshot_and_rerun_is_stable(self) -> None:
+        # YAN-1216: `codex plugin add` cached 5.3.0 before the flip; the checkout has since moved on.
+        old = self.older_release()
+        self.commit_release(old)
+        self.cache.mkdir(parents=True)
+        shutil.copytree(old, self.cache / "5.3.0", symlinks=True)
+        out = self.migrate_codex()
+        self.assertNotIn("kept", out)
+        self.assertIn(f"remove {self.cache / '5.3.0'}", out)
+        self.assertIn(f"remove {self.cache}\n", out)
+        self.assertFalse(self.cache.exists())
+        before = self.snapshot(self.home)
+        rerun = self.migrate_codex()
+        self.assertNotIn("kept", rerun)
+        self.assertNotIn(str(self.cache), rerun)
+        self.assertEqual(self.snapshot(self.home), before)
+
+    def test_edited_older_snapshot_and_its_cache_are_kept_on_every_run(self) -> None:
+        old = self.older_release()
+        self.commit_release(old)
+        edited = self.cache / "5.3.0"
+        self.cache.mkdir(parents=True)
+        shutil.copytree(old, edited, symlinks=True)
+        (edited / "skills/mine.md").write_text("mine\n", encoding="utf-8")
+        before = self.snapshot(self.home)
+        for _ in range(2):
+            out = self.migrate_codex()
+            self.assertIn(f"kept {edited}: edited or ownership uncertain", out)
+            self.assertNotIn(f"remove {self.cache}\n", out)
+            self.assertEqual(self.snapshot(self.home), before)
+
+    def test_older_snapshot_is_kept_when_git_history_is_unavailable(self) -> None:
+        old = self.older_release()
+        self.cache.mkdir(parents=True)
+        shutil.copytree(old, self.cache / "5.3.0", symlinks=True)
+        out = self.migrate_codex()
+        self.assertTrue((self.cache / "5.3.0/.codex-plugin/plugin.json").is_file())
+        self.assertIn("git history unavailable", out)
+        self.assertIn(f"kept {self.cache / '5.3.0'}", out)
+
+    def test_pre_boundary_snapshot_in_shallow_checkout_is_kept_with_unshallow_hint(self) -> None:
+        # Only the newest release is inside a depth-1 clone; the older one is beyond its boundary.
+        older, newer = self.older_release("5.3.0"), self.older_release("5.4.0")
+        self.commit_release(older, newer)
+        clone = self.home.parent / "shallow"
+        self.git("clone", "-q", "--depth", "1", f"file://{self.repo}", str(clone))
+        real_released = migrate.released_codex_trees
+        self.assertTrue(real_released(clone).shallow)
+        self.cache.mkdir(parents=True)
+        shutil.copytree(older, self.cache / "5.3.0", symlinks=True)
+        shutil.copytree(newer, self.cache / "5.4.0", symlinks=True)
+        with patch.object(migrate, "released_codex_trees", lambda _root: real_released(clone)):
+            out = self.migrate_codex()
+        self.assertIn(
+            f"kept {self.cache / '5.3.0'}: not in this shallow checkout's history; "
+            "run 'git fetch --unshallow' and rerun migrate",
+            out,
+        )
+        self.assertTrue((self.cache / "5.3.0/.codex-plugin/plugin.json").is_file())
+        self.assertIn(f"remove {self.cache / '5.4.0'}", out)
+        self.assertFalse((self.cache / "5.4.0").exists())
+        self.assertNotIn(f"remove {self.cache}\n", out)
 
     def test_exact_preflip_flat_cache_links_and_standalone_skills_retire(self) -> None:
         names = self.install_standalone()

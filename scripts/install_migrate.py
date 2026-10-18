@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import functools
+import hashlib
 import json
 import os
 import shutil
@@ -11,7 +13,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 from codex_marketplace import build_entry, validate_marketplace_catalog
 from generate_codex_plugin import (
@@ -120,6 +122,84 @@ def legacy_codex_baseline(root: Path) -> Path:
     return root
 
 
+def git_tree_id(path: Path, algorithm: str) -> str | None:
+    """Return the git tree id `path` would have, without writing objects.
+
+    None when git could not hold the tree byte-identically (empty or special
+    entries), so such a tree can never match a committed one.
+    """
+
+    def digest(kind: str, body: bytes) -> bytes:
+        return hashlib.new(algorithm, f"{kind} {len(body)}\0".encode() + body).digest()
+
+    def tree(directory: Path) -> bytes | None:
+        entries: list[tuple[bytes, bytes]] = []
+        for child in directory.iterdir():
+            name = os.fsencode(child.name)
+            if child.is_symlink():
+                entries.append((name, b"120000 " + name + b"\0" + digest("blob", os.fsencode(os.readlink(child)))))
+            elif child.is_file():
+                mode = b"100755" if child.stat().st_mode & 0o100 else b"100644"
+                entries.append((name, mode + b" " + name + b"\0" + digest("blob", child.read_bytes())))
+            elif child.is_dir():
+                sub = tree(child)
+                if sub is None:
+                    return None
+                entries.append((name + b"/", b"40000 " + name + b"\0" + sub))
+            else:
+                return None
+        if not entries:
+            return None
+        return digest("tree", b"".join(entry for _, entry in sorted(entries)))
+
+    if path.is_symlink() or not path.is_dir():
+        return None
+    root = tree(path)
+    return root.hex() if root is not None else None
+
+
+class ReleasedTrees(NamedTuple):
+    """Committed `.codex-plugin/ycc` tree ids; `shallow` when older history is missing."""
+
+    algorithm: str
+    trees: frozenset[str]
+    shallow: bool
+
+
+def released_codex_trees(root: Path) -> ReleasedTrees | None:
+    """Return every `.codex-plugin/ycc` tree id in this checkout's HEAD history.
+
+    A legacy cache is a verbatim copy of the checkout's bundle at install
+    time, so an untouched snapshot of an older release equals one of these
+    trees. A shallow checkout still matches the releases it holds and reports
+    itself shallow. Read-only; None when git or this checkout's history is
+    unavailable.
+    """
+
+    # Inherited GIT_DIR/GIT_WORK_TREE/... (e.g. from a hook) would point git elsewhere.
+    env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+
+    def git(*args: str, stdin: str | None = None) -> str:
+        return subprocess.run(
+            ["git", "-C", str(root), *args], check=True, capture_output=True, text=True, input=stdin, env=env
+        ).stdout
+
+    try:
+        if Path(git("rev-parse", "--show-toplevel").strip()).resolve() != root.resolve():
+            return None
+        algorithm = git("rev-parse", "--show-object-format").strip()
+        shallow = git("rev-parse", "--is-shallow-repository").strip() == "true"
+        commits = git("rev-list", "--full-history", "HEAD", "--", ".codex-plugin/ycc").split()
+        if algorithm not in {"sha1", "sha256"} or not commits:
+            return None
+        lookup = "".join(f"{commit}:.codex-plugin/ycc\n" for commit in commits)
+        checked = git("cat-file", "--batch-check=%(objectname) %(objecttype)", stdin=lookup)
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    trees = frozenset(line.split()[0] for line in checked.splitlines() if line.endswith(" tree"))
+    return ReleasedTrees(algorithm, trees, shallow)
+
+
 def codex_rewrite_sets(home: Path) -> tuple[list[tuple[str, str]], ...]:
     """Return the current projected rewrites plus the historical narrow form.
 
@@ -141,16 +221,44 @@ class Migration:
         self.apply = apply
         self.home = Path.home()
 
-    def remove(self, path: Path, sources: tuple[Path, ...], *, links_only: bool = False) -> bool:
-        """Remove only proven-owned entries; True when removed (or would be)."""
+    @functools.cached_property
+    def released_trees(self) -> ReleasedTrees | None:
+        """Load released_codex_trees(ROOT) once, reporting when it is unavailable."""
+        released = released_codex_trees(ROOT)
+        if released is None:
+            print(f"[!!] {ROOT}: git history unavailable; older-release snapshots cannot be proven owned")
+        return released
+
+    def remove(
+        self,
+        path: Path,
+        sources: tuple[Path, ...],
+        *,
+        links_only: bool = False,
+        history: bool = False,
+    ) -> bool:
+        """Remove only proven-owned entries; True when removed (or would be).
+
+        With `history`, a real directory is also owned when its tree equals a
+        committed `.codex-plugin/ycc` (see released_codex_trees).
+        """
         if not path.exists() and not path.is_symlink():
             return False
         if not safe_parent(path):
             print(f"[!!] kept {path}: symlinked parent directory")
             return False
         ours = any(owned_link(path, src) or (not links_only and identical(path, src)) for src in sources)
+        released = self.released_trees if not ours and history and not links_only else None
+        if released is not None:
+            ours = git_tree_id(path, released.algorithm) in released.trees
         if not ours:
-            print(f"[!!] kept {path}: edited or ownership uncertain")
+            if released is not None and released.shallow:
+                print(
+                    f"[!!] kept {path}: not in this shallow checkout's history; "
+                    "run 'git fetch --unshallow' and rerun migrate"
+                )
+            else:
+                print(f"[!!] kept {path}: edited or ownership uncertain")
             return False
         print(f"[ok] {'remove' if self.apply else 'would remove'} {path}")
         if self.apply:
@@ -504,17 +612,26 @@ class Migration:
                     continue
                 self.remove(link, sources, links_only=True)
             cache = self.home / ".codex/plugins/cache/local-ycc-plugins/ycc"
-            self.remove(cache, sources)
+            # A same-checkout upgrade leaves a snapshot of an older release,
+            # which nothing rendered from this checkout equals, so ownership
+            # is also proven against this checkout's committed history.
             # A versioned cache may hold other versions or user changes. Retire
-            # only byte-identical snapshots, never the whole marketplace directory.
-            if (
+            # only proven snapshots, never the whole marketplace directory.
+            versioned = (
                 safe_parent(cache / "entry")
                 and cache.is_dir()
                 and not cache.is_symlink()
                 and not (cache / ".codex-plugin").exists()
+            )
+            if not versioned:
+                self.remove(cache, sources, history=True)
+            elif (children := sorted(cache.iterdir())) and all(
+                [self.remove(child, sources, history=True) for child in children]
             ):
-                for child in sorted(cache.iterdir()):
-                    self.remove(child, sources)
+                # Every snapshot was ours, so the now-empty version directory is too.
+                print(f"[ok] {'remove' if self.apply else 'would remove'} {cache}")
+                if self.apply:
+                    cache.rmdir()
         if catalog_path is not None and catalog is not None and kept is not None:
             catalog["plugins"] = kept
             catalog_path.write_text(json.dumps(catalog, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
