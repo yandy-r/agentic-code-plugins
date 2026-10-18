@@ -366,7 +366,10 @@ class CodexListedMigrationTransitionTests(unittest.TestCase):
             "GIT_COMMITTER_NAME": "fixture",
             "GIT_COMMITTER_EMAIL": "fixture@example.invalid",
         }
-        stack.enter_context(patch.dict(os.environ, git_env))
+        # Drop inherited GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE/... (exported by hooks) so
+        # fixture git commands can never reach an outer repository; restored on exit.
+        isolated = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+        stack.enter_context(patch.dict(os.environ, {**isolated, **git_env}, clear=True))
         stack.enter_context(patch.object(migrate, "load_package_model", return_value=self.listed))
         stack.enter_context(patch.object(migrate.Migration, "merge_remove"))
         stack.enter_context(patch.object(migrate.subprocess, "run", side_effect=fake_codex))

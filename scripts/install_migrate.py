@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import functools
 import hashlib
 import json
 import os
@@ -165,16 +166,19 @@ def released_codex_trees(root: Path) -> tuple[str, frozenset[str]] | None:
     trees. Read-only; None when git or this checkout's history is unavailable.
     """
 
+    # Inherited GIT_DIR/GIT_WORK_TREE/... (e.g. from a hook) would point git elsewhere.
+    env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+
     def git(*args: str, stdin: str | None = None) -> str:
         return subprocess.run(
-            ["git", "-C", str(root), *args], check=True, capture_output=True, text=True, input=stdin
+            ["git", "-C", str(root), *args], check=True, capture_output=True, text=True, input=stdin, env=env
         ).stdout
 
     try:
         if Path(git("rev-parse", "--show-toplevel").strip()).resolve() != root.resolve():
             return None
         algorithm = git("rev-parse", "--show-object-format").strip()
-        commits = git("log", "--format=%H", "HEAD", "--", ".codex-plugin/ycc").split()
+        commits = git("rev-list", "--full-history", "HEAD", "--", ".codex-plugin/ycc").split()
         if algorithm not in {"sha1", "sha256"} or not commits:
             return None
         lookup = "".join(f"{commit}:.codex-plugin/ycc\n" for commit in commits)
@@ -205,15 +209,14 @@ class Migration:
     def __init__(self, apply: bool) -> None:
         self.apply = apply
         self.home = Path.home()
-        self._released: tuple[str, frozenset[str]] | None | bool = False
 
+    @functools.cached_property
     def released_trees(self) -> tuple[str, frozenset[str]] | None:
         """Load released_codex_trees(ROOT) once, reporting when it is unavailable."""
-        if self._released is False:
-            self._released = released_codex_trees(ROOT)
-            if self._released is None:
-                print(f"[!!] {ROOT}: git history unavailable; older-release snapshots cannot be proven owned")
-        return self._released if isinstance(self._released, tuple) else None
+        released = released_codex_trees(ROOT)
+        if released is None:
+            print(f"[!!] {ROOT}: git history unavailable; older-release snapshots cannot be proven owned")
+        return released
 
     def remove(
         self,
@@ -234,7 +237,7 @@ class Migration:
             print(f"[!!] kept {path}: symlinked parent directory")
             return False
         ours = any(owned_link(path, src) or (not links_only and identical(path, src)) for src in sources)
-        if not ours and history and not links_only and (released := self.released_trees()) is not None:
+        if not ours and history and not links_only and (released := self.released_trees) is not None:
             ours = git_tree_id(path, released[0]) in released[1]
         if not ours:
             print(f"[!!] kept {path}: edited or ownership uncertain")
