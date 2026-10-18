@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Validate concrete package IDs in live and unwired v6 install documents.
+"""Validate concrete package IDs in live and v6 install documents.
 
 Scan docs/install/*.md and docs/install/v6/*.md, including prose, tables and code
 blocks. Native IDs use <package>@ycc; scoped npm IDs use the manifest's exact key.
-Runtime drafts permit only included packages for that runtime, regardless of
+Runtime guides permit only included packages for that runtime, regardless of
 catalog listing. Mention excluded/deferred packages by bare name, not an install
 ID. Generic <package>@ycc placeholders and unrelated third-party IDs are ignored.
 This checks ID spelling and runtime eligibility, not command availability.

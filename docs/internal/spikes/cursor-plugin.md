@@ -95,6 +95,8 @@ The skill identity is the normalized path after the first `/.cursor/`, `/.claude
 4. No older Cursor than `3.24.12` / CLI `2026.10.14-941492e` was tested.
 5. The fixture repo is public and temporary. Delete `yandy-r/cursor-plugin-spike` after this dossier lands.
 
+> **Update (2026-10-18):** limitations 1 and 2 were closed by the v6.0.0 maintainer release verification (YAN-1141): `/plugins` Marketplace installed `ycc`, `ycc-mcp`, `ycc-hooks`, and `ycc-rules` at user scope through both the agent CLI (2026.10.16) and the Cursor IDE. The text above is the original spike record and is otherwise unchanged.
+
 ## 6. Reproduction
 
 ```bash

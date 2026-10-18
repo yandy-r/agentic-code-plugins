@@ -1,20 +1,57 @@
-# Cursor v6 Install Draft
+# Cursor Install Guide (v6 native packages)
 
-> **DRAFT — unwired for v6.** The native Cursor packages described here are
-> generated under `packages/cursor/` but are **hidden and not installable from
-> any production catalog today**: every entry is `listed: false` in
-> `ycc/settings/packages.json`, there is no root `.cursor-plugin/marketplace.json`,
-> and no native account-install route exists. `install.sh migrate` is implemented
-> as a dry-run-first cleanup command that prints the interactive install step.
-> The implemented `install.sh install --package` route delivers files, including
-> the command and optional hook carriers; it does not install or activate native
-> Cursor plugins. The live file-copy installer in `docs/install/` remains the
-> supported install path.
+Cursor installs `ycc` as four native plugins from the `ycc` marketplace in this
+repository (`yandy-r/ystack`, root `.cursor-plugin/marketplace.json`). The
+file-copy `install.sh` route in [Cursor Install](../cursor.md) remains
+available as the fallback and for the pieces plugins do not carry.
 
-## What exists today (baseline)
+## Install
 
-Today, and throughout v6 until the listing flip, install with the live
-file-copy route:
+From the Cursor agent CLI:
+
+```bash
+agent plugin marketplace add https://github.com/yandy-r/ystack
+```
+
+or, in the Cursor IDE, open `/plugins` and use Marketplace. Either route lists
+`ycc`, `ycc-mcp`, `ycc-hooks`, and `ycc-rules`; pick the packages in `/plugins`
+(the CLI has no non-interactive `plugin install`: `marketplace add` prints
+`Tip: use /plugins in interactive mode`).
+
+| Package     | Native ID       | Payload                                                                            | Notes                                                             |
+| ----------- | --------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `ycc`       | `ycc@ycc`       | `skills/`, `agents/`, `commands/` (thin files per user-invocable skill), `shared`  | Generated under `packages/cursor/ycc/`                            |
+| `ycc-rules` | `ycc-rules@ycc` | Manifest + `rules/` from the existing Cursor rules transform (Cursor-only package) | Generated under `packages/cursor/ycc-rules/`                      |
+| `ycc-mcp`   | `ycc-mcp@ycc`   | Manifest + literal `mcp.json`; `${VAR}` placeholders declared under `variables`    | Generated under `packages/cursor/ycc-mcp/`; no secret literals    |
+| `ycc-hooks` | `ycc-hooks@ycc` | `hooks/hooks.json` + `herdr-session-start.sh`; `sessionStart` only                 | Generated under `packages/cursor/ycc-hooks/`; no `WorktreeCreate` |
+
+Every generated manifest carries `minClientVersions.cursor: 3.24.12`. That is
+the **tested floor** from the spike (Cursor IDE 3.24.12, agent CLI
+2026.10.14-941492e); no older minimum is established or claimed.
+
+`ycc-hooks@ycc` registers `sessionStart` only; there is no Cursor
+`WorktreeCreate` hook in the plugin or the file-copy route. See
+[Hooks: sessionStart only](#hooks-sessionstart-only).
+
+## Marketplace shape
+
+The root `.cursor-plugin/marketplace.json` has one entry per package, each with
+a relative `source` pointing at a generated package root under
+`packages/cursor/`. The spike established:
+
+- **Marketplace registration: Go** at user scope
+  (`agent plugin marketplace add <github-url>`), without installing the Cursor
+  GitHub App.
+- **Pinning: Go** for the marketplace ref — `--git-ref <tag|sha>` stores the
+  full commit SHA; a missing ref fails closed.
+- **One entry per directory.** The server-side `update` collapses two entries
+  pointing at the same relative directory, so the catalog never repeats a
+  source.
+- Relative `source` entries merge the directory's `.cursor-plugin/plugin.json`.
+
+## Installing from a checkout (file copy)
+
+From a checkout, `install.sh` delivers the same content as files and config:
 
 ```bash
 ./install.sh install --target cursor
@@ -41,60 +78,19 @@ component stays optional and is not inherited by other selections. Only
 ./install.sh sync --target cursor --intent hooks   # optional without package selection
 ```
 
-See the [live guide](../cursor.md) for individual steps and ownership-aware
-command/hook removal. Neither route consults plugin caches as proof of native
+See the [Cursor Install](../cursor.md) guide for individual steps and
+ownership-aware command/hook removal. Neither route registers the marketplace,
+activates a native account plugin, or consults plugin caches as proof of
 activation.
 
-## Planned native packages (hidden, not installable today)
+## Runtime evidence
 
-| Package     | Native ID       | Payload                                                                            | Status                                                                                  |
-| ----------- | --------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `ycc`       | `ycc@ycc`       | `skills/`, `agents/`, `commands/` (thin files per user-invocable skill), `shared`  | Generated under `packages/cursor/ycc/`; unlisted; no root marketplace                   |
-| `ycc-rules` | `ycc-rules@ycc` | Manifest + `rules/` from the existing Cursor rules transform (Cursor-only package) | Generated under `packages/cursor/ycc-rules/`; unlisted                                  |
-| `ycc-mcp`   | `ycc-mcp@ycc`   | Manifest + literal `mcp.json`; `${VAR}` placeholders declared under `variables`    | Generated under `packages/cursor/ycc-mcp/`; unlisted; no secret literals ever committed |
-| `ycc-hooks` | `ycc-hooks@ycc` | `hooks/hooks.json` + `herdr-session-start.sh`; `sessionStart` only                 | Generated under `packages/cursor/ycc-hooks/`; unlisted; no Cursor `WorktreeCreate`      |
-
-Every generated manifest carries `minClientVersions.cursor: 3.24.12`. That is
-the **tested floor** from the spike (Cursor IDE 3.24.12, agent CLI
-2026.10.14-941492e); no older minimum is established or claimed.
-
-## Planned marketplace shape (future, not current)
-
-The future marketplace will use the repository URL valid after the owner-led
-rename/reference flip. No runnable registration command is provided here:
-the current repository has no Cursor marketplace, and no v6 tag or catalog
-availability is implied.
-
-The planned layout is a root `.cursor-plugin/marketplace.json` whose entries
-point at the four generated package roots under `packages/cursor/` with
-relative `source` paths (exact source form is finalized at the flip PR; the
-spike verified string and object source forms).
-The spike established:
-
-- **Marketplace registration: Go** at user scope (`agent plugin marketplace add <github-url>`),
-  without installing the Cursor GitHub App.
-- **Pinning: Go** for the marketplace ref — `--git-ref <tag|sha>` stores the
-  full commit SHA; a missing ref fails closed.
-- **One entry per directory.** The server-side `update` collapses two entries
-  pointing at the same relative directory. A future catalog must therefore
-  avoid duplicate sources; no production Cursor catalog exists today.
-- Relative `source` entries merge the directory's `.cursor-plugin/plugin.json`.
-
-## Interactive install and evidence gates
-
-There is **no non-interactive native account install**: the CLI has no `plugin
-install` subcommand; `marketplace add` prints `Tip: use /plugins in interactive mode`.
-The interactive `/add-plugin` flow in the agent TUI (or the Cursor IDE) is the
-planned user install step after the flip. Do **not** claim the catalog is
-available or drive it today: **interactive installation and installed-plugin
-runtime verification remain open gates** and block listing.
-
-What is proven so far (agent CLI 2026.10.14-941492e): the user-file carriers
-were exercised two ways. In a fixture lab (isolated `HOME` and
-`XDG_CONFIG_HOME`), a `~/.cursor/commands/<name>.md` wrapper referencing the
-absolute installed `~/.cursor/skills/<name>/SKILL.md` returned the fixture's
-exact marker; the canonical `~/.cursor/hooks/herdr-session-start.sh`, registered
-in the user `~/.cursor/hooks.json`, sent `pane.report_agent_session` with an
+What is proven (agent CLI 2026.10.14-941492e): the user-file carriers were
+exercised two ways. In a fixture lab (isolated `HOME` and `XDG_CONFIG_HOME`), a
+`~/.cursor/commands/<name>.md` wrapper referencing the absolute installed
+`~/.cursor/skills/<name>/SKILL.md` returned the fixture's exact marker; the
+canonical `~/.cursor/hooks/herdr-session-start.sh`, registered in the user
+`~/.cursor/hooks.json`, sent `pane.report_agent_session` with an
 `agent_session_id` equal to the runtime result's `session_id`; a foreign
 `sessionStart` recorder fired and a foreign command file survived. The opt-in
 `scripts/cursor_live_smoke.py --keep` then re-proved the same behavior through
@@ -105,17 +101,17 @@ own and foreign hooks both fired for the same session, `$ARGUMENTS` reached the
 model, and no copied authentication is retained. Separately, `agent
 --plugin-dir <dir>` loads a local plugin's `sessionStart` hook in that one
 process without an account install, and the generated `ycc-hooks` package loaded
-this way sent a session identity report to a disposable socket. These are
-user-file, real-installer, and per-process load evidence — not account-installed
-runtime proof.
+this way sent a session identity report to a disposable socket. The v6.0.0
+maintainer verification (tracked in YAN-1141) additionally covered the interactive
+Cursor marketplace installation of the four packages, through both the agent CLI
+and the Cursor IDE.
 
 ## Hooks: sessionStart only
 
 Cursor `hooks.json` runs `sessionStart` (payload `hook_event_name:
 "sessionStart"`). `WorktreeCreate` does not exist in the CLI bundle, and the
 Claude-style `SessionStart` spelling is not a Cursor hook event — a hooks file
-naming unknown events silenced the whole file in the spike. Release/listing
-gate: `ycc-hooks@ycc` ships `sessionStart` only. `WorktreeCreate` is
+naming unknown events silenced the whole file in the spike. `ycc-hooks@ycc` ships `sessionStart` only. `WorktreeCreate` is
 unavailable — not implemented anywhere for Cursor: not in the native package
 and not in the file-copy carrier. The optional fallback hooks component is
 delivered only when explicitly selected; the settings-only `cli-config.json`
@@ -146,10 +142,11 @@ reported, even if earlier ownership state names them. Symlinked carrier config
 files stop cleanup rather than being replaced. Migration preserves
 user data, is safe to repeat, and rejects `--force`.
 
-Migration prints the interactive `/add-plugin` step; it does **not** install
-the Cursor plugin, make the hidden catalog available, or verify a native
-installed plugin at runtime. Keep using the live install route until the
-listing and runtime gates above are complete.
+Migration prints the interactive `/add-plugin` step (`Cursor: open
+/add-plugin and add the ycc marketplace, then select the native packages.`); it
+does **not** install the Cursor plugins or verify a native installed plugin at
+runtime. Add the marketplace and select the packages as described under
+[Install](#install).
 
 **WARNING — name-based deletion hazard in the live installer.** The bundle branch of `install.sh remove --target cursor` (`--intent base` or `--only base`) deletes by name: `remove_mirrored_entries` (`scripts/lib/install/bundle.sh`) removes every same-named entry from `~/.cursor/{skills,agents,rules}` for each top-level entry the generated bundle ships, regardless of ownership. Your own same-named skill, agent, or rule entry would be destroyed. Do NOT treat it as a safe migration step.
 
@@ -160,7 +157,7 @@ listing and runtime gates above are complete.
 - `./install.sh remove --target cursor --intent rules` only unlinks legacy `~/.cursor/{CLAUDE.md,AGENTS.md}` symlinks that point into this repo — never `~/.cursor/rules/`.
 - Only the name-based `base` branch above touches the `~/.cursor/rules/` bundle generated by the base install.
 
-**Migration after the listing flip:** Preview with `migrate --target cursor`
+**Migrating an existing file-copy install:** Preview with `migrate --target cursor`
 and review every retained conflict. Back up `~/.cursor/{skills,agents,rules,commands,hooks}`
 and `~/.cursor/hooks.json` before applying. Migration preflights both carriers,
 then retracts proven installer-owned command wrappers, the `sessionStart`
@@ -174,7 +171,7 @@ entries. Run `./install.sh remove --target cursor --intent commands,hooks` and
 preview migration again before applying or activating native packages. Do not
 substitute the name-based `remove --intent base` path. Once the preview is safe,
 use `migrate --target cursor --apply` for the confirmed-copy cleanup, then follow
-`/add-plugin` interactively once the native plugin is actually available.
+`/add-plugin` interactively to install the native packages.
 
 ## Secrets
 

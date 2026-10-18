@@ -1,27 +1,38 @@
-# ycc v6 Install Drafts
+# ycc v6 Native Package Install Guides
 
-> **DRAFT — unwired for v6.** These pages describe the native-package install
-> surface targeted at v6.0.0. The hidden native packages under `packages/`
-> remain **unlisted in production catalogs**: Claude `ycc@ycc` stays the only
-> listed, shipping entry. The experimental opencode npm package is generated
-> and its tag-triggered publishing workflow is implemented; neither fact
-> establishes that a version has actually been published to npm.
-> `install.sh migrate` is implemented as a dry-run-first command for Claude,
-> Codex, and Cursor; `install.sh --package` remains planned, not implemented.
-> The live install commands in `docs/install/` are unchanged and remain the
-> supported install route. The repository was renamed to
-> `yandy-r/ystack`.
+Starting with v6.0.0, `ycc` ships as native packages in the Claude, Codex, and
+Cursor marketplaces. These pages are the per-runtime guides for installing
+those packages and for moving an existing `install.sh` file-copy install onto
+them. The repository is `yandy-r/ystack` (renamed from `claude-plugins`, then
+`agentic-code-plugins`; old GitHub names redirect). The `install.sh`
+commands in [`docs/install/`](../README.md) keep working as the fallback and
+remain the only route for pieces plugins cannot carry (rules, instructions,
+settings, custom agents, statusline).
 
-This directory is a draft tree only. It is not linked from the root README or
-the live `docs/install/README.md`; nothing here affects production navigation.
+| Runtime  | Guide                      | Native install                                                |
+| -------- | -------------------------- | ------------------------------------------------------------- |
+| Claude   | [claude.md](claude.md)     | `claude plugin install ycc-all@ycc` (or the parts)            |
+| Codex    | [codex.md](codex.md)       | `codex plugin add ycc@ycc` and `codex plugin add ycc-mcp@ycc` |
+| Cursor   | [cursor.md](cursor.md)     | `agent plugin marketplace add`, then `/plugins`               |
+| opencode | [opencode.md](opencode.md) | experimental, opt-in npm package; file copy stays primary     |
+| agents   | [agents.md](agents.md)     | none — file copy only                                         |
 
-| Runtime  | Guide                      |
-| -------- | -------------------------- |
-| Claude   | [claude.md](claude.md)     |
-| Codex    | [codex.md](codex.md)       |
-| Cursor   | [cursor.md](cursor.md)     |
-| opencode | [opencode.md](opencode.md) |
-| agents   | [agents.md](agents.md)     |
+## Quick install
+
+```bash
+# Claude Code (hooks need Claude Code >= 2.1.300)
+claude plugin marketplace add yandy-r/ystack
+claude plugin install ycc-all@ycc          # ycc + ycc-mcp + ycc-hooks via dependencies
+
+# Codex
+codex plugin marketplace add https://github.com/yandy-r/ystack.git
+codex plugin add ycc@ycc
+codex plugin add ycc-mcp@ycc
+
+# Cursor
+agent plugin marketplace add https://github.com/yandy-r/ystack
+# then pick the packages in /plugins (also available in the Cursor IDE's Marketplace)
+```
 
 ## Native vs fallback by runtime
 
@@ -30,23 +41,18 @@ that model. Native package IDs are `<package>@ycc`. `ycc-rules@ycc` is
 Cursor-only. `installer-fallback` is an internal modeling key for
 installer-only artifacts — it is not an installable package ID.
 
-The live baselines every runtime keeps until (and mostly after) the flip —
-these are the current, runnable commands, documented fully in `docs/install/`:
-
-```bash
-./install.sh install --target <claude|cursor|codex|opencode|agents>
-./install.sh sync --target <t> --intent <intents>
-```
-
-| Runtime  | Native in v6 (hidden until the listing flip)                                                                                                                  | Fallback today (live `install.sh`)                                                                                                                                                                                                                         | Not installable                                                                                                                    |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Claude   | `ycc@ycc` (listed, shipping today), `ycc-hooks@ycc`, `ycc-mcp@ycc`, `ycc-all@ycc` (meta, depends on the others; hidden)                                       | `install.sh --target claude`: plugin registration plus file-copy rules, `CLAUDE.md` instructions, settings, and statusline — no Claude `ycc-rules` exists                                                                                                  | Claude `ycc-agents` (agents-only package) deferred to v7.0.0; qualified references would be a breaking namespace change            |
-| Codex    | `ycc@ycc` (skills + shared), `ycc-mcp@ycc` (both hidden; current catalog is `ycc@local-ycc-plugins`)                                                          | `install.sh --target codex`: agents TOML, `AGENTS.md` instructions, config settings (Codex plugins cannot carry these)                                                                                                                                     | Codex `ycc-hooks` excluded: no-go until verified (YAN-1149); hooks stay out of the Codex bundle                                    |
-| Cursor   | `ycc@ycc` (skills, agents, commands, shared), `ycc-rules@ycc`, `ycc-mcp@ycc`, `ycc-hooks@ycc` (`sessionStart` only); all hidden                               | `install.sh --target cursor`: base bundle (skills, agents, rules) with opt-in settings and MCP merges; **no hooks** — the `hooks` intent is a no-op and `WorktreeCreate` is not implemented for Cursor (the fallback `cli-config.json` registers no hooks) | — (all four modeled Cursor packages stay unlisted with no root marketplace until the flip)                                         |
-| opencode | `@yandy-r/ycc-opencode` (generated npm V2 plugin registering skills, agents, namespaced commands, shared helpers, MCP, instructions; experimental and opt-in) | `install.sh --target opencode`: file copy of skills, agents, commands, shared, `opencode.json` settings, `AGENTS.md` instructions — **primary and unchanged**                                                                                              | — (the npm package is unlisted and opt-in; registry publication is separate from generation and the implemented publish workflow)  |
-| agents   | none — file copy only                                                                                                                                         | `install.sh --target agents`: skills + `ycc-shared` into `~/.agents/`                                                                                                                                                                                      | The `npx skills` path cannot replace the file copy (spike: shared helpers not delivered; bare-repo discovery finds the wrong tree) |
+| Runtime  | Native packages (listed)                                                                                                                                      | Stays on `install.sh`                                                                                                                           | Not installable                                                                                                                    |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Claude   | `ycc@ycc`, `ycc-mcp@ycc`, `ycc-hooks@ycc`, `ycc-all@ycc` (meta; depends on the other three)                                                                   | Rules, `CLAUDE.md` instructions, settings, and statusline — no Claude `ycc-rules` exists                                                        | Claude `ycc-agents` (agents-only package) deferred to v7.0.0; qualified references would be a breaking namespace change            |
+| Codex    | `ycc@ycc` (skills + shared), `ycc-mcp@ycc`, both from the `ycc` catalog (replaces the legacy `local-ycc-plugins` catalog)                                     | Custom agents in `~/.codex/agents`, `AGENTS.md` instructions, `config.toml` settings (Codex plugins cannot carry these)                         | Codex `ycc-hooks` excluded: no-go until verified (YAN-1149); hooks stay out of the Codex bundle                                    |
+| Cursor   | `ycc@ycc` (skills, agents, commands, shared), `ycc-rules@ycc`, `ycc-mcp@ycc`, `ycc-hooks@ycc` (`sessionStart` only)                                           | Optional settings and MCP merges; `WorktreeCreate` is not implemented for Cursor (the fallback `cli-config.json` registers no hooks)            | —                                                                                                                                  |
+| opencode | `@yandy-r/ycc-opencode` (generated npm V2 plugin registering skills, agents, namespaced commands, shared helpers, MCP, instructions; experimental and opt-in) | `install.sh --target opencode`: file copy of skills, agents, commands, shared, `opencode.json` settings, `AGENTS.md` instructions — **primary** | — (the npm package is opt-in; registry publication is separate from generation and the publish workflow)                           |
+| agents   | none — file copy only                                                                                                                                         | `install.sh --target agents`: skills + `ycc-shared` into `~/.agents/`                                                                           | The `npx skills` path cannot replace the file copy (spike: shared helpers not delivered; bare-repo discovery finds the wrong tree) |
 
 ### Duplicates and what migration removes
+
+A native plugin and an `install.sh` file copy of the same content do not
+dedupe, so move over with `install.sh migrate` instead of keeping both:
 
 - **Claude:** a native plugin and installer-merged settings hooks both run;
   settings + plugin copies do not dedupe. Migration prunes only proven
@@ -55,15 +61,14 @@ these are the current, runnable commands, documented fully in `docs/install/`:
   from `ycc-all@ycc`. Managed MCP removal similarly requires explicit
   `ycc-mcp@ycc` enablement; only global config files and owned links are in
   scope.
-- **Codex:** the current catalog ID is `ycc@local-ycc-plugins` (marketplace
-  `local-ycc-plugins`, source `./plugins/ycc`). It stays active until an
-  eligible native `ycc` catalog is available (YAN-1140). Production apply
-  fails closed before cleanup or any CLI call while that gate is unmet;
-  dry-run explains the gate and retains the legacy install. A staged native
-  catalog can be selected with `--marketplace-source <dir>` (Codex only),
-  subject to the same catalog and payload checks. Native installation and
-  installed/enabled verification must succeed before retiring legacy entries.
-  Migration never removes anything under `~/.codex/agents/`.
+- **Codex:** the legacy catalog ID is `ycc@local-ycc-plugins` (marketplace
+  `local-ycc-plugins`, source `./.agents/plugins/ycc`); the current catalog is
+  `ycc`, listing `ycc@ycc` and `ycc-mcp@ycc`. Apply registers the `ycc`
+  marketplace, installs both packages, verifies they are installed and
+  enabled, and only then retires proven installer-owned legacy entries.
+  Migration never removes anything under `~/.codex/agents/`. A staged catalog
+  can be selected with `--marketplace-source <dir>` (Codex only), subject to
+  the same catalog and payload checks.
 - **Cursor:** file copies and plugin skills do not share a dedupe key.
   Migration removes only byte-identical canonical copies or exactly owned
   symlinks across installed skills, agents, rules, and shared helpers. Edited
@@ -94,13 +99,21 @@ build output, or CLI state. Only `--apply` makes changes:
 `--target all` resolves to exactly Claude, Codex, and Cursor; opencode and
 agents are excluded from `all`, and naming either target explicitly is
 rejected. Migration preserves user edits/data and uncertain entries, is safe
-to run repeatedly, and rejects `--force`. See each runtime guide for gates.
+to run repeatedly, and rejects `--force`. See each runtime guide for details.
 For Codex, apply checks installed/enabled CLI state before retiring legacy;
 that metadata check is not runtime session, MCP execution, or hook-dispatch
 verification.
 
-`install.sh --package <name>` (package-graph closure expansion) is still
-**planned and not implemented**; it is not a runnable command today.
+## Installing from a checkout: `install.sh --package`
+
+`install.sh install --package <ids> --target <targets>` expands the package
+closure into existing installer steps. It is a file/config delivery route and
+never edits a catalog. The one native piece is the `base` step it selects for
+`ycc`: on Claude that registers the marketplace and installs `ycc@ycc`; on
+Codex it registers the `ycc` marketplace and installs `ycc@ycc` plus
+`ycc-mcp@ycc`. Accepted ids are `ycc`, `ycc-mcp`, `ycc-hooks` (not Codex), and
+`ycc-rules` (Cursor only); `ycc-all` is not accepted — install it through the
+Claude marketplace. See `./install.sh --help` for the full contract.
 
 ## Evidence
 

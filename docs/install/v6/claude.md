@@ -1,24 +1,33 @@
 # Claude Install Guide (v6 native packages)
 
-> **DRAFT — unwired for v6: hidden native packages are not installable from
-> production catalogs today.** The native install surface below remains
-> planned; the dry-run-first `migrate` command is implemented. For current
-> installation instructions, use [Claude Install](../claude.md).
+Claude Code installs `ycc` as native plugins from the `ycc` marketplace in this
+repository (`yandy-r/ystack`). For the checkout-based `install.sh` route and
+the pieces plugins cannot carry (rules, instructions, settings, statusline),
+see [Claude Install](../claude.md).
 
-## Current Install (unchanged today)
-
-Today Claude Code installs exactly one listed package, `ycc@ycc`, from this
-checkout or the published repository:
+## Install
 
 ```bash
-./install.sh install --target claude
+claude plugin marketplace add yandy-r/ystack
+
+# Everything: ycc + ycc-mcp + ycc-hooks through the ycc-all dependencies
+claude plugin install ycc-all@ycc
+
+# Or pick the parts
+claude plugin install ycc@ycc
+claude plugin install ycc-mcp@ycc
+claude plugin install ycc-hooks@ycc
 ```
 
-The `base` step runs `claude plugin marketplace add <repo> --scope user` and
-`claude plugin install ycc@ycc --scope user`. Settings, rules, MCP, hooks, and
-mods stay on `install.sh` steps exactly as documented in the live guide. The
-v6 work below adds packages around that flow; it does not change it before
-the listing flip.
+`ycc-hooks@ycc` needs Claude Code **2.1.300** or later; older clients keep the
+installer-managed hooks. Run `/reload-plugins` or start a new session after
+installing.
+
+From a checkout, `./install.sh install --target claude` registers the same
+marketplace and installs `ycc@ycc` (`claude plugin marketplace add <repo>
+--scope user`, then `claude plugin install ycc@ycc --scope user`); settings,
+rules, MCP, hooks, and mods stay on `install.sh` steps as documented in the
+live guide.
 
 ## v6 Native Package Model
 
@@ -28,36 +37,32 @@ the listing flip.
 is the decision record. Package IDs use the component name with `ycc` as the
 marketplace:
 
-| ID              | Package                          | v6.0.0 status                                                                                             |
-| --------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `ycc@ycc`       | 49 skills, 55 agents, `_shared`  | Ships and stays listed; skills and agents stay in `ycc` for all of v6.                                    |
-| `ycc-mcp@ycc`   | Native MCP-only plugin           | Planned in v6; unspiked; hidden until the listing flip.                                                   |
-| `ycc-hooks@ycc` | Native `hooks/hooks.json` plugin | Ships hidden; documented minimum Claude Code **2.1.300**; native rollout waits for installer hook dedupe. |
-| `ycc-all@ycc`   | Meta plugin (no components)      | Planned; blocked by the dependency-installation proof gate below.                                         |
-| `ycc-agents`    | Agents-only plugin               | **Deferred to v7.0.0** — qualified `ycc-agents:` references are a breaking namespace change (see below).  |
+| ID              | Package                          | Status                                                                                                   |
+| --------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `ycc@ycc`       | 49 skills, 55 agents, `_shared`  | Listed; skills and agents stay in `ycc` for all of v6.                                                   |
+| `ycc-mcp@ycc`   | Native MCP-only plugin           | Listed.                                                                                                  |
+| `ycc-hooks@ycc` | Native `hooks/hooks.json` plugin | Listed; requires Claude Code **2.1.300**.                                                                |
+| `ycc-all@ycc`   | Meta plugin (no components)      | Listed; depends on `ycc`, `ycc-mcp`, and `ycc-hooks`.                                                    |
+| `ycc-agents`    | Agents-only plugin               | **Deferred to v7.0.0** — qualified `ycc-agents:` references are a breaking namespace change (see below). |
 
 Each package has its own distinct manifest `name`. No package reuses the `ycc`
 manifest name: the namespace spike found that a shared name silently splits
 runtime resolution between skills (first-installed wins) and agents
 (last-installed wins).
 
-Generated hidden payloads live under `packages/claude/` (`ycc-mcp`,
-`ycc-hooks`, `ycc-all`); see
-[Hidden Claude native add-ons](../../internal/claude-native-packages.md).
-`listed: false` in `packages.json` is generator input, not a runtime field;
-it does not suppress generation.
+Generated payloads live under `packages/claude/` (`ycc-mcp`, `ycc-hooks`,
+`ycc-all`); see
+[Claude native add-on packages](../../internal/claude-native-packages.md).
 
-The generated `ycc-hooks` package relocates only the `WorktreeCreate`
-registration committed in `ycc/settings/settings.json`. Its
-`hooks/hooks.json` does **not** register `SessionStart` or activate herdr;
+The `ycc-hooks` package relocates only the `WorktreeCreate` registration
+committed in `ycc/settings/settings.json`. Its `hooks/hooks.json` does **not**
+register `SessionStart` or activate herdr;
 `scripts/generate_claude_packages.py` rejects other registered hook events.
 
-## Planned Post-Listing Config (not runnable today)
+## Config Shape
 
-The snippets below show the shape Claude Code writes to
-`~/.claude/settings.json` **after** the v6 listing flip. They are examples
-only — these IDs are not installable from the production marketplace today,
-and nothing here is a command to run:
+Claude Code writes the following to `~/.claude/settings.json` after the
+installs above (you can also enable them there directly):
 
 ```json
 {
@@ -75,8 +80,8 @@ and nothing here is a command to run:
 }
 ```
 
-Installing only the meta plugin is expected to expand the same set through
-the manifest dependency list:
+Installing only the meta plugin expands the same set through the manifest
+dependency list:
 
 ```json
 { "enabledPlugins": { "ycc-all@ycc": true } }
@@ -101,20 +106,16 @@ Spike test versions are data points, not claimed minimums:
   documented 2.1.300 minimum for `ycc-hooks@ycc`, which registers only
   `WorktreeCreate`. No version between the two pins was tested, and the
   fixture's `SessionStart` probe did not execute the real herdr script.
-- **Dependency installation:** the hidden-package smoke harness installed
+- **Dependency installation:** the native-package smoke harness installed
   `ycc-all` and observed automatic installation of `ycc`, `ycc-mcp`, and
   `ycc-hooks` on Claude Code **2.1.301**, from a local directory-source
-  marketplace, with no Claude session or MCP execution. Dependency support on
-  the 2.1.143 candidate baseline, any minimum dependency-capable version, and
-  remote/public-fork installation are **not established**.
-
-### `ycc-all` dependency proof gate
-
-`ycc-all@ycc` must not be listed until dependency installation is proven on
-the **2.1.143 candidate baseline and on the latest client**, and the
-supported minimum is documented from those results. The 2.1.301 directory-source
-proof alone does not satisfy the gate. This guide therefore documents
-`ycc-all` as planned only — never as an install command.
+  marketplace, with no Claude session or MCP execution. The v6.0.0 maintainer
+  verification (tracked in YAN-1141) additionally covered a published install
+  on a clean host: `claude plugin install ycc-all@ycc` installed the three
+  packages. Dependency
+  support on the 2.1.143 candidate baseline and any lower dependency-capable
+  version are **not established**; install `ycc@ycc`, `ycc-mcp@ycc`, and
+  `ycc-hooks@ycc` individually on older clients.
 
 ## Native Vs Fallback
 
@@ -138,7 +139,7 @@ Preview the global Claude migration, then explicitly apply it:
 The default dry-run writes no config, state, build output, or CLI state and
 uses the same state-based cleanup plan as apply. Symlinked configuration
 files are retained with a notice, preserving dotfiles links.
-Migration does not install hidden packages: hook cleanup requires
+Migration does not install packages — install them first (see above). Hook cleanup requires
 `ycc-hooks@ycc` to be explicitly enabled, and MCP cleanup requires
 `ycc-mcp@ycc` to be explicitly enabled. `ycc-all@ycc` enablement alone is not
 evidence that either dependency is installed and enabled.
@@ -151,9 +152,17 @@ that still point at this checkout's managed source, never real files or
 foreign links. Edited values and uncertain ownership are retained and
 reported, repeated migration is safe, and `--force` is rejected.
 
+Without the explicit enablement the dry-run prints `Claude hooks retained:
+ycc-hooks@ycc is not explicitly enabled` and `Claude MCP retained:
+ycc-mcp@ycc is not explicitly enabled`, and leaves those entries alone. The
+usual order is: install `ycc-hooks@ycc` / `ycc-mcp@ycc`, run
+`./install.sh migrate --target claude --apply`, then rerun it to confirm it is
+stable.
+
 This cleanup is not a Claude session, MCP execution, or hook-dispatch check.
-`install.sh --package` (package-graph closure expansion) remains **planned
-and not implemented**.
+`install.sh install --package <ids> --target claude` is a checkout-based
+file/config delivery route (it accepts `ycc`, `ycc-mcp`, and `ycc-hooks`, not
+`ycc-all`); it does not replace the marketplace installs above.
 
 ## Duplicates And Coexistence
 
@@ -161,9 +170,9 @@ and not implemented**.
   same event **both execute** — the spike's recording fixtures verified 1 + 1
   counts for `SessionStart` on both pinned versions and for `WorktreeCreate`
   on 2.1.300, including when the two copies run the literal same script. The
-  runtime does no dedupe, so enabling the current generated `ycc-hooks@ycc`
-  while the installer's settings hook remains would duplicate
-  `WorktreeCreate` runs. The `SessionStart` double-run result concerns spike
+  runtime does no dedupe, so enabling `ycc-hooks@ycc` while the installer's
+  settings hook remains would duplicate `WorktreeCreate` runs; run
+  `./install.sh migrate --target claude --apply` after enabling it. The `SessionStart` double-run result concerns spike
   fixtures only: the actual package has no `SessionStart` registration and
   does not produce duplicate herdr reports.
 - **Migration constraint (implemented).** Migration removes only
@@ -172,7 +181,8 @@ and not implemented**.
   command-level pruning in `scripts/merge_managed_config.py`, not whole-event
   removal; uncertainty is reported rather than forced.
 - **Plugin + file copy.** A native plugin and an install.sh file copy can both
-  be installed; the same dedupe requirement applies before native rollout.
+  be installed; there is no dedupe key between them, so use `migrate` when
+  moving an installer-managed setup onto the native packages.
 - **Standalone slices.** Installing `--only skills` (or the `commands` alias)
   alongside `base` lists every skill twice (`ycc:<name>` and `<name>`); the
   installer warns.
@@ -190,6 +200,6 @@ deferred `ycc-agents` package as an installable ID.
 - [ADR 0001: package model and versioning](../../internal/adr/0001-package-model-and-versioning.md)
 - [Claude namespace spike (YAN-1121)](../../internal/spikes/claude-namespace.md)
 - [Claude hooks spike (YAN-1122)](../../internal/spikes/claude-hooks.md)
-- [Hidden Claude native add-ons (YAN-1130)](../../internal/claude-native-packages.md)
+- [Claude native add-on packages (YAN-1130)](../../internal/claude-native-packages.md)
 - Package truth: `ycc/settings/packages.json` (`scripts/package_model.py`)
-- Live guide: [Claude Install](../claude.md); draft index: [v6 README](README.md)
+- Live guide: [Claude Install](../claude.md); v6 index: [v6 README](README.md)

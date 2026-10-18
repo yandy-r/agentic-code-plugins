@@ -1,13 +1,13 @@
-# agents (`~/.agents`) v6 Install Draft
+# agents (`~/.agents`) v6 Install Guide
 
-> **DRAFT — unwired for v6.** The `agents` target stays **file-copy only** in
-> v6: there is no native package, no marketplace, and nothing to flip. The
-> commands shown (`install.sh migrate`, `install.sh --package`) are planned v6
-> commands, not implemented today; they are not needed to use this target. The
-> live installer in `docs/install/` is unchanged and stays the only supported
-> install route.
+The `agents` target stays **file-copy only** in v6: there is no native
+package, no marketplace, and nothing to migrate. `install.sh migrate` and
+`install.sh install --package` do not apply to it (`migrate` rejects the
+`agents` target, and the native packages for Claude, Codex, and Cursor do
+not change it). The live installer in `docs/install/` is the only supported
+install route.
 
-## Current and only path (skills-only file copy)
+## Install (skills-only file copy)
 
 ```bash
 ./install.sh install --target agents
@@ -107,9 +107,9 @@ ever be advertised.
 
 ## Duplicates and migration
 
-There is no migration here: the file copy is the product. No `--package` or
-`migrate` form is planned that would move this target off file copy; the v6
-planned commands exist for other targets and do not apply here. If `npx
+There is no migration here: the file copy is the product. `install.sh migrate`
+rejects the `agents` target and no `--package` selection covers it; the native
+packages for other targets do not apply here. If `npx
 skills` were ever adopted, the explicit-tree-URL route would still need a
 dependency mechanism for `~/.agents/ycc-shared/` first; until that exists, use
 the live commands at the top of this page.

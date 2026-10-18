@@ -1,8 +1,8 @@
-# Hidden Cursor native packages (YAN-1132)
+# Cursor native packages (YAN-1132)
 
-Target: v6.0.0. These generated packages remain unlisted; there is no root
-`.cursor-plugin/marketplace.json`, and the file-copy installer stays the only user-facing
-install path.
+Target: v6.0.0. These generated packages are listed by the root
+`.cursor-plugin/marketplace.json`; the file-copy installer remains the fallback route.
+Install guide: [Cursor native packages](../install/v6/cursor.md).
 
 | Package                              | Generated payload                                                                                                            |
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -13,8 +13,9 @@ install path.
 | `packages/cursor/installer-fallback` | `config/cli-config.json`, byte-identical copy of `ycc/settings/cursor/cli-config.json` for the file-copy installer           |
 
 `ycc/settings/packages.json` owns selection (`runtime == "cursor"`, `status == "included"`,
-`mechanism == "native"`), never `listed: false`; unlisted packages still generate. The root
-marketplace ships only at the v6 listing flip and is never written here. Canonical sources
+`mechanism == "native"`), independently of `listed`. The generator writes the root
+`.cursor-plugin/marketplace.json` containing exactly the packages with `listed: true`
+(all four native packages since the v6 listing flip). Canonical sources
 are not duplicated: skills/agents/rules reuse the existing Cursor transforms, MCP comes from
 `mcp-configs/mcp.json`, hooks from `ycc/settings/cursor/hooks.json` +
 `ycc/settings/cursor/herdr-session-start.sh`. Commands derive from public
@@ -56,8 +57,8 @@ The generator (`scripts/generate_cursor_packages.py`, via
 `scripts/generate-cursor-packages.sh`) also supports `--check` (read-only
 missing/content/extra/executable drift check) and `--dry-run`. It owns the modeled native
 Cursor package roots plus the retired legacy `.cursor-plugin/{skills,agents,rules,config}`
-directories, and rejects managed symlinks before writing. `--check` also fails if a root
-`.cursor-plugin/marketplace.json` appears before the listing flip. Edit source
+directories, and rejects managed symlinks before writing. `--check` also fails if the root
+`.cursor-plugin/marketplace.json` is missing or differs from the catalog of listed packages. Edit source
 configuration or the generator, never generated files.
 
 The validation command above also runs offline native-policy fixtures and package-model/tree/catalog parity, which fails on modeled components that are missing and on recognized components present but unmodeled. It does not prove installed-plugin runtime behavior.
@@ -106,13 +107,14 @@ back into installed skills; it does not copy native-only `resources/`.
   survived, and `$ARGUMENTS` substitution reached the model. Build/generation
   phases were skipped with `YCC_INSTALL_SKIP_BUILD=1`; the copied credential is
   never retained.
-- The release version checker accepts the generated manifests at product version
-  5.3.0. This preparation does not bump the product to 6.0.0.
+- The release version checker accepts the generated manifests at the current
+  product version, 6.0.0.
 
 ## Gates and known limits
 
-Native listing/install is **not** available: all packages are unlisted, there is no root
-marketplace, and interactive installed-plugin runtime verification remains the gate.
+Native listing/install is available: all four packages are listed in the root
+`.cursor-plugin/marketplace.json`, and installation is interactive (`/plugins`); the
+agent CLI has no non-interactive `plugin install`.
 
 Known limitation: `skills/_shared/scripts/report-bundle-drift.sh` and
 `skills/hooks-workflow/scripts/build-hook-config.sh` require canonical sources

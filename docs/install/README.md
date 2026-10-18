@@ -12,6 +12,23 @@ every target's installer behavior.
 | Cursor   | [`cursor.md`](cursor.md)     | Cursor-native skills, agents, rules, and MCP sync                          |
 | Codex    | [`codex.md`](codex.md)       | Codex plugin installs, custom agents, Codex Desktop setup                  |
 | opencode | [`opencode.md`](opencode.md) | opencode-native skills, agents, commands, config, and rules                |
+| agents   | [`agents.md`](agents.md)     | Cross-tool skills in `~/.agents/skills` (Zed and others)                   |
+
+Since v6.0.0 `ycc` is also published as native packages in the Claude, Codex,
+and Cursor marketplaces. The v6 guides cover the package IDs, the marketplace
+commands, and what stays on `install.sh`:
+
+| Runtime  | Native package guide               | Native install                                                                                                            |
+| -------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Claude   | [`v6/claude.md`](v6/claude.md)     | `claude plugin marketplace add yandy-r/ystack`, then `claude plugin install ycc-all@ycc` (or `ycc`/`ycc-mcp`/`ycc-hooks`) |
+| Codex    | [`v6/codex.md`](v6/codex.md)       | `codex plugin marketplace add https://github.com/yandy-r/ystack.git`, then `codex plugin add ycc@ycc` and `ycc-mcp@ycc`   |
+| Cursor   | [`v6/cursor.md`](v6/cursor.md)     | `agent plugin marketplace add https://github.com/yandy-r/ystack`, then `/plugins`                                         |
+| opencode | [`v6/opencode.md`](v6/opencode.md) | Experimental, opt-in npm package; the file copy stays primary                                                             |
+| agents   | [`v6/agents.md`](v6/agents.md)     | None — file copy only                                                                                                     |
+
+Overview of all runtimes: [`v6/README.md`](v6/README.md). To move an existing
+`install.sh` setup onto the native packages, see
+[Migrating To Native Packages](#migrating-to-native-packages).
 
 ## Installer Model
 
@@ -71,12 +88,13 @@ Pass `--apply` to make the reported changes:
   explicitly enabled; enabling `ycc-all@ycc` alone proves neither. User hooks
   in the same event groups are preserved, link cleanup removes only owned
   symlinks, and only global config files are touched.
-- **Codex:** production apply fails closed before any cleanup or CLI call
-  while this checkout's catalog is still the legacy `local-ycc-plugins`
-  catalog (the native listing gate is YAN-1140); dry-run explains that gate
-  and retains the legacy install. `--marketplace-source <dir>` (Codex only)
-  points migration at a staged directory carrying an eligible native `ycc`
-  catalog and payloads, validated by the same checks — it is not a bypass.
+- **Codex:** the default source is this checkout's `ycc` catalog, which lists
+  `ycc@ycc` and `ycc-mcp@ycc`. If the selected source is not an eligible native
+  `ycc` catalog, dry-run prints a `Codex native gate` reason and keeps the
+  legacy `ycc@local-ycc-plugins` install, and apply fails before any cleanup or
+  CLI call. `--marketplace-source <dir>` (Codex only) points migration at a
+  staged directory carrying an eligible native `ycc` catalog and payloads,
+  validated by the same checks — it is not a bypass.
   On apply, the marketplace is registered and each package is installed and
   verified installed and enabled **before** any legacy entry is retired,
   including exact installer matches in the standalone `~/.codex/skills/`
@@ -88,9 +106,10 @@ Pass `--apply` to make the reported changes:
   stay, along with shared helpers while any skills remain. Migration prints
   the interactive `/add-plugin` step; it does not install the Cursor plugin itself.
 
-The runtime guides above remain the supported install documentation.
-Migration does not list hidden native packages in production catalogs or
-establish runtime installation, session, or hook-dispatch verification.
+Migration does not install Claude or Cursor packages (enable `ycc-hooks@ycc` /
+`ycc-mcp@ycc` first on Claude; Cursor prints the interactive `/add-plugin`
+step) and does not establish runtime installation, session, or hook-dispatch
+verification. Per-package details are in the [v6 guides](v6/README.md).
 
 ### `ycc` Command On PATH
 
