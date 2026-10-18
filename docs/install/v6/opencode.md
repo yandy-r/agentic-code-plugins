@@ -1,15 +1,15 @@
-# opencode v6 Install Draft
+# opencode v6 Install Guide
 
-> **DRAFT — unwired for v6.** The experimental, opt-in npm package
-> `@yandy-r/ycc-opencode` is generated under `packages/opencode/ycc-opencode`,
-> and its tag-triggered publishing workflow is implemented. A generated package
-> and a workflow are not proof of npm publication; registry availability is not
-> established here. The package is unlisted and **never the default install**.
-> The commands shown (`install.sh migrate`, `install.sh --package`) are planned
-> v6 commands, not implemented today. The live file-copy installer in
-> `docs/install/` is unchanged and stays the primary path.
+The experimental, opt-in npm package `@yandy-r/ycc-opencode` is generated under
+`packages/opencode/ycc-opencode`, and its tag-triggered publishing workflow is
+implemented. A generated package and a workflow are not proof of npm
+publication; registry availability is not established here. The package is
+opt-in and **never the default install**: unlike Claude, Codex, and Cursor,
+opencode has no native-package listing in v6, and the `install.sh` file copy
+stays the primary path. `install.sh migrate` rejects the `opencode` target and
+`install.sh --package` does not accept the npm package.
 
-## Primary path today (unchanged in v6): file copy
+## Primary path (v6): file copy
 
 ```bash
 ./install.sh install --target opencode
@@ -45,8 +45,8 @@ Current-state steps that keep working unchanged:
 
 `scripts/generate-opencode-package.sh` generates
 `packages/opencode/ycc-opencode` from the included npm row in
-`ycc/settings/packages.json`. The current generated manifest is version **5.3.0**
-(lockstep with `ycc/.claude-plugin/plugin.json`), not the target v6.0.0. Its
+`ycc/settings/packages.json`. The generated manifest version is lockstep with
+`ycc/.claude-plugin/plugin.json` (6.0.0 at v6.0.0). Its
 default-exported `{ id, setup }` V2 plugin registers skills, agents, MCP, and
 one `/ycc:<skill>` command per public skill; shared helpers ship with the
 skills. It delivers `AGENTS.md` instructions through
@@ -68,9 +68,8 @@ Facts that bound every claim below:
   Maintainers must configure the `release` environment's publish-scoped
   `NPM_TOKEN`, approval, and restricted tag creation. That workflow does not
   establish that any tag has been pushed or that npm has a published version.
-- **Opt-in, experimental, and unlisted** in the package model (`experimental:
-true`, `opt_in: true`, `listed: false`); the file copy never falls back to it
-  or vice versa.
+- **Opt-in and experimental** in the package model (`experimental: true`,
+  `opt_in: true`); the file copy never falls back to it or vice versa.
 - **Declared engine floor: opencode `>=2.0.30`.** The registration spike used
   v2.0.29; the package smoke targets v2.0.30. These are distinct evidence points,
   not a claim that every later version has been tested.
@@ -103,10 +102,8 @@ bundle can therefore mask package content. Package commands are namespaced
 of replacing them. The context hook skips instructions already present in the
 request. For a package-only setup, remove only confirmed installer-owned
 file-copy entries by hand; preserve user-owned definitions and configuration.
-The planned (future, not implemented)
-`install.sh --package @yandy-r/ycc-opencode --target opencode` would install
-the npm package and take back only installer-owned file-copy entries. Nothing
-implementing that planned command exists today.
+`install.sh --package` does not install the npm package; add it to your own
+`opencode.json` as shown above.
 
 **WARNING — name-based deletion hazard in the live installer.** Do NOT treat
 `./install.sh remove --target opencode --intent base` (or `--only base`) as a
@@ -116,7 +113,7 @@ safe cleanup step: its bundle branch runs `remove_mirrored_entries`
 the bundle ships, regardless of ownership. Your own same-named skill, agent,
 or command entry would be destroyed; it is name-based, not ownership-aware.
 
-**Manual migration (the safe route today):**
+**Manual migration (the supported route):**
 
 1. Inventory `~/.config/opencode/{skills,agents,commands,shared}` entries,
    checking each same-named entry's contents against the installed bundle
@@ -150,13 +147,11 @@ default definition with an id and an effect or setup function.`). The config
 
 ## Migration
 
-**Planned (future, not implemented):** `install.sh migrate --target opencode`
-is a planned v6 command; its exact opencode behavior is not designed yet and
-it cannot be run today. It must remove only installer-owned copies and
-preserve user-owned files; until that ownership-aware migration ships,
-migrate by hand using the manual procedure above. For users staying on the
-file copy (the default and recommended path), no migration is needed:
-re-running the sync commands above keeps the bundle current.
+`install.sh migrate` supports only `claude`, `codex`, and `cursor`; naming
+`opencode` is rejected. Move to the npm package by hand with the manual
+procedure above. For users staying on the file copy (the default and
+recommended path), no migration is needed: re-running the sync commands above
+keeps the bundle current.
 
 ## Evidence
 

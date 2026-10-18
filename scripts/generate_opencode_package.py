@@ -518,8 +518,8 @@ def package_manifest(package: Package, model: PackageModel) -> dict[str, Any]:
         "version": native_version(model),
         "description": (
             "Experimental opt-in OpenCode V2 plugin registering the ycc bundle (skills, agents, "
-            "commands, MCP servers, and session instructions) through its setup hook. Unlisted; "
-            "the file-copy install remains the primary path."
+            "commands, MCP servers, and session instructions) through its setup hook. The "
+            "file-copy install remains the primary path."
         ),
         "type": "module",
         "main": "./index.js",

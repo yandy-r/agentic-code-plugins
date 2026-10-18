@@ -195,21 +195,18 @@ Options:
                         local — register the local repo checkout as the
                                 marketplace source. claude target adds the
                                 local path as a directory marketplace; codex
-                                target symlinks .codex-plugin/ycc/ into
-                                ~/.codex/plugins/ycc/ and
-                                ~/.agents/plugins/ycc, writes a {source:
-                                local, path: ./.agents/plugins/ycc}
-                                marketplace entry, then runs 'codex plugin
-                                add'. cursor/opencode rsync the bundles.
+                                target runs 'codex plugin marketplace add
+                                <repo>' and 'codex plugin add' for ycc@ycc
+                                and ycc-mcp@ycc. cursor/opencode rsync the
+                                bundles.
                         repo  — register the upstream github repo
                                 yandy-r/ystack as the marketplace
                                 source. claude target adds the github slug
-                                via the CLI; codex target writes a
-                                {source: git-subdir,
-                                url: https://github.com/yandy-r/ystack.git,
-                                path: ./.codex-plugin/ycc,
-                                ref: main} marketplace entry and skips
-                                local generation/symlink/agents-sync.
+                                via the CLI; codex target adds the
+                                marketplace https://github.com/yandy-r/ystack.git
+                                at ref main and installs ycc@ycc and
+                                ycc-mcp@ycc from it, skipping local
+                                generation and agents-sync.
                                 cursor, opencode and agents REJECT --mode repo
                                 (they have no remote-source concept).
                                 With --target all + --mode repo, cursor,
@@ -272,11 +269,14 @@ Options:
                       above). Cannot be combined with --only or the additive
                       --settings/--rules/--mcp/--hooks flags.
   --package <ids>     'install' only. Comma-separated ids from the package model:
-                      ycc, ycc-mcp, ycc-hooks (Claude only), ycc-rules (Cursor only).
+                      ycc, ycc-mcp, ycc-hooks (Claude and Cursor), ycc-rules (Cursor only).
                       Expands dependency and installer-fallback components into
-                      existing installer steps. Only the already-listed Claude
-                      and Codex ycc entries use native registration; unlisted
-                      packages use file/config delivery, never new catalog entries.
+                      existing installer steps. The 'base' step of the Claude and
+                      Codex ycc package uses native marketplace registration
+                      (Claude ycc@ycc; Codex ycc@ycc + ycc-mcp@ycc); every other
+                      component uses file/config delivery, and no catalog entries
+                      are ever created. ycc-all is installed through the Claude
+                      marketplace, not --package.
                       Codex agents are always copied (including --mode repo).
                       A foreign Codex ycc is skipped only when enabled AND its
                       installed payload is valid; stale config or caches do not
@@ -346,14 +346,14 @@ Target steps:
                       in packages/cursor/ycc/agents/, not in cli-config.json.
   codex     base | skills | agents | settings | rules | mcp
             base:     generate + validate + format + sync custom agents, then
-                      register the repo's .codex-plugin/ycc/ as a local
-                      marketplace source in ~/.agents/plugins/marketplace.json
-                      via ~/.agents/plugins/ycc -> .codex-plugin/ycc/, then
-                      installs + enables it with 'codex plugin add
-                      ycc@local-ycc-plugins' (Codex 0.160+; older builds get
-                      the legacy hand-written cache).
+                      register this repo as the Codex marketplace 'ycc' and
+                      install + enable 'codex plugin add ycc@ycc' and
+                      'codex plugin add ycc-mcp@ycc' (Codex 0.160+; older
+                      builds get the same snapshots copied by the installer).
+                      Legacy ycc@local-ycc-plugins installs are retired with
+                      'migrate --target codex'.
                       Rerun this step after ./scripts/sync.sh --only codex to
-                      refresh Codex's snapshot of the plugin.
+                      refresh Codex's snapshots of the plugins.
             skills:   generate + install each skill into ~/.codex/skills/
                       (shared helpers at ~/.codex/skills/_shared). No plugin
                       link, cache or marketplace entry.
@@ -427,10 +427,9 @@ Examples:
   # Repo mode (track the upstream github repo instead of the local checkout):
   $(basename "$0") install --target claude --mode repo             # register yandy-r/ystack
                                                                      # as a github marketplace source
-  $(basename "$0") install --target codex  --mode repo             # write the codex marketplace.json
-                                                                     # with {source: git-subdir, url: ...,
-                                                                     # path: ./.codex-plugin/ycc,
-                                                                     # ref: main}; skip symlink/rsync
+  $(basename "$0") install --target codex  --mode repo             # add the git marketplace at ref main
+                                                                     # and install ycc@ycc + ycc-mcp@ycc;
+                                                                     # skip local generation/agents-sync
   $(basename "$0") install --target all    --mode repo             # claude + codex in repo mode;
                                                                      # cursor/opencode are skipped
   $(basename "$0") install --target claude --mode repo --settings --rules

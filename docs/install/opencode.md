@@ -89,13 +89,13 @@ and `~/.config/opencode/cli.json`, and is idempotent. Verify with
 is installed under that name.
 
 The V2 `plugins` array is the correct key (the V1 singular `plugin` key is
-rejected). The plugin API spike ran on opencode **v2.0.29**, and the planned
+rejected). The plugin API spike ran on opencode **v2.0.29**, and the
 experimental npm package declares an `engines.opencode` floor of **>=2.0.30**,
 the version its package smoke targets; other versions are unverified. The
-package is opt-in, planned, and not yet published or listed. The file-copy
-install above stays primary, and a native or npm plugin installed alongside the
-file copy would register the same components twice. Package-install guidance
-stays out of this guide until the v6 docs flip.
+package is opt-in and experimental, and registry publication is separate from
+generating it. The file-copy install above stays primary, and a native or npm
+plugin installed alongside the file copy would register the same components
+twice. See the [v6 opencode guide](v6/opencode.md) before opting in.
 
 ## Selective Steps
 

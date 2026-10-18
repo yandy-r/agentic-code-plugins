@@ -1,9 +1,26 @@
 # Cursor Install Guide
 
-Cursor support is generated from the `ycc/` source tree and synced into
-Cursor-native config directories.
+Cursor support is generated from the `ycc/` source tree. It is available as
+native plugins from the repository's Cursor marketplace and as files synced
+into Cursor-native config directories by `install.sh`.
 
-## Quick Start
+## Native Plugins
+
+The `ycc` marketplace lists `ycc`, `ycc-mcp`, `ycc-hooks`, and `ycc-rules`.
+Add it from the agent CLI, then pick the packages in `/plugins` (the Cursor IDE
+reaches the same marketplace under `/plugins` → Marketplace):
+
+```bash
+agent plugin marketplace add https://github.com/yandy-r/ystack
+```
+
+`ycc-hooks` registers `sessionStart` only; `WorktreeCreate` is not available
+on Cursor. See [Cursor native packages](v6/cursor.md) for the package model, and
+[Migrating To Native Packages](README.md#migrating-to-native-packages) to move
+an existing file-copy install onto them (`migrate --target cursor` prints the
+`/add-plugin` step).
+
+## Quick Start (file copy)
 
 From the repository root:
 
@@ -163,9 +180,9 @@ with build/generation phases skipped, uses disposable configuration, performs
 real model inference, and removes the copied credential even when retaining the
 lab. It is not a CI or validation-suite check.
 
-This proves the user-file carriers, not account-installed native plugins.
-Native packages remain unlisted, there is no root Cursor marketplace, and
-interactive installed-plugin runtime verification remains a listing gate.
+This proves the user-file carriers; the native plugins are installed
+interactively through the marketplace described under
+[Native Plugins](#native-plugins).
 
 ## Regenerate Only Cursor Artifacts
 
@@ -177,7 +194,7 @@ through the unified sync script:
 ./scripts/validate.sh --only cursor,cursor-native,packages
 ```
 
-Generated hidden native packages also live under `packages/cursor/` (`ycc-rules`,
-`ycc-mcp`, and `ycc-hooks` alongside `ycc`). They are all unlisted, there is no
-root marketplace, and native listing/install is not yet available; the installer
-above remains the user-facing path.
+The generated native packages live under `packages/cursor/` (`ycc`, `ycc-rules`,
+`ycc-mcp`, and `ycc-hooks`) and are listed by the root
+`.cursor-plugin/marketplace.json`; the file-copy installer above remains the
+fallback route.

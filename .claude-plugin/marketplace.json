@@ -21,7 +21,7 @@
     },
     {
       "name": "ycc-mcp",
-      "description": "Native MCP-only plugin per runtime.",
+      "description": "MCP server connections for the ycc skills and agents.",
       "version": "6.0.0",
       "author": {
         "name": "yandy-r"
@@ -30,7 +30,7 @@
     },
     {
       "name": "ycc-hooks",
-      "description": "Native ycc hooks plugin.",
+      "description": "Lifecycle hooks for ycc.",
       "version": "6.0.0",
       "author": {
         "name": "yandy-r"
@@ -39,7 +39,7 @@
     },
     {
       "name": "ycc-all",
-      "description": "Meta plugin that installs ycc, ycc-mcp, and ycc-hooks together.",
+      "description": "Installs ycc, ycc-mcp, and ycc-hooks together.",
       "version": "6.0.0",
       "author": {
         "name": "yandy-r"

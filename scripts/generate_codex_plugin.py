@@ -222,7 +222,7 @@ def build_native_manifest(package: Package, version: str) -> dict:
         del manifest["mcpServers"]
         return manifest
     del manifest["skills"]
-    manifest["description"] = "YCC MCP server connections for Codex."
+    manifest["description"] = package.description
     manifest["keywords"] = ["codex", "mcp", "integrations"]
     manifest["interface"] = {
         "displayName": "YCC MCP",

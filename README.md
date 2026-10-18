@@ -111,7 +111,9 @@ The plugin bundles **55** specialized agents covering codebase analysis, languag
 
 ## Installation
 
-For Claude Code, install the published `ycc` plugin from the marketplace:
+`ycc` is published as native packages in the Claude Code, Codex, and Cursor
+marketplaces of this repository. For Claude Code, install the plugins from the
+marketplace:
 
 ```bash
 # Add the marketplace
@@ -119,7 +121,28 @@ For Claude Code, install the published `ycc` plugin from the marketplace:
 
 # Install the bundle
 /plugin install ycc@ycc
+
+# Optional add-ons: MCP servers, hooks (Claude Code >= 2.1.300), or everything at once
+/plugin install ycc-mcp@ycc
+/plugin install ycc-hooks@ycc
+/plugin install ycc-all@ycc
 ```
+
+Codex and Cursor:
+
+```bash
+codex plugin marketplace add https://github.com/yandy-r/ystack.git
+codex plugin add ycc@ycc
+codex plugin add ycc-mcp@ycc
+
+agent plugin marketplace add https://github.com/yandy-r/ystack   # then pick packages in /plugins
+```
+
+Rules, instructions, settings, and Codex custom agents stay on `install.sh`.
+Already installed through `install.sh`? Preview the move onto the native
+packages with `./install.sh migrate --target codex` (or `--target claude` /
+`--target cursor`; see
+[Migrating To Native Packages](docs/install/README.md#migrating-to-native-packages)).
 
 Or enable in `~/.claude/settings.json`:
 
@@ -170,14 +193,15 @@ invocation needs a command — a bare `--target ...` is rejected.
 
 Dedicated guides:
 
-| Runtime                      | Install guide                                          |
-| ---------------------------- | ------------------------------------------------------ |
-| Claude Code / Claude Desktop | [`docs/install/claude.md`](docs/install/claude.md)     |
-| Cursor                       | [`docs/install/cursor.md`](docs/install/cursor.md)     |
-| Codex / Codex Desktop        | [`docs/install/codex.md`](docs/install/codex.md)       |
-| opencode                     | [`docs/install/opencode.md`](docs/install/opencode.md) |
-| `~/.agents/skills` (Zed etc) | [`docs/install/agents.md`](docs/install/agents.md)     |
-| Shared installer concepts    | [`docs/install/README.md`](docs/install/README.md)     |
+| Runtime                        | Install guide                                            |
+| ------------------------------ | -------------------------------------------------------- |
+| Claude Code / Claude Desktop   | [`docs/install/claude.md`](docs/install/claude.md)       |
+| Cursor                         | [`docs/install/cursor.md`](docs/install/cursor.md)       |
+| Codex / Codex Desktop          | [`docs/install/codex.md`](docs/install/codex.md)         |
+| opencode                       | [`docs/install/opencode.md`](docs/install/opencode.md)   |
+| `~/.agents/skills` (Zed etc)   | [`docs/install/agents.md`](docs/install/agents.md)       |
+| Shared installer concepts      | [`docs/install/README.md`](docs/install/README.md)       |
+| Native packages (all runtimes) | [`docs/install/v6/README.md`](docs/install/v6/README.md) |
 
 ## Workflow composition
 
@@ -210,7 +234,7 @@ Both accept `--only <targets>` with comma-separated values.
 - `codex` writes `.codex-plugin/` skills, agents, and plugin metadata.
 - `opencode` writes `.opencode-plugin/` skills, agents, commands, `opencode.json`, and `AGENTS.md`.
 - `agents` writes `.agents-plugin/` cross-tool skills for `~/.agents/skills`, plus `ycc-shared/`.
-- `claude` writes the hidden packages under `packages/claude/` (`ycc-mcp`, `ycc-hooks`, and `ycc-all`).
+- `claude` writes the native add-on packages under `packages/claude/` (`ycc-mcp`, `ycc-hooks`, and `ycc-all`).
 
 `validate.sh` accepts those names and also `claude-native`, `cursor-native`, `codex-native`, `json`, `config`, `packages`, `release`, `mods`, `practices`, and `scope`.
 
@@ -268,7 +292,7 @@ ystack/
 │       ├── shared/
 │       └── skills/
 ├── packages/                  # generated native packages; do not hand-edit
-│   ├── claude/                # ycc-mcp, ycc-hooks, ycc-all; all unlisted
+│   ├── claude/                # ycc-mcp, ycc-hooks, ycc-all
 │   └── cursor/                # ycc, ycc-rules, ycc-mcp, ycc-hooks, installer-fallback
 ├── .opencode-plugin/          # opencode bundle (synced by install.sh install --target opencode)
 │   ├── agents/                # generated from ycc/agents

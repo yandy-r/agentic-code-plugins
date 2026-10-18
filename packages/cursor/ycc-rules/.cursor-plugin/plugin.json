@@ -2,7 +2,7 @@
   "name": "ycc-rules",
   "displayName": "ycc-rules",
   "version": "6.0.0",
-  "description": "Cursor-only native rules package; there is no Claude ycc-rules package.",
+  "description": "Language rules for Cursor.",
   "author": {
     "name": "yandy-r"
   },

@@ -4,7 +4,7 @@
   "version_source": "ycc/.claude-plugin/plugin.json",
   "packages": {
     "ycc": {
-      "description": "Main ycc plugin: skills, agents, and shared helpers. status-bar@ycc-mods is versioned independently and stays outside this manifest.",
+      "description": "Planning, implementation, review, and git-workflow skills and agents.",
       "version_policy": "lockstep",
       "runtimes": {
         "claude": {
@@ -21,7 +21,7 @@
             "docs/internal/spikes/claude-namespace.md"
           ],
           "gates": [],
-          "notes": "Shipping entry; stays visible in every catalog throughout the v6 flip."
+          "notes": "Shipping entry; stays visible in every catalog throughout the v6 flip. status-bar@ycc-mods is versioned independently and stays outside this manifest."
         },
         "codex": {
           "status": "included",
@@ -63,7 +63,7 @@
       }
     },
     "ycc-mcp": {
-      "description": "Native MCP-only plugin per runtime.",
+      "description": "MCP server connections for the ycc skills and agents.",
       "version_policy": "lockstep",
       "runtimes": {
         "claude": {
@@ -115,7 +115,7 @@
       }
     },
     "ycc-hooks": {
-      "description": "Native hooks plugin; no runtime dedupes installer hooks yet.",
+      "description": "Lifecycle hooks for ycc.",
       "version_policy": "lockstep",
       "runtimes": {
         "claude": {
@@ -177,7 +177,7 @@
       }
     },
     "ycc-all": {
-      "description": "Claude meta plugin that depends on the other native Claude packages.",
+      "description": "Installs ycc, ycc-mcp, and ycc-hooks together.",
       "version_policy": "lockstep",
       "runtimes": {
         "claude": {
@@ -222,7 +222,7 @@
       }
     },
     "ycc-rules": {
-      "description": "Cursor-only native rules package; there is no Claude ycc-rules package.",
+      "description": "Language rules for Cursor.",
       "version_policy": "lockstep",
       "runtimes": {
         "cursor": {
@@ -244,7 +244,7 @@
       }
     },
     "@yandy-r/ycc-opencode": {
-      "description": "Experimental opt-in opencode npm plugin; one V2 plugin registers components through its setup hook. Marked experimental and opt_in; never the default install.",
+      "description": "Experimental, opt-in opencode npm plugin; one V2 plugin registers components through its setup hook. The file-copy install remains the primary path.",
       "version_policy": "lockstep",
       "runtimes": {
         "opencode": {

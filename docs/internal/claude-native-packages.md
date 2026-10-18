@@ -1,6 +1,6 @@
-# Hidden Claude native add-ons (YAN-1130)
+# Claude native add-on packages (YAN-1130)
 
-Target: v6.0.0. These generated packages remain unlisted; the public marketplace and installer are unchanged.
+Target: v6.0.0. These generated packages are listed in `.claude-plugin/marketplace.json` (`ycc-mcp`, `ycc-hooks`, `ycc-all`). Install guide: [Claude native packages](../install/v6/claude.md).
 
 | Package                     | Generated payload                                                          |
 | --------------------------- | -------------------------------------------------------------------------- |
@@ -32,6 +32,6 @@ Sixteen generator boundary tests and 46 changed-path scoping checks passed. The 
 
 ## Compatibility and rollout limits
 
-Native WorktreeCreate requires Claude Code **2.1.300 or later** per the [hook spike](spikes/claude-hooks.md). Settings and plugin copies both run: do not enable both before installer-owned command-level migration/dedupe exists. User-owned hooks must survive that migration.
+Native WorktreeCreate requires Claude Code **2.1.300 or later** per the [hook spike](spikes/claude-hooks.md). Settings and plugin copies both run until `install.sh migrate --target claude --apply` is run after enabling `ycc-hooks@ycc` and `ycc-mcp@ycc`; it removes the installer-owned hook and MCP entries while user-owned hooks survive.
 
-This local directory-source install proof does not establish dependency support on candidate baseline 2.1.143, a minimum dependency-capable version, remote/public-fork installation, cache hook dispatch or authenticated MCP behavior. Existing package-model listing gates remain closed. YAN-1139 owns migration; YAN-1140 owns listing; this change does not authorize either.
+This local directory-source install proof does not establish dependency support on candidate baseline 2.1.143, a minimum dependency-capable version, remote/public-fork installation, cache hook dispatch or authenticated MCP behavior. The package-model listing gates have since been flipped: the Claude packages are listed in the root `.claude-plugin/marketplace.json` as of v6.0.0, and migration ships as `install.sh migrate`.

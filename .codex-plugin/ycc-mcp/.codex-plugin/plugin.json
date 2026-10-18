@@ -1,7 +1,7 @@
 {
   "name": "ycc-mcp",
   "version": "6.0.0",
-  "description": "YCC MCP server connections for Codex.",
+  "description": "MCP server connections for the ycc skills and agents.",
   "author": {
     "name": "yandy-r"
   },

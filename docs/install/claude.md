@@ -1,19 +1,36 @@
 # Claude Install Guide
 
 This guide covers Claude Code and Claude Desktop. Claude Code can install the
-`ycc` plugin. Claude Desktop does not load Claude Code plugins or slash
+`ycc` plugins. Claude Desktop does not load Claude Code plugins or slash
 commands, but it can use the shared MCP server configuration.
 
 ## Claude Code Quick Start
 
-From the repository root:
+The `ycc` marketplace lists four plugins: `ycc` (skills and agents), `ycc-mcp`
+(MCP servers), `ycc-hooks` (the `WorktreeCreate` hook; needs Claude Code
+2.1.300 or later), and `ycc-all` (installs the other three through
+dependencies). Install straight from the published repository:
+
+```bash
+claude plugin marketplace add yandy-r/ystack
+claude plugin install ycc-all@ycc    # or ycc@ycc, ycc-mcp@ycc, ycc-hooks@ycc individually
+```
+
+See [Claude native packages](v6/claude.md) for the package model and
+[Migrating To Native Packages](README.md#migrating-to-native-packages) to move
+an existing `install.sh` setup onto them. Rules, `CLAUDE.md` instructions,
+settings, and the statusline stay on `install.sh`.
+
+From a checkout, run this from the repository root:
 
 ```bash
 ./install.sh install --target claude
 ```
 
 The default `base` step registers this checkout as a Claude plugin marketplace
-source and installs `ycc@ycc` through the Claude CLI.
+source and installs `ycc@ycc` through the Claude CLI. Add the native add-ons
+with `claude plugin install ycc-mcp@ycc` and `claude plugin install ycc-hooks@ycc`
+(or use the marketplace command above).
 
 After the command completes, run `/reload-plugins` in Claude Code or start a new
 Claude Code session.

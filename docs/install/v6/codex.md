@@ -1,59 +1,62 @@
 # Codex Install Guide (v6 native packages)
 
-> **DRAFT — unwired for v6: hidden native packages are not installable from
-> production catalogs today.** The dry-run-first `migrate` command is
-> implemented, but production apply is gated on the native catalog listing
-> (YAN-1140). For current installation instructions, use [Codex Install](../codex.md).
+Codex installs `ycc` as two native plugins from the `ycc` marketplace in this
+repository (`yandy-r/ystack`). Custom agents, `AGENTS.md`, and `config.toml`
+settings stay on `install.sh` because Codex plugins cannot carry them; see
+[Codex Install](../codex.md) for those steps.
 
-## Current Install (unchanged today)
+## Install
 
-The shipping Codex flow stays exactly as documented in the live guide:
+Codex 0.160 or later:
 
 ```bash
-./install.sh install --target codex
+codex plugin marketplace add https://github.com/yandy-r/ystack.git
+codex plugin add ycc@ycc
+codex plugin add ycc-mcp@ycc
 ```
 
-The `base` step registers `local-ycc-plugins` in
-`~/.agents/plugins/marketplace.json` with the local source
-`./.agents/plugins/ycc`, then runs
-`codex plugin add ycc@local-ycc-plugins` (Codex 0.160+), which snapshots the
-plugin under `~/.codex/plugins/cache/local-ycc-plugins/ycc/<version>/`. Custom
-agents (`~/.codex/agents/`), `AGENTS.md`, and `config.toml` settings remain
-`install.sh`-only: Codex plugins cannot carry them. The v6 work below changes
-catalog identity only; it does not ship any of that until the flip.
+Add `--ref <sha>` to `marketplace add` to pin a commit. Restart Codex after
+installing. The `ycc` catalog replaces the legacy `local-ycc-plugins` catalog;
+if you previously installed through `install.sh`, move over with the
+[migration](#migration-cli) below.
 
-The install selector stays `ycc@local-ycc-plugins` until the catalog rename —
-`ycc@ycc` on Codex refers to the planned post-flip catalog and is not
-installable today.
+From a checkout, `./install.sh install --target codex` does the same thing
+(`codex plugin marketplace add <checkout>`, then `codex plugin add ycc@ycc`
+and `codex plugin add ycc-mcp@ycc`) and also syncs the custom agents into
+`~/.codex/agents/`. `--mode repo` registers the Git marketplace
+`https://github.com/yandy-r/ystack.git` at `main` instead of the checkout.
+Rerun the base step to refresh the snapshots after regenerating the bundle.
+Without the Codex plugin CLI the installer copies the same snapshots into
+`~/.codex/plugins/cache/ycc/` and writes `[marketplaces.ycc]` itself.
 
 ## v6 Native Package Model
 
 `ycc/settings/packages.json` is the package truth (loaded through
 `scripts/package_model.py`); the decision record is
-[ADR 0001](../../internal/adr/0001-package-model-and-versioning.md). Codex v6
-packages, after the flip:
+[ADR 0001](../../internal/adr/0001-package-model-and-versioning.md). Codex
+packages:
 
-| ID            | Payload                                  | v6.0.0 status                                                                                                                                                 |
-| ------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ycc@ycc`     | Skills + `shared/` (skills-only; no MCP) | Current catalog `local-ycc-plugins`; planned Git marketplace listing is repo-root `.agents/plugins/marketplace.json` with local source `./.codex-plugin/ycc`. |
-| `ycc-mcp@ycc` | MCP-only (`mcpServers: ./.mcp.json`)     | Hidden; native MCP uses Codex `env_vars`; installed on the pinned baselines below.                                                                            |
-| `ycc-hooks`   | Hooks (excluded)                         | **Excluded.** No-Go until hook trust and dispatch are verified (YAN-1149 gate); not an installable ID.                                                        |
-| `ycc-agents`  | — (not a Codex package)                  | Claude-only and deferred to v7 anyway; not an installable ID.                                                                                                 |
+| ID            | Payload                                  | Status                                                                                                 |
+| ------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `ycc@ycc`     | Skills + `shared/` (skills-only; no MCP) | Listed in the repo-root `.agents/plugins/marketplace.json` (local source `./.codex-plugin/ycc`).       |
+| `ycc-mcp@ycc` | MCP-only (`mcpServers: ./.mcp.json`)     | Listed; native MCP uses Codex `env_vars`; installed on the pinned baselines below.                     |
+| `ycc-hooks`   | Hooks (excluded)                         | **Excluded.** No-Go until hook trust and dispatch are verified (YAN-1149 gate); not an installable ID. |
+| `ycc-agents`  | — (not a Codex package)                  | Claude-only and deferred to v7 anyway; not an installable ID.                                          |
 
-The legacy ID `ycc@local-ycc-plugins` is the current-catalog install selector
-owned by `install.sh` — not a separate package and not an error. At the flip,
-the repository catalog's marketplace name becomes `ycc`, which makes the
-native Git marketplace ID `ycc@ycc`. The implemented migration below retains
-the legacy install until it can verify an eligible native replacement.
+The legacy ID `ycc@local-ycc-plugins` is what pre-v6 `install.sh` wrote
+(marketplace `local-ycc-plugins`, source `./.agents/plugins/ycc`). It is not a
+separate package and not an error; `install.sh install` leaves it in place and
+`install.sh migrate --target codex` retires it once `ycc@ycc` and
+`ycc-mcp@ycc` are installed and enabled.
 
-Each package keeps a distinct manifest `name`; hidden payloads live under
+Each package keeps a distinct manifest `name`; payloads live under
 `.codex-plugin/ycc` and `.codex-plugin/ycc-mcp`.
 
-## Planned Post-Listing Config (not runnable today)
+## Config Shape
 
-The snippet below shows the shape of `~/.codex/config.toml` **after** the v6
-listing flip. It is an example only; the production catalog remains legacy,
-so migration apply cannot reach this state from the default source today:
+After installation `~/.codex/config.toml` enables both packages (a checkout
+install via `install.sh` also records `[marketplaces.ycc]` with
+`source_type = "local"` and the checkout path):
 
 ```toml
 [plugins."ycc@ycc"]
@@ -63,36 +66,35 @@ enabled = true
 enabled = true
 ```
 
-Today the same mechanism holds the legacy entry written by `install.sh`:
+A pre-v6 `install.sh` install holds the legacy entry instead:
 
 ```toml
 [plugins."ycc@local-ycc-plugins"]
 enabled = true
 ```
 
-After the flip, the **repository-root** `.agents/plugins/marketplace.json`
-will describe the native Git marketplace named `ycc`. Its `local` sources
-resolve from the repository root, where the `.codex-plugin/` payload lives;
-the shape verified by the spike is:
+The **repository-root** `.agents/plugins/marketplace.json` describes the native
+Git marketplace named `ycc`. Its `local` sources resolve from the repository
+root, where the `.codex-plugin/` payload lives:
 
 ```json
 {
   "name": "ycc",
-  "plugins": [{ "name": "ycc", "source": { "source": "local", "path": "./.codex-plugin/ycc" } }]
+  "plugins": [
+    { "name": "ycc", "source": { "source": "local", "path": "./.codex-plugin/ycc" } },
+    { "name": "ycc-mcp", "source": { "source": "local", "path": "./.codex-plugin/ycc-mcp" } }
+  ]
 }
 ```
 
 A Git marketplace catalog at `.agents/plugins/marketplace.json` wins over
 `.claude-plugin/marketplace.json`, which is why the repo-level Codex catalog
-must live under `.agents/plugins/`.
+lives under `.agents/plugins/`.
 
-This is **not** a replacement snippet for
-`~/.agents/plugins/marketplace.json`: there, the marketplace root is `$HOME`,
-so `./.codex-plugin/ycc` would resolve to `~/.codex-plugin/ycc`, not this
-repository. Today's user-level `local-ycc-plugins` catalog and symlink flow
-remain unchanged: local mode uses `./.agents/plugins/ycc`, pointing through
-`~/.agents/plugins/ycc` to the checkout's `.codex-plugin/ycc`; repo mode uses
-a `git-subdir` source for `./.codex-plugin/ycc` at `main`.
+This is **not** a replacement snippet for the user-level
+`~/.agents/plugins/marketplace.json` that pre-v6 installs used: there the
+marketplace root is `$HOME`, so `./.codex-plugin/ycc` would resolve to
+`~/.codex-plugin/ycc`, not this repository.
 
 ## Tested Baselines And Version Boundaries
 
@@ -127,18 +129,25 @@ package from a sparse checkout.
 ## Migration CLI
 
 ```bash
-./install.sh migrate --target codex            # dry-run; explains YAN-1140 gate
-./install.sh migrate --target codex --apply    # fails closed while unlisted
+./install.sh migrate --target codex            # dry-run
+./install.sh migrate --target codex --apply
 ```
 
-Dry-run writes no config, state, build output, or CLI state. With this
-checkout's current legacy catalog, apply exits nonzero **before any cleanup
-or CLI call**, leaving `ycc@local-ycc-plugins` and its files intact. It does
-not repurpose `local-ycc-plugins`, flip the production catalog, or fall back
-to the legacy installer when a native CLI operation fails.
+Dry-run writes no config, state, build output, or CLI state. With the default
+source (this checkout's `ycc` catalog) it prints that it would add the
+marketplace, install `ycc@ycc` and `ycc-mcp@ycc` and verify them installed and
+enabled, and then retire only proven legacy config, links, and cache with
+`~/.codex/agents` retained. The migration is gated on the catalog: if the
+selected source is not an eligible native `ycc` catalog (name `ycc`, both
+packages listed, payloads present and unmodified), dry-run prints
+`[!!] Codex native gate: <reason>` and keeps the legacy
+`ycc@local-ycc-plugins` install, and `--apply` exits nonzero **before any
+cleanup or CLI call**, leaving the legacy files intact. It never repurposes
+`local-ycc-plugins` and never falls back to the legacy installer when a native
+CLI operation fails.
 
-For staged post-listing use, `--marketplace-source <dir>` selects a local
-catalog root, not a bypass. For example, create a disposable native export
+`--marketplace-source <dir>` selects a different local catalog root (for
+example a staged export), not a bypass. For example, create a disposable native export
 with `scripts/generate_codex_plugin.py --native-output <dir>`, then preview
 and apply it explicitly:
 
@@ -167,7 +176,10 @@ retained with a notice rather than replaced. Repeated apply is safe, and
 `--force` is rejected.
 
 Installed/enabled metadata is not runtime session or MCP execution proof.
-`install.sh --package` remains **planned and not implemented**.
+`install.sh install --package <ids> --target codex` is a checkout-based
+delivery route (`ycc`, `ycc-mcp`; `ycc-hooks` is rejected on Codex): its
+`base` step installs the same `ycc@ycc` and `ycc-mcp@ycc` pair as above, and
+custom agents are always copied.
 
 ## Hooks Excluded
 
@@ -181,8 +193,8 @@ dispatch exercised. Hooks stay out of the Codex bundle until verified
 ## Duplicates And Migration
 
 - **Duplicates.** A native plugin and an install.sh file copy can both be
-  installed. On the legacy→native flip, a stale `ycc@local-ycc-plugins`
-  enablement left beside `ycc@ycc` would double-list every ycc skill; Codex
+  installed. A stale `ycc@local-ycc-plugins` enablement left beside `ycc@ycc`
+  would double-list every ycc skill (run `migrate` to retire it); Codex
   also reads `~/.agents/skills`, so installing the `agents` target alongside
   the plugin duplicates skills again (the installer warns and offers
   `--skills-home agents`).
@@ -202,9 +214,8 @@ dispatch exercised. Hooks stay out of the Codex bundle until verified
   retire legacy entries only after the eligible native catalog is registered
   and both `ycc@ycc` and `ycc-mcp@ycc` are installed and enabled. It preserves
   all of `~/.codex/agents/` and user-owned hooks/settings; it never calls the
-  name-based `remove_mirrored_entries` helper. The YAN-1139 migration command
-  does not open the YAN-1140 production listing gate or establish runtime
-  execution evidence.
+  name-based `remove_mirrored_entries` helper, and it does not establish
+  runtime execution evidence.
 
 ## Evidence Index
 
@@ -212,4 +223,4 @@ dispatch exercised. Hooks stay out of the Codex bundle until verified
 - [Codex marketplace spike (YAN-1123)](../../internal/spikes/codex-marketplace.md)
 - [Codex public fork install spike (YAN-1163)](../../internal/spikes/codex-public-fork-install.md)
 - Package truth: `ycc/settings/packages.json` (`scripts/package_model.py`)
-- Live guide: [Codex Install](../codex.md); draft index: [v6 README](README.md)
+- Live guide: [Codex Install](../codex.md); v6 index: [v6 README](README.md)

@@ -1,7 +1,7 @@
 {
   "name": "ycc-hooks",
   "version": "6.0.0",
-  "description": "Native hooks plugin; no runtime dedupes installer hooks yet.",
+  "description": "Lifecycle hooks for ycc.",
   "author": {
     "name": "yandy-r"
   }

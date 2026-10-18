@@ -148,7 +148,7 @@ edited and foreign catalog entries remain preserved.
 - Claude marketplace: `.claude-plugin/marketplace.json` (single entry)
 - Codex generated plugin root: `.codex-plugin/ycc/`
 - Codex generated custom agents: `.codex-plugin/agents/`
-- Cursor generated packages: `packages/cursor/{ycc,ycc-rules,ycc-mcp,ycc-hooks}/` (all unlisted)
+- Cursor generated packages: `packages/cursor/{ycc,ycc-rules,ycc-mcp,ycc-hooks}/` (all listed in the root `.cursor-plugin/marketplace.json`)
 - Cursor file-copy settings input: `packages/cursor/installer-fallback/config/cli-config.json`, generated from `ycc/settings/cursor/cli-config.json`
 - opencode generated bundle: `.opencode-plugin/` (skills, agents, commands, AGENTS.md, opencode.json)
 - Skills go in `ycc/skills/<skill-name>/SKILL.md`
@@ -193,12 +193,11 @@ commands a general feature. Manual-only skills still get these commands because
 the user may invoke them. Policy mapping: Cursor keeps `disable-model-invocation`;
 Codex writes `agents/openai.yaml` with `policy.allow_implicit_invocation: false`;
 opencode writes skill metadata `opencode/autoinvoke: 'false'`; the portable
-`agents` bundle omits it (no standard key). Cursor's hidden native `ycc` package derives
+`agents` bundle omits it (no standard key). Cursor's native `ycc` package derives
 command files from user-invocable skills; the file-copy installer's `commands` intent
 installs owned wrappers into `~/.cursor/commands/`, and its optional `hooks` intent
-installs the `sessionStart` hook only. Native plugin activation remains gated. Codex
-has no command layer. Native Cursor interactive installation and installed-plugin
-runtime behavior remain gates. See
+installs the `sessionStart` hook only. Native Cursor install is interactive (`/plugins`).
+Codex has no command layer. See
 `ycc/skills/_shared/references/target-capability-matrix.md` for the full matrix.
 
 ## Regeneration

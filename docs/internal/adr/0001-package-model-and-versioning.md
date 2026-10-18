@@ -3,6 +3,13 @@
 - **Status:** Accepted on authorized PR merge. The PR that adds this file is the
   owner's approval once merged; until then it is proposed.
 - **Date:** 2026-10-15
+- **Status update (2026-10-18):** the v6.0.0 listing flip has landed. Packages marked
+  `listed: true` in `ycc/settings/packages.json` appear in the root Claude, Codex, and
+  Cursor catalogs, and the maintainer release verification (YAN-1141) covered the Claude
+  `ycc-all` dependency install, Codex clean installs, and interactive Cursor installation.
+  The package matrix, Context, and Gates sections below are the original decision record
+  and describe the pre-flip state in places; where they conflict with this note, this note
+  and `RELEASING.md` win.
 - **Target release:** v6.0.0
 - **Tracking:** Linear YAN-1127; GitHub [#294](https://github.com/yandy-r/claude-plugins/issues/294)
 - **Release gates and switches:** [RELEASING.md, Unfinished work](../../../RELEASING.md#unfinished-work)
@@ -42,14 +49,14 @@ the Cursor and Codex spikes establish no minimum at all.
 
 ### Names
 
-| Item        | Decision                                                                                                                     | State                                                           |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Repository  | Renamed to `ystack` (from `claude-plugins`, briefly `agentic-code-plugins`). Old GitHub names redirect; never recreate them. | Done. GitHub and Forgejo renamed; references flipped on `main`. |
-| Marketplace | `ycc` for Claude, Codex, and Cursor. The Codex catalog renames from `local-ycc-plugins` at the flip.                         | Current for Claude; Codex rename planned.                       |
-| Namespace   | `ycc:` stays for skills and agents in v6.                                                                                    | Current.                                                        |
-| Claude mods | `ycc-mods` unchanged (`status-bar@ycc-mods`).                                                                                | Current.                                                        |
-| npm scope   | `@yandy-r/ycc-opencode` for the experimental opencode package.                                                               | `@yandy-r` owned; package not published.                        |
-| "acc"       | Prose or branding only. Never an identifier.                                                                                 | Policy.                                                         |
+| Item        | Decision                                                                                                                     | State                                                            |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Repository  | Renamed to `ystack` (from `claude-plugins`, briefly `agentic-code-plugins`). Old GitHub names redirect; never recreate them. | Done. GitHub and Forgejo renamed; references flipped on `main`.  |
+| Marketplace | `ycc` for Claude, Codex, and Cursor. The Codex catalog renamed from `local-ycc-plugins` at the flip.                         | Current for Claude, Codex, and Cursor (Codex renamed in v6.0.0). |
+| Namespace   | `ycc:` stays for skills and agents in v6.                                                                                    | Current.                                                         |
+| Claude mods | `ycc-mods` unchanged (`status-bar@ycc-mods`).                                                                                | Current.                                                         |
+| npm scope   | `@yandy-r/ycc-opencode` for the experimental opencode package.                                                               | `@yandy-r` owned; package not published.                         |
+| "acc"       | Prose or branding only. Never an identifier.                                                                                 | Policy.                                                          |
 
 Package ids use the component as the name and `ycc` as the marketplace: `ycc-mcp@ycc`,
 `ycc-hooks@ycc`, `ycc-rules@ycc` (Cursor only), `ycc-all@ycc` (Claude meta), and
@@ -71,14 +78,14 @@ planned on documentation alone and must be tested before it is listed.
 | Claude   | `ycc-agents@ycc`                                                   | Native agents-only plugin                                    | **Deferred to v7.0.0**, with qualified `ycc-agents:` references.                                                                                                                                                                                             | claude-namespace (shared name No-Go)                  |
 | Claude   | Rules, `CLAUDE.md`, settings                                       | `install.sh` only                                            | Stays on `install.sh`. No Claude `ycc-rules`.                                                                                                                                                                                                                | Plugin manifests have no rules component.             |
 | Codex    | `ycc@ycc` (skills and `shared/`)                                   | Native plugin, relative `local` source                       | Current catalog is `local-ycc-plugins` with `./plugins/ycc`. Planned listing at the flip: `.agents/plugins/marketplace.json` with `{"source":"local","path":"./.codex-plugin/ycc"}`. Sparse installs must include `.agents/plugins` and `.codex-plugin/ycc`. | codex-marketplace                                     |
-| Codex    | `ycc-mcp@ycc`                                                      | Native MCP                                                   | Generated hidden. Dormant `.codex-plugin/ycc-mcp` is uncataloged; native MCP uses Codex `env_vars`. YAN-1131 installed it on codex-cli 0.161.0 from a local Git fixture.                                                                                     | YAN-1131 fixture smoke                                |
+| Codex    | `ycc-mcp@ycc`                                                      | Native MCP                                                   | Listed in `.agents/plugins/marketplace.json` at v6.0.0. Native MCP uses Codex `env_vars`. YAN-1131 installed it on codex-cli 0.161.0 from a local Git fixture.                                                                                               | YAN-1131 fixture smoke                                |
 | Codex    | `ycc-hooks@ycc`                                                    | Native hooks                                                 | **Excluded.** NO-GO until verified under YAN-1149.                                                                                                                                                                                                           | codex-marketplace                                     |
 | Codex    | Agents (`*.toml`), `AGENTS.md`, config                             | `install.sh` only                                            | Stays on `install.sh`; Codex plugins cannot carry these.                                                                                                                                                                                                     | codex-marketplace (no plugin layer)                   |
-| Cursor   | `ycc@ycc` (skills, agents, commands, `shared`)                     | Native plugin package under `packages/cursor/ycc/`           | Hidden and unlisted; no root marketplace. Interactive installed-plugin runtime remains a gate before listing. File-copy installer remains user-facing.                                                                                                       | cursor-plugin (registration only)                     |
-| Cursor   | `ycc-rules@ycc`, `ycc-mcp@ycc`                                     | Native plugin packages under `packages/cursor/`              | Hidden and unlisted; no root marketplace. Native listing/install is not available. `ycc-mcp` declares `${VAR}` placeholders under manifest `variables`; secret literals are rejected by the generator.                                                       | none                                                  |
-| Cursor   | `ycc-hooks@ycc`                                                    | Native hooks package under `packages/cursor/ycc-hooks/`      | Hidden and unlisted; `sessionStart` only, from `ycc/settings/cursor/{hooks.json,herdr-session-start.sh}`. No `WorktreeCreate` mapping; installer hooks intent remains a no-op.                                                                               | cursor-plugin                                         |
+| Cursor   | `ycc@ycc` (skills, agents, commands, `shared`)                     | Native plugin package under `packages/cursor/ycc/`           | Listed in the root `.cursor-plugin/marketplace.json` at v6.0.0 (interactive install verified, YAN-1141). File-copy installer remains available.                                                                                                              | cursor-plugin (registration only)                     |
+| Cursor   | `ycc-rules@ycc`, `ycc-mcp@ycc`                                     | Native plugin packages under `packages/cursor/`              | Listed in the root `.cursor-plugin/marketplace.json` at v6.0.0. `ycc-mcp` declares `${VAR}` placeholders under manifest `variables`; secret literals are rejected by the generator.                                                                          | none                                                  |
+| Cursor   | `ycc-hooks@ycc`                                                    | Native hooks package under `packages/cursor/ycc-hooks/`      | Listed at v6.0.0; `sessionStart` only, from `ycc/settings/cursor/{hooks.json,herdr-session-start.sh}`. No `WorktreeCreate` mapping; installer hooks intent remains a no-op.                                                                                  | cursor-plugin                                         |
 | opencode | File copy (skills, agents, commands, `opencode.json`, `AGENTS.md`) | `install.sh`                                                 | **Primary and unchanged.**                                                                                                                                                                                                                                   | opencode-config-hook (fallback)                       |
-| opencode | `@yandy-r/ycc-opencode`                                            | One npm plugin; V2 `setup` registers components              | Experimental, **opt-in**, unlisted. Published by `.github/workflows/release.yml` with provenance on a maintainer-pushed `vX.Y.Z` tag on `main`; `engines.opencode` floor `>=2.0.30` (spike ran on 2.0.29).                                                   | opencode-config-hook                                  |
+| opencode | `@yandy-r/ycc-opencode`                                            | One npm plugin; V2 `setup` registers components              | Experimental, **opt-in**, outside every catalog. Published by `.github/workflows/release.yml` with provenance on a maintainer-pushed `vX.Y.Z` tag on `main`; `engines.opencode` floor `>=2.0.30` (spike ran on 2.0.29).                                      | opencode-config-hook                                  |
 | agents   | Skills and `ycc-shared`                                            | File copy into `~/.agents/skills` and `~/.agents/ycc-shared` | `install.sh` only. The npx skills spike does not replace that install.                                                                                                                                                                                       | [npx-skills](../spikes/npx-skills.md)                 |
 
 The opencode spike verified **GO** for the V2 `plugins` array, whose default-exported
@@ -149,8 +156,8 @@ findings are pinned to opencode v2.0.29; other versions are unverified. The `plu
   environment `release` — allowing `npm publish`. The `@yandy-r` npm scope is already
   owned; no token setup is required. Also restrict `v*` tag creation. These package-specific
   trusted publisher settings have not been verified here, and no publish was attempted.
-  Nothing is published until a maintainer pushes a tag; the package stays unlisted and
-  activation stays opt-in. The package `engines.opencode` floor is `>=2.0.30`, the version
+  Nothing is published until a maintainer pushes a tag; the package stays outside
+  every catalog (`listed: false`) and activation stays opt-in. The package `engines.opencode` floor is `>=2.0.30`, the version
   its package smoke targets; the registration spike ran on 2.0.29. The `plugins` array is
   the V2 key; a plugin and the file copy installed together register components twice.
 
@@ -159,16 +166,16 @@ findings are pinned to opencode v2.0.29; other versions are unverified. The `plu
 The gates and feature switches are listed in
 [RELEASING.md, Unfinished work](../../../RELEASING.md#unfinished-work). The main gates are:
 
-- Unlisted native packages stay out of production catalogs until the v6.0.0 listing flip.
-  The shipping `ycc` entry stays visible throughout. The listing PR flips only after the proof
-  gates in RELEASING.md pass for every listed package.
+- Unlisted native packages stayed out of production catalogs until the v6.0.0 listing flip, which
+  has landed (see the status update above). The listing PR flipped only after the proof
+  gates in RELEASING.md passed for every listed package.
 - `listed: false` in `ycc/settings/packages.json` is generator input, not a runtime field. The
-  Codex metadata generator consumes it. The checked-in catalog remains legacy until the flip;
-  `generate-codex-plugin.sh --native-output DIR` exports the complete unlisted split outside
-  the checkout for verification.
-- YAN-1132 generates all four included native Cursor packages regardless of `listed: false`.
-  They stay under `packages/cursor/` with no root marketplace. Interactive installation
-  and installed-plugin runtime proof remain gates; file-copy install behavior is unchanged.
+  Codex metadata generator consumes it. The checked-in catalog now lists the included
+  Codex packages; `generate-codex-plugin.sh --native-output DIR` exports the complete split
+  outside the checkout for verification.
+- YAN-1132 generates all four included native Cursor packages regardless of `listed`.
+  They live under `packages/cursor/` and are listed in the root marketplace after the flip.
+  Interactive installation was verified in YAN-1141; file-copy install behavior is unchanged.
 - Codex hooks stay excluded until verified (YAN-1149).
 - The opencode npm package is published only by the tag-triggered workflow described under
   Versioning, and activation is always opt-in.
@@ -179,16 +186,15 @@ The gates and feature switches are listed in
   redirect works. They receive new packages only after `/plugin marketplace update ycc`,
   because Claude turns auto-update off by default for third-party marketplaces.
 - **Duplicate loading.** A native plugin and a file copy can both be installed. Installer
-  dedupe is required before native hooks roll out. The current `merge_managed_config.py`
+  dedupe was required before native hooks roll out; `install.sh migrate` now provides it. At decision time the `merge_managed_config.py`
   `hooks` policy is `map-entries`, which cannot remove only installer-owned command entries,
-  so a shared hook array cannot be cleaned safely yet.
-- **Cursor.** YAN-1132 generates four hidden native packages under `packages/cursor/`:
+  so a shared hook array could not be cleaned safely.
+- **Cursor.** YAN-1132 generates four native packages under `packages/cursor/`:
   `ycc`, `ycc-rules`, `ycc-mcp`, and `ycc-hooks`. `installer-fallback` adds the file-copy
   settings payload under `packages/cursor/installer-fallback/config/cli-config.json`.
-  All native packages remain unlisted and no root `.cursor-plugin/marketplace.json` is
-  written. Marketplace registration is verified in the CLI at user scope (spike), but
-  interactive IDE or account installation and runtime execution of an installed plugin
-  remain unverified gates. The unchanged file-copy installer remains the user-facing route;
+  At the v6.0.0 flip all four are listed in the root `.cursor-plugin/marketplace.json`.
+  Marketplace registration was verified in the CLI at user scope (spike) and interactive
+  installation in the YAN-1141 maintainer verification. The file-copy installer remains available;
   `~/.cursor/skills` copies are not collapsed with plugin skills, so
   `install.sh migrate` must delete those copies itself.
 - **Claude agents.** Splitting agents into `ycc-agents` in 6.x would need qualified
@@ -200,17 +206,21 @@ The gates and feature switches are listed in
 
 ## Still absent
 
-`install.sh` has no `migrate` command. `--package` selects package ids on `install`.
-`.github/workflows/release.yml` publishes `@yandy-r/ycc-opencode` only on a
-maintainer-pushed product tag; no tag has been pushed and nothing has been published.
-The checked-in Codex catalog is still named `local-ycc-plugins`.
+> **Update (2026-10-18):** this section records the pre-flip state. `install.sh migrate` now
+> exists, the checked-in Codex catalog is named `ycc`, and `release.yml` publishes
+> `@yandy-r/ycc-opencode` on maintainer-pushed product tags.
+
+Original text (2026-10-15): `install.sh` had no `migrate` command. `--package` selected package
+ids on `install`. `.github/workflows/release.yml` publishes `@yandy-r/ycc-opencode` only on a
+maintainer-pushed product tag; no tag had been pushed and nothing had been published.
+The checked-in Codex catalog was still named `local-ycc-plugins`.
 
 ### Snapshot from 2026-10-15
 
 These items were absent before YAN-1128. YAN-1128 added the manifest, schema, loader,
 and `packages` validator group. YAN-1129 added the package graph and closure validator.
-Claude, Codex, and Cursor generators now read that manifest and keep new native packages
-unlisted. The paragraphs after the bullets record those landings.
+Claude, Codex, and Cursor generators now read that manifest and kept new native packages
+unlisted at the time. The paragraphs after the bullets record those landings.
 
 - `ycc/settings/packages.json` and the package graph (`scripts/build_package_graph.py`).
 - Per-runtime package generators and the `install.sh --package` and `migrate` commands.
@@ -230,7 +240,7 @@ on exact codex-cli 0.160.0 with independently installed `ycc@ycc` and `ycc-mcp@y
 cache-relative helper execution, and MCP metadata assertions. The fixture payload version
 was 5.3.0, not the target v6.0.0. See the [public fork install evidence](../spikes/codex-public-fork-install.md)
 for pinned fixture/binary provenance, replay commands, and boundaries. Production listing
-(YAN-1140) and migration/dedupe (YAN-1139) remain closed; catalogs stay hidden.
+(YAN-1140) and migration/dedupe (YAN-1139) remained closed; both have since landed in v6.0.0.
 
 YAN-1132 later generated the hidden native Cursor packages under `packages/cursor/` from
 `ycc/settings/packages.json`: `ycc` (skills, agents, shared, and thin command files derived
@@ -244,9 +254,12 @@ Claude hook events are not re-encoded). Canonical
 agent 2026.10.14); no older minimum is claimed. Manifests validate against the vendored
 official `cursor/plugins` plugin schema pinned at commit
 `f713f14203cd6420cec13cd7c55c32d598dbab68`, MIT-licensed (see `scripts/vendor/cursor/NOTICE`).
-All four native packages stay unlisted (`listed: false` never gates generation), and the
-generator never writes a root marketplace; that ships only at the v6 listing flip.
-Interactive installation and installed-plugin runtime behavior remain unverified gates.
+At the time of this snapshot all four native packages were unlisted (`listed: false` never gates
+generation) and the generator wrote no root marketplace. The v6.0.0 listing flip changed that:
+the generator now writes the root marketplace from the packages marked `listed: true`.
+
+> **Update (2026-10-18):** the interactive Cursor installation gate was verified in the v6.0.0
+> maintainer release verification (YAN-1141), covering the agent CLI and the Cursor IDE.
 
 YAN-1137 later added offline native-policy fixtures to `claude-native`, `cursor-native`,
 and `codex-native`, and manifest/tree/catalog parity to `packages`. These validator groups
