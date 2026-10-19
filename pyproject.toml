@@ -25,4 +25,6 @@ files = [
   "scripts/install_migrate.py",
   "scripts/codex_install.py",
   "scripts/generate_codex_plugin.py",
+  "scripts/codex_native_smoke.py",
+  "scripts/test_codex_native_smoke.py",
 ]
