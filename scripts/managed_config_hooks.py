@@ -37,8 +37,10 @@ class HookPrune:
 
 
 def _wrapper_hooks(group: Any) -> list[Any] | None:
-    if isinstance(group, dict) and isinstance(group.get("hooks"), list):
-        return group["hooks"]
+    if isinstance(group, dict):
+        hooks = group.get("hooks")
+        if isinstance(hooks, list):
+            return hooks
     return None
 
 

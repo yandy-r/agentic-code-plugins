@@ -20,6 +20,7 @@ import sys
 import tempfile
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 
 from codex_marketplace import validate_marketplace_catalog
 from generate_codex_common import (
@@ -43,11 +44,14 @@ NATIVE_COMPONENTS = {frozenset({"skills", "shared"}), frozenset({"mcp"})}
 MIGRATION_PACKAGES = ("ycc", "ycc-mcp")
 
 
-def load_source_plugin() -> dict:
-    return json.loads(SOURCE_PLUGIN_PATH.read_text(encoding="utf-8"))
+def load_source_plugin() -> dict[str, Any]:
+    payload = json.loads(SOURCE_PLUGIN_PATH.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"{SOURCE_PLUGIN_PATH}: expected a JSON object")
+    return payload
 
 
-def build_plugin_manifest() -> dict:
+def build_plugin_manifest() -> dict[str, Any]:
     source = load_source_plugin()
     description = str(source.get("description") or "").replace("Claude Code", "Codex")
     author = source.get("author") or {"name": "yandy-r"}
@@ -86,7 +90,7 @@ def build_plugin_manifest() -> dict:
     }
 
 
-def build_repo_marketplace() -> dict:
+def build_repo_marketplace() -> dict[str, Any]:
     catalog = {
         "name": "local-ycc-plugins",
         "interface": {
@@ -137,7 +141,7 @@ def native_packages(packages: Iterable[Package]) -> tuple[Package, ...]:
     return tuple(selected)
 
 
-def build_native_marketplace(packages: Iterable[Package], *, include_unlisted: bool = False) -> dict:
+def build_native_marketplace(packages: Iterable[Package], *, include_unlisted: bool = False) -> dict[str, Any]:
     """Build the future catalog without reading or modifying the package model."""
     entries = []
     for package in native_packages(packages):
@@ -180,7 +184,7 @@ def repository_native_enabled(packages: Iterable[Package]) -> bool:
     )
 
 
-def build_repository_marketplace(packages: Iterable[Package]) -> dict:
+def build_repository_marketplace(packages: Iterable[Package]) -> dict[str, Any]:
     """Return the legacy catalog until every migration package is listed."""
     items = tuple(packages)
     return build_native_marketplace(items) if repository_native_enabled(items) else build_repo_marketplace()
@@ -213,7 +217,7 @@ def native_version(model: PackageModel) -> str:
     return version
 
 
-def build_native_manifest(package: Package, version: str) -> dict:
+def build_native_manifest(package: Package, version: str) -> dict[str, Any]:
     manifest = build_plugin_manifest()
     manifest["name"] = package.key
     manifest["version"] = version
@@ -237,10 +241,10 @@ def build_native_manifest(package: Package, version: str) -> dict:
     return manifest
 
 
-def native_metadata(model: PackageModel, packages: Iterable[Package]) -> dict[Path, dict]:
+def native_metadata(model: PackageModel, packages: Iterable[Package]) -> dict[Path, dict[str, Any]]:
     """Resolve all native metadata before starting any filesystem writes."""
     version = native_version(model)
-    output: dict[Path, dict] = {}
+    output: dict[Path, dict[str, Any]] = {}
     for package in packages:
         root = Path(".codex-plugin") / package.key
         output[root / ".codex-plugin/plugin.json"] = build_native_manifest(package, version)
@@ -350,7 +354,7 @@ def generate_native_tree(dest_root: Path, dry_run: bool = False) -> set[Path]:
     return inventory
 
 
-def write_json(path: Path, payload: dict) -> None:
+def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     serialized = json.dumps(payload, indent=2) + "\n"
     if path.exists():

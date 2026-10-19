@@ -65,13 +65,13 @@ def plugin_output_path(rel: Path) -> Path:
 def rewrite_plugin_paths(text: str) -> str:
     pattern = r"\$\{CLAUDE_PLUGIN_ROOT\}/skills/([^\"`\s]+)"
 
-    def replace(match: object) -> str:
+    def replace(match: re.Match[str]) -> str:
         path_text = match.group(1)
         if path_text.startswith("_shared/"):
             return f"{HOME_INSTALL_PLUGIN_ROOT}/shared/{path_text[len('_shared/') :]}"
         return f"{HOME_INSTALL_PLUGIN_ROOT}/skills/{path_text}"
 
-    return __import__("re").sub(pattern, replace, text)
+    return re.sub(pattern, replace, text)
 
 
 NATIVE_SHELL_SUFFIXES = frozenset({".sh", ".bash"})
@@ -215,7 +215,7 @@ def transform_skill_markdown(
         rewrite_plugin_paths(body),
         aliases,
     )
-    if native_paths:
+    if native_paths and output_path is not None:
         transformed_body = rewrite_native_paths(transformed_body, output_path)
         transformed_body = (
             "\nBundled paths are relative to this SKILL.md's directory (the installed location "
@@ -396,7 +396,7 @@ def repository_native_paths() -> bool:
     """Use relocatable native paths once the repository Codex catalog flips."""
     from generate_codex_plugin import build_repository_marketplace
 
-    return build_repository_marketplace(load_package_model().packages)["name"] == "ycc"
+    return bool(build_repository_marketplace(load_package_model().packages)["name"] == "ycc")
 
 
 def run_check() -> int:

@@ -28,7 +28,8 @@ def require(condition: bool, path: Path, message: str) -> None:
 
 def load_json(path: Path) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
-    require(isinstance(payload, dict), path, "expected a JSON object")
+    if not isinstance(payload, dict):
+        raise ValueError(f"{path}: expected a JSON object")
     return payload
 
 
@@ -47,7 +48,8 @@ def check_catalog_structure(catalog: dict[str, Any], path: Path) -> None:
 
 def check_startup_mcp(path: Path, payload: dict[str, Any]) -> None:
     servers = payload.get("mcpServers")
-    require(isinstance(servers, dict), path, "expected an mcpServers object")
+    if not isinstance(servers, dict):
+        raise ValueError(f"{path}: expected an mcpServers object")
     for name in ("plan", "agent-native-plans"):
         require(
             name not in servers,
@@ -98,7 +100,8 @@ def check_catalog(root: Path, packages: tuple[Package, ...], *, include_unlisted
     require(catalog.get("name") == "ycc", path, "native catalog must be named 'ycc'")
     check_fields(catalog, path)
     entries = catalog.get("plugins")
-    require(isinstance(entries, list), path, "expected a plugins list")
+    if not isinstance(entries, list):
+        raise ValueError(f"{path}: expected a plugins list")
     require(all(isinstance(entry, dict) for entry in entries), path, "expected plugin objects")
     names = [entry.get("name") for entry in entries]
     expected_catalog = generator.build_native_marketplace(packages, include_unlisted=include_unlisted)

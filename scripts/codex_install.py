@@ -72,6 +72,8 @@ def load_state() -> dict[str, Any]:
         state = json.loads(state_path().read_text(encoding="utf-8"))
     except FileNotFoundError:
         return {"caches": {}, "packages": []}
+    if not isinstance(state, dict):
+        raise ValueError(f"{state_path()}: expected a JSON object")
     state.setdefault("caches", {})
     state.setdefault("packages", [])
     return state
@@ -82,11 +84,45 @@ def save_state(state: dict[str, Any]) -> None:
     atomic_write(state_path(), json.dumps(state, indent=2) + "\n")
 
 
-def cli(*args: str, check: bool = True) -> None:
+def cli(*args: str, check: bool = True, capture: bool = False) -> str:
+    """Run ``codex``; with ``capture``, return its stdout (stderr still reaches the user)."""
     print(f"[ok] codex {' '.join(args)}", flush=True)
-    result = subprocess.run(["codex", *args], check=check)
+    result = subprocess.run(["codex", *args], check=check, stdout=subprocess.PIPE if capture else None, text=True)
     if result.returncode:
         print(f"[!!] 'codex {' '.join(args)}' returned non-zero — check 'codex plugin list'")
+    return result.stdout or ""
+
+
+def safe_version(version: object, package: str) -> str:
+    if not isinstance(version, str) or not version or Path(version).name != version or version in UNSAFE_VERSIONS:
+        raise ValueError(f"unsafe native package version for {package}: {version!r}")
+    return version
+
+
+def cli_written_snapshot(package_root: Path, package: str, output: str) -> Path:
+    """Resolve the snapshot ``codex plugin add --json`` reports writing; raise unless proven."""
+    try:
+        report = json.loads(output)
+    except json.JSONDecodeError as error:
+        raise ValueError(f"unparseable 'codex plugin add' output ({error})") from error
+    if not isinstance(report, dict):
+        raise ValueError("'codex plugin add' output is not a JSON object")
+    snapshot = package_root / safe_version(report.get("version"), package)
+    installed = report.get("installedPath")
+    if not isinstance(installed, str) or Path(installed).resolve() != snapshot.resolve():
+        raise ValueError(f"reported installedPath {installed!r} is not {snapshot}")
+    guarded(snapshot)
+    if not snapshot.is_dir():
+        raise ValueError(f"reported snapshot is missing: {snapshot}")
+    manifest = snapshot / ".codex-plugin/plugin.json"
+    guarded(manifest)
+    try:
+        payload = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(f"unreadable {manifest} ({error})") from error
+    if not isinstance(payload, dict) or payload.get("version") != snapshot.name:
+        raise ValueError(f"{manifest} does not declare the reported version {snapshot.name!r}")
+    return snapshot
 
 
 def merge_config(groups: str, source_text: str, entries: list[str] | None, *, remove: bool, force: bool) -> None:
@@ -182,9 +218,9 @@ def install(mode: str, use_cli: bool) -> None:
     sources = {package: ROOT / ".codex-plugin" / package for package in MIGRATION_PACKAGES}
     versions: dict[str, str] = {}
     for package, source in sources.items():
-        version = json.loads((source / ".codex-plugin/plugin.json").read_text(encoding="utf-8")).get("version")
-        if not isinstance(version, str) or not version or Path(version).name != version or version in UNSAFE_VERSIONS:
-            raise ValueError(f"unsafe native package version for {package}: {version!r}")
+        version = safe_version(
+            json.loads((source / ".codex-plugin/plugin.json").read_text(encoding="utf-8")).get("version"), package
+        )
         versions[package] = version
         cache = home / "plugins/cache/ycc" / package / version
         guarded(cache)
@@ -232,16 +268,18 @@ def install(mode: str, use_cli: bool) -> None:
         owned = not cache.exists() or key in state["caches"] or package in state["packages"]
         before = set(package_root.iterdir()) if package_root.is_dir() else set()
         if use_cli:
-            cli("plugin", "add", f"{package}@ycc")
-            # Record only newly created snapshots or the active version's replacement;
-            # older recorded versions keep their original fingerprints.
-            if package_root.is_dir():
-                for snapshot in package_root.iterdir():
-                    if not snapshot.is_dir():
-                        continue
-                    snap_key = snapshot_key(home, snapshot)
-                    if snapshot not in before or snap_key in state["caches"]:
-                        state["caches"][snap_key] = inventory(snapshot)
+            output = cli("plugin", "add", f"{package}@ycc", "--json", capture=True)
+            # Re-fingerprint only the snapshot the CLI reports writing, and only if
+            # it is ours (new, or already recorded); other versions — including a
+            # recorded one the user edited while the CLI ran — keep their fingerprints.
+            try:
+                written = cli_written_snapshot(package_root, package, output)
+            except ValueError as error:
+                print(f"[!!] {package}: cannot prove the snapshot 'codex plugin add' wrote ({error}); not recording it")
+            else:
+                written_key = snapshot_key(home, written)
+                if written not in before or written_key in state["caches"]:
+                    state["caches"][written_key] = inventory(written)
         else:
             if not cache.exists() or inventory(cache) != inventory(source):
                 if cache.exists():

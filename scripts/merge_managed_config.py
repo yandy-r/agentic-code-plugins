@@ -892,9 +892,9 @@ def apply_toml_updates(
         replacements.append((insert_at, insert_at, "".join(root_appends)))
 
     for table, rendered_lines in appends.items():
-        insert_at = table_end_line(lines, list(table))
-        assert insert_at is not None
-        replacements.append((insert_at, insert_at, "".join(rendered_lines)))
+        table_end = table_end_line(lines, list(table))
+        assert table_end is not None
+        replacements.append((table_end, table_end, "".join(rendered_lines)))
 
     for start, end, rendered in sorted(replacements, key=lambda item: item[0], reverse=True):
         lines[start:end] = [rendered] if rendered else []
@@ -1241,7 +1241,7 @@ def rendered_is_empty(profile: dict[str, Any], rendered: str) -> bool:
             for rule in rules:
                 if rule.get("keep_empty") and read_nested(data, rule["path"]) == (True, []):
                     delete_nested(data, rule["path"])
-        return data == {}
+        return isinstance(data, dict) and not data
     # Only bare (now empty) table headers may remain; comments are user content.
     only_headers = all(not line.strip() or TOML_TABLE_RE.match(line) for line in rendered.splitlines())
     return only_headers and is_empty_config(tomllib.loads(rendered))

@@ -288,6 +288,7 @@ elif args[:2] == ["plugin", "add"]:
     if cache.exists():
         shutil.rmtree(cache)
     shutil.copytree(source, cache)
+    print(json.dumps({"pluginId": args[2], "name": package, "marketplaceName": "ycc", "version": version, "installedPath": str(cache), "authPolicy": "ON_INSTALL"}))
 PY
 chmod +x "${listed_cli_bin}/codex" "${listed_fallback_bin}/codex"
 
