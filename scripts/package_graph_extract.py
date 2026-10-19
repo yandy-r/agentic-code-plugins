@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Collection
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
@@ -16,9 +17,189 @@ NAME = re.compile(r"^[a-z][a-z0-9-]*$")
 DISPATCH = re.compile(r"\bsubagent_type`?\s*(?:[:=]\s*`?[\"']?|\|\s*`)([^\s\"'`,)|]+)")
 BOLD_DISPATCH = re.compile(r"\*\*Subagent Type\*\*:\s*`([^`]+)`")
 TABLE_DISPATCH = re.compile(r"\|\s*Subagent Type\s*\|\s*`([^`]+)`\s*\|")
-MENTION = re.compile(r"(?<![\w/-])(/?)ycc:([a-z][a-z0-9-]*)(?![a-z0-9-]|:)")
+# Prose dispatch: "using subagent type `x`", "All eight use `x`", and "- Agent: x" roster fields.
+PROSE_DISPATCH = re.compile(r"\bsubagent type\s+`([^`\s]+)`|\bAll \w+ use\s+`([^`\s]+)`", re.IGNORECASE)
+FIELD_DISPATCH = re.compile(r"^\s*[-*]\s+(?:\*\*)?Agent(?:\*\*)?:\s*`?([a-z][a-z0-9:-]*)`?\s*$")
+# Markdown table columns whose backticked cells name the dispatched agent type.
+DISPATCH_COLUMN = re.compile(
+    r"`?(?:source )?subagent[_ ]type`?|plugin agent name|(?:recommended|primary|supporting) agents?",
+    re.IGNORECASE,
+)
+TABLE_SEPARATOR = re.compile(r"^\s*\|(?:\s*:?-{3,}:?\s*\|)+\s*$")
+CODE_SPAN = re.compile(r"`([^`\n]+)`")
+# A dispatch cell is one or more code spans joined by commas, "or" or "/"; each span is a value.
+CODE_LIST_CELL = re.compile(r"\s*`[^`]+`(?:\s*(?:,|\bor\b|/)\s*`[^`]+`)*\s*$")
+# Bare agent-name contexts (beyond dispatch syntax): headings, list leads, parentheses, arrows.
+HEADING_LEAD = re.compile(r"^\s*#{1,6}\s+")
+LIST_LEAD = re.compile(r"^\s*(?:[-*]|\d+\.)\s+(?:\*\*)?`?")
+ARROW = re.compile(r"(?:→|->)\s*`?")
+NAME_CHAIN = re.compile(r"`?\s*(?:,|\+|\bor\b|/)\s*`?")
+SHELL_STRING = re.compile(r"\"([^\"\n]*)\"|'([^'\n]*)'")
+# `ycc:` is the canonical namespace; `ycc-agents:` is the v7 split's agent namespace (always an agent).
+MENTION = re.compile(r"(?<![\w/-])(/?)(ycc|ycc-agents):([a-z][a-z0-9-]*)(?![a-z0-9-]|:)")
+NAMESPACE = re.compile(r"^/?(?:ycc|ycc-agents):")
+# `ycc:<name>` followed by "agent(s)"/"sub-agent(s)" names the agent when a skill shares that name.
+AGENT_CONTEXT = re.compile(r"`?\s+(?:standalone\s+)?(?:sub-?)?agents?\b")
 PLUGIN_FILE = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT(?:%/)?\}/skills/([^\s\"'`)]+)")
 RELATIVE_SHARED = re.compile(r"\.\./\.\./_shared/(scripts/[^\s\"'`)]+)")
+
+
+@dataclass(frozen=True)
+class Reference:
+    """One agent dispatch or `ycc:` mention; `start:end` spans `token` on 1-based `line`.
+
+    `role` is `dispatch` (an agent-type value), or `skill`/`agent` for a resolved mention.
+    """
+
+    line: int
+    start: int
+    end: int
+    token: str
+    role: str
+
+    @property
+    def name(self) -> str:
+        """The referenced name without a leading `/`, `ycc:` or `ycc-agents:` namespace."""
+        return NAMESPACE.sub("", self.token)
+
+
+def _table_dispatch_columns(lines: list[str]) -> dict[int, set[int]]:
+    """Map data-row line indexes to the cell indexes of their table's dispatch columns."""
+    columns: dict[int, set[int]] = {}
+    index = 0
+    while index + 1 < len(lines):
+        if not lines[index].lstrip().startswith("|") or not TABLE_SEPARATOR.match(lines[index + 1]):
+            index += 1
+            continue
+        header = [cell.strip().lower() for cell in lines[index].strip().strip("|").split("|")]
+        teammate = any(cell.startswith("teammate") for cell in header)
+        wanted = {
+            i for i, cell in enumerate(header) if DISPATCH_COLUMN.fullmatch(cell) or (teammate and cell == "type")
+        }
+        index += 2
+        while index < len(lines) and lines[index].lstrip().startswith("|"):
+            if wanted:
+                columns[index] = wanted
+            index += 1
+    return columns
+
+
+def _cell_spans(line: str, wanted: set[int]) -> list[tuple[int, int, str]]:
+    """Return every code-span value of the wanted cells that hold only code spans."""
+    pipes = [i for i, char in enumerate(line) if char == "|"]
+    spans = []
+    for column, (left, right) in enumerate(zip(pipes, pipes[1:], strict=False)):
+        if column in wanted and CODE_LIST_CELL.match(line, left + 1, right):
+            spans += [(m.start(1), m.end(1), m[1].strip()) for m in CODE_SPAN.finditer(line, left + 1, right)]
+    return spans
+
+
+def _line_dispatches(line: str, columns: set[int]) -> list[tuple[int, int, str]]:
+    """All non-overlapping dispatch value spans on one line, leftmost first."""
+    found = [
+        (m.start(1), m.end(1), m[1])
+        for regex in (DISPATCH, BOLD_DISPATCH, TABLE_DISPATCH)
+        for m in regex.finditer(line)
+    ]
+    for match in PROSE_DISPATCH.finditer(line):
+        group = 1 if match[1] is not None else 2
+        found.append((match.start(group), match.end(group), match[group]))
+    found.extend((m.start(1), m.end(1), m[1]) for m in FIELD_DISPATCH.finditer(line))
+    found.extend(_cell_spans(line, columns))
+    kept: list[tuple[int, int, str]] = []
+    for span in sorted(set(found)):
+        if not kept or span[0] >= kept[-1][1]:
+            kept.append(span)
+    return kept
+
+
+def _bare_name_pattern(names: Collection[str]) -> re.Pattern[str] | None:
+    """Whole-word bare names: not namespaced, not a path or file segment, not a longer word."""
+    if not names:
+        return None
+    alternatives = "|".join(re.escape(name) for name in sorted(names, key=len, reverse=True))
+    return re.compile(rf"(?<![\w:/.@$-])(?:{alternatives})(?![\w-]|\.\w)")
+
+
+def _chain(line: str, start: int, pattern: re.Pattern[str]) -> list[tuple[int, int]]:
+    """Names at `start` and those chained after it by `,`, `+`, `or` or `/`."""
+    spans = []
+    match = pattern.match(line, start)
+    while match:
+        spans.append((match.start(), match.end()))
+        joint = NAME_CHAIN.match(line, match.end())
+        match = pattern.match(line, joint.end()) if joint and joint.end() > match.end() else None
+    return spans
+
+
+def _bare_agent_spans(line: str, pattern: re.Pattern[str] | None, shell: bool) -> set[tuple[int, int]]:
+    """Bare plugin-agent names in agent-naming contexts of one line.
+
+    Markdown: any code span or table row, a heading that is only the name, a list item's
+    leading names, a parenthesized name, and arrow targets. Shell: any quoted string literal.
+    """
+    if pattern is None:
+        return set()
+    spans: set[tuple[int, int]] = set()
+    regions = (
+        [(m.start(), m.end()) for m in SHELL_STRING.finditer(line)]
+        if shell
+        else [(m.start(1), m.end(1)) for m in CODE_SPAN.finditer(line)]
+    )
+    if not shell and line.lstrip().startswith("|"):
+        regions.append((0, len(line)))
+    for start, end in regions:
+        spans |= {(m.start(), m.end()) for m in pattern.finditer(line, start, end)}
+    if shell:
+        return spans
+    heading = HEADING_LEAD.match(line)
+    if heading:
+        match = pattern.fullmatch(line.rstrip(), heading.end())
+        spans |= {(match.start(), match.end())} if match else set()
+    lead = LIST_LEAD.match(line)
+    if lead:
+        spans |= set(_chain(line, lead.end(), pattern))
+    for arrow in ARROW.finditer(line):
+        spans |= set(_chain(line, arrow.end(), pattern))
+    for match in pattern.finditer(line):
+        before, after = line[: match.start()].rstrip("` "), line[match.end() :].lstrip("` ")
+        if before.endswith("(") and after.startswith(")"):
+            spans.add((match.start(), match.end()))
+    return spans
+
+
+def iter_references(
+    text: str, skills: Collection[str], agents: Collection[str], *, shell: bool = False
+) -> list[Reference]:
+    """Find dispatch values, namespaced mentions and bare agent names; one detector for graph and split.
+
+    A `ycc:` mention names a skill when slash-prefixed or a known skill, unless an agent of the
+    same name is followed by "agent" context (`ycc:releaser` agent); other mentions name agents.
+    Bare names (role `agent`, token without namespace) are reported only for agents that are not
+    also skills or builtins, in the contexts of `_bare_agent_spans`; `shell` selects shell syntax.
+    """
+    lines = text.splitlines()
+    columns = {} if shell else _table_dispatch_columns(lines)
+    pattern = _bare_name_pattern(set(agents) - set(skills) - BUILTIN_AGENTS)
+    references: list[Reference] = []
+    for index, line in enumerate(lines):
+        number = index + 1
+        dispatches = _line_dispatches(line, columns.get(index, set()))
+        references.extend(Reference(number, start, end, token, "dispatch") for start, end, token in dispatches)
+        taken = [(start, end) for start, end, _ in dispatches]
+        for match in MENTION.finditer(line):
+            if any(start <= match.start() < end for start, end in taken):
+                continue
+            taken.append((match.start(), match.end()))
+            name = match[3]
+            role = "skill" if match[2] == "ycc" and (match[1] or name in skills) else "agent"
+            if role == "skill" and not match[1] and name in agents and AGENT_CONTEXT.match(line, match.end()):
+                role = "agent"
+            references.append(Reference(number, match.start(), match.end(), match[0], role))
+        for start, end in sorted(_bare_agent_spans(line, pattern, shell)):
+            if not any(s <= start < e for s, e in taken):
+                references.append(Reference(number, start, end, line[start:end], "agent"))
+    return sorted(references, key=lambda ref: (ref.line, ref.start))
 
 
 @dataclass(frozen=True)
@@ -57,7 +238,7 @@ class Graph:
         self.edges[key] = replace(old, count=old.count + 1) if old else Edge(src, dst, kind, evidence)
 
 
-def _frontmatter(text: str) -> tuple[str, list[tuple[str, int]]]:
+def agent_frontmatter(text: str) -> tuple[str, list[tuple[str, int]]]:
     """Parse only scalar name and scalar/list skills from the leading YAML block."""
     name = ""
     skills: list[tuple[str, int]] = []
@@ -101,6 +282,8 @@ class _Extractor:
         self.errors: list[str] = []
         self.files: dict[Path, str] = {}
         self.preloads: list[tuple[str, str, str]] = []
+        self.skill_names: set[str] = set()
+        self.agent_names: set[str] = set()
 
     def relative(self, path: Path) -> str:
         return path.relative_to(self.root.parent).as_posix()
@@ -131,7 +314,7 @@ class _Extractor:
             self.graph.nodes[node.id] = node
             self.files[path] = node.id
         for path in sorted((self.root / "agents").glob("*.md")):
-            name, skills = _frontmatter(path.read_text(encoding="utf-8"))
+            name, skills = agent_frontmatter(path.read_text(encoding="utf-8"))
             if not NAME.fullmatch(name):
                 self.errors.append(f"{self.relative(path)}:2: invalid agent name {name!r}")
                 continue
@@ -197,12 +380,11 @@ class _Extractor:
         except UnicodeError:
             return  # Binary assets are nodes, but cannot contain textual dependency contracts.
         prefix = self.relative(path)
-        for number, line in enumerate(text.splitlines(), 1):
-            evidence = f"{prefix}:{number}"
-            found = [*DISPATCH.finditer(line), *BOLD_DISPATCH.finditer(line), *TABLE_DISPATCH.finditer(line)]
-            dispatches = sorted(found, key=lambda m: m.start())
-            for match in dispatches:
-                name = match[1].removeprefix("ycc:")
+        lines = text.splitlines()
+        for ref in iter_references(text, self.skill_names, self.agent_names, shell=path.suffix == ".sh"):
+            evidence = f"{prefix}:{ref.line}"
+            if ref.role == "dispatch":
+                name = ref.name
                 if name not in BUILTIN_AGENTS and not NAME.fullmatch(name) and "<" not in name and "{{" not in name:
                     self.errors.append(f"{evidence}: invalid agent reference {name!r}")
                     continue
@@ -210,15 +392,14 @@ class _Extractor:
                 if dst:
                     kind = "handoff" if src.startswith("agent:") else "dispatch"
                     self.graph.add_edge(src, dst, kind, evidence)
-            for match in MENTION.finditer(line):
-                if any(d.start() <= match.start() < d.end() for d in dispatches):
-                    continue
-                name = match[2]
-                kind = "skill" if match[1] or f"skill:{name}" in self.graph.nodes else "agent"
-                dst = self.resolve(name, kind, evidence)
-                if dst:
-                    edge_kind = "handoff" if src.startswith("agent:") and kind == "agent" else "mention"
-                    self.graph.add_edge(src, dst, edge_kind, evidence)
+                continue
+            dst = self.resolve(ref.name, ref.role, evidence)
+            if dst:
+                namespaced = ref.token != ref.name
+                edge_kind = "handoff" if src.startswith("agent:") and ref.role == "agent" and namespaced else "mention"
+                self.graph.add_edge(src, dst, edge_kind, evidence)
+        for number, line in enumerate(lines, 1):
+            evidence = f"{prefix}:{number}"
             for match in PLUGIN_FILE.finditer(line):
                 self.file_edges(src, match[1], evidence)
             for match in RELATIVE_SHARED.finditer(line):
@@ -226,6 +407,8 @@ class _Extractor:
 
     def extract(self) -> tuple[Graph, list[str]]:
         self.discover()
+        self.skill_names = {n.removeprefix("skill:") for n in self.graph.nodes if n.startswith("skill:")}
+        self.agent_names = {n.removeprefix("agent:") for n in self.graph.nodes if n.startswith("agent:")}
         for src, skill, evidence in self.preloads:
             dst = self.resolve(skill.removeprefix("ycc:"), "skill", evidence)
             if dst:

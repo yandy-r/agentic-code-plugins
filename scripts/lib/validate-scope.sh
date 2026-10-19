@@ -49,12 +49,18 @@ validate_scope_owned_targets() {
         # catch-all settings rule.
         ycc/settings/packages.json | ycc/settings/packages.schema.json) echo "cursor codex opencode claude claude-native cursor-native codex-native packages" ;;
         scripts/package_model.py | scripts/test_package_model.py) echo "cursor codex opencode claude claude-native cursor-native codex-native packages" ;;
-        scripts/build_package_graph.py | scripts/package_graph_extract.py | scripts/test_package_graph.py) echo "packages" ;;
+        # The graph extractor also drives the hidden v7 Claude split check in claude-native.
+        scripts/build_package_graph.py | scripts/package_graph_extract.py) echo "claude-native packages" ;;
+        scripts/test_package_graph.py) echo "packages" ;;
         scripts/validate_packages.py | scripts/test_validate_packages.py) echo "packages" ;;
         scripts/validate_install_doc_ids.py | scripts/test_validate_install_doc_ids.py) echo "packages" ;;
         scripts/validate_capability_matrix.py | scripts/test_validate_capability_matrix.py) echo "packages" ;;
         # Claude package generator, validator and tests.
         scripts/generate_claude_packages.py | scripts/generate-claude-packages.sh | scripts/validate-claude-packages.sh | scripts/validate_claude_native.py | scripts/test_validate_claude_native.py | scripts/test_generate_claude_packages.py | scripts/test-claude-native-packages.sh | scripts/claude_native_smoke.py) echo "claude claude-native" ;;
+        # Hidden v7 Claude split (ycc + ycc-agents): builder/validator, tests and opt-in live harness.
+        # Its unit tests are in the [tool.mypy] file list, so they also select types.
+        scripts/claude_agents_split.py | scripts/claude_agents_split_smoke.py | scripts/test-claude-agents-split.sh) echo "claude-native" ;;
+        scripts/test_claude_agents_split.py) echo "claude-native types" ;;
 
         # Cursor native package generator, validator and tests. The component
         # generators (skills/agents/rules) stay on the catch-all: install tests
