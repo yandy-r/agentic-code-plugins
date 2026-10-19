@@ -74,6 +74,10 @@ trap 'exit 143' TERM
 mkdir -p "$root"/{work,tmp,logs,cases}
 cd "$root/work"
 safe_path=/usr/local/bin:/usr/bin:/bin
+# clean() runs every command under env -i with safe_path; fail early if a prerequisite lives elsewhere.
+for tool in git python3 timeout; do
+  PATH=$safe_path command -v "$tool" >/dev/null || die "missing prerequisite on $safe_path: $tool"
+done
 url_omp=https://omp-spike.invalid/omp.git
 url_cl=https://omp-spike.invalid/claude.git
 bare_omp=$root/omp.git
@@ -83,10 +87,13 @@ bare_cl=$root/claude.git
 # unless --allow-env-i explicitly accepts the weaker env -i-only sandbox.
 sandbox=env-i
 wrap=()
-if command -v bwrap >/dev/null &&
-  bwrap --dev-bind / / --tmpfs "$real_home" --ro-bind "$omp" "$omp" --unshare-net "$omp" --version >/dev/null 2>&1; then
+bwrap_bin=$(command -v bwrap || true)
+[[ -z "$bwrap_bin" ]] || bwrap_bin=$(realpath "$bwrap_bin")
+if [[ -n "$bwrap_bin" ]] &&
+  "$bwrap_bin" --dev-bind / / --tmpfs "$real_home" --ro-bind "$omp" "$omp" --unshare-net "$omp" --version >/dev/null 2>&1; then
   sandbox=bwrap-netns
-  wrap=(bwrap --dev-bind / / --tmpfs "$real_home" --ro-bind "$omp" "$omp" --unshare-net --)
+  # Absolute path: clean() launches the wrapper under env -i with the restricted safe_path.
+  wrap=("$bwrap_bin" --dev-bind / / --tmpfs "$real_home" --ro-bind "$omp" "$omp" --unshare-net --)
 elif ((!allow_env_i)); then
   die 'bubblewrap with --unshare-net is unavailable; refusing to run without network/home isolation (pass --allow-env-i to override)'
 fi
@@ -375,7 +382,8 @@ rpc rpc-user
 has rpc-user '"name":"skill:spike-skill"' '"name":"ycc-spike:spike-cmd"' '"name":"spike-ext"' \
   '"name":"spike-hook-cmd"' 'AGENTMARK' 'ALWAYSRULEMARK' 'TOOLMARK' 'spike-agent` (READ-ONLY' \
   'mcp__ycc_spike_spikemcp_spikemcp_ping' 'mcp__ycc_spike_spikeclaude_spikeclaude_ping'
-# The shell pre-hook is discovered but never executed (no tool call runs here either).
+# Load-time guard only: no tool call runs in this RPC session, so a pre-hook could not
+# fire here even if shell hooks were supported. The unsupported verdict is doc-sourced.
 absent "$root/hook-ran"
 o ttsr-plugin-dir ttsr list --plugin-dir "$root/plugin-src"
 assert_rc 1 'ttsr list --plugin-dir (root-only flag)'
@@ -466,13 +474,18 @@ o enable-project plugin enable --scope project ycc-spike@spike-omp
 assert_rc 0 'enable --scope project'
 printf '{"disabled":["ycc-spike"]}\n' >"$proj/.omp/plugin-overrides.json"
 o ttsr-overrides-mkt ttsr list --json
+assert_rc 0 'ttsr list (overrides, marketplace)'
 has ttsr-overrides-mkt '"name":"spike-ttsr"'
+# Same overrides file: claude-plugins provider surfaces stay, omp.extensions are filtered.
+rpc rpc-overrides-mkt
+has rpc-overrides-mkt '"name":"skill:spike-skill"' '"name":"ycc-spike:spike-cmd"' 'AGENTMARK' 'spikemcp_ping'
+lacks rpc-overrides-mkt '"name":"spike-ext"'
 rm "$proj/.omp/plugin-overrides.json"
 o uninstall-project plugin uninstall --scope project ycc-spike@spike-omp
 assert_rc 0 'uninstall --scope project'
 absent "$proj/.omp/plugins/node_modules/ycc-spike"
 cd "$root/work"
-log 'PASS scopes: project install under <git-root>/.omp/plugins shadows user; disabled project does not shadow; uninstall needs --scope when ambiguous; plugin-overrides.json does not disable marketplace installs'
+log 'PASS scopes: project install under <git-root>/.omp/plugins shadows user; disabled project does not shadow; uninstall needs --scope when ambiguous; plugin-overrides.json leaves marketplace skills/commands/agents/rules/MCP loaded but filters its omp.extensions'
 
 # 7. Marketplace remove leaves installs; user uninstall cleans runtime links.
 o mkt-remove plugin marketplace remove spike-claude
@@ -589,7 +602,7 @@ for base, name in ((".claude/skills", "claude-home-skill"), (".codex/skills", "c
     skill(base, name)
 skill(".omp/agent/skills", "dup-skill", "NATIVE-WINS")
 srv = lambda n: {"command": "python3", "args": [stub, n]}
-(home / ".claude.json").write_text(json.dumps({"mcpServers": {"claudejson": srv("claudejson")}}))
+(home / ".claude.json").write_text(json.dumps({"mcpServers": {"claudejson": srv("claudejson"), "claudeonly": srv("claudeonly")}}))
 (home / ".codex/config.toml").write_text(f'[mcp_servers.codextoml]\ncommand = "python3"\nargs = ["{stub}", "codextoml"]\n')
 (home / ".cursor/mcp.json").write_text(json.dumps({"mcpServers": {"cursormcp": srv("cursormcp")}}))
 (home / ".config/opencode/opencode.json").write_text(json.dumps({"mcp": {"opencodemcp": {"type": "local", "command": ["python3", stub, "opencodemcp"]}}}))
@@ -598,18 +611,20 @@ PY
 rpc rpc-foreign-default
 has rpc-foreign-default 'skill:agents-home-skill' 'mcp__nativemcp_ping' 'NATIVE-WINS' 'nativeclaudejson_ping'
 lacks rpc-foreign-default 'skill:claude-home-skill' 'skill:codex-home-skill' 'skill:opencode-home-skill' \
-  'skill:cursor-home-skill' 'mcp__codextoml_ping' 'mcp__cursormcp_ping' 'mcp__opencodemcp_ping'
+  'skill:cursor-home-skill' 'mcp__codextoml_ping' 'mcp__cursormcp_ping' 'mcp__opencodemcp_ping' 'claudeonly_ping'
 o optin config set enabledProviders '["*"]'
 assert_rc 0 'config set enabledProviders'
 rpc rpc-foreign-all
 has rpc-foreign-all 'skill:claude-home-skill' 'skill:codex-home-skill' 'skill:opencode-home-skill' \
-  'mcp__codextoml_ping' 'mcp__cursormcp_ping' 'mcp__opencodemcp_ping' 'NATIVE-WINS' 'nativeclaudejson_ping'
+  'mcp__codextoml_ping' 'mcp__cursormcp_ping' 'mcp__opencodemcp_ping' 'NATIVE-WINS' 'nativeclaudejson_ping' \
+  'claudeonly_ping'
 lacks rpc-foreign-all 'skill:cursor-home-skill' 'mcp__claudejson_ping'
 o optin-claude config set enabledProviders '["claude"]'
+assert_rc 0 'config set enabledProviders claude'
 rpc rpc-foreign-claude
-has rpc-foreign-claude 'skill:claude-home-skill'
-lacks rpc-foreign-claude 'skill:codex-home-skill' 'mcp__codextoml_ping' 'mcp__cursormcp_ping'
-log 'PASS import: default loads only ~/.agents + native; enabledProviders opt-in loads ~/.claude, ~/.codex, ~/.config/opencode skills and ~/.claude.json/~/.codex/config.toml/~/.cursor/mcp.json/opencode.json MCP; ~/.cursor/skills never; same-name native skill/MCP wins'
+has rpc-foreign-claude 'skill:claude-home-skill' 'claudeonly_ping'
+lacks rpc-foreign-claude 'skill:codex-home-skill' 'mcp__codextoml_ping' 'mcp__cursormcp_ping' 'mcp__claudejson_ping'
+log 'PASS import: default loads only ~/.agents + native; enabledProviders opt-in loads ~/.claude, ~/.codex, ~/.config/opencode skills and ~/.claude.json (non-shadowed claudeonly)/~/.codex/config.toml/~/.cursor/mcp.json/opencode.json MCP; ~/.cursor/skills never; same-name native skill/MCP wins'
 
 # 12. Agent `model:` dialect and registration without package.json.
 # A probe extension (`-e`) calls omp's own task-agent discovery (internal module

@@ -15,8 +15,10 @@
 oh-my-pi (`omp`) installs Claude-compatible marketplaces. It reads
 `.omp-plugin/marketplace.json` first, then falls back to `.claude-plugin/marketplace.json`. It loads
 skills, commands, agents, rules, TypeScript hook and extension factories, tools, and MCP from each
-plugin root. The spike ran every surface on a clean, network-isolated home with no inference.
-It found four gaps in the Claude tree:
+plugin root. The spike exercised these surfaces live on a clean, network-isolated home with no
+inference; [§5 of the spike](../spikes/omp-runtime-contract.md#5-open-questions-and-gaps) lists
+what was not run (network installs, TUI, LSP/DAP startup, hot reload). It found four gaps in the
+Claude tree:
 
 - A plugin root that has only `.claude-plugin/plugin.json` has its agent `model:` dropped. With
   `.omp-plugin/plugin.json` the model is kept (verified live).
@@ -99,8 +101,10 @@ the [spike, section 3](../spikes/omp-runtime-contract.md#3-component--verdict-ma
 - Users who already run Claude ycc see no duplicates by default, because foreign user sources are
   opt-in. Copies from the `install.sh` `agents` target in `~/.agents/skills` do load by default and
   can duplicate native skills. Migration must detect them.
-- `plugin-overrides.json` does not disable marketplace installs. The per-project switch is
-  `omp plugin disable --scope project`.
+- `plugin-overrides.json` does not hide a marketplace install's skills, rules, agents, commands,
+  or MCP, but it does filter the package's `omp.extensions` (verified live). The full per-project
+  switch is `omp plugin disable --scope project`; installer docs must not offer overrides as a
+  ycc kill switch.
 - Installers resolve paths through omp (`omp plugin list --json`), never a hard-coded `~/.omp`,
   because profiles and XDG relocate state.
 - The harness's agent-model probe imports an internal omp module. An upstream move fails the
