@@ -433,7 +433,7 @@ Use when:
 
 ```
 
-[Single message with 3 Agent tool calls]
+[Single message with 3 task tool calls]
 
 Task 1: docs-git-committer for auth system
 Task 2: docs-git-committer for payment integration

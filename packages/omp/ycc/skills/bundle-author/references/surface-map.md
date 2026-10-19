@@ -35,8 +35,8 @@ phrasing that describes when the skill should activate.
 Script and reference paths inside the skill body use the plugin root variable:
 
 ```
-skill://<kebab-name>/scripts/<name>.sh
-skill://<kebab-name>/references/<name>.md
+${CLAUDE_PLUGIN_ROOT}/skills/<kebab-name>/scripts/<name>.sh
+${CLAUDE_PLUGIN_ROOT}/skills/<kebab-name>/references/<name>.md
 ```
 
 The skill body is freeform markdown organized into phases.
@@ -63,7 +63,7 @@ adding it.
 | Field       | Value                                                    |
 | ----------- | -------------------------------------------------------- |
 | Path        | `ycc/skills/_shared/scripts/<kebab-name>.sh`             |
-| Sourced via | `skill://ycc-shared/scripts/<name>.sh` |
+| Sourced via | `${CLAUDE_PLUGIN_ROOT}/skills/_shared/scripts/<name>.sh` |
 | Threshold   | Only create when two or more distinct skills need it     |
 
 All scripts must start with `#!/usr/bin/env bash` and use `set -euo pipefail`. Write

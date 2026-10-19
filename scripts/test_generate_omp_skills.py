@@ -81,6 +81,11 @@ def build_fixture(root: Path) -> Path:
     write(src / "_shared/references/agent-team-dispatch.md", "Long team contract with TeamCreate.\n")
     write(src / "_shared/references/target-capability-matrix.md", VERBATIM_TEXT)
     write(src / "_shared/scripts/lib.sh", "#!/usr/bin/env bash\n", 0o755)
+    write(
+        src / "bundle-author/references/surface-map.md",
+        "Author helpers as `${CLAUDE_PLUGIN_ROOT}/skills/<kebab-name>/scripts/<name>.sh`.\n",
+    )
+    write(src / "bundle-author/SKILL.md", "---\nname: bundle-author\ndescription: Author.\n---\n\nBody.\n")
     return src
 
 
@@ -130,7 +135,61 @@ class PathRewriteTest(FixtureTestCase):
         self.assertNotIn("CLAUDE_PLUGIN_ROOT", script)
 
 
+class RepositoryLayoutTest(FixtureTestCase):
+    def test_source_authoring_guidance_keeps_plugin_root(self) -> None:
+        self.generate()
+        self.assertIn("bundle-author/references/surface-map.md", omp.REPOSITORY_LAYOUT_FILES)
+        self.assertEqual(
+            self.read("bundle-author/references/surface-map.md"),
+            "Author helpers as `${CLAUDE_PLUGIN_ROOT}/skills/<kebab-name>/scripts/<name>.sh`.\n",
+        )
+
+    def test_real_source_authoring_files_keep_plugin_root(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            dest = Path(raw)
+            omp.write_tree(dest, dry_run=False)
+            for rel in sorted(omp.REPOSITORY_LAYOUT_FILES):
+                with self.subTest(rel=rel):
+                    text = (dest / rel).read_text(encoding="utf-8")
+                    self.assertIn("${CLAUDE_PLUGIN_ROOT}/skills/", text)
+                    self.assertNotIn("skill://", text)
+
+
+class PathSentenceTest(FixtureTestCase):
+    def test_sentence_rewritten_in_listed_file(self) -> None:
+        write(self.src / "demo/references/p.md", "Track via `TaskList` (Path B).\n")
+        sentences = {"demo/references/p.md": (("via `TaskList` (Path B)", "via `todo` (Path B lists tasks)"),)}
+        omp.write_tree(self.dest, dry_run=False, src_root=self.src, aliases=ALIASES, path_sentences=sentences)
+        self.assertEqual(self.read("demo/references/p.md"), "Track via `todo` (Path B lists tasks).\n")
+
+    def test_stale_sentence_fails(self) -> None:
+        write(self.src / "demo/references/p.md", "Reworded source.\n")
+        sentences = {"demo/references/p.md": (("via `TaskList` (Path B)", "x"),)}
+        with self.assertRaisesRegex(omp.OmpGenerationError, r"demo/references/p\.md: PATH_TOOL_SENTENCES"):
+            omp.write_tree(self.dest, dry_run=False, src_root=self.src, aliases=ALIASES, path_sentences=sentences)
+
+    def test_missing_listed_file_fails(self) -> None:
+        sentences = {"demo/references/gone.md": (("a", "b"),)}
+        with self.assertRaisesRegex(omp.OmpGenerationError, r"demo/references/gone\.md: listed"):
+            omp.write_tree(self.dest, dry_run=False, src_root=self.src, aliases=ALIASES, path_sentences=sentences)
+
+    def test_real_sentences_all_match(self) -> None:
+        for rel, entries in omp.PATH_TOOL_SENTENCES.items():
+            text = (omp.SRC_DIR / rel).read_text(encoding="utf-8")
+            for source, _ in entries:
+                with self.subTest(rel=rel, source=source):
+                    self.assertIn(source, text)
+
+
 class NamespaceTest(FixtureTestCase):
+    def test_managed_block_marker_takes_bare_name(self) -> None:
+        write(self.src / "demo/scripts/m.sh", "# --- ycc:demo managed block (do not edit) ---\n")
+        self.generate()
+        self.assertEqual(self.read("demo/scripts/m.sh"), "# --- demo managed block (do not edit) ---\n")
+
+    def test_unknown_managed_block_marker_fails(self) -> None:
+        self.assert_fails("demo/scripts/m.sh", "# --- ycc:nope managed block ---\n", "ycc:nope")
+
     def test_skill_and_agent_mapping_including_overlap(self) -> None:
         self.generate()
         body = self.read("demo/SKILL.md")
@@ -173,6 +232,10 @@ class NamespaceTest(FixtureTestCase):
         )
         self.assertEqual(omp.rewrite_tool_wording(source), expected)
 
+    def test_task_tool_wording_in_fenced_code(self) -> None:
+        source = "```\n[Single message with 3 Agent tool calls]\n```\n"
+        self.assertEqual(omp.rewrite_tool_wording(source), "```\n[Single message with 3 task tool calls]\n```\n")
+
     def test_todo_lists_keep_their_conjunctions(self) -> None:
         cases = (
             (
@@ -182,14 +245,6 @@ class NamespaceTest(FixtureTestCase):
             ("Inspect with `TaskList` or `TaskGet`.", "Inspect with `todo`."),
             ("Strip the `SendMessage`/`TaskList`/`TaskUpdate` lines.", "Strip the `SendMessage`/`todo` lines."),
             ("Track with `TaskCreate`, `TaskGet`,\n`TaskList`, and `TaskUpdate`.", "Track with `todo`."),
-            (
-                "Track progress via `TaskCreate`/`TaskUpdate` (Path A) or `TaskList` (Path B)",
-                "Track progress via `todo` (Path A creates and updates tasks; Path B lists them)",
-            ),
-            (
-                "Track progress: `TaskCreate`/`TaskUpdate` in Path A, `TaskList` in Path B.",
-                "Track progress: `todo` (create and update tasks in Path A, list them in Path B).",
-            ),
         )
         for source, expected in cases:
             with self.subTest(source=source):
@@ -274,6 +329,13 @@ class MissingReferenceTest(FixtureTestCase):
 
     def test_missing_relative_shared_link(self) -> None:
         self.assert_fails("demo/references/a.md", "[x](../../_shared/missing.md)\n", "_shared/missing.md")
+
+    def test_unknown_agent_suffix_falls_back_to_skill_lookup(self) -> None:
+        self.assert_fails("demo/references/a.md", "Ask the `ycc:nope` agent.\n", "ycc:nope")
+
+    def test_script_fallback_without_script_dir_fails(self) -> None:
+        ref = '"${CLAUDE_PLUGIN_ROOT}/skills/_shared/scripts/lib.sh"'
+        self.assert_fails("demo/scripts/b.sh", f"LIB={ref}\n", "SCRIPT_DIR")
 
     def test_missing_script_fallback_target(self) -> None:
         ref = "${CLAUDE_PLUGIN_ROOT}/skills/_shared/scripts/missing.sh"

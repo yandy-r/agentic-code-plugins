@@ -65,6 +65,17 @@ TEAM_DISPATCH_NOTE = (
 # Frontmatter keys OMP keeps; `allowed-tools` has no OMP semantics (spike §2.8).
 KEPT_FRONTMATTER_KEYS = ("name", "description", "argument-hint", "disable-model-invocation")
 
+# Maintainer-only source-authoring guidance: it tells authors what to write into the
+# canonical ycc/skills tree, so `${CLAUDE_PLUGIN_ROOT}` stays literal (opencode's
+# REPOSITORY_LAYOUT_FILES precedent). Paths are source-relative to ycc/skills/.
+REPOSITORY_LAYOUT_FILES: frozenset[str] = frozenset(
+    {
+        "bundle-author/references/surface-map.md",
+        "bundle-author/references/when-not-to-scaffold.md",
+        "bundle-author/references/templates/skill-template.md",
+    }
+)
+
 MARKDOWN_SUFFIXES = frozenset({".md", ".mdc"})
 SCRIPT_SUFFIXES = frozenset({".sh", ".bash", ".py"})
 
@@ -89,6 +100,7 @@ _PROTECTED_NAMES = frozenset({"verbatim-block"})
 # names so backticks never nest; prose gets backticked names.
 _TODO_TOOLS = r"(?:TodoWrite|TaskCreate|TaskUpdate|TaskList|TaskGet)"
 _CODE_TOOL_WORDING: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\b(?:Agent|Task) tool\b"), "task tool"),
     (re.compile(r"\bAgent(?=\()"), "task"),
     (re.compile(r"\b" + _TODO_TOOLS + r"\b"), "todo"),
     (re.compile(r"\bAskUserQuestion\b"), "ask"),
@@ -104,21 +116,28 @@ _PROSE_TOOL_WORDING: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bWebFetch\b"), "`read` (URL)"),
     (re.compile(r"\b" + _TODO_TOOLS + r"\b"), "`todo`"),
 )
-# Sentences whose meaning lives in which tool each path uses; rewritten before mapping.
-_PATH_TOOL_SENTENCES: tuple[tuple[str, str], ...] = (
-    (
-        "via `TaskCreate`/`TaskUpdate` (Path A) or `TaskList` (Path B)",
-        "via `todo` (Path A creates and updates tasks; Path B lists them)",
+# Sentences whose meaning lives in which tool each path uses, keyed by the source file
+# that holds them; rewritten before tool mapping. Generation fails when a listed file
+# or sentence is gone, so rewording the source cannot silently skip the rewrite.
+PathSentences = Mapping[str, tuple[tuple[str, str], ...]]
+PATH_TOOL_SENTENCES: PathSentences = {
+    "orchestrate/references/dispatch-playbook.md": (
+        (
+            "via `TaskCreate`/`TaskUpdate` (Path A) or `TaskList` (Path B)",
+            "via `todo` (Path A creates and updates tasks; Path B lists them)",
+        ),
+        (
+            "`TaskCreate`/`TaskUpdate` in Path A, `TaskList` in Path B",
+            "`todo` (create and update tasks in Path A, list them in Path B)",
+        ),
     ),
-    (
-        "`TaskCreate`/`TaskUpdate` in Path A, `TaskList` in Path B",
-        "`todo` (create and update tasks in Path A, list them in Path B)",
-    ),
-)
+}
 _FENCE = re.compile(r"^[ \t]*(?:```|~~~)")
 _CODE_SPAN = re.compile(r"(`[^`\n]+`)")
-_SPAN_LIST = re.compile(r"`[^`\n]+`(?:(?:[ \t]*/[ \t]*|,\s+(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)`[^`\n]+`)+")
-_LIST_SEPARATOR = re.compile(r"(?<=`)(?:[ \t]*/[ \t]*|,\s+(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)(?=`)")
+_SPAN = r"`[^`\n]+`"
+_LIST_SEP = r"(?:[ \t]*/[ \t]*|,\s+(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)"
+_SPAN_LIST = re.compile(_SPAN + r"(?:" + _LIST_SEP + _SPAN + r")+")
+_LIST_SEPARATOR = re.compile(r"(?<=`)" + _LIST_SEP + r"(?=`)")
 _TODO_SPAN = "`todo`"
 
 
@@ -300,8 +319,6 @@ def _rewrite_fenced_tools(code: str) -> str:
 
 
 def _rewrite_prose_tools(prose: str) -> str:
-    for source, replacement in _PATH_TOOL_SENTENCES:
-        prose = prose.replace(source, replacement)
     parts = _CODE_SPAN.split(prose)
     for index, part in enumerate(parts):
         if index % 2:
@@ -339,14 +356,31 @@ def _check_no_plugin_root(text: str, rel: Path) -> None:
             raise OmpGenerationError(f"{rel}: unresolved {PLUGIN_ROOT_TOKEN} reference: {line.strip()}")
 
 
-def transform_text(text: str, rel: Path, catalog: Catalog) -> str:
+def apply_path_sentences(text: str, rel: Path, sentences: tuple[tuple[str, str], ...]) -> str:
+    """Apply the PATH_TOOL_SENTENCES entries for one file; a missing sentence raises."""
+    for source, replacement in sentences:
+        if source not in text:
+            raise OmpGenerationError(f"{rel}: PATH_TOOL_SENTENCES entry no longer matches: {source!r}")
+        text = text.replace(source, replacement)
+    return text
+
+
+def transform_text(
+    text: str,
+    rel: Path,
+    catalog: Catalog,
+    sentences: tuple[tuple[str, str], ...] = (),
+) -> str:
     """Rewrite one non-verbatim skill-tree text file for OMP."""
     is_markdown = rel.suffix.lower() in MARKDOWN_SUFFIXES
     is_script = rel.suffix.lower() in SCRIPT_SUFFIXES
+    keeps_plugin_root = rel.as_posix() in REPOSITORY_LAYOUT_FILES
 
     def body_rewrite(segment: str) -> str:
         segment = fix_mcp_malformed_tokens(segment)
-        if is_script:
+        if keeps_plugin_root:
+            pass
+        elif is_script:
             segment = rewrite_script_plugin_paths(segment, rel, catalog)
         else:
             segment = rewrite_plugin_paths(segment, rel, catalog)
@@ -355,7 +389,8 @@ def transform_text(text: str, rel: Path, catalog: Catalog) -> str:
         segment = rewrite_namespace(segment, rel, catalog)
         if is_markdown:
             segment = rewrite_tool_wording(segment)
-        _check_no_plugin_root(segment, rel)
+        if not keeps_plugin_root:
+            _check_no_plugin_root(segment, rel)
         return segment
 
     if rel == TEAM_DISPATCH_REL:
@@ -366,6 +401,7 @@ def transform_text(text: str, rel: Path, catalog: Catalog) -> str:
         frontmatter, text = parse_frontmatter(text)
         header = dump_frontmatter(transform_frontmatter(frontmatter, rel, body_rewrite))
 
+    text = apply_path_sentences(text, rel, sentences)
     protected, blocks = protect_marked_verbatim_blocks(text)
     output = header + restore_marked_verbatim_blocks(body_rewrite(protected), blocks)
     if output and not output.endswith("\n"):
@@ -399,14 +435,23 @@ def write_tree(
     *,
     src_root: Path | None = None,
     aliases: Mapping[str, str] | None = None,
+    path_sentences: PathSentences | None = None,
 ) -> set[Path]:
     """Write the OMP skill tree under dest; returns the relative file paths written."""
     src = SRC_DIR if src_root is None else src_root
+    # Fixture trees (an explicit src_root) get no real-tree sentence table by default.
+    if path_sentences is None:
+        path_sentences = PATH_TOOL_SENTENCES if src_root is None else {}
+    sentences = path_sentences
     if not src.is_dir():
         raise SystemExit(f"Missing source directory: {src}")
     catalog = build_catalog(src, aliases)
     if (src / SHARED_STUB_REL).exists():
         raise OmpGenerationError(f"{SHARED_STUB_REL}: source must not define the generated {SHARED_SKILL_NAME} stub")
+    listed_files = set(sentences) | (REPOSITORY_LAYOUT_FILES if src_root is None else set())
+    for listed in sorted(listed_files):
+        if not (src / listed).is_file():
+            raise OmpGenerationError(f"{listed}: listed in the OMP generator but missing from ycc/skills")
 
     outputs: dict[Path, tuple[bytes, Path | None]] = {}
     for src_file in iter_source_files(src):
@@ -418,7 +463,7 @@ def write_tree(
             except UnicodeDecodeError:
                 pass
             else:
-                data = transform_text(text, rel, catalog).encode("utf-8")
+                data = transform_text(text, rel, catalog, sentences.get(rel.as_posix(), ())).encode("utf-8")
         outputs[rel] = (data, src_file)
     if (src / SHARED_DIR_NAME).is_dir():
         outputs[SHARED_STUB_REL] = (SHARED_STUB.encode("utf-8"), None)
