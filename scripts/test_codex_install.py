@@ -43,9 +43,9 @@ class NativeInstallSafetyTests(unittest.TestCase):
             (root / ".codex-plugin/plugin.json").write_text(json.dumps({"name": package, "version": version}))
             (root / "payload").write_text(version)
 
-    def cli(self, *args: str, **kwargs: object) -> None:
+    def cli(self, *args: str, **kwargs: object) -> str:
         if args[:2] != ("plugin", "add"):
-            return
+            return ""
         package = args[2].split("@")[0]
         source = self.root / ".codex-plugin" / package
         version = json.loads((source / ".codex-plugin/plugin.json").read_text())["version"]
@@ -53,6 +53,21 @@ class NativeInstallSafetyTests(unittest.TestCase):
         if cache.exists():
             shutil.rmtree(cache)
         shutil.copytree(source, cache)
+        return self.report(package, version, cache)
+
+    @staticmethod
+    def report(package: str, version: str, cache: Path) -> str:
+        """Mirror real `codex plugin add <pkg>@ycc --json` stdout (codex-cli 0.163.0)."""
+        return json.dumps(
+            {
+                "pluginId": f"{package}@ycc",
+                "name": package,
+                "marketplaceName": "ycc",
+                "version": version,
+                "installedPath": str(cache),
+                "authPolicy": "ON_INSTALL",
+            }
+        )
 
     def snapshot(self) -> dict[str, bytes]:
         return {str(path.relative_to(self.home)): path.read_bytes() for path in self.home.rglob("*") if path.is_file()}
@@ -83,18 +98,50 @@ class NativeInstallSafetyTests(unittest.TestCase):
             self.assertEqual(current[key], fingerprint)
         self.assertEqual(len(current), 4)
 
+    def test_cli_upgrade_keeps_recorded_snapshot_edited_while_cli_runs(self) -> None:
+        """An edit to a recorded older snapshot during `plugin add` is never adopted as ours."""
+        old = self.home / ".codex/plugins/cache/ycc/ycc/1.0.0/payload"
+
+        def editing_cli(*args: str, **kwargs: object) -> str:
+            output = self.cli(*args, **kwargs)
+            if args[:3] == ("plugin", "add", "ycc@ycc"):
+                old.write_text("my edit")
+            return output
+
+        with patch.object(installer, "cli", side_effect=self.cli):
+            installer.install("local", True)
+        original = installer.load_state()["caches"]["plugins/cache/ycc/ycc/1.0.0"]
+        self.version("2.0.0")
+        with patch.object(installer, "cli", side_effect=editing_cli):
+            installer.install("local", True)
+        self.assertEqual(installer.load_state()["caches"]["plugins/cache/ycc/ycc/1.0.0"], original)
+        with patch.object(installer, "cli", return_value=""):
+            installer.remove(True)
+        self.assertEqual(old.read_text(), "my edit")
+
+    def test_cli_unproven_output_records_no_new_snapshot(self) -> None:
+        def silent_cli(*args: str, **kwargs: object) -> str:
+            self.cli(*args, **kwargs)
+            return "not json"
+
+        with patch.object(installer, "cli", side_effect=silent_cli):
+            installer.install("local", True)
+        self.assertEqual(installer.load_state()["caches"], {})
+
     def test_cli_version_differing_from_checkout_refreshes_and_removes_cleanly(self) -> None:
         """`--mode repo` can fetch another version than the checkout; repeated installs must track it."""
 
-        def fetching_cli(*args: str, **kwargs: object) -> None:
+        def fetching_cli(*args: str, **kwargs: object) -> str:
             if args[:2] != ("plugin", "add"):
-                return
+                return ""
             package = args[2].split("@")[0]
             cache = self.home / ".codex/plugins/cache/ycc" / package / "1.0.1"
             if cache.exists():
                 shutil.rmtree(cache)
-            cache.mkdir(parents=True)
+            (cache / ".codex-plugin").mkdir(parents=True)
+            (cache / ".codex-plugin/plugin.json").write_text(json.dumps({"name": package, "version": "1.0.1"}))
             (cache / "payload").write_text(self.fetched)
+            return self.report(package, "1.0.1", cache)
 
         with patch.object(installer, "cli", side_effect=fetching_cli):
             for self.fetched in ("first", "second", "third"):
