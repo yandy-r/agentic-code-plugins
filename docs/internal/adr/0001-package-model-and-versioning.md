@@ -241,6 +241,10 @@ cache-relative helper execution, and MCP metadata assertions. The fixture payloa
 was 5.3.0, not the target v6.0.0. See the [public fork install evidence](../spikes/codex-public-fork-install.md)
 for pinned fixture/binary provenance, replay commands, and boundaries. Production listing
 (YAN-1140) and migration/dedupe (YAN-1139) remained closed; both have since landed in v6.0.0.
+YAN-1217 then made the public profile certify the production repo itself: on codex-cli 0.160.0
+and 0.163.0, `yandy-r/ystack` at a pinned `main` SHA installed both packages (v6.0.0 payload)
+from full and sparse checkouts; the fixture proof now ignores installer-owned `.codex-plugin/`
+entries, and `--codex-exact` keeps the exact-pin spike replay.
 
 YAN-1132 later generated the hidden native Cursor packages under `packages/cursor/` from
 `ycc/settings/packages.json`: `ycc` (skills, agents, shared, and thin command files derived

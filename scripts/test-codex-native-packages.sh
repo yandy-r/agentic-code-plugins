@@ -6,7 +6,7 @@ umask 077
 usage() {
   cat <<'EOF'
 Usage: test-codex-native-packages.sh [--keep]
-       test-codex-native-packages.sh --public URL --ref SHA [--keep]
+       test-codex-native-packages.sh --public URL --ref SHA [--codex-exact X.Y.Z] [--keep]
 
 Requires Codex >=0.160.0 (CODEX_BIN overrides PATH), git, python3 with the
 repository's generator dependencies, timeout, and standard Linux utilities.
@@ -16,7 +16,10 @@ Installs both packages using full and sparse immutable Git checkouts.
 Default: generate a temporary fixture; rewrite its HTTPS-shaped .invalid URL
 to file:// with GIT_ALLOW_PROTOCOL=file. This is NOT OS network isolation.
 --public: explicitly opt into real GitHub HTTPS transport, requiring an exact
-https://github.com/OWNER/REPO.git URL, full 40-hex commit SHA, and Codex 0.160.0.
+https://github.com/OWNER/REPO.git URL and full 40-hex commit SHA; Codex
+>=0.160.0 unless --codex-exact X.Y.Z pins one version (e.g. 0.160.0 to replay
+the YAN-1163 spike). Only the catalog and the .codex-plugin/<name> payloads it
+names are compared; installer-owned .codex-plugin/ entries are ignored.
 The already-published fixture must match a fresh native export. No publishing,
 URL rewrites, credentials, prompts, model inference, login, hooks, or MCP server
 execution. This networked profile is opt-in, not part of CI.
@@ -27,6 +30,7 @@ keep=0
 public=0
 public_url=
 public_ref=
+codex_exact=
 while (($#)); do
   case "$1" in
     --keep) keep=1; shift ;;
@@ -36,6 +40,9 @@ while (($#)); do
     --ref)
       [[ $# -ge 2 && -n "$2" && -z "$public_ref" ]] || die '--ref requires one full commit SHA'
       public_ref=$2; shift 2 ;;
+    --codex-exact)
+      [[ $# -ge 2 && -n "$2" && -z "$codex_exact" ]] || die '--codex-exact requires one X.Y.Z version'
+      codex_exact=$2; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) die "unknown argument: $1" ;;
   esac
@@ -45,8 +52,11 @@ if ((public)); then
     die '--public requires https://github.com/OWNER/REPO.git (no credentials, query, or fragment)'
   [[ "$public_ref" =~ ^[[:xdigit:]]{40}$ ]] || die '--ref requires a full 40-hex commit SHA'
   public_ref=${public_ref,,}
+  [[ -z "$codex_exact" || "$codex_exact" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
+    die '--codex-exact requires an X.Y.Z version'
 else
   [[ -z "$public_ref" ]] || die '--ref requires --public URL'
+  [[ -z "$codex_exact" ]] || die '--codex-exact requires --public URL'
 fi
 for tool in git python3 timeout mktemp realpath; do
   command -v "$tool" >/dev/null || die "missing prerequisite: $tool"
@@ -139,8 +149,14 @@ expected_rc() {
 run version "$codex" --version
 version=$(<"$root/logs/version.stdout")
 if ((public)); then
-  run version-check "$python" "$checks" version "$version" 0.160.0
-  log "YAN-1163 | $version | public GitHub HTTPS (no URL rewrites)"
+  if [[ -n "$codex_exact" ]]; then
+    run version-check "$python" "$checks" version "$version" "$codex_exact"
+    log "Codex version policy: exact $codex_exact"
+  else
+    run version-check "$python" "$checks" version "$version"
+    log 'Codex version policy: >=0.160.0'
+  fi
+  log "public | $version | GitHub HTTPS (no URL rewrites)"
   log "Public fixture URL: $url"
   log "Pinned fixture SHA: $public_ref"
   log 'Auth: env -i; fresh HOME/CODEX_HOME/XDG; no inherited Git config; empty credential.helper; prompts/askpass disabled; HTTPS only'
