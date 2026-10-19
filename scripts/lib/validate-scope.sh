@@ -8,12 +8,29 @@
 # the unscoped validate.sh, so a rule that is too narrow is caught there.
 
 # shellcheck disable=SC2034  # read by validate.sh and the scope tests.
-VALIDATE_TARGETS=(inventory cursor codex opencode agents claude claude-native cursor-native codex-native json config packages release mods practices scope)
+VALIDATE_TARGETS=(inventory cursor codex opencode agents claude claude-native cursor-native codex-native json config packages release mods practices scope types)
 
 # validate_scope_targets_for_path <path> — print the targets a changed
 # repo-relative path affects: a space-separated list, `all`, or nothing.
+# mypy follows imports from the modules in pyproject.toml [tool.mypy], so any
+# non-test script can join their import closure: each one also selects `types`.
 validate_scope_targets_for_path() {
+    local targets
+    targets="$(validate_scope_owned_targets "$1")"
     case "$1" in
+        scripts/test_*.py) ;;
+        scripts/*.py) [[ "${targets}" == "all" ]] || targets="${targets:+${targets} }types" ;;
+    esac
+    [[ -z "${targets}" ]] || echo "${targets}"
+}
+
+# validate_scope_owned_targets <path> — the targets that own <path> itself.
+validate_scope_owned_targets() {
+    case "$1" in
+        # The type-check pins and runner. pyproject.toml (the mypy config)
+        # stays on the catch-all, which includes `types`.
+        scripts/requirements-mypy.txt | scripts/validate-types.sh) echo "types" ;;
+
         # Generated artifacts and docs owned by a single target.
         docs/inventory.json | README.md) echo "inventory" ;;
         .cursor-plugin/*) echo "cursor cursor-native packages" ;;

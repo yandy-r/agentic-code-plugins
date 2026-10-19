@@ -14,7 +14,7 @@
 # the bundles in this checkout, which the other targets read.
 #
 # Targets: inventory, cursor, codex, opencode, agents, claude, claude-native,
-#          cursor-native, codex-native, json, config, packages, release, mods, practices, scope
+#          cursor-native, codex-native, json, config, packages, release, mods, practices, scope, types
 #   - inventory  validates ycc skill frontmatter, the shared inventory, the formatter bundle and
 #                plan-workflow regressions and per-runtime worktree roots (scripts/test-worktree-roots.sh)
 #   - json       validates .claude-plugin/marketplace.json plus ycc/.claude-plugin/plugin.json
@@ -32,6 +32,8 @@
 #                scripts/practices-baseline.json (unit tests + validator + optional
 #                `claude plugin validate`) and checks standalone agent references
 #   - scope      tests the changed-path -> target mapping behind --changed
+#   - types      runs `mypy --strict` over the modules listed in pyproject.toml [tool.mypy]
+#                (scripts/validate-types.sh; mypy pinned in scripts/requirements-mypy.txt)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -66,6 +68,7 @@ Examples:
   $(basename "$0") --only cursor,codex
   $(basename "$0") --only json
   $(basename "$0") --only practices
+  $(basename "$0") --only types
   $(basename "$0") --changed
 EOF
 }
@@ -349,6 +352,10 @@ run_target() {
         scope)
             echo "== validate: changed-path scoping =="
             "${REPO_ROOT}/scripts/test-validate-scope.sh" || fail "test-validate-scope.sh"
+            ;;
+        types)
+            echo "== validate: mypy --strict (pyproject.toml [tool.mypy]) =="
+            "${REPO_ROOT}/scripts/validate-types.sh" || fail "validate-types.sh"
             ;;
     esac
 }

@@ -236,7 +236,7 @@ Both accept `--only <targets>` with comma-separated values.
 - `agents` writes `.agents-plugin/` cross-tool skills for `~/.agents/skills`, plus `ycc-shared/`.
 - `claude` writes the native add-on packages under `packages/claude/` (`ycc-mcp`, `ycc-hooks`, and `ycc-all`).
 
-`validate.sh` accepts those names and also `claude-native`, `cursor-native`, `codex-native`, `json`, `config`, `packages`, `release`, `mods`, `practices`, and `scope`.
+`validate.sh` accepts those names and also `claude-native`, `cursor-native`, `codex-native`, `json`, `config`, `packages`, `release`, `mods`, `practices`, `scope`, and `types`.
 
 - `claude-native`, `cursor-native`, and `codex-native` check generated native package drift, runtime policy, and fixtures.
 - `json` checks `.claude-plugin/marketplace.json` and `ycc/.claude-plugin/plugin.json`.
@@ -246,6 +246,7 @@ Both accept `--only <targets>` with comma-separated values.
 - `mods` checks the Claude Code mods under `ycc/mods`.
 - `practices` checks the authoring ratchet in `scripts/practices-baseline.json`.
 - `scope` checks the changed-path mapping behind `--changed`.
+- `types` runs `mypy --strict` over the modules listed in `pyproject.toml` `[tool.mypy]`, with mypy pinned in `scripts/requirements-mypy.txt` (installed by CI; locally a matching `python3 -m mypy` or `uvx`).
 
 Examples:
 
