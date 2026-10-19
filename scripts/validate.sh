@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Unified validate entrypoint — run every validator that guards the ycc
-# source-of-truth directory and its generated Cursor/Codex/opencode bundles.
+# source-of-truth directory and its generated Cursor/Codex/opencode/OMP bundles.
 #
 # Usage:
 #   ./scripts/validate.sh                       # all targets
@@ -13,10 +13,11 @@
 # replayed in order. `config` runs last and alone: its install tests regenerate
 # the bundles in this checkout, which the other targets read.
 #
-# Targets: inventory, cursor, codex, opencode, agents, claude, claude-native,
+# Targets: inventory, cursor, codex, opencode, omp, agents, claude, claude-native,
 #          cursor-native, codex-native, json, config, packages, release, mods, practices, scope, types
 #   - inventory  validates ycc skill frontmatter, the shared inventory, the formatter bundle and
 #                plan-workflow regressions and per-runtime worktree roots (scripts/test-worktree-roots.sh)
+#   - omp        checks generated OMP skill drift (bytes and modes), content policy and golden tests
 #   - json       validates .claude-plugin/marketplace.json plus ycc/.claude-plugin/plugin.json
 #   - claude     tests the generated hidden Claude package generator
 #   - *-native   checks generated native package drift, runtime policies and fixtures;
@@ -52,7 +53,7 @@ usage() {
 Usage: $(basename "$0") [--only <targets>] [--changed | --since <ref>] [--serial]
 
 Run every validator for the ycc source-of-truth directory and its generated
-Cursor / Codex / opencode bundles and managed configuration sync.
+Cursor / Codex / opencode / OMP bundles and managed configuration sync.
 
 Options:
   --only <targets>   Comma-separated subset (valid: ${VALID_TARGETS[*]})
@@ -248,6 +249,12 @@ run_target() {
             python3 "${REPO_ROOT}/scripts/test_generate_codex_agents.py" || fail "test_generate_codex_agents.py"
             echo "== test: codex skills generator =="
             python3 "${REPO_ROOT}/scripts/test_generate_codex_skills.py" || fail "test_generate_codex_skills.py"
+            ;;
+        omp)
+            echo "== validate: omp skills =="
+            "${REPO_ROOT}/scripts/validate-omp-skills.sh" || fail "validate-omp-skills.sh"
+            echo "== test: omp skills generator =="
+            python3 "${REPO_ROOT}/scripts/test_generate_omp_skills.py" || fail "test_generate_omp_skills.py"
             ;;
         opencode)
             echo "== validate: opencode skills =="

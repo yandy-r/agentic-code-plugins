@@ -8,7 +8,7 @@
 # the unscoped validate.sh, so a rule that is too narrow is caught there.
 
 # shellcheck disable=SC2034  # read by validate.sh and the scope tests.
-VALIDATE_TARGETS=(inventory cursor codex opencode agents claude claude-native cursor-native codex-native json config packages release mods practices scope types)
+VALIDATE_TARGETS=(inventory cursor codex opencode omp agents claude claude-native cursor-native codex-native json config packages release mods practices scope types)
 
 # validate_scope_targets_for_path <path> — print the targets a changed
 # repo-relative path affects: a space-separated list, `all`, or nothing.
@@ -42,6 +42,7 @@ validate_scope_owned_targets() {
         packages/cursor/*) echo "cursor cursor-native packages" ;;
         packages/claude/*) echo "claude claude-native packages" ;;
         packages/opencode/*) echo "opencode release packages" ;;
+        packages/omp/*) echo "omp" ;;
 
         # The package manifest and its model feed the packages validators and
         # per-runtime package generators, so they must match before the
@@ -61,6 +62,11 @@ validate_scope_owned_targets() {
         scripts/generate_cursor_packages.py | scripts/cursor_native_resources.py | scripts/generate-cursor-packages.sh | scripts/validate-cursor-packages.sh | scripts/validate_cursor_native.py | scripts/test_validate_cursor_native.py | scripts/test_generate_cursor_packages.py | scripts/vendor/cursor/*) echo "cursor cursor-native config" ;;
         scripts/cursor_live_smoke.py | scripts/test_cursor_live_smoke.py) echo "cursor-native" ;;
 
+        # OMP skill generator, validator and golden tests. The golden tests are
+        # in pyproject.toml [tool.mypy] files, so they also select `types`.
+        scripts/generate_omp_skills.py | scripts/generate-omp-skills.sh | scripts/validate-omp-skills.sh) echo "omp" ;;
+        scripts/test_generate_omp_skills.py) echo "omp types" ;;
+
         # Install docs contain model-validated public package identifiers.
         docs/install/*) echo "packages" ;;
         # Experimental OpenCode npm package source and boundary tests.
@@ -77,7 +83,7 @@ validate_scope_owned_targets() {
         # the install tests and the manifest checks, so they select everything.
         ycc/settings/* | ycc/.claude-plugin/*) echo "all" ;;
         ycc/mods/*) echo "config mods" ;;
-        ycc/*) echo "inventory cursor codex opencode agents claude-native cursor-native codex-native packages release practices" ;;
+        ycc/*) echo "inventory cursor codex opencode omp agents claude-native cursor-native codex-native packages release practices" ;;
 
         # install.sh and its tests. The install-coverage validators in the
         # agents and opencode targets parse the per-target install libs.

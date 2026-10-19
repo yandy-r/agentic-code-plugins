@@ -6,13 +6,13 @@
 #   ./scripts/sync.sh --only inventory           # single target
 #   ./scripts/sync.sh --only cursor,codex        # comma-separated subset
 #
-# Targets: inventory, cursor, codex, opencode, agents, claude
+# Targets: inventory, cursor, codex, opencode, omp, agents, claude
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-VALID_TARGETS=(inventory cursor codex opencode agents claude)
+VALID_TARGETS=(inventory cursor codex opencode omp agents claude)
 TARGETS=("${VALID_TARGETS[@]}")
 
 usage() {
@@ -92,6 +92,10 @@ run_ycc_target() {
             "${REPO_ROOT}/scripts/generate-opencode-plugin.sh"
             echo "== sync: opencode npm package =="
             "${REPO_ROOT}/scripts/generate-opencode-package.sh"
+            ;;
+        omp)
+            echo "== sync: omp skills =="
+            "${REPO_ROOT}/scripts/generate-omp-skills.sh"
             ;;
         agents)
             echo "== sync: agents skills =="

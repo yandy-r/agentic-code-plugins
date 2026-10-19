@@ -50,11 +50,13 @@
     "sync:cursor": "./scripts/sync.sh --only cursor",
     "sync:codex": "./scripts/sync.sh --only codex",
     "sync:opencode": "./scripts/sync.sh --only opencode",
+    "sync:omp": "./scripts/sync.sh --only omp",
     "validate": "./scripts/validate.sh",
     "validate:inventory": "./scripts/validate.sh --only inventory",
     "validate:cursor": "./scripts/validate.sh --only cursor,cursor-native,packages",
     "validate:codex": "./scripts/validate.sh --only codex,codex-native,packages",
     "validate:opencode": "./scripts/validate.sh --only opencode",
+    "validate:omp": "./scripts/validate.sh --only omp",
     "validate:json": "./scripts/validate.sh --only json",
     "prepare": "lefthook install || true"
   },

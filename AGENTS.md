@@ -19,7 +19,7 @@ other runtime bundles are generated from it. Keep the plugin name `ycc` stable.
 
 - Add workflow logic under `ycc/`, not generated bundles. Do not hand-edit generated
   `.codex-plugin/`, `.opencode-plugin/`, `.omp-plugin/`, `.agents-plugin/`, `packages/claude/`,
-  or `packages/cursor/` files; change their source or generator first, then regenerate.
+  `packages/cursor/`, or `packages/omp/` files; change their source/generator, then regenerate.
 - Do not add top-level workflow plugins. Extend `ycc` or use the sibling-repo decision
   gate in `CONTRIBUTING.md`. Claude-only mods are the documented exception in `CLAUDE.md`.
 - Skills use `kebab-case` directories under `ycc/skills/`; agents use `kebab-case.md`
@@ -71,6 +71,8 @@ this table records install ownership, not a claim of runtime feature parity:
 | `./scripts/sync.sh --only cursor`                             | Regenerate native Cursor packages and file-copy inputs    |
 | `./scripts/validate.sh --only cursor,cursor-native,packages`  | Cursor content, generator, native policy fixtures, parity |
 | `./scripts/validate.sh --only codex,codex-native,packages`    | Codex content, native export, policy fixtures, parity     |
+| `./scripts/sync.sh --only omp`                                | Regenerate OMP skills (`packages/omp/ycc/skills`)         |
+| `./scripts/validate.sh --only omp`                            | OMP skill drift, content policy, golden tests             |
 | `./scripts/validate.sh --only practices`                      | Rule/skill/agent authoring ratchet                        |
 | `./scripts/validate.sh --only types`                          | `mypy --strict` over pyproject.toml `[tool.mypy]` files   |
 | `python3 scripts/test_validate_practices.py`                  | Authoring-validator regression tests                      |
