@@ -53,6 +53,7 @@ STYLE_EXCLUDES=(
     packages/cursor
     .codex-plugin
     .opencode-plugin
+    .omp-plugin
     packages/opencode
 
     # Managed formatter bundle assets copied into downstream repos. Keep these

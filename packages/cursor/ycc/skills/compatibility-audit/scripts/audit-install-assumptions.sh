@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # audit-install-assumptions.sh — validate install-path assumptions for each
-# generated compatibility target (Claude, Cursor, Codex, opencode).
+# generated compatibility target (Claude, Cursor, Codex, opencode, omp).
 #
 # Flags:
-#   --target=<claude|cursor|codex|opencode|all>  (default: all)
+#   --target=<claude|cursor|codex|opencode|omp|all>  (default: all)
 #   --format=<human|json>                        (default: human)
 #   --help, -h                                   print usage and exit 0
 #
@@ -12,7 +12,7 @@
 set -euo pipefail
 
 usage() { cat <<'EOF'
-Usage: audit-install-assumptions.sh [--target=<claude|cursor|codex|opencode|all>]
+Usage: audit-install-assumptions.sh [--target=<claude|cursor|codex|opencode|omp|all>]
                                     [--format=<human|json>] [--help|-h]
                                     [repo-root]
 
@@ -42,7 +42,7 @@ for arg in "$@"; do
       ;;
   esac
 done
-case "$TARGET" in all|claude|cursor|codex|opencode) ;;
+case "$TARGET" in all|claude|cursor|codex|opencode|omp) ;;
   *) echo "audit-install-assumptions.sh: unknown --target: $TARGET" >&2; usage >&2; exit 2 ;; esac
 case "$FORMAT" in human|json) ;;
   *) echo "audit-install-assumptions.sh: unknown --format: $FORMAT" >&2; usage >&2; exit 2 ;; esac
@@ -299,6 +299,60 @@ PY
 }
 
 # ---------------------------------------------------------------------------
+# omp (oh-my-pi) checks
+# ---------------------------------------------------------------------------
+run_omp_checks() {
+  local odir="${REPO_ROOT}/.omp-plugin"
+  local matrix="${REPO_ROOT}/ycc/skills/_shared/references/target-capability-matrix.md"
+
+  # OM1: the generated tree and the matrix INSTALL_PATH:omp verdict must agree.
+  if [[ ! -f "$matrix" ]]; then
+    record "omp" "OM1" "FAIL" "${matrix} does not exist — cannot read INSTALL_PATH:omp"; return
+  fi
+  local verdict; set +e
+  verdict=$(python3 - "$matrix" <<'PY'
+import sys
+header = None
+for raw in open(sys.argv[1], encoding="utf-8"):
+    s = raw.strip()
+    if not s.startswith("|"):
+        if header is not None:
+            break
+        continue
+    cells = [c.strip() for c in s.strip("|").split("|")]
+    if all(c and set(c) == {"-"} for c in cells):
+        continue
+    if header is None:
+        header = cells
+        continue
+    if cells[0] == "INSTALL_PATH" and "omp" in header and len(cells) == len(header):
+        print(cells[header.index("omp")])
+        break
+PY
+  ); set -e
+  if [[ -z "$verdict" ]]; then
+    record "omp" "OM1" "FAIL" "INSTALL_PATH:omp not found in ${matrix}"
+  elif [[ ! -d "$odir" ]]; then
+    if [[ "$verdict" == "unsupported" ]]; then
+      record "omp" "OM1" "PASS" "${odir} not generated yet (matrix INSTALL_PATH:omp=unsupported)"
+    else
+      record "omp" "OM1" "FAIL" "${odir} does not exist but matrix INSTALL_PATH:omp=${verdict}"
+    fi
+    return
+  elif [[ "$verdict" == "unsupported" ]]; then
+    record "omp" "OM1" "FAIL" "${odir} exists but matrix INSTALL_PATH:omp=unsupported"
+  else
+    record "omp" "OM1" "PASS" ""
+  fi
+
+  # OM2: a generated tree must carry a valid catalog.
+  local mkt="${odir}/marketplace.json"
+  if   [[ ! -f "$mkt" ]]; then record "omp" "OM2" "FAIL" "${mkt} does not exist"
+  elif json_ok "$mkt";    then record "omp" "OM2" "PASS" ""
+  else                         record "omp" "OM2" "FAIL" "${mkt} is not valid JSON"; fi
+}
+
+# ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
 case "$TARGET" in
@@ -306,7 +360,8 @@ case "$TARGET" in
   cursor)   run_cursor_checks ;;
   codex)    run_codex_checks  ;;
   opencode) run_opencode_checks ;;
-  all)      run_claude_checks; run_cursor_checks; run_codex_checks; run_opencode_checks ;;
+  omp)      run_omp_checks ;;
+  all)      run_claude_checks; run_cursor_checks; run_codex_checks; run_opencode_checks; run_omp_checks ;;
 esac
 
 OVERALL_RC=0
@@ -316,7 +371,7 @@ for s in "${CS[@]}"; do [[ "$s" == "FAIL" ]] && { OVERALL_RC=1; break; }; done
 # Human output
 # ---------------------------------------------------------------------------
 emit_human() {
-  local tgts=(); [[ "$TARGET" == "all" ]] && tgts=(claude cursor codex opencode) || tgts=("$TARGET")
+  local tgts=(); [[ "$TARGET" == "all" ]] && tgts=(claude cursor codex opencode omp) || tgts=("$TARGET")
   local n=${#CI[@]}
   for tgt in "${tgts[@]}"; do
     local pass=0 fail=0 i=0
@@ -360,7 +415,7 @@ ss=[rd(f"{tmp}/s_{i}") for i in range(n)]; ds=[rd(f"{tmp}/d_{i}") for i in range
 def build(t):
     ch=[{"id":ids[i],"status":ss[i],"detail":ds[i] or None} for i in range(n) if ts[i]==t]
     return {"checks":ch,"ok":all(c["status"]!="FAIL" for c in ch)}
-names=["claude","cursor","codex","opencode"] if tgt=="all" else [tgt]
+names=["claude","cursor","codex","opencode","omp"] if tgt=="all" else [tgt]
 out={t:build(t) for t in names}
 print(json.dumps({"as_of":datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     "targets":out,"ok":all(v["ok"] for v in out.values())},indent=2))

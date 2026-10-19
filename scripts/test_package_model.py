@@ -28,7 +28,7 @@ from package_model import (  # noqa: E402
 
 MANIFEST = json.loads(DEFAULT_MANIFEST_PATH.read_text(encoding="utf-8"))
 SCHEMA = json.loads(DEFAULT_SCHEMA_PATH.read_text(encoding="utf-8"))
-RUNTIME = ("claude", "codex", "cursor", "opencode", "agents")
+RUNTIME = ("claude", "codex", "cursor", "opencode", "agents", "omp")
 
 
 def clone() -> dict:
@@ -43,7 +43,7 @@ class CheckedInModelTests(unittest.TestCase):
         self.assertEqual(model.version_source, "ycc/.claude-plugin/plugin.json")
         self.assertEqual(validate_package_model(MANIFEST, repo_root=REPO_ROOT, schema=SCHEMA), [])
 
-    def test_all_five_runtimes_covered(self) -> None:
+    def test_all_runtimes_covered(self) -> None:
         covered = {r.runtime for p in load_package_model().packages for r in p.runtimes}
         self.assertEqual(covered, set(RUNTIME))
 
@@ -91,7 +91,7 @@ class CheckedInModelTests(unittest.TestCase):
 
     def test_installer_fallback_file_copy_unlisted(self) -> None:
         package = next(p for p in load_package_model().packages if p.key == "installer-fallback")
-        self.assertEqual(len(package.runtimes), 5)
+        self.assertEqual(len(package.runtimes), 6)
         for entry in package.runtimes:
             self.assertEqual(entry.mechanism, "file-copy")
             self.assertFalse(entry.listed)
@@ -125,6 +125,16 @@ class NegativeTests(unittest.TestCase):
         data = clone()
         data["packages"]["ycc"]["runtimes"]["claude"]["status"] = "shipping"
         self.expect(data, "status")
+
+    def test_unknown_and_stale_runtime_keys_rejected(self) -> None:
+        for name in ("omp2", "pi"):
+            with self.subTest(runtime=name):
+                data = clone()
+                runtimes = data["packages"]["ycc"]["runtimes"]
+                runtimes[name] = runtimes.pop("omp")
+                errors = validate_package_model(data, repo_root=REPO_ROOT, schema=SCHEMA)
+                self.assertTrue(any(name in e for e in errors), errors)
+                self.assertNotEqual(validate_package_model(data), [])
 
     def test_independent_version_policy_rejected(self) -> None:
         data = clone()

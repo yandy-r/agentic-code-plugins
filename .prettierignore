@@ -19,5 +19,6 @@ docs/inventory.json
 packages/cursor/
 .codex-plugin/
 .opencode-plugin/
+.omp-plugin/
 packages/opencode/
 .agents-plugin/

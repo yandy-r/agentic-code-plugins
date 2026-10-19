@@ -42,7 +42,7 @@ OPTIONAL_MARKETPLACES = (".agents/plugins/marketplace.json", ".cursor-plugin/mar
 MANIFEST_SUBDIRS = (".claude-plugin", ".codex-plugin", ".cursor-plugin")
 EXCLUDED_NAME = "ycc-mods"
 EXCLUDED_SOURCE_PREFIX = "ycc/mods"
-PACKAGE_RUNTIMES = ("claude", "codex", "cursor", "opencode", "agents")
+PACKAGE_RUNTIMES = ("claude", "codex", "cursor", "opencode", "agents", "omp")
 MODEL_REL = "ycc/settings/packages.json"
 Key = str | int
 
@@ -181,6 +181,11 @@ def _model_manifests(root: Path) -> list[tuple[str, str, bool, bool]]:
             if mechanism == "file-copy":
                 continue
             required = True
+            if runtime == "omp" and mechanism == "native":
+                # No OMP manifest layout exists until the tree generator (YAN-1171) lands.
+                if status == "included":
+                    raise ReleaseError(f"{MODEL_REL}: {label}: OMP manifest layout is not defined yet")
+                continue
             if mechanism == "native" and runtime in PACKAGE_RUNTIMES[:3] and "/" not in key:
                 subdir = MANIFEST_SUBDIRS[PACKAGE_RUNTIMES.index(runtime)]
                 if runtime == "claude" and key == "ycc":
