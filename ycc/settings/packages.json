@@ -286,10 +286,12 @@
           "opt_in": false,
           "evidence": [
             "docs/internal/adr/0001-package-model-and-versioning.md",
-            "docs/internal/spikes/claude-namespace.md"
+            "docs/internal/spikes/claude-namespace.md",
+            "scripts/claude_agents_split.py",
+            "scripts/test-claude-agents-split.sh"
           ],
           "gates": ["Production reference validation and live dispatch tests pass, then v7.0.0 ships"],
-          "notes": "Deferred to v7.0.0 as a breaking change with qualified ycc-agents: references; the v6 namespace spike rejects a shared manifest name."
+          "notes": "Deferred to v7.0.0 as a breaking change with qualified ycc-agents: references; the v6 namespace spike rejects a shared manifest name. Hidden prep: claude_agents_split.py builds and validates the split on demand (claude-native check); test-claude-agents-split.sh is the opt-in live dispatch proof."
         }
       }
     },

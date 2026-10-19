@@ -251,3 +251,39 @@ ERROR: matrix verification failed: 2.1.300 (look for CHECK FAILED above)
 The mutated copy and its lab were deleted; the committed harness contains no flag that weakens assertions in normal runs.
 
 **Retained-lab scan and deletion:** scanned `/tmp/opencode/claude-namespace-spike.MwyutO` with `grep -rl 'sk-ant-'` and `grep -rIl '/home/yandy'`. `sk-ant-` matches were limited to upstream vendor binaries/shims (opaque upstream key-prefix constants); the exact dummy key had no matches in captured evidence. Real-home matches were expected config-proof paths/digests plus npm's debug logs naming the Node/npm executable and its installation-level npmrc. There were no real-home paths in CLI/request evidence. No real credentials were passed to the subprocesses. The positive lab, negative lab/copy, and temporary runner logs were removed after inspection/hash extraction (`ls /tmp/opencode | grep claude-namespace` returned no labs). The committed evidence index is historical, not a promise of retained files.
+
+---
+
+## 8. Production Prep (YAN-1142, hidden)
+
+The v7 split is built on demand, never committed, from unchanged `ycc/` source:
+
+- `scripts/claude_agents_split.py --out DIR` writes `DIR/ycc` (skills and `_shared`; manifest `ycc`, lockstep version, `dependencies: ["ycc-agents"]`), `DIR/ycc-agents` (agents only), and a lab `DIR/.claude-plugin/marketplace.json`.
+- It rewrites agent references with the package graph's own detector (`package_graph_extract.iter_references`). Dispatch values, `ycc:<agent>` mentions, and agent handoffs become `ycc-agents:<frontmatter-name>`, so `code-researcher.md` becomes `codebase-research-analyst`. Built-ins stay bare. `ycc:<skill>` and `/ycc:<skill>` stay unchanged.
+- Dispatch values include every code span in a dispatch table column (Subagent Type, Plugin Agent Name, Teammate Type, Recommended/Primary/Supporting Agent), `subagent type`/`All N use` prose, and `- Agent:` fields.
+- Bare agent frontmatter names are also rewritten in agent-naming contexts: any Markdown code span or table row, a heading that is only the name, list-item leads, parenthesized names, `→`/`->` targets, and quoted shell string literals. This covers orchestrate's recommendation table, task-breakdown arrows, catalog, `analyze-task.sh` suggestions, and `validate-agents.sh` `VALID_AGENTS`. The rule skips names that are also skills or built-ins, and plain prose.
+- Bare names that are not agent references stay bare through a per-file allowlist (`ROLE_NAMES`). These are the `architect` persona in `plan/`, the `practices-researcher` teammate role in feature-research and prp-plan, the agent file stems in prp-plan's preflight, and the Cursor file-stem category keys in `init/scripts/generate-agent-catalog.sh`.
+- `releaser` and `git-cleanup` are both skills and agents. Those mentions are rewritten only when followed by "agent".
+- An unknown dispatch target fails the build.
+- `--check` builds into a temporary directory and validates the result. It runs in the `claude-native` validation target.
+
+Counts at 6.0.0: 49 skills and 55 agents. The build rewrites 162 dispatch tokens and 205 `ycc:<agent>` mentions or bare agent names in skills, plus 34 agent-to-agent handoffs. It keeps 16 built-in dispatches bare and finds 25 dispatching skills (graph closure, catalog edges excluded).
+
+The validator checks that every dispatch, handoff, and mention resolves to a built-in or a `ycc-agents` frontmatter name. It also checks that:
+
+- no `ycc:<agent>` token, bare plugin-agent dispatch, or bare agent name in the contexts above remains outside the allowlist;
+- `ycc:<skill>` references resolve in the split `ycc`;
+- the split `ycc` has no `agents/` directory and `ycc-agents` has no `skills/` directory;
+- every dispatching skill still reaches an agent;
+- agent `skills:` preloads are qualified `ycc:<skill>`.
+
+It also warns about one known v7 blocker that has to be fixed before the flip. `skills/prp-plan/scripts/preflight-enhanced-agents.sh` checks `${PLUGIN_ROOT}/agents/<name>.md`, so `prp-plan --enhanced` would abort in the split `ycc`, which has no `agents/` directory. The fix is a `ycc/` source change in the v7.0.0 flip PR. Either drop the preflight, or make it check `${CLAUDE_PLUGIN_ROOT}/../ycc-agents/agents` or the installed `ycc-agents` plugin. Then remove the preflight entry from `ROLE_NAMES` and turn the warning into an error.
+
+**Live harness** (`./scripts/test-claude-agents-split.sh [--keep]`, opt-in, uses `CLAUDE_BIN` or `claude` on PATH). It reuses this spike's `Lab` fake Messages API in an `env -i` lab and snapshots the real config before and after.
+
+- Run against Claude Code **2.1.303** on 2026-10-19 (and earlier against 2.1.302), with the lab removed afterwards. The orchestrate probe is pinned to `ycc-agents:frontend-ui-developer` from its SKILL.md Recommended Agent table.
+- `plugin install ycc@ycc-split-lab` also installed and enabled `ycc-agents` through `dependencies`.
+- **25/25** dispatching skills passed `Skill(ycc:<skill>)` followed by `Agent(ycc-agents:<agent>)`. In each, the skill body reached the parent and the agent's own body was in the child `system` prompt. The four `disable-model-invocation` skills (backport, blueprint, clean, releaser) start from their slash command instead.
+- The negative control `ycc-agents:absent` returned `is_error` ("Agent type 'ycc-agents:absent' not found") with no child request.
+- The recorded bare probe `subagent_type: planner` did **not** resolve ("Agent type 'planner' not found"). Every plugin agent dispatch must therefore be qualified after the split.
+- The real config was unchanged (`real-config hash/mtime unchanged: True`). One earlier run reported a changed entry because another Claude session on the same machine wrote to `~/.claude` mid-run. As above, avoid concurrent real Claude use.

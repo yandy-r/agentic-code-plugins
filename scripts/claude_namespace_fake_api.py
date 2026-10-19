@@ -288,14 +288,16 @@ class Lab:
         )
         bodies = list(self.requests)
         save(self.root / "logs" / f"{label}.requests.json", json.loads(self.sanitize(json.dumps(bodies))))
-        events = []
+        events: list[dict[str, Any]] = []
         for line in out.splitlines():
             try:
                 events.append(json.loads(line))
             except ValueError:
                 continue
-        init = next((e for e in events if e.get("subtype") == "init"), {})
-        parents, children, results = [], [], []
+        init: dict[str, Any] = next((e for e in events if e.get("subtype") == "init"), {})
+        parents: list[dict[str, Any]] = []
+        children: list[dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
         for request in bodies:
             body = request["body"]
             if "count_tokens" in request["path"]:

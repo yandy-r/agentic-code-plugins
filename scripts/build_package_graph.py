@@ -41,6 +41,31 @@ def _component(node_id: str) -> str:
     return COMPONENT_OF_KIND[node_id.split(":", 1)[0]]
 
 
+def agent_reach(graph: Graph) -> dict[str, tuple[str, ...]]:
+    """Map each skill to the agents it reaches through closure edges, excluding catalog listings.
+
+    These are the dispatching skills: a skill dispatches directly, through a shared reference
+    it reads, or through another skill it runs. Skills reaching no agent are omitted.
+    """
+    adjacent: dict[str, set[str]] = {}
+    for edge in graph.edges.values():
+        if edge.kind in CLOSURE_EDGE_KINDS - {"catalog"}:
+            adjacent.setdefault(edge.src, set()).add(edge.dst)
+    reach: dict[str, tuple[str, ...]] = {}
+    for skill in sorted(n for n in graph.nodes if n.startswith("skill:")):
+        seen: set[str] = set()
+        stack = [skill]
+        while stack:
+            for dst in adjacent.get(stack.pop(), ()):
+                if dst not in seen:
+                    seen.add(dst)
+                    stack.append(dst)
+        agents = sorted(n for n in seen if n.startswith("agent:"))
+        if agents:
+            reach[skill] = tuple(agents)
+    return reach
+
+
 def package_sets(model: PackageModel) -> tuple[dict[str, PackageSets], list[str]]:
     """Compute `pkg@runtime` own, transitive Claude provides, and install sets, plus cycle errors."""
     entries = {(p.key, r.runtime): r for p in model.packages for r in p.runtimes}

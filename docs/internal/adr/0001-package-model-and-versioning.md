@@ -199,6 +199,12 @@ The gates and feature switches are listed in
   `install.sh migrate` must delete those copies itself.
 - **Claude agents.** Splitting agents into `ycc-agents` in 6.x would need qualified
   `ycc-agents:` references, which is a breaking namespace change. It is therefore v7.0.0.
+  Hidden prep (YAN-1142): `scripts/claude_agents_split.py` builds the split on demand from
+  unchanged `ycc/` source and never commits it. The split has a skills-only `ycc` that
+  depends on an agents-only `ycc-agents`, and agent references become
+  `ycc-agents:<frontmatter-name>`. The `claude-native` validation target checks the built tree.
+  `scripts/test-claude-agents-split.sh` is the opt-in live dispatch proof. Results are in
+  the namespace spike's "Production prep" section.
 - **opencode.** The npm package is optional and experimental. The file copy stays primary.
   On v2.0.29, the tested local-file config `instructions` entry did not reach the model.
   Plugin-delivered instructions can use the verified context hook. Discovered global and

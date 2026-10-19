@@ -92,6 +92,10 @@ expect_targets "Claude generator wrapper selects generator and native" "claude c
 expect_targets "Claude generator tests select generator and native" "claude claude-native" scripts/test_generate_claude_packages.py
 expect_targets "Claude smoke driver selects generator, native and types" "claude claude-native types" scripts/claude_native_smoke.py
 expect_targets "Claude live harness selects generator and native" "claude claude-native" scripts/test-claude-native-packages.sh
+expect_targets "Claude split builder selects native and types" "claude-native types" scripts/claude_agents_split.py
+expect_targets "Claude split smoke driver selects native and types" "claude-native types" scripts/claude_agents_split_smoke.py
+expect_targets "Claude split tests select native and types" "claude-native types" scripts/test_claude_agents_split.py
+expect_targets "Claude split live harness selects native" "claude-native" scripts/test-claude-agents-split.sh
 expect_targets "Claude marketplace selects native, JSON and parity" "claude-native json packages" .claude-plugin/marketplace.json
 expect_targets "install.sh selects config" "config" install.sh
 expect_targets "install tests select config" "config" scripts/tests/install/codex.sh
@@ -123,8 +127,8 @@ expect_targets "capability matrix tests select packages" "packages" scripts/test
 expect_targets "capability matrix selects the bundle targets including packages" "${BUNDLES}" ycc/skills/_shared/references/target-capability-matrix.md
 expect_targets "settings select everything" "${ALL}" ycc/settings/models.json
 expect_targets "package model selects content, native, generators, parity and types" "cursor codex opencode claude claude-native cursor-native codex-native packages types" scripts/package_model.py
-expect_targets "package graph builder selects packages and types" "packages types" scripts/build_package_graph.py
-expect_targets "package graph extractor selects packages and types" "packages types" scripts/package_graph_extract.py
+expect_targets "package graph builder selects native split, packages and types" "claude-native packages types" scripts/build_package_graph.py
+expect_targets "package graph extractor selects native split, packages and types" "claude-native packages types" scripts/package_graph_extract.py
 expect_targets "package graph tests select packages" "packages" scripts/test_package_graph.py
 expect_targets "generators select everything" "${ALL}" scripts/generate_codex_skills.py
 expect_targets "validate.sh selects everything" "${ALL}" scripts/validate.sh
