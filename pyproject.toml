@@ -27,4 +27,5 @@ files = [
   "scripts/generate_codex_plugin.py",
   "scripts/codex_native_smoke.py",
   "scripts/test_codex_native_smoke.py",
+  "scripts/validate_capability_matrix.py",
 ]

@@ -638,11 +638,32 @@ if OUT="$(YCC_REPO_ROOT="${FIX}" "${SCRIPTS}/draft-notes.sh" 6.0.0 2>&1)"; then
   assert_contains "notes: included listed package" "${NOTES}" "| ycc-hooks | cursor | included | native | yes | 6.0.0 |"
   assert_contains "notes: deferred target" "${NOTES}" "| ycc-agents | claude | deferred | native | no | target v7.0.0 |"
   assert_contains "notes: excluded target" "${NOTES}" "| ycc-hooks | codex | excluded | native | no | target v6.0.0 |"
+  assert_contains "notes: deferred omp target" "${NOTES}" "| ycc | omp | deferred | native | no | target v6.1.0 |"
   assert_contains "notes: opencode npm release" "${NOTES}" "| @yandy-r/ycc-opencode | opencode | included | npm | no | 6.0.0 | experimental; opt-in; not yet published"
   assert_not_contains "notes: installer-fallback row omitted" "${NOTES}" "| installer-fallback |"
   assert_contains "notes: file-copy fallback note" "${NOTES}" "File-copy packages"
   assert_not_contains "notes: no unresolved package placeholder" "${NOTES}" "{{PACKAGES_TABLE}}"
 else not_ok "notes: renders packages table" "${OUT}"; fi
+
+# An included native omp row has no manifest layout yet (YAN-1171): fail closed.
+python3 - "${FIX}/ycc/settings/packages.json" <<'PY'
+import json, sys
+path = sys.argv[1]
+with open(path, encoding="utf-8") as fh:
+    model = json.load(fh)
+model["packages"]["ycc"]["runtimes"]["omp"]["status"] = "included"
+with open(path, "w", encoding="utf-8") as fh:
+    json.dump(model, fh, indent=2)
+PY
+commit_fix "included omp row"
+SOURCE_HASHES="$(sha "ycc/.claude-plugin/plugin.json");$(sha ".claude-plugin/marketplace.json")"
+if run_pf "${FIX}"; then not_ok "model: included omp row fails check"; else
+  assert_contains "model: included omp row named" "${OUT}" "packages.ycc.runtimes.omp"
+  assert_not_contains "model: included omp has no traceback" "${OUT}" "Traceback"
+fi
+if run_bump "${FIX}" "6.1.0"; then not_ok "model: included omp row fails bump"; else
+  assert_eq "model: included omp row has no mutation" "${SOURCE_HASHES}" "$(sha "ycc/.claude-plugin/plugin.json");$(sha ".claude-plugin/marketplace.json")"
+fi
 
 # A model error must be clean and must precede all bump writes.
 for bad_model in '{' '{}' '{"version_source":"ycc/.claude-plugin/plugin.json","packages":{"ycc":{}}}' \

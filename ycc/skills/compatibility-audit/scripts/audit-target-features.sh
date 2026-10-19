@@ -3,9 +3,11 @@
 # target capability matrix and report verdict per (surface, capability, target).
 #
 # Usage:
-#   audit-target-features.sh [--format=human|json] [--strict] [--help]
+#   audit-target-features.sh [--target=<t>|all] [--format=human|json] [--strict] [--help]
 #
 # Flags:
+#   --target=<t>|all      Restrict findings to one target: claude, cursor, codex,
+#                         opencode, omp, or all (default: all). `--target <t>` also works.
 #   --format=human|json   Output format (default: human)
 #   --strict              Exit 1 if any verdict is "unsupported"
 #   --help                Show this help and exit 0
@@ -20,7 +22,7 @@
 #
 # The parser reads ONE markdown table from the matrix file. Rules:
 #   - The header row must be exactly (after per-cell whitespace trim):
-#       capability | claude | cursor | codex | opencode
+#       capability | claude | cursor | codex | opencode | omp
 #   - Separator rows (cells of dashes) are skipped.
 #   - Each data cell must be one of: supported | partial | unsupported
 #   - The "As of <date>" line is expected anywhere in the file as:
@@ -37,13 +39,15 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: audit-target-features.sh [--format=human|json] [--strict] [--help]
+Usage: audit-target-features.sh [--target=<t>|all] [--format=human|json] [--strict] [--help]
 
 Parse the target capability matrix and cross-reference every ycc source surface
 (skills, agents) against it to emit per-(surface, capability, target)
 verdict lines.
 
 Flags:
+  --target=<t>|all      Restrict findings to one target: claude, cursor, codex,
+                        opencode, omp, or all (default: all). `--target <t>` also works.
   --format=human|json   Output format (default: human)
   --strict              Exit 1 if any verdict is "unsupported"
   --help                Show this help and exit 0
@@ -59,13 +63,30 @@ EOF
 # Argument parsing
 # ---------------------------------------------------------------------------
 
+# Canonical target order; must match the matrix header after `capability`.
+ALL_TARGETS=("claude" "cursor" "codex" "opencode" "omp")
+
 FORMAT="human"
 STRICT=0
+TARGET="all"
 
-for arg in "$@"; do
+while [[ $# -gt 0 ]]; do
+  arg="$1"
   case "$arg" in
     --format=*)
       FORMAT="${arg#--format=}"
+      ;;
+    --target=*)
+      TARGET="${arg#--target=}"
+      ;;
+    --target)
+      if [[ $# -lt 2 ]]; then
+        echo "audit-target-features.sh: --target requires a value" >&2
+        usage >&2
+        exit 2
+      fi
+      TARGET="$2"
+      shift
       ;;
     --strict)
       STRICT=1
@@ -80,12 +101,22 @@ for arg in "$@"; do
       exit 2
       ;;
   esac
+  shift
 done
 
 case "$FORMAT" in
   human|json) ;;
   *)
     echo "audit-target-features.sh: unknown --format value: $FORMAT" >&2
+    usage >&2
+    exit 2
+    ;;
+esac
+
+case "$TARGET" in
+  all|claude|cursor|codex|opencode|omp) ;;
+  *)
+    echo "audit-target-features.sh: unknown --target value: $TARGET" >&2
     usage >&2
     exit 2
     ;;
@@ -151,7 +182,7 @@ fi
 # ---------------------------------------------------------------------------
 # Parse the capability matrix via Python
 # Outputs: one line per capability row in the form:
-#   <capability>|<claude_verdict>|<cursor_verdict>|<codex_verdict>|<opencode_verdict>
+#   <capability>|<claude>|<cursor>|<codex>|<opencode>|<omp>
 # First line is the "As of ..." date (prefixed with "AS_OF:").
 # ---------------------------------------------------------------------------
 
@@ -162,7 +193,7 @@ matrix_path = sys.argv[1]
 matrix_rel  = sys.argv[2]
 
 VOCABULARY = {"supported", "partial", "unsupported"}
-EXPECTED_HEADER = ["capability", "claude", "cursor", "codex", "opencode"]
+EXPECTED_HEADER = ["capability", "claude", "cursor", "codex", "opencode", "omp"]
 
 lines = open(matrix_path).read().splitlines()
 
@@ -201,7 +232,7 @@ for lineno, raw in enumerate(lines, 1):
         if cells != EXPECTED_HEADER:
             print(
                 f"PARSE_ERROR:Line {lineno}: expected header "
-                f"'| capability | claude | cursor | codex | opencode |' "
+                f"'| {' | '.join(EXPECTED_HEADER)} |' "
                 f"but got: {raw!r}\n{error_pointer}",
                 file=sys.stderr
             )
@@ -210,20 +241,15 @@ for lineno, raw in enumerate(lines, 1):
         continue
 
     # Data row — validate and emit
-    if len(cells) != 5:
+    if len(cells) != len(EXPECTED_HEADER):
         print(
-            f"PARSE_ERROR:Line {lineno}: expected 5 cells but found {len(cells)}: {raw!r}\n{error_pointer}",
+            f"PARSE_ERROR:Line {lineno}: expected {len(EXPECTED_HEADER)} cells but found {len(cells)}: {raw!r}\n{error_pointer}",
             file=sys.stderr
         )
         sys.exit(2)
 
-    cap, claude_v, cursor_v, codex_v, opencode_v = cells
-    for col_name, val in [
-        ("claude", claude_v),
-        ("cursor", cursor_v),
-        ("codex", codex_v),
-        ("opencode", opencode_v),
-    ]:
+    cap = cells[0]
+    for col_name, val in zip(EXPECTED_HEADER[1:], cells[1:]):
         if val not in VOCABULARY:
             print(
                 f"PARSE_ERROR:Line {lineno}: cell '{col_name}={val}' is not in vocabulary "
@@ -232,7 +258,7 @@ for lineno, raw in enumerate(lines, 1):
             )
             sys.exit(2)
 
-    print(f"{cap}|{claude_v}|{cursor_v}|{codex_v}|{opencode_v}")
+    print("|".join(cells))
 
 if not header_found:
     print(
@@ -254,14 +280,16 @@ fi
 
 AS_OF_LINE="$(echo "$PARSE_RESULT" | grep "^AS_OF:" | sed 's/^AS_OF://')"
 
-# Build parallel arrays: CAPS, VERDICTS_CLAUDE, VERDICTS_CURSOR, VERDICTS_CODEX, VERDICTS_OPENCODE
+# Build parallel arrays: CAPS, VERDICTS_CLAUDE, VERDICTS_CURSOR, VERDICTS_CODEX,
+# VERDICTS_OPENCODE, VERDICTS_OMP
 declare -a CAPS=()
 declare -a VERDICTS_CLAUDE=()
 declare -a VERDICTS_CURSOR=()
 declare -a VERDICTS_CODEX=()
 declare -a VERDICTS_OPENCODE=()
+declare -a VERDICTS_OMP=()
 
-while IFS='|' read -r cap cl cu co oc; do
+while IFS='|' read -r cap cl cu co oc om; do
   [[ "$cap" == AS_OF:* ]] && continue
   [[ -z "$cap" ]] && continue
   CAPS+=("$cap")
@@ -269,6 +297,7 @@ while IFS='|' read -r cap cl cu co oc; do
   VERDICTS_CURSOR+=("$cu")
   VERDICTS_CODEX+=("$co")
   VERDICTS_OPENCODE+=("$oc")
+  VERDICTS_OMP+=("$om")
 done < <(echo "$PARSE_RESULT" | grep -v "^AS_OF:")
 
 # ---------------------------------------------------------------------------
@@ -364,7 +393,11 @@ declare -a FIND_CAP=()
 declare -a FIND_TARGET=()
 declare -a FIND_VERDICT=()
 
-TARGETS=("claude" "cursor" "codex" "opencode")
+if [[ "$TARGET" == "all" ]]; then
+  TARGETS=("${ALL_TARGETS[@]}")
+else
+  TARGETS=("$TARGET")
+fi
 
 lookup_verdict() {
   local cap="$1"
@@ -377,6 +410,11 @@ lookup_verdict() {
         cursor)   echo "${VERDICTS_CURSOR[$i]}";   return ;;
         codex)    echo "${VERDICTS_CODEX[$i]}";    return ;;
         opencode) echo "${VERDICTS_OPENCODE[$i]}"; return ;;
+        omp)      echo "${VERDICTS_OMP[$i]}";      return ;;
+        *)
+          echo "audit-target-features.sh: lookup_verdict: unknown target '$target'" >&2
+          exit 2
+          ;;
       esac
     fi
     i=$((i + 1))

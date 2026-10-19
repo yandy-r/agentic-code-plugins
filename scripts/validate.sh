@@ -321,6 +321,9 @@ run_target() {
 		echo "== validate: install document package IDs =="
 		python3 "${REPO_ROOT}/scripts/validate_install_doc_ids.py" || fail "validate_install_doc_ids.py"
 		python3 "${REPO_ROOT}/scripts/test_validate_install_doc_ids.py" || fail "test_validate_install_doc_ids.py"
+		echo "== validate: target capability matrix =="
+		python3 "${REPO_ROOT}/scripts/test_validate_capability_matrix.py" || fail "test_validate_capability_matrix.py"
+		python3 "${REPO_ROOT}/scripts/validate_capability_matrix.py" || fail "validate_capability_matrix.py"
 		;;
         release)
             local -a release_tests=("${REPO_ROOT}"/scripts/test-release-*.sh)

@@ -18,8 +18,8 @@ other runtime bundles are generated from it. Keep the plugin name `ycc` stable.
 ## Source and generated targets
 
 - Add workflow logic under `ycc/`, not generated bundles. Do not hand-edit generated
-  `.codex-plugin/`, `.opencode-plugin/`, `.agents-plugin/`, `packages/claude/`, or
-  `packages/cursor/` files; change their source or generator first, then regenerate.
+  `.codex-plugin/`, `.opencode-plugin/`, `.omp-plugin/`, `.agents-plugin/`, `packages/claude/`,
+  or `packages/cursor/` files; change their source or generator first, then regenerate.
 - Do not add top-level workflow plugins. Extend `ycc` or use the sibling-repo decision
   gate in `CONTRIBUTING.md`. Claude-only mods are the documented exception in `CLAUDE.md`.
 - Skills use `kebab-case` directories under `ycc/skills/`; agents use `kebab-case.md`
