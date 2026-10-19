@@ -166,14 +166,21 @@ among the selected targets.
 Apply registers that marketplace, requires both packages in the available
 listing, installs each, then verifies both installed and enabled. Only after
 all of that succeeds does it retire recognized installer-owned legacy
-enablement, links, catalog entries, cache, and standalone `~/.codex/skills/`
-entries that exactly match the installer output. Shared helpers stay while
-any skills remain. A failure before verification keeps the legacy install
-intact and returns an error. All `~/.codex/agents/` content is preserved,
-along with user edits, unrelated settings, and foreign entries; uncertain
-ownership is reported and retained. Symlinked configuration files are
-retained with a notice rather than replaced. Repeated apply is safe, and
-`--force` is rejected.
+enablement, links, and catalog entries. Standalone `~/.codex/skills/` entries
+are retired when they exactly match the installer output. Shared helpers stay
+while any skills remain. A legacy cache snapshot under
+`~/.codex/plugins/cache/local-ycc-plugins/ycc` is retired when it is
+byte-identical to `.codex-plugin/ycc` or to the legacy combined bundle
+rendered from the current source, or when its git tree equals a committed
+`.codex-plugin/ycc` tree in this checkout's history. An edited snapshot stays.
+A shallow clone that does not contain that commit keeps the snapshot and
+prints `git fetch --unshallow`. If git history cannot be read, the snapshot
+stays.
+A failure before verification keeps the legacy install intact and returns an
+error. All `~/.codex/agents/` content is preserved, along with user edits,
+unrelated settings, and foreign entries. Uncertain ownership is reported and
+retained. Symlinked configuration files are retained with a notice rather
+than replaced. Repeated apply is safe, and `--force` is rejected.
 
 Installed/enabled metadata is not runtime session or MCP execution proof.
 `install.sh install --package <ids> --target codex` is a checkout-based

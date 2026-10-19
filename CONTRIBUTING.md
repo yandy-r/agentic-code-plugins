@@ -16,16 +16,19 @@ npm install
 
 What the hooks do:
 
-| Stage        | Command                                                         | Purpose                                 |
-| ------------ | --------------------------------------------------------------- | --------------------------------------- |
-| `pre-commit` | `scripts/lint.sh --staged --fix` + `scripts/format.sh --staged` | Lint/format staged Python & shell files |
-| `pre-push`   | `scripts/validate.sh --changed`                                 | Validators the unpushed changes affect  |
-| `commit-msg` | `commitlint --edit`                                             | Reject non-conventional commit messages |
+| Stage        | Command                                                                                            | Purpose                                                          |
+| ------------ | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `pre-commit` | `scripts/lint.sh --staged --fix --python --shell` and `scripts/format.sh --staged --python --docs` | Lint staged Python and shell. Format staged Python and Markdown. |
+| `pre-push`   | `scripts/validate.sh --changed`                                                                    | Validators the unpushed changes affect                           |
+| `commit-msg` | `commitlint --edit`                                                                                | Reject non-conventional commit messages                          |
 
 `--changed` maps the files changed since the branch's push destination to validate
 targets (rules in `scripts/lib/validate-scope.sh`; unrecognised paths run everything),
 so a docs-only push runs nothing and CI remains the full check. Run
-`./scripts/validate.sh` for the complete local pass.
+`./scripts/validate.sh` for the complete local pass. CI runs `npm run lint` before
+`./scripts/validate.sh`. `npm run lint` checks Python, shell, and Markdown with
+markdownlint and prettier. The pre-commit hook formats Markdown with prettier and
+does not run markdownlint.
 
 Bypass a single operation with `git commit --no-verify` or `git push --no-verify`.
 CI is exempt automatically (`CI=true`).
@@ -80,8 +83,9 @@ or agent.
 - **Do not add another wave of narrow expert skills.** The bundle already ships broad
   coverage; the current bottleneck is maintenance integrity (drift, inventory accuracy,
   generator sync), not missing subjects. Breadth additions without evidence are rejected.
-- **Do not create a new top-level plugin without an approved PRD.** The marketplace
-  currently ships only `ycc`. Adding a second plugin requires a PRD at
+- **Do not create a new top-level plugin without an approved PRD.** The Claude
+  marketplace lists `ycc`, `ycc-mcp`, `ycc-hooks`, and `ycc-all`. A plugin outside
+  that set requires a PRD at
   `docs/prps/prds/<name>.prd.md` that answers: problem statement, audience and threat
   model, non-goals, phased rollout, success criteria, and the "why this can't live inside
   `ycc` or a sibling repo" argument. The `yci` → `claude-infra-plugins` split is the
@@ -145,7 +149,7 @@ edited and foreign catalog entries remain preserved.
 ## Structure Requirements
 
 - Claude source plugin manifest: `ycc/.claude-plugin/plugin.json`
-- Claude marketplace: `.claude-plugin/marketplace.json` (single entry)
+- Claude marketplace: `.claude-plugin/marketplace.json` (`ycc`, `ycc-mcp`, `ycc-hooks`, `ycc-all`)
 - Codex generated plugin root: `.codex-plugin/ycc/`
 - Codex generated custom agents: `.codex-plugin/agents/`
 - Cursor generated packages: `packages/cursor/{ycc,ycc-rules,ycc-mcp,ycc-hooks}/` (all listed in the root `.cursor-plugin/marketplace.json`)

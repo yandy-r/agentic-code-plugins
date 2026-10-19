@@ -77,12 +77,13 @@ Pass `--apply` to make the reported changes:
   to exactly those three. `opencode` and `agents` have no migration and are
   rejected when named explicitly — their file-copy installs stay as they are.
 - Migration preserves user edits and data. It removes only entries it can
-  prove are installer-owned (managed-config ownership, byte-identical copies,
-  or symlinks pointing at this checkout), reports anything uncertain as a
-  conflict instead of deleting it, and is safe to run repeatedly. `--force`
-  is rejected for `migrate` and never widens what migration deletes.
-  Symlinked configuration files are retained with a notice rather than
-  replaced, preserving dotfiles links.
+  prove are installer-owned, and it reports anything uncertain as a conflict
+  instead of deleting it. Proof is managed-config ownership, a byte-identical
+  copy, a symlink that points at this checkout, or a legacy Codex cache
+  snapshot whose git tree matches a committed `.codex-plugin/ycc`. It is safe
+  to run repeatedly. `--force` is rejected for `migrate` and never widens
+  what migration deletes. Symlinked configuration files are retained with a
+  notice rather than replaced, preserving dotfiles links.
 - **Claude:** settings hooks are pruned only when `ycc-hooks@ycc` is
   explicitly enabled, and managed MCP entries only when `ycc-mcp@ycc` is
   explicitly enabled; enabling `ycc-all@ycc` alone proves neither. User hooks
@@ -99,12 +100,21 @@ Pass `--apply` to make the reported changes:
   verified installed and enabled **before** any legacy entry is retired,
   including exact installer matches in the standalone `~/.codex/skills/`
   slice. Edited skills stay, and shared helpers stay while any skills remain.
-  Everything under `~/.codex/agents/` is preserved.
-- **Cursor:** only copies that match the canonical source byte-for-byte, or
-  owned symlinks pointing exactly at it, are removed — across skills, agents,
-  rules, and shared helpers as actually installed. Edited or foreign entries
-  stay, along with shared helpers while any skills remain. Migration prints
-  the interactive `/add-plugin` step; it does not install the Cursor plugin itself.
+  A snapshot under `~/.codex/plugins/cache/local-ycc-plugins/ycc` is also
+  retired when its git tree equals a committed `.codex-plugin/ycc` tree in
+  this checkout's history, so an untouched copy of an older release can be
+  removed. An edited snapshot stays. A shallow clone that does not contain
+  that commit keeps the snapshot and prints `git fetch --unshallow`. If git
+  history cannot be read, the snapshot stays. Everything under
+  `~/.codex/agents/` is preserved.
+- **Cursor:** recorded command wrappers and the owned `sessionStart` hook are
+  retired before file-copy skills. An unproven command or hook stops the
+  Cursor migration before skills, agents, or rules change. Skill, agent, rule,
+  and shared-helper copies are removed only when they match the canonical
+  source byte-for-byte, or when they are owned symlinks pointing exactly at
+  it. Edited or foreign entries stay, and shared helpers stay while any skills
+  remain. Migration prints the interactive `/add-plugin` step. It does not
+  install the Cursor plugin.
 
 Migration does not install Claude or Cursor packages (enable `ycc-hooks@ycc` /
 `ycc-mcp@ycc` first on Claude; Cursor prints the interactive `/add-plugin`
@@ -140,18 +150,18 @@ symlink pointing elsewhere unless you pass `--force`. Without bash-completion or
 the zsh `fpath` entry, source the script instead: `eval "$(ycc completion --shell bash)"`
 or `source <(ycc completion --shell zsh)`.
 
-| Intent     | Meaning                                                                                     |
-| ---------- | ------------------------------------------------------------------------------------------- |
-| `base`     | Install or register the target's native bundle surface.                                     |
-| `skills`   | Standalone skills, one entry each, in the tool's own skills dir (no plugin).                |
-| `agents`   | Standalone agents, one entry each, in the tool's own agents dir (no plugin).                |
-| `commands` | Slash commands: standalone skills on claude (alias), generated native commands on opencode. |
-| `settings` | Merge repo-managed config keys (models, effort levels, statusline, ...).                    |
-| `rules`    | Symlink the global rules file each runtime reads (Cursor: manual, see its page).            |
-| `mcp`      | Merge MCP server definitions into the target's MCP surface.                                 |
-| `hooks`    | Merge hook configuration; Claude also links the hook scripts directory.                     |
-| `plugins`  | Merge plugin enablement and marketplace entries. Add `base` for CLI-side registration too.  |
-| `mods`     | Install the Claude Code mods under `ycc/mods` (claude only for now).                        |
+| Intent     | Meaning                                                                                                                                            |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `base`     | Install or register the target's native bundle surface.                                                                                            |
+| `skills`   | Standalone skills, one entry each, in the tool's own skills dir (no plugin).                                                                       |
+| `agents`   | Standalone agents, one entry each, in the tool's own agents dir (no plugin).                                                                       |
+| `commands` | Slash commands. Claude aliases this to standalone skills. Cursor installs wrappers in `~/.cursor/commands/`. opencode installs generated commands. |
+| `settings` | Merge repo-managed config keys (models, effort levels, statusline, ...).                                                                           |
+| `rules`    | Symlink the global rules file each runtime reads (Cursor: manual, see its page).                                                                   |
+| `mcp`      | Merge MCP server definitions into the target's MCP surface.                                                                                        |
+| `hooks`    | Merge hook configuration. Claude also links the hook scripts directory. Cursor installs the optional `sessionStart` hook.                          |
+| `plugins`  | Merge plugin enablement and marketplace entries. Add `base` for CLI-side registration too.                                                         |
+| `mods`     | Install the Claude Code mods under `ycc/mods` (claude only for now).                                                                               |
 
 Per-target mapping (intents a target cannot execute are skipped with a notice):
 
@@ -160,11 +170,11 @@ Per-target mapping (intents a target cannot execute are skipped with a notice):
 | `base`     | `base`             | `base`     | `base`     | `base`     |
 | `skills`   | `skills`           | `skills`   | `skills`   | `skills`   |
 | `agents`   | `agents`           | `agents`   | `agents`   | `agents`   |
-| `commands` | `skills` (alias)   | no-op      | no-op      | `commands` |
+| `commands` | `skills` (alias)   | `commands` | no-op      | `commands` |
 | `settings` | `settings`         | `settings` | `settings` | `settings` |
 | `rules`    | `rules`            | `rules`    | `rules`    | `rules`    |
 | `mcp`      | `mcp`              | `mcp`      | `mcp`      | `mcp`      |
-| `hooks`    | `settings`+`hooks` | no-op      | no-op      | no-op      |
+| `hooks`    | `settings`+`hooks` | `hooks`    | no-op      | no-op      |
 | `plugins`  | `settings`         | no-op      | `settings` | `settings` |
 | `mods`     | `mods`             | no-op      | no-op      | no-op      |
 
@@ -187,7 +197,7 @@ invocations there, so there is nothing separate to copy:
 | Target   | Destinations                                                                                   |
 | -------- | ---------------------------------------------------------------------------------------------- |
 | claude   | `~/.claude/skills/<name>`, `~/.claude/agents/<name>.md` (skills are the slash commands)        |
-| cursor   | `~/.cursor/skills/<name>`, `~/.cursor/agents/<name>.md`                                        |
+| cursor   | `~/.cursor/skills/<name>`, `~/.cursor/agents/<name>.md`, `~/.cursor/commands/<name>.md`        |
 | codex    | `~/.codex/skills/<name>` (helpers in `~/.codex/skills/_shared`), `~/.codex/agents/<name>.toml` |
 | opencode | `~/.config/opencode/{skills,agents,commands}/<name>` (+ `shared/`)                             |
 
@@ -205,7 +215,7 @@ invocations there, so there is nothing separate to copy:
 - With the plugin (`base`) also installed, skills appear twice (`ycc:<name>`
   and `<name>`); the installer warns.
 - `--only` / `--intent` skip a slice a target has no home for (e.g.
-  `commands` on cursor), so `--target all --only agents` just works.
+  `commands` on codex), so `--target all --only agents` just works.
 
 ### Merge Semantics
 
@@ -332,6 +342,7 @@ taken back:
 | `skills`, `agents`, `commands` | Removes the standalone entries ycc recorded (or that are still identical to the bundle). Never the plugin, never your own entries without `--force`. On claude, `commands` retires only the recorded legacy `~/.claude/commands/` wrappers. |
 | `mods` (claude)                | Uninstalls each mod and the `ycc-mods` marketplace.                                                                                                                                                                                         |
 
+- Cursor `hooks` removes the owned session script in `~/.cursor/hooks/` and the managed `sessionStart` entries in `~/.cursor/hooks.json`.
 - A managed value you edited is kept with a warning; `--force` removes it.
 - A config file left empty is deleted. Codex TOML removal keeps comments,
   trusted projects and unrelated tables.

@@ -55,6 +55,7 @@ template in
 
 Latest entries:
 
+- [`releases/6.0.0.md`](releases/6.0.0.md) covers native packages in the Claude, Codex, and Cursor marketplaces, and `install.sh migrate`.
 - [`releases/5.3.0.md`](releases/5.3.0.md) covers per-runtime worktree roots, `AGENTS.md` from `ycc:init`, and retired command wrappers.
 - [`releases/5.2.1.md`](releases/5.2.1.md) covers selectable MCP servers and the cross-tool agents install target.
 - [`releases/5.2.0.md`](releases/5.2.0.md) covers standalone skills, agents, and commands, plus installer config removal.

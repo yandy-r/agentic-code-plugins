@@ -278,7 +278,7 @@ removed, then run `./scripts/sync.sh` and `./scripts/validate.sh`.
 ```
 ystack/
 ├── .claude-plugin/
-│   └── marketplace.json     # marketplace registry (single ycc entry)
+│   └── marketplace.json     # Claude marketplace (ycc, ycc-mcp, ycc-hooks, ycc-all)
 ├── .agents/
 │   └── plugins/
 │       └── marketplace.json # repo-local Codex marketplace source
