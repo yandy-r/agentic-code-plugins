@@ -229,6 +229,10 @@ class ValidatorRuleTests(unittest.TestCase):
     def test_e_dispatching_skill_must_keep_a_dispatch(self) -> None:
         self.assert_rule("ycc/skills/plan/SKILL.md", "---\nname: plan\n---\nNo dispatch.\n", "'plan' reaches no")
 
+    def test_e_retargeted_dispatch_changes_reached_agents(self) -> None:
+        text = '---\nname: plan\n---\nUse `subagent_type: "ycc-agents:implementor"`.\n'
+        self.assert_rule("ycc/skills/plan/SKILL.md", text, "'plan' reaches ('agent:implementor',); expected")
+
     def test_f_agent_preloads_must_be_qualified(self) -> None:
         agent = "ycc-agents/agents/implementor.md"
         self.assert_rule(agent, "---\nname: implementor\nskills:\n  - plan\n---\n", "agent preload 'plan'")
