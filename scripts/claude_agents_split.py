@@ -380,7 +380,7 @@ def _reference_errors(out_dir: Path) -> tuple[list[str], list[str]]:
 
 
 def _reach_errors(out_dir: Path, expected: dict[str, tuple[str, ...]]) -> list[str]:
-    """Rule (e) via the package graph of a combined view: each dispatching skill still reaches agents."""
+    """Rule (e) via the package graph of a combined view: each dispatching skill reaches the same agents."""
     with tempfile.TemporaryDirectory() as tmp:
         view = Path(tmp) / SKILLS_PACKAGE
         view.mkdir()
@@ -389,9 +389,12 @@ def _reach_errors(out_dir: Path, expected: dict[str, tuple[str, ...]]) -> list[s
         graph, graph_errors = extract_graph(view)
     errors = [f"split graph: {error}" for error in graph_errors]
     reach = {k.removeprefix("skill:"): v for k, v in agent_reach(graph).items()}
-    errors += [
-        f"dispatching skill {skill!r} reaches no ycc-agents agent" for skill in sorted(set(expected) - set(reach))
-    ]
+    for skill in sorted(expected):
+        actual = reach.get(skill)
+        if actual is None:
+            errors.append(f"dispatching skill {skill!r} reaches no ycc-agents agent")
+        elif actual != expected[skill]:
+            errors.append(f"dispatching skill {skill!r} reaches {actual!r}; expected {expected[skill]!r}")
     return errors
 
 
