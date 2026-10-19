@@ -109,7 +109,7 @@ def cli_written_snapshot(package_root: Path, package: str, output: str) -> Path:
         raise ValueError("'codex plugin add' output is not a JSON object")
     snapshot = package_root / safe_version(report.get("version"), package)
     installed = report.get("installedPath")
-    if installed is not None and (not isinstance(installed, str) or Path(installed).resolve() != snapshot.resolve()):
+    if not isinstance(installed, str) or Path(installed).resolve() != snapshot.resolve():
         raise ValueError(f"reported installedPath {installed!r} is not {snapshot}")
     guarded(snapshot)
     if not snapshot.is_dir():
