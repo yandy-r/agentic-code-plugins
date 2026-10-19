@@ -339,6 +339,8 @@ PY
       record "omp" "OM1" "FAIL" "${odir} does not exist but matrix INSTALL_PATH:omp=${verdict}"
     fi
     return
+  elif [[ "$verdict" == "unsupported" ]]; then
+    record "omp" "OM1" "FAIL" "${odir} exists but matrix INSTALL_PATH:omp=unsupported"
   else
     record "omp" "OM1" "PASS" ""
   fi

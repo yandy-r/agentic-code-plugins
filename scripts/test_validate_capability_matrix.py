@@ -157,6 +157,13 @@ class NegativeTests(MatrixFixture):
         separator = "| :-- | " + " | ".join(":-:" for _ in CANONICAL_TARGETS) + " |"
         self.assertNotEqual(self.errors(fixture_matrix(separator=separator)), [])
 
+    def test_table_before_matrix_heading_fails(self) -> None:
+        # The audit parsers read the first table in the file, so nothing may precede the matrix.
+        matrix = fixture_matrix().replace("# Matrix\n", "# Matrix\n\n  | key | value |\n  | --- | ----- |\n", 1)
+        self.assert_error(
+            self.errors(matrix), "line 3: table before Capability Matrix would be parsed by audit parsers"
+        )
+
     def test_colonless_note_is_allowed(self) -> None:
         notes = [f"**{NOTE_KEY}**", "x", "", "**FREE FORM**", "Prose."]
         self.assertEqual(self.errors(fixture_matrix(notes=notes)), [])

@@ -90,6 +90,11 @@ def parse_matrix(lines: Sequence[str], errors: list[str]) -> Matrix:
     header: list[str] | None = None
     rows: list[tuple[str, tuple[str, ...]]] = []
     in_table = False
+    for lineno, line in enumerate(lines, 1):
+        if line.strip() == MATRIX_HEADING:
+            break
+        if line.lstrip().startswith("|"):
+            errors.append(f"line {lineno}: table before Capability Matrix would be parsed by audit parsers")
     for lineno, line in _section(lines, MATRIX_HEADING):
         if not line.strip().startswith("|"):
             if in_table:

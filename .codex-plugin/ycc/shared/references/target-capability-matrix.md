@@ -45,13 +45,13 @@ Follow these rules exactly or the parser will misread cells:
 
 | capability        | claude    | cursor      | codex       | opencode    | omp         |
 | ----------------- | --------- | ----------- | ----------- | ----------- | ----------- |
-| SKILLS            | supported | supported   | supported   | supported   | partial     |
-| COMMANDS          | supported | partial     | unsupported | supported   | partial     |
-| AGENTS            | supported | partial     | supported   | supported   | partial     |
+| SKILLS            | supported | supported   | supported   | supported   | unsupported |
+| COMMANDS          | supported | partial     | unsupported | supported   | unsupported |
+| AGENTS            | supported | partial     | supported   | supported   | unsupported |
 | HOOKS.PreToolUse  | supported | partial     | unsupported | partial     | unsupported |
 | HOOKS.PostToolUse | supported | partial     | unsupported | partial     | unsupported |
 | HOOKS.Stop        | supported | partial     | unsupported | partial     | unsupported |
-| MCP               | supported | supported   | partial     | supported   | partial     |
+| MCP               | supported | supported   | partial     | supported   | unsupported |
 | INSTALL_PATH      | supported | supported   | supported   | supported   | unsupported |
 | DANGEROUS_MODE    | supported | unsupported | unsupported | unsupported | unsupported |
 | WORKTREE          | supported | partial     | partial     | partial     | unsupported |
@@ -313,19 +313,21 @@ Unsupported. opencode plugins are the closest analogue, but no translator exists
 is reported and skipped.
 
 **SKILLS:omp**
-Partial. OMP discovers plugin `skills/<name>/SKILL.md` natively (run as `/skill:<name>`), and
-`disable-model-invocation` maps natively. Bodies still need a rewrite: OMP expands
-`${CLAUDE_PLUGIN_ROOT}` only in MCP config, and `/ycc:<name>` and `_shared` paths do not resolve
-(`skill://` rejects `..`). ycc ships no OMP skill tree yet (YAN-1167). Source: ADR 0002; spike §3.
+Unsupported today: ycc ships no OMP skill tree yet. OMP discovers plugin `skills/<name>/SKILL.md`
+natively (run as `/skill:<name>`), and `disable-model-invocation` maps natively. Bodies still need a
+rewrite: OMP expands `${CLAUDE_PLUGIN_ROOT}` only in MCP config, and `/ycc:<name>` and `_shared`
+paths do not resolve (`skill://` rejects `..`). Owner: YAN-1167. Source: ADR 0002; spike §3.
 
 **COMMANDS:omp**
-Partial. Skills run as `/skill:<name>`; OMP loads plugin `commands/*.md` as `/ycc:<cmd>`, but ycc
-ships no OMP wrappers yet. Optional thin wrappers are YAN-1168. Source: spike §3.
+Unsupported today: ycc ships no OMP command wrappers yet. Skills run as `/skill:<name>`, and OMP
+loads plugin `commands/*.md` natively as `/ycc:<cmd>`. Optional thin wrappers are YAN-1168.
+Source: spike §3.
 
 **AGENTS:omp**
-Partial. OMP loads plugin `agents/` as task agents, but keeps agent `model:` only under an
-`.omp-plugin/plugin.json` root. The translator must map Claude models to `@role` aliases and tool
-names to OMP IDs (`WebSearch` → `web_search`); ycc ships none yet (YAN-1169). Source: ADR 0002.
+Unsupported today: ycc ships no OMP agents yet. OMP loads plugin `agents/` natively as task agents,
+but keeps agent `model:` only under an `.omp-plugin/plugin.json` root. The translator must map
+Claude models to `@role` aliases and tool names to OMP IDs (`WebSearch` → `web_search`). Owner:
+YAN-1169. Source: ADR 0002.
 
 **HOOKS.PreToolUse:omp**
 Unsupported. OMP never runs shell hooks or `hooks/hooks.json`; hooks load only as TypeScript
@@ -340,9 +342,9 @@ Same constraint as HOOKS.PreToolUse:omp. The closest OMP event is `tool_result`.
 Same constraint as HOOKS.PreToolUse:omp. The closest OMP event is `session_stop`.
 
 **MCP:omp**
-Partial. OMP's plugin MCP loader reads a package `.mcp.json` natively, names servers
-`ycc-mcp:<server>`, and expands `${VAR}` env placeholders. The OMP `ycc-mcp` package is not
-generated yet (YAN-1173, YAN-1171). Source: spike §2.5, §3.
+Unsupported today: ycc ships no OMP MCP package yet. OMP's plugin MCP loader reads a package
+`.mcp.json` natively, names servers `ycc-mcp:<server>`, and expands `${VAR}` env placeholders.
+Owners: YAN-1173, YAN-1171. Source: spike §2.5, §3.
 
 **INSTALL_PATH:omp**
 Unsupported. No generated `.omp-plugin/` tree and no `install.sh --target omp` exist yet
