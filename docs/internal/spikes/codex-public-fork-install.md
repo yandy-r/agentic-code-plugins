@@ -29,10 +29,13 @@ sha256sum codex-x86_64-unknown-linux-musl.tar.gz   # 306865417d4ee7a927785852910
 tar -xzf codex-x86_64-unknown-linux-musl.tar.gz
 sha256sum codex-x86_64-unknown-linux-musl          # 12eb3e81114588aca3b7998f4f19e8997b056aca08e57a7ca7c8a3ec8c652aad
 
+# The public profile defaults to Codex >=0.160.0; --codex-exact pins the spike
+# baseline. Run from a checkout whose generator matches the fixture bytes
+# (0dbb571b, the parent of #317); later sources drift from this immutable fixture.
 CODEX_BIN=/path/to/codex-x86_64-unknown-linux-musl \
   ./scripts/test-codex-native-packages.sh --keep \
   --public https://github.com/yandy-r/codex-plugin-spike.git \
-  --ref a0df68c5862180947bd4fb207861f1a87d718a24
+  --ref a0df68c5862180947bd4fb207861f1a87d718a24 --codex-exact 0.160.0
 ```
 
 Retained transcript from the final verified run: `/tmp/codex-native-packages.Wi8D8K/transcript.log` (exit 0, 1078 lines; ephemeral `/tmp` path, retained only because `--keep` was passed). Earlier pre-review runs are retained at `/tmp/codex-native-packages.yX4uwv/transcript.log` and `/tmp/codex-native-packages.W8DmYP/transcript.log`.
@@ -129,3 +132,11 @@ Default local-fixture replay and checkout-checker unit tests (commands for repla
 ./scripts/test-codex-native-packages.sh --keep
 python3 -m unittest discover -s scripts -p 'test_codex_native_smoke.py'
 ```
+
+## 2026-10-19 Follow-up: Production Repo Certification (YAN-1217 / #370)
+
+The public profile now certifies `yandy-r/ystack` itself. Fixture proof compares `.agents/plugins` plus only the `.codex-plugin/<name>` payload directories the fresh export's catalog names, so the installer-owned `.codex-plugin/agents/` and `.codex-plugin/config/` no longer count as drift. The profile accepts Codex `>=0.160.0` by default; `--codex-exact X.Y.Z` keeps the exact pin for this spike replay.
+
+- `--public https://github.com/yandy-r/ystack.git --ref 1d70758de5d5dd4ac6759e8b4aa1698557db235a` (`main`) passed full and sparse on official `codex-cli 0.160.0` (same binary SHA-256 as above) and on `codex-cli 0.163.0`. Before this change, the same 0.160.0 run exited 1 at fixture proof.
+- The spike replay above, with `--codex-exact 0.160.0` from a `0dbb571b` checkout carrying the updated harness, passed full and sparse on official 0.160.0. With a current source tree it still fails at fixture proof, which is the stale-fixture limit described in the previous section, now confined to `.codex-plugin/ycc` payload bytes.
+- `--codex-exact 0.160.0` rejects `codex-cli 0.163.0` at the version check.

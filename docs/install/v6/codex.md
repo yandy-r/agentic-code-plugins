@@ -98,17 +98,18 @@ marketplace root is `$HOME`, so `./.codex-plugin/ycc` would resolve to
 
 ## Tested Baselines And Version Boundaries
 
-- **codex-cli 0.160.0 (exact, public profile):** anonymous public GitHub HTTPS
-  registration and independent installs of `ycc@ycc` and `ycc-mcp@ycc`
-  verified, from both full and sparse checkouts, in both install orders.
-  Payload version was 5.3.0 bytes, not the final v6.0.0 payload.
+- **codex-cli 0.160.0 and 0.163.0 (public profile, production repo):**
+  anonymous public GitHub HTTPS registration of `yandy-r/ystack` at a pinned
+  `main` SHA and independent installs of `ycc@ycc` and `ycc-mcp@ycc`, from
+  both full and sparse checkouts, in both install orders (v6.0.0 payload).
+- **codex-cli 0.160.0 (exact, public spike fixture):** the same matrix
+  against a 5.3.0-payload fixture repository.
 - **codex-cli 0.161.0:** the same package split installed from a local
   file-transport fixture; sparse-checkout and hook-discovery matrix verified.
-- No version other than exact 0.160.0 was run in the public profile, and no
-  claim is made about later runtimes. Authenticated/private, SSH, and
-  `owner/repo` shorthand transports are untested. MCP evidence is metadata
-  only (`mcp list`); no server execution, login, session, or hook dispatch
-  was exercised.
+- No claim is made about runtimes not listed above. Authenticated/private,
+  SSH, and `owner/repo` shorthand transports are untested. MCP evidence is
+  metadata only (`mcp list`); no server execution, login, session, or hook
+  dispatch was exercised.
 
 ## Native Vs Fallback
 
