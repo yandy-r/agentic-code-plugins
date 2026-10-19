@@ -151,6 +151,7 @@ edited and foreign catalog entries remain preserved.
 - Cursor generated packages: `packages/cursor/{ycc,ycc-rules,ycc-mcp,ycc-hooks}/` (all listed in the root `.cursor-plugin/marketplace.json`)
 - Cursor file-copy settings input: `packages/cursor/installer-fallback/config/cli-config.json`, generated from `ycc/settings/cursor/cli-config.json`
 - opencode generated bundle: `.opencode-plugin/` (skills, agents, commands, AGENTS.md, opencode.json)
+- OMP generated skills: `packages/omp/ycc/skills/` (not installable until YAN-1171 and YAN-1172)
 - Skills go in `ycc/skills/<skill-name>/SKILL.md`
 - Scripts must be executable (`chmod +x`) and use `set -euo pipefail`
 - Reference templates go in `ycc/skills/<skill-name>/references/`
@@ -231,12 +232,12 @@ These values are sample placeholders (`placeholder: true` in `models.json`); use
 | **General Development**           | `openai/gpt-5.6-sol`   | All other implementation, review, and specialty agents (`implementor`, `code-reviewer`, `typescript-developer`, `python-developer`, built-ins `general`/`explore`, etc.)                                                                                         |
 
 ```bash
-./scripts/sync.sh         # regenerate every Cursor / Codex / opencode bundle
+./scripts/sync.sh         # regenerate every Cursor / Codex / opencode / OMP bundle
 ./scripts/validate.sh     # run every validator (this is what CI runs)
 ```
 
 Both accept `--only <targets>` with comma-separated values (`inventory, cursor, codex,
-opencode, json`). The individual generator/validator scripts are still available if you
+opencode, omp, json`). The individual generator/validator scripts are still available if you
 need to target a single surface:
 
 ```bash
@@ -256,6 +257,9 @@ need to target a single surface:
 ./scripts/generate-opencode-agents.sh   && ./scripts/validate-opencode-agents.sh
 ./scripts/generate-opencode-commands.sh && ./scripts/validate-opencode-commands.sh
 ./scripts/generate-opencode-plugin.sh   && ./scripts/validate-opencode-plugin.sh
+
+# OMP (oh-my-pi)
+./scripts/generate-omp-skills.sh && ./scripts/validate-omp-skills.sh
 ```
 
 ## Plugin evals

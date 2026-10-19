@@ -45,7 +45,7 @@ Follow these rules exactly or the parser will misread cells:
 
 | capability        | claude    | cursor      | codex       | opencode    | omp         |
 | ----------------- | --------- | ----------- | ----------- | ----------- | ----------- |
-| SKILLS            | supported | supported   | supported   | supported   | unsupported |
+| SKILLS            | supported | supported   | supported   | supported   | partial     |
 | COMMANDS          | supported | partial     | unsupported | supported   | unsupported |
 | AGENTS            | supported | partial     | supported   | supported   | unsupported |
 | HOOKS.PreToolUse  | supported | partial     | unsupported | partial     | unsupported |
@@ -313,10 +313,12 @@ Unsupported. opencode plugins are the closest analogue, but no translator exists
 is reported and skipped.
 
 **SKILLS:omp**
-Unsupported today: ycc ships no OMP skill tree yet. OMP discovers plugin `skills/<name>/SKILL.md`
-natively (run as `/skill:<name>`), and `disable-model-invocation` maps natively. Bodies still need a
-rewrite: OMP expands `${CLAUDE_PLUGIN_ROOT}` only in MCP config, and `/ycc:<name>` and `_shared`
-paths do not resolve (`skill://` rejects `..`). Owner: YAN-1167. Source: ADR 0002; spike §3.
+Partial: `scripts/generate_omp_skills.py` generates every skill under `packages/omp/ycc/skills/`,
+and it loads via `omp --plugin-dir`. Skills run as `/skill:<name>`, and `disable-model-invocation`
+maps natively. `${CLAUDE_PLUGIN_ROOT}` and `_shared` paths become `skill://` URLs, and `_shared`
+ships once as the hidden `ycc-shared` skill. `/ycc:<name>` becomes `/skill:<name>`. The tree is
+not installable until YAN-1171 and YAN-1172. Workflow semantics (worktree roots, background jobs,
+questions in non-interactive modes) stay with YAN-1170. Source: ADR 0002; spike §3.
 
 **COMMANDS:omp**
 Unsupported today: ycc ships no OMP command wrappers yet. Skills run as `/skill:<name>`, and OMP
@@ -358,9 +360,9 @@ flag analogue to emit. Source: spike §2.10.
 
 **WORKTREE:omp**
 Unsupported. OMP has no `WorktreeCreate` event, and its task isolation manages its own
-workspaces (spike §2.4). Whether the ycc skills' `git worktree add` fallback works on OMP is
-unverified until the skill tree (YAN-1167) and workflow semantics (YAN-1170) land, so there is
-no tested path today. Source: ADR 0002.
+workspaces (spike §2.4). The generated skill tree ships (YAN-1167), but the skills'
+`git worktree add` fallback stays untested on OMP until the workflow semantics land (YAN-1170),
+so there is no tested path today. Source: ADR 0002.
 
 **MODS:omp**
 Unsupported. The Claude Code mod API differs from OMP's `ExtensionAPI`; the status-bar mod is

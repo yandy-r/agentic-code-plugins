@@ -21,4 +21,5 @@ packages/cursor/
 .opencode-plugin/
 .omp-plugin/
 packages/opencode/
+packages/omp/
 .agents-plugin/
