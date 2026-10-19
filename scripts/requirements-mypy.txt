@@ -1,0 +1,4 @@
+# Pinned type checker for `./scripts/validate.sh --only types` (scripts/validate-types.sh).
+# CI installs this file; the helper requires the installed mypy to match the pin.
+mypy==2.4.0
+types-PyYAML==6.0.12.20260906

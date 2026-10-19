@@ -72,6 +72,7 @@ this table records install ownership, not a claim of runtime feature parity:
 | `./scripts/validate.sh --only cursor,cursor-native,packages`  | Cursor content, generator, native policy fixtures, parity |
 | `./scripts/validate.sh --only codex,codex-native,packages`    | Codex content, native export, policy fixtures, parity     |
 | `./scripts/validate.sh --only practices`                      | Rule/skill/agent authoring ratchet                        |
+| `./scripts/validate.sh --only types`                          | `mypy --strict` over pyproject.toml `[tool.mypy]` files   |
 | `python3 scripts/test_validate_practices.py`                  | Authoring-validator regression tests                      |
 | `./scripts/install-shellcheck.sh`                             | Install the pinned ShellCheck matching CI                 |
 | `npm run lint` / `npm run lint:modified` / `npm run lint:fix` | Python + Shell lint / changed files / fixes               |

@@ -62,35 +62,35 @@ expect_targets "generated Cursor package selects content, native and parity" "cu
 expect_targets "Cursor installer fallback selects content, native and config" "cursor cursor-native config" packages/cursor/installer-fallback/config/cli-config.json
 expect_targets "Cursor native wrapper selects content, native and config" "cursor cursor-native config" scripts/generate-cursor-packages.sh
 expect_targets "Cursor native validator selects content, native and config" "cursor cursor-native config" scripts/validate-cursor-packages.sh
-expect_targets "Cursor native policy selects content, native and config" "cursor cursor-native config" scripts/validate_cursor_native.py
+expect_targets "Cursor native policy selects content, native, config and types" "cursor cursor-native config types" scripts/validate_cursor_native.py
 expect_targets "Cursor native policy tests select content, native and config" "cursor cursor-native config" scripts/test_validate_cursor_native.py
-expect_targets "Cursor generator selects content, native and config" "cursor cursor-native config" scripts/generate_cursor_packages.py
-expect_targets "Cursor resources select content, native and config" "cursor cursor-native config" scripts/cursor_native_resources.py
+expect_targets "Cursor generator selects content, native, config and types" "cursor cursor-native config types" scripts/generate_cursor_packages.py
+expect_targets "Cursor resources select content, native, config and types" "cursor cursor-native config types" scripts/cursor_native_resources.py
 expect_targets "Cursor package tests select content, native and config" "cursor cursor-native config" scripts/test_generate_cursor_packages.py
 expect_targets "unrelated package output selects everything" "${ALL}" packages/other/ycc-mcp/mcp.json
 expect_targets "Cursor hook source selects everything" "${ALL}" ycc/settings/cursor/herdr-session-start.sh
 expect_targets "vendored Cursor schemas select cursor native and config" "cursor cursor-native config" scripts/vendor/cursor/plugin.schema.json
-expect_targets "Claude generator selects claude native" "claude claude-native" scripts/generate_claude_packages.py
+expect_targets "Claude generator selects claude native and types" "claude claude-native types" scripts/generate_claude_packages.py
 expect_targets "Claude validator selects claude native" "claude claude-native" scripts/validate-claude-packages.sh
-expect_targets "Claude native policy selects claude native" "claude claude-native" scripts/validate_claude_native.py
+expect_targets "Claude native policy selects claude native and types" "claude claude-native types" scripts/validate_claude_native.py
 expect_targets "Claude native policy tests select claude native" "claude claude-native" scripts/test_validate_claude_native.py
-expect_targets "Codex generator selects codex native and config" "codex codex-native config" scripts/generate_codex_plugin.py
+expect_targets "Codex generator selects codex native, config and types" "codex codex-native config types" scripts/generate_codex_plugin.py
 expect_targets "Codex validator selects codex native and config" "codex codex-native config" scripts/validate-codex-plugin.sh
-expect_targets "Codex native policy selects codex native and config" "codex codex-native config" scripts/validate_codex_native.py
+expect_targets "Codex native policy selects codex native, config and types" "codex codex-native config types" scripts/validate_codex_native.py
 expect_targets "Codex native tests select codex native and config" "codex codex-native config" scripts/test_validate_codex_native.py
 expect_targets "Codex generator tests selects codex native and config" "codex codex-native config" scripts/test_generate_codex_plugin.py
-expect_targets "Codex catalog helper selects native and config" "codex-native config" scripts/codex_marketplace.py
+expect_targets "Codex catalog helper selects native, config and types" "codex-native config types" scripts/codex_marketplace.py
 expect_targets "Codex catalog tests select native and config" "codex-native config" scripts/test_codex_marketplace.py
 expect_targets "Codex catalog selects agents native and packages" "agents codex-native packages" .agents/plugins/marketplace.json
 expect_targets "Codex in-repo payload selects content, native and parity" "codex codex-native packages" .codex-plugin/ycc-mcp/.mcp.json
 expect_targets "Claude generator wrapper selects generator and native" "claude claude-native" scripts/generate-claude-packages.sh
 expect_targets "Claude generator tests select generator and native" "claude claude-native" scripts/test_generate_claude_packages.py
-expect_targets "Claude smoke driver selects generator and native" "claude claude-native" scripts/claude_native_smoke.py
+expect_targets "Claude smoke driver selects generator, native and types" "claude claude-native types" scripts/claude_native_smoke.py
 expect_targets "Claude live harness selects generator and native" "claude claude-native" scripts/test-claude-native-packages.sh
 expect_targets "Claude marketplace selects native, JSON and parity" "claude-native json packages" .claude-plugin/marketplace.json
 expect_targets "install.sh selects config" "config" install.sh
 expect_targets "install tests select config" "config" scripts/tests/install/codex.sh
-expect_targets "migration helper selects config" "config" scripts/install_migrate.py
+expect_targets "migration helper selects config and types" "config types" scripts/install_migrate.py
 expect_targets "migration fixture suite selects config" "config" scripts/tests/install/migrate.sh
 expect_targets "install target libs also select the coverage validators" "opencode agents config" \
     scripts/lib/install/targets/agents.sh
@@ -98,25 +98,25 @@ expect_targets "mods select mods and the install tests" "config mods" ycc/mods/R
 expect_targets "release tests select release" "release" scripts/test-release-model.sh
 expect_targets "plan-workflow validator test selects inventory" "inventory" scripts/test-plan-workflow-validators.sh
 expect_targets "rename wrapper selects inventory" "inventory" scripts/rename-repo.sh
-expect_targets "rename engine selects inventory" "inventory" scripts/rename_repo.py
+expect_targets "rename engine selects inventory and types" "inventory types" scripts/rename_repo.py
 expect_targets "rename shell tests select inventory" "inventory" scripts/test-rename-repo.sh
 expect_targets "rename Python tests select inventory" "inventory" scripts/test_rename_repo.py
 expect_targets "practices baseline selects practices" "practices" scripts/practices-baseline.json
 expect_targets "claude rules select practices" "practices" .claude/rules/scripts.md
 expect_targets "non-md claude rules file selects practices" "practices" .claude/rules/sub/notes.txt
-expect_targets "practices rules module selects practices" "practices" scripts/practices_rules.py
+expect_targets "practices rules module selects practices and types" "practices types" scripts/practices_rules.py
 expect_targets "standalone agent reference test selects practices" "practices" scripts/test_standalone_agent_references.py
-expect_targets "package parity validator selects packages" "packages" scripts/validate_packages.py
+expect_targets "package parity validator selects packages and types" "packages types" scripts/validate_packages.py
 expect_targets "package parity tests select packages" "packages" scripts/test_validate_packages.py
 expect_targets "live install docs select packages" "packages" docs/install/cursor.md
 expect_targets "v6 install drafts select packages before docs catch-all" "packages" docs/install/v6/codex.md
 expect_targets "install doc indexes select packages" "packages" docs/install/README.md docs/install/v6/README.md
-expect_targets "install ID validator selects packages" "packages" scripts/validate_install_doc_ids.py
+expect_targets "install ID validator selects packages and types" "packages types" scripts/validate_install_doc_ids.py
 expect_targets "install ID tests select packages" "packages" scripts/test_validate_install_doc_ids.py
 expect_targets "settings select everything" "${ALL}" ycc/settings/models.json
-expect_targets "package model selects content, native, generators and parity" "cursor codex opencode claude claude-native cursor-native codex-native packages" scripts/package_model.py
-expect_targets "package graph builder selects packages" "packages" scripts/build_package_graph.py
-expect_targets "package graph extractor selects packages" "packages" scripts/package_graph_extract.py
+expect_targets "package model selects content, native, generators, parity and types" "cursor codex opencode claude claude-native cursor-native codex-native packages types" scripts/package_model.py
+expect_targets "package graph builder selects packages and types" "packages types" scripts/build_package_graph.py
+expect_targets "package graph extractor selects packages and types" "packages types" scripts/package_graph_extract.py
 expect_targets "package graph tests select packages" "packages" scripts/test_package_graph.py
 expect_targets "generators select everything" "${ALL}" scripts/generate_codex_skills.py
 expect_targets "validate.sh selects everything" "${ALL}" scripts/validate.sh
@@ -126,6 +126,11 @@ expect_targets "CLAUDE.md selects everything" "${ALL}" CLAUDE.md
 expect_targets "mixed paths union in target order" "inventory config mods" \
     ycc/mods/README.md docs/research/notes.md README.md
 expect_targets "one unrecognised path widens a narrow set" "${ALL}" docs/README.md pyproject.toml
+expect_targets "mypy pins select types" "types" scripts/requirements-mypy.txt
+expect_targets "mypy runner selects types" "types" scripts/validate-types.sh
+expect_targets "covered install modules select their targets and types" "config types" \
+    scripts/install_migrate.py scripts/install_slices.py scripts/merge_managed_config.py
+expect_targets "Python tests do not select types" "config" scripts/test_merge_managed_config.py
 
 unknown=""
 while IFS= read -r path; do
