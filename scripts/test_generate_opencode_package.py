@@ -91,11 +91,12 @@ await cleanup();
 # session context events through the latest setup's hooks. The fake tool
 # inventory carries the built-ins' permission names (write/patch -> edit).
 # `event` cases publish a host bus event to every live subscriber (or only to
-# the setups listed in `targets`, i.e. other locations of the project);
-# `rebuild` sets the adapter up again over the same plugin storage; `storage`
-# makes later writes fail (`fail`), wait until a `release` (`hold`), or
-# succeed (`ok`). Storage calls
-# resolve a tick later, as the host's do, and scan pages two entries at a time.
+# the setups listed in `targets`, i.e. other locations of the project) and
+# wait `settle` ms (default 30); `rebuild` sets the adapter up again over the
+# same plugin storage; `storage` makes later writes fail (`fail`), wait until a
+# `release` (`hold`), or succeed (`ok`), or sets how many ms a scan takes
+# (`scanDelay`). Storage calls resolve a tick later, as the host's do, and scan
+# pages two entries at a time.
 FLOOR_DRIVER = r"""
 import { pathToFileURL } from "node:url";
 import { readFileSync } from "node:fs";
@@ -103,7 +104,7 @@ const [root] = process.argv.slice(2);
 const { hostRules, inventory, sessions, cases } = JSON.parse(readFileSync(0, "utf8"));
 const plugin = (await import(pathToFileURL(root + "/index.js").href)).default;
 const storage = new Map(), subscribers = new Set(), held = [];
-let writes = "ok";
+let writes = "ok", scanDelay = 0;
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 function subscriber(owner) {
   return (options) => ({ [Symbol.asyncIterator]() {
@@ -132,10 +133,11 @@ const pluginStorage = {
   },
   remove: async (key) => { await tick(); storage.delete(key); },
   scan: async ({ prefix, after, limit = 2 }) => {
-    await tick();
+    // The query reads storage when it starts; a slow scan returns that snapshot.
     const keys = [...storage.keys()]
       .filter((key) => key.startsWith(prefix) && (after === undefined || key > after)).sort();
     const entries = keys.slice(0, limit).map((key) => ({ key, value: structuredClone(storage.get(key)) }));
+    await new Promise((resolve) => setTimeout(resolve, scanDelay));
     return keys.length > limit ? { entries, next: entries.at(-1).key } : { entries };
   },
 };
@@ -193,10 +195,11 @@ for (const item of cases) {
           }
         }
       }
-      await settle();
+      await new Promise((resolve) => setTimeout(resolve, item.settle ?? 30));
       results.push({ ok: true });
     } else if (item.kind === "storage") {
-      writes = item.writes;
+      if (item.scanDelay !== undefined) scanDelay = item.scanDelay;
+      else writes = item.writes;
       if (item.writes === "release") { writes = "ok"; held.splice(0).forEach((resolve) => resolve()); }
       await settle();
       results.push({ ok: true });
@@ -688,6 +691,26 @@ class OpencodeNpmPackageTests(unittest.TestCase):
         )
 
     @unittest.skipIf(NODE is None, "node is required")
+    def test_auto_resolved_request_partly_allowed_by_config_records_nothing(self) -> None:
+        # One batched request: /home/u/p2/sub/* is allowed by the user's config,
+        # /r/d/sub/* asks. The user answers another request for /r/d/* "always";
+        # the host saves only /r/d/* and auto-resolves the batched request.
+        self.run_external(
+            "auto-resolve-partial",
+            [
+                (external_asked("per_a", ["/r/d/*"], ["/r/d/*"]), None),
+                (external_asked("per_b", ["/home/u/p2/sub/*", "/r/d/sub/*"], ["/home/u/p2/*", "/r/*"]), None),
+                (external_batch(external_replied("per_a", "always"), external_replied("per_b", "always")), None),
+                (external_check(FIXER, ["/r/d/sub/*"]), "allow"),
+                (external_check(FIXER, ["/r/e/*"]), "ask"),
+                (external_check(FIXER, ["/home/u/p2/x/*"]), "ask"),
+                ({"kind": "rebuild"}, None),
+                (external_check(FIXER, ["/r/e/*"]), "ask"),
+                (external_check(FIXER, ["/home/u/p2/x/*"]), "ask"),
+            ],
+        )
+
+    @unittest.skipIf(NODE is None, "node is required")
     def test_failed_approval_write_does_not_stop_recording(self) -> None:
         self.run_external(
             "write-failure",
@@ -718,6 +741,24 @@ class OpencodeNpmPackageTests(unittest.TestCase):
                 ({"kind": "storage", "writes": "release"}, None),
                 ({"kind": "rebuild"}, None),
                 (external_check(FIXER, ["/one/sub/*"]), "allow"),
+            ],
+        )
+
+    @unittest.skipIf(NODE is None, "node is required")
+    def test_approval_applies_before_a_slow_storage_scan_finishes(self) -> None:
+        # The host's re-evaluation of pending requests runs right after it
+        # publishes the reply, long before a slow storage scan returns.
+        self.run_external(
+            "slow-scan",
+            [
+                ({"kind": "storage", "scanDelay": 300}, None),
+                (external_asked("per_1", ["/one/*"], ["/one/*"]), None),
+                ({**external_replied("per_1", "always"), "settle": 5}, None),
+                (external_check(FIXER, ["/one/sub/*"]), "allow"),
+                # A request asked alongside it and answered "always" is still recorded.
+                (external_asked("per_2", ["/two/*"], ["/two/*"]), None),
+                ({**external_replied("per_2", "always"), "settle": 5}, None),
+                (external_check(FIXER, ["/two/sub/*"]), "allow"),
             ],
         )
 

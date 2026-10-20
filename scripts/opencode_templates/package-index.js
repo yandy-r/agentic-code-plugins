@@ -69,10 +69,13 @@
 //     package records the same patterns in its own storage, one key per
 //     pattern under the project (ctx.storage.scan reads them back), and keeps
 //     an allow they cover. After saving, the host re-evaluates every other
-//     pending request and publishes an "always" reply, without saving
-//     anything, for each one that now evaluates to allow. Such a request's
-//     resources are already covered by the patterns just recorded, so a
-//     covered request's reply records nothing.
+//     pending request in the same fiber and publishes an "always" reply,
+//     without saving anything, for each one that now evaluates to allow. At
+//     least one resource of such a request is covered by the patterns just
+//     recorded (the rest may be allowed by config), so a reply to a request
+//     any recorded pattern already partly covers records nothing. Recording
+//     happens in memory before any await, so that same-fiber re-evaluation
+//     already sees it.
 //
 // Coexistence with the primary file-copy install (install.sh --target
 // opencode): config agents/skills/commands apply in the `post` plugin group,
@@ -379,8 +382,9 @@ async function storedPatterns(ctx) {
   return patterns;
 }
 
-// Recorded patterns: this instance's in-memory records (set as soon as the
-// reply arrives, before the storage write lands) plus the stored ones.
+// Recorded patterns: this instance's in-memory records (loaded at setup, then
+// set as soon as a reply arrives) plus those other locations of the project
+// stored since.
 async function savedPatterns(ctx, recorded) {
   try {
     return [...recorded, ...(await storedPatterns(ctx))];
@@ -389,16 +393,18 @@ async function savedPatterns(ctx, recorded) {
   }
 }
 
-function covered(resources, patterns) {
-  return resources.every((resource) => patterns.some((pattern) => wildcardMatch(resource, pattern)));
+function matches(resource, patterns) {
+  return patterns.some((pattern) => wildcardMatch(resource, pattern));
 }
 
 // Record the `save` patterns of every external_directory request the user
 // answers "always", as the host saves them (any agent and session of the
 // project). A reply this package never saw asked, any other reply, and a reply
-// to a request the recorded patterns already covered (the host's re-evaluation
-// of other pending requests, which saves nothing) record nothing. Events are
-// handled one at a time; a failed write loses only that record.
+// to a request a recorded pattern already partly covers (the host's
+// re-evaluation of other pending requests, which saves nothing) record
+// nothing; the cost is one more prompt when a genuine "always" overlaps an
+// earlier record. Events are handled one at a time; a failed write loses only
+// that record, until this instance is rebuilt.
 function trackSavedApprovals(ctx, signal, recorded) {
   const asked = new Map();
   void (async () => {
@@ -411,7 +417,8 @@ function trackSavedApprovals(ctx, signal, recorded) {
           const request = asked.get(event.data.requestID);
           asked.delete(event.data.requestID);
           if (!request || event.data.reply !== "always") continue;
-          if (covered(request.resources, await savedPatterns(ctx, recorded))) continue;
+          const known = [...recorded];
+          if (request.resources.some((resource) => matches(resource, known))) continue;
           for (const pattern of request.save) recorded.add(pattern);
           for (const pattern of request.save) {
             await ctx.storage.set(savedPrefix(ctx) + encodeURIComponent(pattern), pattern);
@@ -437,6 +444,11 @@ async function registerPermissionFloor(ctx, signal) {
   if (RESTRICTED_RULES.size === 0) return;
   const recorded = new Set();
   trackSavedApprovals(ctx, signal, recorded);
+  try {
+    for (const pattern of await storedPatterns(ctx)) recorded.add(pattern);
+  } catch {
+    // Unloaded records are still read by the evaluate hook's own scan.
+  }
   await ctx.permission.hook("evaluate", async (event) => {
     if (event.effect === "deny") return;
     let agent = event.agent;
@@ -461,7 +473,9 @@ async function registerPermissionFloor(ctx, signal) {
     if (event.effect !== "allow" || event.action !== EXTERNAL) return;
     const asked = event.resources.filter((_, index) => effects[index] === "ask");
     if (asked.length === 0) return;
-    if (!covered(asked, await savedPatterns(ctx, recorded))) event.effect = "ask";
+    if (asked.every((resource) => matches(resource, [...recorded]))) return;
+    const saved = await savedPatterns(ctx, recorded);
+    if (!asked.every((resource) => matches(resource, saved))) event.effect = "ask";
   });
   await ctx.tool.hook("execute.before", async (event) => {
     const rules = RESTRICTED_RULES.get(event.agent);
