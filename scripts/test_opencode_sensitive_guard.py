@@ -27,22 +27,32 @@ NODE = shutil.which("node")
 RESTRICTED = "pr-comment-fixer"
 OPEN_AGENT = "code-finder"
 
-# Reads cases as JSON on stdin and prints one JSON outcome per case.
+# Reads cases as JSON on stdin and prints one JSON outcome per case. The setup
+# location (`setupDir`, like a server started elsewhere) differs from the
+# session location that ctx.session.get reports for each case's sessionID.
 DRIVER = r"""
 import { pathToFileURL } from "node:url";
 import { readFileSync } from "node:fs";
-const [guardDir, directory] = process.argv.slice(2);
+const [guardDir, setupDir] = process.argv.slice(2);
+const { sessions, setupLocation, cases } = JSON.parse(readFileSync(0, "utf8"));
 const plugin = (await import(pathToFileURL(guardDir + "/index.js").href)).default;
 const hooks = {};
 const ctx = {
-  location: { directory, project: { directory, canonical: directory } },
+  location: setupLocation === false
+    ? undefined
+    : { directory: setupDir, project: { directory: setupDir, canonical: setupDir } },
   tool: { hook: async (name, cb) => { (hooks[name] ??= []).push(cb); } },
+  session: {
+    get: async ({ sessionID }) => {
+      if (!(sessionID in sessions)) throw new Error(`session not found: ${sessionID}`);
+      return { data: { id: sessionID, location: { directory: sessions[sessionID] } } };
+    },
+  },
 };
 await plugin.setup(ctx);
-const cases = JSON.parse(readFileSync(0, "utf8"));
 const results = [];
 for (const item of cases) {
-  const event = { sessionID: "ses", messageID: "msg", id: "call",
+  const event = { sessionID: item.sessionID ?? "ses", messageID: "msg", id: "call",
     agent: item.agent, tool: item.tool, input: item.input };
   try {
     if (item.result) {
@@ -81,13 +91,31 @@ class SensitiveGuardTestCase(unittest.TestCase):
         # Curly-quote name that the read tool's look-alike fallback would pick.
         (self.work / "it\u2019s.txt").symlink_to(self.work / ".env")
 
-    def run_cases(self, cases: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def run_cases(
+        self,
+        cases: list[dict[str, Any]],
+        sessions: dict[str, str] | None = None,
+        setup_dir: Path | None = None,
+        setup_location: bool = True,
+    ) -> list[dict[str, Any]]:
+        """Drive the hooks; session "ses" lives in self.work unless overridden.
+
+        The plugin's setup location defaults to a separate server directory, so
+        every case also proves paths resolve against the session location.
+        """
         assert NODE is not None
         script = self.tmp / "driver.mjs"
         script.write_text(DRIVER, encoding="utf-8")
+        server = setup_dir or self.tmp / "server"
+        server.mkdir(exist_ok=True)
+        payload = {
+            "sessions": {"ses": str(self.work)} if sessions is None else sessions,
+            "setupLocation": setup_location,
+            "cases": cases,
+        }
         result = subprocess.run(
-            [NODE, str(script), str(GUARD_DIR), str(self.work)],
-            input=json.dumps(cases),
+            [NODE, str(script), str(GUARD_DIR), str(server)],
+            input=json.dumps(payload),
             capture_output=True,
             text=True,
             timeout=60,
@@ -144,6 +172,26 @@ class SensitiveGuardTestCase(unittest.TestCase):
             ("shell", {"command": "git diff --no-index . /tmp/empty"}),
             ("shell", {"command": "git diff --stat --no-index -- .. /tmp/empty"}),
             ("shell", {"command": "cat .{e,x}nv"}),
+            ("shell", {"command": "cat .{'e'nv,'a b'}"}),
+            ("shell", {"command": "git diff /tmp/empty ."}),
+            ("shell", {"command": "git diff . ~/empty"}),
+            ("shell", {"command": "git diff -- ../outside ."}),
+            ("shell", {"command": "git -C /tmp/elsewhere diff"}),
+            ("shell", {"command": "git --git-dir=/tmp/x/.git log -p"}),
+            ("shell", {"command": "git --work-tree /tmp/x diff"}),
+            ("shell", {"command": "git diff", "workdir": "/tmp"}),
+            ("shell", {"command": "cd src && git diff ../../outside ."}),
+            ("shell", {"command": "git diff $HOME ."}),
+            ("shell", {"command": 'git diff "${TMPDIR}" .'}),
+            ("shell", {"command": "git diff $(dirname $PWD) ."}),
+            ("shell", {"command": "git diff `echo /tmp` ."}),
+            ("shell", {"command": "cat $OLDPWD/.env"}),
+            ("shell", {"command": "git diff ~root ."}),
+            ("shell", {"command": "git diff ~someone/project ."}),
+            ("shell", {"command": "git diff ~- ."}),
+            ("shell", {"command": "git diff ~+/../sibling ."}),
+            ("shell", {"command": "git diff --output=x ~+/.. ."}),
+            ("shell", {"command": "make show DIR=~-"}),
             ("shell", {"command": "cat .e{n..n}v"}),
             ("shell", {"command": "cat $'\\x2eenv'"}),
             ("write", {"path": "pending.txt", "content": "x"}),
@@ -179,6 +227,10 @@ class SensitiveGuardTestCase(unittest.TestCase):
             ("shell", {"command": "git log --oneline HEAD~3..HEAD"}),
             ("shell", {"command": "git diff origin/main:src/app.ts HEAD:src/app.ts"}),
             ("shell", {"command": "git diff HEAD~1 -- src"}),
+            ("shell", {"command": "git status --short && git log --oneline -- src/app.ts"}),
+            ("shell", {"command": "git diff", "workdir": "src"}),
+            ("shell", {"command": "git blame -C src/app.ts"}),
+            ("shell", {"command": "git log -c -p HEAD~2..HEAD -- src"}),
             ("shell", {"command": "npm test -- --grep '{value}'"}),
             ("read", {"path": "src/missing.ts"}),
             ("write", {"path": "src/new.ts", "content": "x"}),
@@ -240,6 +292,75 @@ class SensitiveGuardTestCase(unittest.TestCase):
         cases = [{"agent": RESTRICTED, "tool": "read", "input": {"path": "src/app.ts"}, "result": {"content": "ok"}}]
         (outcome,) = self.run_cases(cases)
         self.assertEqual(outcome["result"], {"content": "ok"})
+
+    def test_paths_resolve_against_each_sessions_location(self) -> None:
+        other = self.tmp / "other"
+        (other / "src").mkdir(parents=True)
+        (other / "src" / "main.ts").write_text("x\n", encoding="utf-8")
+        sessions = {"ses": str(self.work), "ses-other": str(other)}
+        cases = [
+            # Relative `.env` names the session's file, not the server's.
+            {"agent": RESTRICTED, "tool": "read", "input": {"path": "notes.txt"}},
+            {"agent": RESTRICTED, "tool": "read", "input": {"path": "notes.txt"}, "sessionID": "ses-other"},
+            # git arguments are confined to the calling session's directory.
+            {"agent": RESTRICTED, "tool": "shell", "input": {"command": "git diff src ."}, "sessionID": "ses-other"},
+            {
+                "agent": RESTRICTED,
+                "tool": "shell",
+                "input": {"command": f"git diff {self.work} ."},
+                "sessionID": "ses-other",
+            },
+        ]
+        outcomes = self.run_cases(cases, sessions=sessions)
+        self.assertEqual([outcome["ok"] for outcome in outcomes], [False, True, True, False])
+
+        grep = {
+            "output": [{"entry": {"path": "src/main.ts"}, "line": 1, "offset": 0, "text": "x", "submatches": []}],
+            "content": "x",
+            "metadata": {"matches": 1, "truncated": False},
+        }
+        (filtered,) = self.run_cases(
+            [
+                {
+                    "agent": RESTRICTED,
+                    "tool": "grep",
+                    "input": {"pattern": "x"},
+                    "result": grep,
+                    "sessionID": "ses-other",
+                }
+            ],
+            sessions=sessions,
+        )
+        self.assertIn(str(other / "src" / "main.ts"), filtered["result"]["content"])
+
+    def test_falls_back_to_setup_location_then_fails_closed(self) -> None:
+        # session.get fails: the plugin's setup location is the root.
+        (outcome,) = self.run_cases(
+            [{"agent": RESTRICTED, "tool": "read", "input": {"path": ".env"}, "sessionID": "gone"}],
+            setup_dir=self.work,
+        )
+        self.assertFalse(outcome["ok"])
+        (outcome,) = self.run_cases(
+            [{"agent": RESTRICTED, "tool": "read", "input": {"path": "src/app.ts"}, "sessionID": "gone"}],
+            setup_dir=self.work,
+        )
+        self.assertTrue(outcome["ok"], outcome)
+
+        # Neither: restricted agents are denied, results withheld, others untouched.
+        grep = {"output": [{"entry": {"path": "src/app.ts"}}], "content": "x", "metadata": {}}
+        outcomes = self.run_cases(
+            [
+                {"agent": RESTRICTED, "tool": "read", "input": {"path": "src/app.ts"}, "sessionID": "gone"},
+                {"agent": RESTRICTED, "tool": "grep", "input": {"pattern": "x"}, "result": grep, "sessionID": "gone"},
+                {"agent": OPEN_AGENT, "tool": "read", "input": {"path": ".env"}, "sessionID": "gone"},
+            ],
+            setup_location=False,
+        )
+        self.assertFalse(outcomes[0]["ok"])
+        self.assertIn("ycc sensitive-file guard", outcomes[0]["message"])
+        self.assertEqual(outcomes[1]["result"]["output"], [])
+        self.assertIn("withheld", outcomes[1]["result"]["content"])
+        self.assertTrue(outcomes[2]["ok"])
 
 
 if __name__ == "__main__":

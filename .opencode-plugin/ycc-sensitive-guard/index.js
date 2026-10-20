@@ -10,7 +10,9 @@
 //   - execute.before rejects read/edit/write/patch targets, grep/glob search
 //     roots, a grep `include` naming a sensitive file, and shell commands or
 //     workdirs whose arguments name a sensitive path. Paths are resolved
-//     against the session location, `~` expands to the home directory, and
+//     against the calling session's location (ctx.session.get, falling back
+//     to the plugin's setup location; with neither, the call is rejected),
+//     `~` expands to the home directory, and
 //     existing paths are also checked through realpath so a symlink to a
 //     sensitive file is treated as that file.
 //   - execute.after removes sensitive files from grep and glob results and
@@ -30,10 +32,14 @@
 //   - grep/glob output paths are relative to the session location; their
 //     model content lists absolute paths (packages/core/src/tool/plugin/grep.ts,
 //     glob.ts toModelContent).
+//   - ctx.session.get({ sessionID }) resolves { data: Session.Info } whose
+//     `location.directory` is the session's absolute directory
+//     (packages/protocol/src/groups/session.ts "session.get",
+//     packages/plugin/src/promise/adapter.ts); hooks may return promises.
 
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
-import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { lstatSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
 
 const POLICY = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "policy.json"), "utf8"));
@@ -174,16 +180,73 @@ function shellWords(command) {
 }
 
 // Shell text the word scan cannot resolve to file names: brace lists and
-// sequences (`.{e,x}nv`, `{a..z}`) and ANSI-C quoting (`$'\x2e'`). `git diff
-// --no-index` compares arbitrary directories (gitignored dotfiles included),
-// so it is refused outright.
-const AMBIGUOUS_SHELL = [/\{[^{}\s]*(?:,|\.\.)[^{}\s]*\}/, /\$'/, /--no-index\b/];
+// sequences (`.{e,x}nv`, `{a..z}`, quoted elements included), every `$` form
+// (parameter expansion such as `$HOME`/`${PWD}`, `$(…)`, ANSI-C `$'\x2e'`),
+// backtick substitution, and tilde prefixes other than `~` and `~/`
+// (`~user`, `~+`, `~-`, also after `=` or `:`). `git diff --no-index`
+// compares arbitrary directories (gitignored dotfiles included), so it is
+// refused outright.
+const AMBIGUOUS_SHELL = [
+  /\{[^{}]*(?:,|\.\.)[^{}]*\}/,
+  /[$`]/,
+  /(?:^|[\s=:;&|()<>"'])~(?![/\s;&|()<>"']|$)/,
+  /--no-index\b/,
+];
+
+function outside(path, root) {
+  const fromRoot = relative(root, path);
+  return fromRoot === ".." || fromRoot.startsWith(`..${sep}`) || isAbsolute(fromRoot);
+}
+
+// git switches to no-index mode on its own when a path argument lies outside
+// the worktree or it runs outside a repository, and -C/-c/--git-dir/
+// --work-tree (or GIT_DIR/GIT_WORK_TREE) retarget it. A restricted agent's git
+// commands therefore stay inside the session root: no retargeting, no
+// directory (workdir or an earlier `cd`) outside it, and no argument that
+// resolves outside it. Shell expansions are already refused (AMBIGUOUS_SHELL).
+function gitEscapes(command, workdir, root) {
+  let cwd = workdir;
+  for (const simple of command.split(/[;&|()\n`]+/)) {
+    const words = simple
+      .trim()
+      .split(/\s+/)
+      .map((word) => word.replace(/["'\\]/g, ""))
+      .filter(Boolean);
+    let retargeted = false;
+    while (words.length > 0 && /^[A-Za-z_][A-Za-z0-9_]*=/.test(words[0])) {
+      if (/^GIT_/.test(words.shift())) retargeted = true;
+    }
+    if (words.length === 0) continue;
+    const program = basename(words[0]);
+    if (program === "cd" || program === "pushd") {
+      const target = words.slice(1).find((word) => !word.startsWith("-"));
+      cwd = resolve(cwd, expandHome(target ?? "~"));
+      continue;
+    }
+    if (program !== "git") continue;
+    if (retargeted || outside(cwd, root) || outside(canonical(cwd), canonical(root))) return true;
+    let subcommand = false;
+    for (const word of words.slice(1)) {
+      if (word.startsWith("-")) {
+        // Options before the subcommand are git's own; after it, `-C`/`-c`
+        // mean copy detection / combined diffs.
+        if (!subcommand && /^(?:-C|-c|--git-dir|--work-tree)/.test(word)) return true;
+        continue;
+      }
+      subcommand = true;
+      const path = resolve(cwd, expandHome(word));
+      if (outside(path, root) || outside(canonical(path), canonical(root))) return true;
+    }
+  }
+  return false;
+}
 
 function shellBlocked(input, root) {
   const workdir = typeof input.workdir === "string" && input.workdir ? resolve(root, expandHome(input.workdir)) : root;
   if (workdir !== root && sensitive(workdir, root)) return true;
   const command = typeof input.command === "string" ? input.command : "";
   if (AMBIGUOUS_SHELL.some((pattern) => pattern.test(command))) return true;
+  if (gitEscapes(command, workdir, root)) return true;
   for (const word of shellWords(command)) {
     if (sensitive(word, workdir)) return true;
     if (GLOB.test(word) && globHits(word, workdir).some((hit) => sensitive(hit, workdir))) return true;
@@ -299,15 +362,42 @@ function filterResult(tool, result, root) {
   }
 }
 
+function absoluteDirectory(value) {
+  return typeof value === "string" && isAbsolute(value) ? value : undefined;
+}
+
+// The session's own location, not the server's: a session created or moved
+// to another directory resolves tool paths there. Order: a location carried on
+// the event, then session.get(sessionID), then the plugin's setup location.
+// Undefined when none is usable.
+async function sessionRoot(ctx, event) {
+  const carried = absoluteDirectory(event.location?.directory);
+  if (carried) return carried;
+  try {
+    const session = await ctx.session?.get?.({ sessionID: event.sessionID });
+    const directory = absoluteDirectory((session?.data ?? session)?.location?.directory);
+    if (directory) return directory;
+  } catch {
+    // Fall through to the setup location.
+  }
+  return absoluteDirectory(ctx.location?.directory);
+}
+
 export async function registerSensitiveGuard(ctx) {
-  const root = ctx.location.directory;
-  await ctx.tool.hook("execute.before", (event) => {
+  await ctx.tool.hook("execute.before", async (event) => {
     if (!RESTRICTED.has(event.agent)) return;
-    if (blocked(event.tool, event.input, root)) throw new Error(BLOCKED);
+    const root = await sessionRoot(ctx, event);
+    if (!root || blocked(event.tool, event.input, root)) throw new Error(BLOCKED);
   });
-  await ctx.tool.hook("execute.after", (event) => {
+  await ctx.tool.hook("execute.after", async (event) => {
     if (!RESTRICTED.has(event.agent) || event.status !== "completed") return;
     if (event.tool !== "grep" && event.tool !== "glob") return;
+    const root = await sessionRoot(ctx, event);
+    if (!root) {
+      event.result.output = [];
+      event.result.content = "Search results withheld by ycc sensitive-file guard.";
+      return;
+    }
     filterResult(event.tool, event.result, root);
   });
 }

@@ -118,13 +118,18 @@ Two layers enforce it:
   is its own bundle unit: `base` mirrors it, and `--settings` (the `plugins`
   group) installs it with the entry and takes it back on removal. It does not
   depend on `skills/` or `shared/`, so `--skills-home agents` keeps it. For the
-  restricted agents it resolves paths on `read`, `edit`, `write`, `patch`,
+  restricted agents it resolves paths against the calling session's directory
+  (not the server's; when neither can be determined, the call is rejected) on `read`, `edit`, `write`, `patch`,
   `grep`, `glob`, and `shell` calls, following symlinks (including links whose
   target does not exist yet) and the `read` tool's look-alike file-name
   fallback. It rejects calls that name a sensitive path (including git object
   names such as `HEAD:.env`), shell commands it cannot resolve to file names
-  (brace expansion, `$'…'` quoting, `git diff --no-index`), and removes
-  sensitive files from `grep` and `glob` results. Other agents are unaffected.
+  (brace expansion, any `$` expansion or backtick substitution such as `$HOME`,
+  `${PWD}`, `$(…)` and `$'…'`, tilde prefixes other than `~/` such as `~user`,
+  `~+` and `~-`, and `git diff --no-index`), and `git` commands
+  that leave the session directory (a path argument or working directory
+  outside it, `-C`, `-c`, `--git-dir`, `--work-tree`, or `GIT_*` variables), and
+  removes sensitive files from `grep` and `glob` results. Other agents are unaffected.
   The experimental npm package ships the same guard directory and registers it
   from its own setup.
 

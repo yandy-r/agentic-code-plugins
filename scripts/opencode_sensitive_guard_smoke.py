@@ -173,14 +173,14 @@ def wait_ready(sc: Scenario, plugin_id: str, agents: tuple[str, ...]) -> None:
     raise SystemExit(f"FAIL {sc.name}: not ready; plugins={states}")
 
 
-def run_probe(sc: Scenario, provider: Provider, probe: Probe, index: int) -> None:
+def run_probe(sc: Scenario, provider: Provider, probe: Probe, index: int, session_dir: Path) -> None:
     """Create a session as the probe's agent, force its tool call, wait for the result."""
     probe.key = f"PROBE-{sc.name.replace('-', '')}-{index}"
     provider.probes[probe.key] = probe
     body = {
         "title": probe.label,
         "agent": probe.agent,
-        "location": {"directory": str(sc.work)},
+        "location": {"directory": str(session_dir)},
         "model": {"providerID": "fake", "id": "probe"},
     }
     sid = sc.api.request("/api/session", body)["data"]["id"]
@@ -288,6 +288,37 @@ def npm_probes() -> list[Probe]:
     ]
 
 
+def session_location_probes(work: Path) -> list[Probe]:
+    """Relative names only reach the fixtures through the session location.
+
+    `notes.txt` is a symlink to `.env` (native rules alone allow it), and the
+    directory-wide grep must be filtered against the session directory.
+    """
+    env_path = str(work / ".env") + "\n"
+    return [
+        Probe("session: read symlink to .env", "pr-comment-fixer", "read", {"path": "notes.txt"}, "blocked"),
+        Probe("session: grep directory-wide", "pr-comment-fixer", "grep", {"pattern": "API_TOKEN"}, "blocked"),
+        Probe(
+            "session: glob hidden",
+            "pr-comment-fixer",
+            "glob",
+            {"pattern": "**/.env*", "hidden": True},
+            "blocked",
+            must_contain=".env.example",
+            must_not_contain=(env_path,),
+        ),
+        Probe("session: shell ls glob", "review-fixer", "shell", {"command": "ls .e*"}, "blocked"),
+        Probe("session: control read src", "pr-comment-fixer", "read", {"path": "src/app.ts"}, "control"),
+        Probe(
+            "session: control edit src",
+            "pr-comment-fixer",
+            "edit",
+            {"path": "src/app.ts", "oldString": "export const", "newString": "export const /* edited */"},
+            "clean",
+        ),
+    ]
+
+
 def scenario(
     lab: Path,
     binary: str,
@@ -299,7 +330,11 @@ def scenario(
     canary: str,
     control: str,
     install: Any = None,
+    separate_session: bool = False,
 ) -> list[Probe]:
+    """Run one scenario. With separate_session the server runs in an empty
+    directory and every session is created in a different project directory,
+    so the guard must resolve paths against the session location."""
     root = lab / "config/opencode"
     if root.exists():
         shutil.rmtree(root)
@@ -307,16 +342,18 @@ def scenario(
     if install:
         install(root)
     sc = Scenario(lab, binary, name, config)
+    work = lab / "projects" / name if separate_session else sc.work
+    work.mkdir(parents=True, exist_ok=True)
     try:
-        write_fixtures(lab, sc.work, canary, control)
-        probes: list[Probe] = probes_for(sc.work)
+        write_fixtures(lab, work, canary, control)
+        probes: list[Probe] = probes_for(work)
         wait_ready(sc, plugin_id, tuple(sorted({p.agent for p in probes})))
         for index, probe in enumerate(probes):
-            run_probe(sc, provider, probe, index)
+            run_probe(sc, provider, probe, index, work)
         evaluate(probes, canary, control)
-        if name == "file-copy":
-            check(".env unchanged on disk", f"API_TOKEN={canary}\n", (sc.work / ".env").read_text(encoding="utf-8"))
-            check("control edit applied", True, "/* edited */" in (sc.work / "src/app.ts").read_text(encoding="utf-8"))
+        if probes_for in (file_copy_probes, session_location_probes):
+            check(".env unchanged on disk", f"API_TOKEN={canary}\n", (work / ".env").read_text(encoding="utf-8"))
+            check("control edit applied", True, "/* edited */" in (work / "src/app.ts").read_text(encoding="utf-8"))
         return probes
     finally:
         sc.close()
@@ -350,6 +387,20 @@ def main() -> None:
             canary,
             control,
             install=lambda root: install_file_copy(repo, root),
+        )
+        # The server runs in an empty directory; every session lives elsewhere.
+        results += scenario(
+            lab,
+            binary,
+            provider,
+            "session-location",
+            base_config(provider, guard_entries),
+            GUARD_ID,
+            session_location_probes,
+            canary,
+            control,
+            install=lambda root: install_file_copy(repo, root),
+            separate_session=True,
         )
         package = repo / "packages/opencode/ycc-opencode"
         results += scenario(
