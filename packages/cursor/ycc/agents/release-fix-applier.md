@@ -9,9 +9,7 @@ tools:
   - Glob
   - Edit
   - Bash(ls:*)
-  - Bash(cat:*)
   - Bash(test:*)
-  - Bash(git:*)
   - Bash(npm:*)
   - Bash(pnpm:*)
   - Bash(yarn:*)

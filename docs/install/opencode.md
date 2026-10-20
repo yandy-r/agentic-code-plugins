@@ -42,7 +42,7 @@ Step behavior:
 
 | Step       | Effect                                                                                                                                             |
 | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `base`     | Generates and validates `.opencode-plugin/{skills,agents,commands}/`, then rsyncs them into `~/.config/opencode/`.                                 |
+| `base`     | Generates and validates `.opencode-plugin/{skills,agents,commands,shared,ycc-sensitive-guard}/`, then rsyncs them into `~/.config/opencode/`.      |
 | `skills`   | Generates the skills and installs each into `skills/<name>`, plus the `shared/` helpers.                                                           |
 | `agents`   | Generates the agents and installs each into `agents/<name>.md`.                                                                                    |
 | `commands` | Generates one thin command per public skill from its `SKILL.md` and installs it as `commands/<name>.md`.                                           |
@@ -73,6 +73,7 @@ The generated `opencode.json` declares the bundle's shared OpenCode V2 plugins i
 | Plugin                                | Purpose                                                                      |
 | ------------------------------------- | ---------------------------------------------------------------------------- |
 | `@prevalentware/opencode-goal-plugin` | Goal mode — `/goal` commands, persistent goal state, and the goal tool suite |
+| `./ycc-sensitive-guard`               | Sensitive-file policy for restricted ycc specialists (see below)             |
 
 `--settings` installs the server-side half. The TUI half (sidebar goal indicator
 and command-palette entry) is read from the global `~/.config/opencode/cli.json`,
@@ -96,6 +97,53 @@ package is opt-in and experimental, and registry publication is separate from
 generating it. The file-copy install above stays primary, and a native or npm
 plugin installed alongside the file copy would register the same components
 twice. See the [v6 opencode guide](v6/opencode.md) before opting in.
+
+### Sensitive-file guard
+
+Some specialists must never handle secret-bearing files: `pr-comment-fixer`,
+`release-fix-applier`, `backport-conflict-resolver`, `review-fixer`, and
+`db-modifier`. The list of agents and path patterns (`.env` and variants other than
+`*.env.example`, keys and certificates, `credentials.json`, `.ssh/`, `.aws/`,
+`.kube/config`, `.netrc`, and similar) lives in
+[`ycc/settings/sensitive-files.json`](../../ycc/settings/sensitive-files.json).
+Two layers enforce it:
+
+- **Native rules.** The generated agent `permissions` end with `read` and `edit`
+  denies for those paths, and their shell allowlists contain no general
+  file-printing commands such as `cat`. The `*.env.example` exception lifts
+  only the `.env` patterns, so a key file such as `id_rsa.env.example` stays
+  denied. `git diff --no-index` is denied for every restricted agent.
+- **Guard plugin.** `~/.config/opencode/ycc-sensitive-guard` is a local
+  OpenCode V2 plugin registered through the relative `plugins` entry above. It
+  is its own bundle unit: `base` mirrors it, and `--settings` (the `plugins`
+  group) installs it with the entry and takes it back on removal. It does not
+  depend on `skills/` or `shared/`, so `--skills-home agents` keeps it. For the
+  restricted agents it resolves paths on `read`, `edit`, `write`, `patch`,
+  `grep`, `glob`, and `shell` calls, following symlinks (including links whose
+  target does not exist yet) and the `read` tool's look-alike file-name
+  fallback. It rejects calls that name a sensitive path (including git object
+  names such as `HEAD:.env`), shell commands it cannot resolve to file names
+  (brace expansion, `$'…'` quoting, `git diff --no-index`), and removes
+  sensitive files from `grep` and `glob` results. Other agents are unaffected.
+  The experimental npm package ships the same guard directory and registers it
+  from its own setup.
+
+The guard plugin must be loaded. Keep the entry in your `opencode.json`. A
+project config that removes the plugin, or a plugin that fails to load, leaves
+only the native `read`/`edit` rules. The guard checks the text of each shell
+command, so some allowed commands stay outside it:
+
+- Build, test, and interpreter commands (`npm`, `pytest`, `make`, `python`, …)
+  execute project code.
+- Read-only git history commands print committed file contents without naming
+  the file. `backport-conflict-resolver` may run `git show`, `git log`,
+  `git blame`, and `git diff`, and `review-fixer` may run `git log` and
+  `git diff`. A history-wide `git log -p` or `git show <commit>` can therefore
+  show a secret that was once committed.
+
+Maintainers can exercise the guard on an isolated host with
+`scripts/test-opencode-sensitive-guard.sh`. This opt-in check is not part of
+`validate.sh`.
 
 ## Selective Steps
 
@@ -188,8 +236,8 @@ not documented here. Change it in `scripts/generate_opencode_plugin.py`
 
 ## Hooks
 
-opencode hook guidance is advisory in this bundle. opencode lifecycle hooks
-require a TypeScript plugin module, which `ycc` does not ship currently.
+opencode hook guidance is otherwise advisory in this bundle. The only shipped
+lifecycle plugin is the sensitive-file guard described under Plugins.
 
 ## Regenerate Only opencode Artifacts
 

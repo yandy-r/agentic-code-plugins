@@ -20,6 +20,12 @@ merged="$(cat "${home}/.config/opencode/opencode.json")"
 assert_contains "${merged}" "sk-local-secret" "local provider credentials preserved"
 assert_contains "${merged}" "@user/local-plugin" "local plugin preserved"
 assert_contains "${merged}" "@prevalentware/opencode-goal-plugin" "repo plugin added"
+assert_contains "${merged}" "./ycc-sensitive-guard" "sensitive-file guard plugin entry added"
+if [[ -f "${home}/.config/opencode/ycc-sensitive-guard/index.js" && -f "${home}/.config/opencode/ycc-sensitive-guard/policy.json" ]]; then
+    ok "plugins group installs the guard directory its entry loads"
+else
+    ko "plugins group installs the guard directory its entry loads"
+fi
 
 
 echo "== install.sh remove: opencode settings and rules =="
@@ -37,6 +43,8 @@ merged="$(cat "${home}/.config/opencode/opencode.json")"
 assert_contains "${merged}" "sk-local-secret" "opencode remove keeps provider credentials"
 assert_contains "${merged}" "@user/local-plugin" "opencode remove keeps user plugin"
 assert_not_contains "${merged}" "@prevalentware/opencode-goal-plugin" "opencode remove takes back repo plugin"
+assert_not_contains "${merged}" "./ycc-sensitive-guard" "opencode remove takes back the guard plugin entry"
+if [[ ! -e "${home}/.config/opencode/ycc-sensitive-guard" ]]; then ok "opencode remove takes back the guard directory"; else ko "opencode remove takes back the guard directory"; fi
 if [[ ! -L "${home}/.config/opencode/AGENTS.md" ]]; then ok "opencode remove unlinks AGENTS.md"; else ko "opencode remove unlinks AGENTS.md"; fi
 
 echo
@@ -44,13 +52,34 @@ echo
 echo "== install.sh remove: opencode base =="
 
 home="$(new_home)"
-for unit in skills agents commands shared; do
+for unit in skills agents commands shared ycc-sensitive-guard; do
     mkdir -p "${home}/.config/opencode/${unit}"
     cp -R "${REPO_ROOT}/.opencode-plugin/${unit}/." "${home}/.config/opencode/${unit}/"
 done
 install_must_succeed "${home}" remove --target opencode --intent base
 leftover="$(find "${home}/.config/opencode" -mindepth 1 | head -3)"
 if [[ -z "${leftover}" ]]; then ok "opencode base remove drops the bundle"; else ko "opencode base remove drops the bundle" "${leftover}"; fi
+
+echo "== install.sh: opencode guard under --skills-home agents =="
+
+home="$(new_home)"
+install_must_succeed "${home}" install --target opencode --only base,settings --skills-home agents
+merged="$(cat "${home}/.config/opencode/opencode.json")"
+assert_contains "${merged}" "./ycc-sensitive-guard" "consolidated: opencode.json loads the guard"
+if [[ ! -d "${home}/.config/opencode/shared" && -f "${home}/.config/opencode/ycc-sensitive-guard/index.js" ]]; then
+    ok "consolidated: guard installed although shared/ is not"
+else
+    ko "consolidated: guard installed although shared/ is not" "$(ls "${home}/.config/opencode" 2>/dev/null | tr '\n' ' ')"
+fi
+install_must_succeed "${home}" remove --target opencode --only base --skills-home agents
+if [[ -f "${home}/.config/opencode/ycc-sensitive-guard/index.js" ]]; then
+    ok "base remove keeps the guard while opencode.json still loads it"
+else
+    ko "base remove keeps the guard while opencode.json still loads it"
+fi
+install_must_succeed "${home}" remove --target opencode --only settings --skills-home agents
+assert_not_contains "$(cat "${home}/.config/opencode/opencode.json" 2>/dev/null || true)" "./ycc-sensitive-guard" "consolidated: settings remove takes back the guard entry"
+if [[ ! -e "${home}/.config/opencode/ycc-sensitive-guard" ]]; then ok "consolidated: settings remove takes back the guard"; else ko "consolidated: settings remove takes back the guard"; fi
 
 
 echo "== install.sh: opencode slices =="

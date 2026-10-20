@@ -28,18 +28,22 @@ Current-state steps that keep working unchanged:
 - The generated config is **V2-only** (`opencode.ai/v2/docs`). V1 shapes
   (`plugin` singular, `provider`/`agent` top-level, server names directly under
   `mcp`) are rejected by the repo validator.
-- The goal plugin is enabled through the live `plugins` array (this is
-  current behavior, not the v6 npm package):
+- The goal plugin and the local sensitive-file guard are enabled through the
+  live `plugins` array (this is current behavior, not the v6 npm package):
 
   ```json
   {
-    "plugins": ["@prevalentware/opencode-goal-plugin"]
+    "plugins": ["@prevalentware/opencode-goal-plugin", "./ycc-sensitive-guard"]
   }
   ```
 
-  Install its TUI half with `opencode2 plugin add @prevalentware/opencode-goal-plugin`
+  Install the goal plugin's TUI half with `opencode2 plugin add @prevalentware/opencode-goal-plugin`
   (idempotent; verify with `opencode2 plugin list`). `--settings` installs the
-  server-side half.
+  server-side half and the guard. The guard is its own installed directory,
+  `~/.config/opencode/ycc-sensitive-guard`, so `--skills-home agents` keeps it.
+  It enforces a sensitive-file policy for restricted specialists, and the npm
+  package ships and registers the same guard. See
+  [Sensitive-file guard](../opencode.md#sensitive-file-guard).
 
 ## Experimental opt-in npm package (generated; publication separate)
 
@@ -122,8 +126,10 @@ or command entry would be destroyed; it is name-based, not ownership-aware.
    plus the matching `agents/`, `commands/`, and `shared/` entries).
 2. Back up `~/.config/opencode/{skills,agents,commands,shared}` (or at
    minimum the entries you are about to delete).
-3. Remove only entries you confirm are managed/generated copies; keep
-   anything user-owned or user-edited.
+3. Remove only the entries you confirm are managed/generated copies; keep
+   anything user-owned or user-edited. If you remove
+   `~/.config/opencode/ycc-sensitive-guard`, remove its `./ycc-sensitive-guard`
+   `plugins` entry too; the npm package registers the same guard.
 4. Add the local-directory plugin entry above, or the registry name only after
    confirming publication. Keep any unrelated entries in your `plugins` array.
 

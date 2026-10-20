@@ -63,6 +63,7 @@ from generate_opencode_common import (
     SRC_AGENTS_DIR,
     translate_mcp_servers,
 )
+from opencode_sensitive_policy import GUARD_PLUGIN_SPEC
 
 # .opencode-plugin/AGENTS.md installs into ~/.config/opencode/AGENTS.md as the
 # user-global opencode rules file, so it must source from the generic
@@ -70,10 +71,12 @@ from generate_opencode_common import (
 SOURCE_RULES_PATH = REPO_ROOT / "ycc" / "settings" / "rules" / "CLAUDE.md"
 SOURCE_MODEL_SETTINGS_PATH = REPO_ROOT / "ycc" / "settings" / "models.json"
 
-# OpenCode V2 `plugins` entries (npm package specifiers). The goal plugin adds
-# Codex-style goal mode: /goal commands, persistent goal state, and the goal
-# tools the user-global AGENTS.md policy references.
-DEFAULT_PLUGINS: list[str] = ["@prevalentware/opencode-goal-plugin"]
+# OpenCode V2 `plugins` entries. The goal plugin (npm) adds Codex-style goal
+# mode: /goal commands, persistent goal state, and the goal tools the
+# user-global AGENTS.md policy references. The sensitive-file guard is a local
+# directory shipped as the bundle's own ycc-sensitive-guard unit; OpenCode
+# resolves the `./` entry from the directory of the opencode.json that declares it.
+DEFAULT_PLUGINS: list[str] = ["@prevalentware/opencode-goal-plugin", GUARD_PLUGIN_SPEC]
 
 # Runtime subagent nesting depth limit.
 DEFAULT_SUBAGENT_DEPTH: int = 2

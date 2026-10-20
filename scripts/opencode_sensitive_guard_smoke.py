@@ -1,0 +1,386 @@
+#!/usr/bin/env python3
+"""Opt-in isolated-host smoke for the ycc sensitive-file guard (YAN-1026).
+
+Installs the generated file-copy bundle (agents, the ycc-sensitive-guard unit, and the generated
+`plugins` entry) into a disposable OpenCode V2 config root, writes a synthetic
+canary into secret-bearing fixture files, and drives real tool calls through a
+loopback fake provider. Every provider request body is recorded; the canary
+must never appear in one for a restricted specialist, while ordinary work and
+an unrestricted agent keep working. A second scenario loads the generated npm
+package directory instead of the file copy. Run through
+scripts/test-opencode-sensitive-guard.sh, never directly against a real home.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import secrets
+import shutil
+import subprocess
+import sys
+import threading
+import time
+from dataclasses import dataclass, field
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Any
+
+from opencode_config_hook_checks import check, snapshot
+from opencode_config_hook_spike import Scenario, run_env
+
+GUARD_ID = "yandy-r.ycc-sensitive-guard"
+PACKAGE_ID = "yandy-r.ycc-opencode"
+PROBE = re.compile(r"PROBE-[a-z0-9]+-\d+")
+
+
+@dataclass
+class Probe:
+    """One forced tool call made by one agent, and what must hold afterwards."""
+
+    label: str
+    agent: str
+    tool: str
+    arguments: dict[str, Any]
+    expect: str  # "blocked"/"clean": canary absent | "control": control token present | "visible": canary present
+    must_contain: str = ""
+    must_not_contain: tuple[str, ...] = ()
+    key: str = ""
+    result: str = ""
+    layer: str = ""
+    bodies: list[dict[str, Any]] = field(default_factory=list)
+
+
+class Provider(threading.Thread):
+    """Loopback OpenAI-compatible fake that forces one scripted tool call per probe."""
+
+    def __init__(self) -> None:
+        super().__init__(daemon=True)
+        self.bodies: list[dict[str, Any]] = []
+        self.probes: dict[str, Probe] = {}
+        outer = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self) -> None:  # noqa: N802
+                body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", "0"))))
+                outer.bodies.append(body)
+                messages = body.get("messages", [])
+                match = PROBE.search(json.dumps(messages))
+                probe = outer.probes.get(match.group(0)) if match else None
+                call = None
+                if probe is not None:
+                    probe.bodies.append(body)
+                    tool_messages = [m for m in messages if m.get("role") == "tool"]
+                    if tool_messages:
+                        content = tool_messages[-1].get("content")
+                        probe.result = content if isinstance(content, str) else json.dumps(content)
+                    elif body.get("tools"):
+                        call = {
+                            "id": "call_" + probe.key.rsplit("-", 1)[-1],
+                            "type": "function",
+                            "function": {"name": probe.tool, "arguments": json.dumps(probe.arguments)},
+                        }
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.end_headers()
+                base = {"id": "guard", "object": "chat.completion.chunk", "created": 0, "model": "guard"}
+                delta: dict[str, Any] = {"role": "assistant", "content": "OK"}
+                finish = "stop"
+                if call:
+                    delta = {"role": "assistant", "tool_calls": [{"index": 0, **call}]}
+                    finish = "tool_calls"
+                first = {**base, "choices": [{"index": 0, "delta": delta, "finish_reason": None}]}
+                last = {**base, "choices": [{"index": 0, "delta": {}, "finish_reason": finish}]}
+                self.wfile.write(("data: " + json.dumps(first) + "\n\n").encode())
+                self.wfile.write(("data: " + json.dumps(last) + "\n\ndata: [DONE]\n\n").encode())
+
+            def log_message(self, *_args: Any) -> None:
+                pass
+
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.url = f"http://127.0.0.1:{self.server.server_port}"
+
+    def run(self) -> None:
+        self.server.serve_forever(poll_interval=0.1)
+
+    def close(self) -> None:
+        self.server.shutdown()
+        self.server.server_close()
+        self.join(timeout=2)
+
+
+def base_config(provider: Provider, plugins: list[str]) -> dict[str, Any]:
+    """Fake-provider config with the given V2 `plugins` list."""
+    return {
+        "plugins": plugins,
+        "model": "fake/probe",
+        "providers": {
+            "fake": {
+                "package": "@ai-sdk/openai-compatible",
+                "settings": {"baseURL": provider.url + "/v1", "apiKey": "dummy-guard-key"},
+                "models": {
+                    "probe": {
+                        "name": "Probe",
+                        "limit": {"context": 32000, "output": 512},
+                        "capabilities": {"tools": True, "input": ["text"], "output": ["text"]},
+                    }
+                },
+            }
+        },
+    }
+
+
+def write_fixtures(lab: Path, work: Path, canary: str, control: str) -> None:
+    """Synthetic project: canary in secret-bearing files, control token in source."""
+    (work / "src").mkdir()
+    (work / "src" / "app.ts").write_text(f"export const marker = '{control}';\n", encoding="utf-8")
+    (work / ".env").write_text(f"API_TOKEN={canary}\n", encoding="utf-8")
+    (work / "config").mkdir()
+    (work / "config" / ".env.production").write_text(f"API_TOKEN={canary}\n", encoding="utf-8")
+    (work / ".env.example").write_text(f"API_TOKEN=example-{control}\n", encoding="utf-8")
+    (work / "notes.txt").symlink_to(".env")
+    (work / ".gitignore").write_text("config/.env.production\n.env\n", encoding="utf-8")
+    env = run_env(lab)
+    subprocess.run(["git", "init", "-q", str(work)], env=env, check=True, timeout=30)
+
+
+def install_file_copy(repo: Path, root: Path) -> None:
+    """Mirror the bundle units install.sh ships plus the generated plugins entry."""
+    bundle = repo / ".opencode-plugin"
+    # No skills/ or shared/: the guard must work under --skills-home agents too.
+    for unit in ("agents", "ycc-sensitive-guard"):
+        shutil.copytree(bundle / unit, root / unit, symlinks=True)
+
+
+def wait_ready(sc: Scenario, plugin_id: str, agents: tuple[str, ...]) -> None:
+    """Wait until the guard-bearing plugin is active and the probe agents exist."""
+    deadline = time.monotonic() + 60
+    states: dict[str, str] = {}
+    while time.monotonic() < deadline:
+        if sc.process.poll() is not None:
+            raise SystemExit(f"FAIL {sc.name} server exited")
+        try:
+            states = {p["id"]: p["state"]["status"] for p in sc.api.items("plugin") if p["source"]["type"] != "builtin"}
+            ids = {a["id"] for a in sc.api.items("agent")}
+            if states.get(plugin_id) == "active" and set(agents) <= ids:
+                return
+            if states.get(plugin_id) == "failed":
+                raise SystemExit(f"FAIL {sc.name}: plugin {plugin_id} failed: {states}")
+        except (OSError, TimeoutError):
+            pass
+        time.sleep(0.25)
+    raise SystemExit(f"FAIL {sc.name}: not ready; plugins={states}")
+
+
+def run_probe(sc: Scenario, provider: Provider, probe: Probe, index: int) -> None:
+    """Create a session as the probe's agent, force its tool call, wait for the result."""
+    probe.key = f"PROBE-{sc.name.replace('-', '')}-{index}"
+    provider.probes[probe.key] = probe
+    body = {
+        "title": probe.label,
+        "agent": probe.agent,
+        "location": {"directory": str(sc.work)},
+        "model": {"providerID": "fake", "id": "probe"},
+    }
+    sid = sc.api.request("/api/session", body)["data"]["id"]
+    sc.api.request(f"/api/session/{sid}/prompt", {"text": f"{probe.key}: run the scripted tool call."})
+    deadline = time.monotonic() + 45
+    while not probe.result and time.monotonic() < deadline:
+        time.sleep(0.2)
+    if not probe.result:
+        raise SystemExit(f"FAIL {probe.label}: no tool result reached the provider (agent {probe.agent})")
+    # Let the final reply request land so every body of this turn is recorded.
+    time.sleep(0.5)
+
+
+def classify(probe: Probe) -> str:
+    text = probe.result
+    if "ycc sensitive-file guard" in text:
+        return "guard"
+    if re.search(r"denied|not allowed|rule", text, re.IGNORECASE):
+        return "native-deny"
+    return "filtered" if probe.tool in {"grep", "glob"} else "allowed"
+
+
+def evaluate(probes: list[Probe], canary: str, control: str) -> None:
+    for probe in probes:
+        probe.layer = classify(probe)
+        encoded = json.dumps(probe.bodies)
+        if probe.expect in {"blocked", "clean"}:
+            check(f"{probe.label}: canary absent from every provider body", False, canary in encoded)
+        if probe.expect == "blocked" and probe.tool not in {"grep", "glob"}:
+            check(f"{probe.label}: call was rejected", True, probe.layer in {"guard", "native-deny"})
+        elif probe.expect == "control":
+            check(f"{probe.label}: control result reached the model", True, control in probe.result)
+        elif probe.expect == "visible":
+            check(f"{probe.label}: unrestricted agent unaffected (canary visible)", True, canary in probe.result)
+        if probe.must_contain:
+            check(f"{probe.label}: result mentions {probe.must_contain!r}", True, probe.must_contain in probe.result)
+        for needle in probe.must_not_contain:
+            check(f"{probe.label}: result omits {needle!r}", False, needle in probe.result)
+
+
+def file_copy_probes(work: Path) -> list[Probe]:
+    env_path = str(work / ".env") + "\n"
+    return [
+        Probe("read .env", "pr-comment-fixer", "read", {"path": ".env"}, "blocked"),
+        Probe("read nested gitignored .env", "pr-comment-fixer", "read", {"path": "config/.env.production"}, "blocked"),
+        Probe("read symlink to .env", "pr-comment-fixer", "read", {"path": "notes.txt"}, "blocked"),
+        Probe(
+            "edit .env",
+            "pr-comment-fixer",
+            "edit",
+            {"path": ".env", "oldString": "API_TOKEN=", "newString": "API_TOKEN=x"},
+            "blocked",
+        ),
+        Probe("grep path .env", "pr-comment-fixer", "grep", {"pattern": "API_TOKEN", "path": ".env"}, "blocked"),
+        Probe(
+            "grep include gitignored file",
+            "pr-comment-fixer",
+            "grep",
+            {"pattern": "API_TOKEN", "include": ".env.production"},
+            "blocked",
+        ),
+        Probe("grep directory-wide", "pr-comment-fixer", "grep", {"pattern": "API_TOKEN"}, "blocked"),
+        Probe(
+            "glob hidden",
+            "pr-comment-fixer",
+            "glob",
+            {"pattern": "**/.env*", "hidden": True},
+            "blocked",
+            must_contain=".env.example",
+            must_not_contain=(env_path,),
+        ),
+        Probe(
+            "shell interpreter prints .env",
+            "pr-comment-fixer",
+            "shell",
+            {"command": "python3 -c \"print(open('.env').read())\""},
+            "blocked",
+        ),
+        Probe("shell prints .env", "review-fixer", "shell", {"command": "cat .env"}, "blocked"),
+        Probe("shell ls glob", "review-fixer", "shell", {"command": "ls .e*"}, "blocked"),
+        Probe("control grep src", "pr-comment-fixer", "grep", {"pattern": "marker", "path": "src"}, "control"),
+        Probe("control grep directory-wide", "pr-comment-fixer", "grep", {"pattern": "marker"}, "control"),
+        Probe("control read src", "pr-comment-fixer", "read", {"path": "src/app.ts"}, "control"),
+        Probe(
+            "control edit src",
+            "pr-comment-fixer",
+            "edit",
+            {"path": "src/app.ts", "oldString": "export const", "newString": "export const /* edited */"},
+            "clean",
+        ),
+        Probe("control read .env.example", "pr-comment-fixer", "read", {"path": ".env.example"}, "control"),
+        Probe("control allowed shell", "review-fixer", "shell", {"command": "ls src"}, "clean", must_contain="app.ts"),
+        Probe(
+            "unrestricted agent grep .env", "code-finder", "grep", {"pattern": "API_TOKEN", "path": ".env"}, "visible"
+        ),
+    ]
+
+
+def npm_probes() -> list[Probe]:
+    return [
+        Probe("npm: grep path .env", "pr-comment-fixer", "grep", {"pattern": "API_TOKEN", "path": ".env"}, "blocked"),
+        Probe("npm: grep directory-wide", "pr-comment-fixer", "grep", {"pattern": "API_TOKEN"}, "blocked"),
+        Probe("npm: read symlink to .env", "pr-comment-fixer", "read", {"path": "notes.txt"}, "blocked"),
+        Probe("npm: control grep src", "pr-comment-fixer", "grep", {"pattern": "marker", "path": "src"}, "control"),
+    ]
+
+
+def scenario(
+    lab: Path,
+    binary: str,
+    provider: Provider,
+    name: str,
+    config: dict[str, Any],
+    plugin_id: str,
+    probes_for: Any,
+    canary: str,
+    control: str,
+    install: Any = None,
+) -> list[Probe]:
+    root = lab / "config/opencode"
+    if root.exists():
+        shutil.rmtree(root)
+    root.mkdir(parents=True)
+    if install:
+        install(root)
+    sc = Scenario(lab, binary, name, config)
+    try:
+        write_fixtures(lab, sc.work, canary, control)
+        probes: list[Probe] = probes_for(sc.work)
+        wait_ready(sc, plugin_id, tuple(sorted({p.agent for p in probes})))
+        for index, probe in enumerate(probes):
+            run_probe(sc, provider, probe, index)
+        evaluate(probes, canary, control)
+        if name == "file-copy":
+            check(".env unchanged on disk", f"API_TOKEN={canary}\n", (sc.work / ".env").read_text(encoding="utf-8"))
+            check("control edit applied", True, "/* edited */" in (sc.work / "src/app.ts").read_text(encoding="utf-8"))
+        return probes
+    finally:
+        sc.close()
+
+
+def main() -> None:
+    lab, binary, real_home, repo = Path(sys.argv[1]), sys.argv[2], Path(sys.argv[3]), Path(sys.argv[4])
+    before = snapshot(real_home)
+    canary = "CANARY" + secrets.token_hex(10)
+    control = "CONTROL" + secrets.token_hex(6)
+    provider = Provider()
+    provider.start()
+    summary: dict[str, Any] = {}
+    try:
+        version = subprocess.run(
+            [binary, "--version"], env=run_env(lab), text=True, capture_output=True, timeout=15, check=True
+        ).stdout.strip()
+        check("OpenCode V2 binary", True, version.startswith("opencode v2."))
+        summary["opencode"] = version
+        bundle_config = json.loads((repo / ".opencode-plugin/opencode.json").read_text(encoding="utf-8"))
+        guard_entries = [p for p in bundle_config["plugins"] if isinstance(p, str) and p.startswith("./")]
+        check("bundle config declares the guard plugin", ["./ycc-sensitive-guard"], guard_entries)
+        results = scenario(
+            lab,
+            binary,
+            provider,
+            "file-copy",
+            base_config(provider, guard_entries),
+            GUARD_ID,
+            file_copy_probes,
+            canary,
+            control,
+            install=lambda root: install_file_copy(repo, root),
+        )
+        package = repo / "packages/opencode/ycc-opencode"
+        results += scenario(
+            lab,
+            binary,
+            provider,
+            "npm-package",
+            base_config(provider, [package.as_uri()]),
+            PACKAGE_ID,
+            lambda _work: npm_probes(),
+            canary,
+            control,
+        )
+        restricted = [p for p in results if p.agent != "code-finder"]
+        check(
+            "canary absent from all restricted-agent bodies",
+            True,
+            all(canary not in json.dumps(p.bodies) for p in restricted),
+        )
+        summary["probes"] = [
+            {"probe": p.label, "agent": p.agent, "tool": p.tool, "expect": p.expect, "layer": p.layer} for p in results
+        ]
+        summary["provider_requests"] = len(provider.bodies)
+        (lab / "summary.json").write_text(json.dumps(summary, indent=2))
+        print("summary: " + json.dumps(summary, indent=2))
+    finally:
+        provider.close()
+        check("real config metadata/hash unchanged", before, snapshot(real_home))
+    print("assert_sensitive_guard: all expectations verified")
+
+
+if __name__ == "__main__":
+    os.environ.setdefault("PYTHONDONTWRITEBYTECODE", "1")
+    main()

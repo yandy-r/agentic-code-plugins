@@ -12,11 +12,15 @@ OPENCODE_PLUGIN_DIR="${SCRIPT_DIR}/.opencode-plugin"
 
 # Bundle units 'base' mirrors into ~/.config/opencode. `shared/` carries the
 # cross-skill scripts and references that ycc/skills/_shared/... is rewritten
-# to at generation time (~/.config/opencode/shared/...). It MUST stay in this
-# list: scripts/validate-opencode-install-coverage.sh parses this line and
-# checks every <dir> the bundle references is either listed here or explicitly
+# to at generation time (~/.config/opencode/shared/...). `ycc-sensitive-guard/`
+# is the local plugin the managed `plugins` entry "./ycc-sensitive-guard"
+# loads; it belongs with the agents it protects (the agents generator writes
+# it, the agents slice installs it) and is never dropped by skills
+# consolidation. Both MUST stay in this list:
+# scripts/validate-opencode-install-coverage.sh parses this line and checks
+# every <dir> the bundle references is either listed here or explicitly
 # allowlisted as a user-global/runtime path.
-OPENCODE_BUNDLE_UNITS=(skills agents commands shared)
+OPENCODE_BUNDLE_UNITS=(skills agents commands shared ycc-sensitive-guard)
 
 # opencode_valid_steps — comma-separated steps opencode accepts for --only.
 opencode_valid_steps() { echo "base,skills,agents,commands,settings,rules,mcp"; }
@@ -91,12 +95,13 @@ sync_opencode_target() {
             exit 1
         fi
 
-        # Generators run per unit (shared/ is written by the skills generator);
-        # 'base' also regenerates opencode.json + AGENTS.md (the 'plugin' pass).
+        # Generators run per unit (shared/ is written by the skills generator,
+        # ycc-sensitive-guard/ by the agents generator); 'base' also
+        # regenerates opencode.json + AGENTS.md (the 'plugin' pass).
         local -a passes=()
         local unit
         for unit in "${units[@]}"; do
-            [[ "${unit}" == "shared" ]] || passes+=("${unit}")
+            [[ "${unit}" == "shared" || "${unit}" == "ycc-sensitive-guard" ]] || passes+=("${unit}")
         done
         [[ $do_base -eq 1 ]] && passes+=(plugin)
         local pass
@@ -153,6 +158,13 @@ sync_opencode_target() {
                 "${opencode_dir}/opencode.json" \
                 "${opencode_groups}"
         fi
+        # The managed `plugins` group loads "./ycc-sensitive-guard"; ship that
+        # directory with it (unless 'base' mirrored it above) so the entry
+        # never points at a missing plugin.
+        if [[ ",${opencode_groups}," == *",plugins,"* && " ${units[*]:-} " != *" ycc-sensitive-guard "* ]]; then
+            command -v rsync >/dev/null 2>&1 || { err "rsync is required but not found"; exit 1; }
+            sync_bundle_units "${OPENCODE_PLUGIN_DIR}" "${opencode_dir}" ycc-sensitive-guard
+        fi
     fi
 
     if [[ $do_rules -eq 1 ]]; then
@@ -193,16 +205,44 @@ remove_opencode_target() {
     fi
     if step_enabled settings; then
         printf '\n%sopencode: remove managed config (opencode.json)%s\n' "${BOLD}" "${NC}"
+        local groups
+        groups="$(config_groups_for_target opencode)"
         remove_settings "opencode-config" "${OPENCODE_PLUGIN_DIR}/opencode.json" \
-            "${opencode_dir}/opencode.json" "$(config_groups_for_target opencode)"
+            "${opencode_dir}/opencode.json" "${groups}"
+        # The guard plugin goes with the `plugins` entry that loads it.
+        if [[ ",${groups}," == *",plugins,"* ]] && ! step_enabled base; then
+            remove_mirrored_entries "${OPENCODE_PLUGIN_DIR}/ycc-sensitive-guard" "${opencode_dir}/ycc-sensitive-guard"
+        fi
     fi
     remove_slices opencode skills agents commands
     if step_enabled base; then
         printf '\n%sopencode: remove bundle from ~/.config/opencode%s\n' "${BOLD}" "${NC}"
         local unit
         for unit in "${OPENCODE_BUNDLE_UNITS[@]}"; do
+            # Keep the guard while opencode.json still loads it (settings kept).
+            if [[ "${unit}" == "ycc-sensitive-guard" ]] && opencode_config_loads_guard "${opencode_dir}/opencode.json"; then
+                info "kept ${opencode_dir}/${unit}: opencode.json still loads ./${unit}"
+                continue
+            fi
             remove_mirrored_entries "${OPENCODE_PLUGIN_DIR}/${unit}" "${opencode_dir}/${unit}"
         done
     fi
     printf '\n%sopencode remove complete.%s\n' "${BOLD}" "${NC}"
+}
+
+# opencode_config_loads_guard <opencode.json> — true when its `plugins` list
+# still names the bundle's "./ycc-sensitive-guard" entry.
+opencode_config_loads_guard() {
+    [[ -f "$1" ]] || return 1
+    python3 - "$1" <<'PY'
+import json
+import sys
+
+try:
+    plugins = json.load(open(sys.argv[1], encoding="utf-8")).get("plugins", [])
+except (OSError, ValueError, AttributeError):
+    sys.exit(1)
+specs = {p if isinstance(p, str) else p.get("package") for p in plugins if isinstance(p, (str, dict))}
+sys.exit(0 if specs & {"./ycc-sensitive-guard", "./ycc-sensitive-guard/"} else 1)
+PY
 }

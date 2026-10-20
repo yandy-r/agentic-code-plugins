@@ -3,11 +3,14 @@
 
 from __future__ import annotations
 
+import json
+import re
+import tempfile
 import unittest
 from pathlib import Path
 
 from generate_opencode_agents import convert_tools_to_permissions, transform_agent
-from generate_opencode_common import parse_frontmatter
+from generate_opencode_common import load_agent_aliases, parse_frontmatter
 
 DENY_ALL = {"action": "*", "resource": "*", "effect": "deny"}
 ENV_READ_GUARDS = [
@@ -17,6 +20,65 @@ ENV_READ_GUARDS = [
 ]
 EXTERNAL_DIRECTORY_ASK = {"action": "external_directory", "resource": "*", "effect": "ask"}
 REPO_ROOT = Path(__file__).resolve().parent.parent
+RESTRICTED_AGENTS = (
+    "backport-conflict-resolver",
+    "db-modifier",
+    "pr-comment-fixer",
+    "release-fix-applier",
+    "review-fixer",
+)
+
+
+def wildcard_match(value: str, pattern: str) -> bool:
+    """Port of OpenCode v2.0.32 core/src/util/wildcard.ts (POSIX hosts)."""
+    escaped = re.sub(r"[.+^${}()|\[\]\\]", lambda m: "\\" + m.group(0), pattern.replace("\\", "/"))
+    escaped = escaped.replace("*", ".*").replace("?", ".")
+    if escaped.endswith(" .*"):
+        escaped = escaped[:-3] + "( .*)?"
+    return re.fullmatch(escaped, value.replace("\\", "/"), re.DOTALL) is not None
+
+
+def evaluate(rules: list[dict[str, str]], action: str, resource: str) -> str:
+    """Last matching rule wins; no match asks (core/src/permission.ts evaluate)."""
+    for rule in reversed(rules):
+        if wildcard_match(action, rule["action"]) and wildcard_match(resource, rule["resource"]):
+            return rule["effect"]
+    return "ask"
+
+
+def generated_permissions(stem: str) -> list[dict[str, str]]:
+    source = (REPO_ROOT / "ycc" / "agents" / f"{stem}.md").read_text(encoding="utf-8")
+    frontmatter, _ = parse_frontmatter(transform_agent(stem, source, load_agent_aliases()))
+    permissions = frontmatter["permissions"]
+    assert isinstance(permissions, list)
+    return permissions
+
+
+SENSITIVE_RESOURCES = (
+    ".env",
+    "app/.env",
+    ".env.local",
+    ".envrc",
+    ".env-prod",
+    "deploy/server.pem",
+    "certs/tls.key",
+    "id_rsa",
+    "keys/id_ed25519",
+    "credentials.json",
+    "ops/service-account-prod.json",
+    ".ssh/config",
+    "/home/user/.aws/credentials",
+    "/home/user/.kube/config",
+    ".netrc",
+    ".git-credentials",
+    ".npmrc",
+    ".pypirc",
+    ".pgpass",
+    ".ssh/backup.env.example",
+    "id_rsa.env.example",
+    "keys/id_ed25519.prod.env.example",
+)
+ALLOWED_RESOURCES = ("src/app.ts", "README.md", ".env.example", "app/.env.example", ".env.local.example")
 
 
 class OpenCodeAgentGenerationTestCase(unittest.TestCase):
@@ -164,6 +226,64 @@ Review code.
         for broad in ("Bash(cat:*)", "Bash(git:*)", "Bash(ls:*)", "Bash(test:*)"):
             self.assertNotIn(broad, fixer["tools"])
 
+        for stem in RESTRICTED_AGENTS:
+            with self.subTest(agent=stem):
+                frontmatter, _ = parse_frontmatter((source_agents / f"{stem}.md").read_text(encoding="utf-8"))
+                tools = frontmatter["tools"]
+                for broad in ("Bash", "Bash(*)", "Bash(cat:*)", "Bash(git:*)", "Bash(head:*)", "Bash(tail:*)"):
+                    self.assertNotIn(broad, tools)
+
+        release, _ = parse_frontmatter((source_agents / "release-fix-applier.md").read_text(encoding="utf-8"))
+        self.assertFalse(any(tool.startswith("Bash(git") for tool in release["tools"]))
+        review, _ = parse_frontmatter((source_agents / "review-fixer.md").read_text(encoding="utf-8"))
+        self.assertEqual(
+            sorted(tool for tool in review["tools"] if tool.startswith("Bash(git")),
+            ["Bash(git diff:*)", "Bash(git log:*)", "Bash(git status:*)"],
+        )
+
+    def test_restricted_agents_deny_sensitive_paths_for_read_and_edit(self) -> None:
+        for stem in RESTRICTED_AGENTS:
+            permissions = generated_permissions(stem)
+            for action in ("read", "edit"):
+                for resource in SENSITIVE_RESOURCES:
+                    with self.subTest(agent=stem, action=action, resource=resource):
+                        self.assertEqual(evaluate(permissions, action, resource), "deny")
+                for resource in ALLOWED_RESOURCES:
+                    with self.subTest(agent=stem, action=action, resource=resource):
+                        self.assertEqual(evaluate(permissions, action, resource), "allow")
+
+    def test_restricted_shell_agents_deny_git_diff_no_index(self) -> None:
+        for stem in ("backport-conflict-resolver", "review-fixer"):
+            with self.subTest(agent=stem):
+                permissions = generated_permissions(stem)
+                self.assertEqual(evaluate(permissions, "shell", "git diff --no-index . /tmp/x"), "deny")
+                self.assertEqual(evaluate(permissions, "shell", "git diff --stat --no-index a b"), "deny")
+                self.assertEqual(evaluate(permissions, "shell", "git diff HEAD~1 -- src"), "allow")
+
+    def test_restricted_agent_sensitive_rules_come_after_every_allow(self) -> None:
+        for stem in RESTRICTED_AGENTS:
+            with self.subTest(agent=stem):
+                permissions = generated_permissions(stem)
+                first_deny = next(
+                    index
+                    for index, rule in enumerate(permissions)
+                    if rule["effect"] == "deny" and rule["action"] in {"read", "edit"}
+                )
+                broad_allows = [
+                    index
+                    for index, rule in enumerate(permissions)
+                    if rule["effect"] == "allow" and rule["resource"] == "*"
+                ]
+                self.assertLess(max(broad_allows), first_deny)
+                self.assertFalse(any(rule["effect"] == "ask" and rule["action"] == "read" for rule in permissions))
+
+    def test_unrestricted_agents_keep_host_sensitive_read_defaults(self) -> None:
+        permissions = generated_permissions("code-finder")
+
+        self.assertEqual(permissions[-3:], ENV_READ_GUARDS)
+        self.assertEqual(evaluate(permissions, "read", ".envrc"), "allow")
+        self.assertFalse(any(rule["effect"] == "deny" and rule["action"] in {"read", "edit"} for rule in permissions))
+
     def test_backport_open_code_prompt_uses_shell_workdir(self) -> None:
         source = (REPO_ROOT / "ycc" / "agents" / "backport-conflict-resolver.md").read_text(encoding="utf-8")
 
@@ -175,6 +295,69 @@ Review code.
         self.assertFalse(
             any(rule["action"] == "shell" and " -C " in rule["resource"] for rule in frontmatter["permissions"])
         )
+
+
+class SensitiveFilePolicyTestCase(unittest.TestCase):
+    def test_registry_names_exactly_the_restricted_agents(self) -> None:
+        from opencode_sensitive_policy import load_policy
+
+        policy = load_policy()
+        self.assertEqual(sorted(policy.restricted_agents), list(RESTRICTED_AGENTS))
+        self.assertIn("*.env.example", policy.allow)
+
+    def test_registry_rejects_unknown_agent_and_malformed_entries(self) -> None:
+        from opencode_sensitive_policy import POLICY_PATH, load_policy
+
+        valid = json.loads(POLICY_PATH.read_text(encoding="utf-8"))
+        cases = {
+            "unknown agent": {**valid, "restricted_agents": ["no-such-agent"]},
+            "duplicate pattern": {**valid, "patterns": ["*.pem", "*.pem"]},
+            "unexpected key": {**valid, "extra": True},
+            "empty pattern": {**valid, "patterns": [""]},
+            "absolute pattern": {**valid, "patterns": ["/etc/shadow"]},
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            for label, payload in cases.items():
+                with self.subTest(case=label):
+                    path = Path(tmp) / "policy.json"
+                    path.write_text(json.dumps(payload), encoding="utf-8")
+                    with self.assertRaises(ValueError):
+                        load_policy(path)
+
+    def test_generated_guard_policy_matches_registry(self) -> None:
+        from opencode_sensitive_policy import GUARD_DIR, POLICY_PATH, guard_drift, guard_payloads
+
+        payloads = guard_payloads()
+        self.assertEqual(
+            json.loads(payloads[Path("policy.json")]),
+            json.loads(POLICY_PATH.read_text(encoding="utf-8")),
+        )
+        self.assertEqual(json.loads(payloads[Path("package.json")])["main"], "index.js")
+        self.assertEqual(GUARD_DIR, REPO_ROOT / ".opencode-plugin" / "ycc-sensitive-guard")
+        self.assertEqual(guard_drift(), [])
+
+    def test_guard_writer_prunes_stray_files_and_check_reports_them(self) -> None:
+        from opencode_sensitive_policy import guard_drift, guard_payloads, write_guard
+
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "ycc-sensitive-guard"
+            (dest / "old").mkdir(parents=True)
+            (dest / "old" / "stale.js").write_text("x", encoding="utf-8")
+            self.assertIn("extra in repo: ycc-sensitive-guard/old/stale.js", guard_drift(dest))
+            self.assertEqual(write_guard(dest, dry_run=False), set(guard_payloads()))
+            self.assertEqual(guard_drift(dest), [])
+            self.assertFalse((dest / "old").exists())
+
+    def test_bundle_config_loads_the_guard_plugin(self) -> None:
+        from generate_opencode_plugin import build_opencode_config
+        from opencode_sensitive_policy import GUARD_DIRNAME, GUARD_PLUGIN_SPEC
+
+        plugins = build_opencode_config()["plugins"]
+        self.assertIsInstance(plugins, list)
+        self.assertIn(GUARD_PLUGIN_SPEC, plugins)
+        # A top-level bundle unit: skills consolidation (which drops skills/ and
+        # shared/) never removes the directory the entry points at.
+        self.assertEqual(GUARD_PLUGIN_SPEC, f"./{GUARD_DIRNAME}")
 
 
 if __name__ == "__main__":
