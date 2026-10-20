@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import generate_omp_agents as omp  # noqa: E402
 from generate_codex_common import SRC_AGENTS_DIR, parse_frontmatter  # noqa: E402
-from generate_omp_skills import OmpGenerationError, compare_trees  # noqa: E402
+from generate_omp_skills import OmpGenerationError, PathSentences, compare_trees  # noqa: E402
 
 DEMO_AGENT = """\
 ---
@@ -161,52 +161,79 @@ class BodyTest(FixtureTestCase):
         self.assertIn("Search with `web_search`.", body)
         self.assertNotIn("ycc:", body)
 
+    def render_body(self, body: str) -> str:
+        write(self.agents / "helper-file.md", HELPER_AGENT.replace("Helper body.\n", body))
+        self.generate()
+        return self.output("helper-file")[1].removeprefix("\n")
+
     def test_claude_file_and_shell_tool_names_mapped(self) -> None:
         cases = (
-            ("Use `Read` on the file, then `Edit`.", "Use `read` on the file, then `edit`."),
-            ("Inspect with Read, Grep, and Glob.", "Inspect with `read`, `grep`, and `glob`."),
-            ("Every Read / Write / Edit call.", "Every `read` / `write` / `edit` call."),
-            ("Write it using the Write tool.", "Write it using the `write` tool."),
-            ("Modify files using Edit tools.", "Modify files using the `edit` tool."),
-            ("Run it via Bash. Do not use Write.", "Run it via `bash`. Do not use `write`."),
-            ("Use `Bash(git:*)` for history.", "Use `bash` (`git` commands) for history."),
-            ("Read the docs. Write clean code.", "Read the docs. Write clean code."),
-            ("```text\nRead the file\n```\n", "```text\nRead the file\n```\n"),
+            ("Use `Read` on the file, then `Edit`.\n", "Use `read` on the file, then `edit`.\n"),
+            ("Inspect with Read, Grep, and Glob.\n", "Inspect with `read`, `grep`, and `glob`.\n"),
+            ("Every Read / Write / Edit / Grep call.\n", "Every `read` / `write` / `edit` / `grep` call.\n"),
+            ("Write it using the Write tool.\n", "Write it using the `write` tool.\n"),
+            ("Modify files using Edit tools.\n", "Modify files using the `edit` tool.\n"),
+            ("Run it via Bash. Do not use Write.\n", "Run it via `bash`. Do not use `write`.\n"),
+            ("Use `Bash(git:*)` for history.\n", "Use `bash` (`git` commands) for history.\n"),
+            ("Search with `Grep`,\n`Glob`, and Read.\n", "Search with `grep`,\n`glob`, and `read`.\n"),
+            ("Write with the\nWrite tool.\n", "Write with the\n`write` tool.\n"),
+            ("Inspect with Read,\nGrep, and Glob.\n", "Inspect with `read`,\n`grep`, and `glob`.\n"),
+            ("Use NotebookEdit for cells.\n", "Use `edit` for cells.\n"),
         )
         for source, expected in cases:
             with self.subTest(source=source):
-                self.assertEqual(omp.rewrite_agent_tool_names(source, Path("agents/x.md")), expected)
+                self.assertEqual(self.render_body(source), expected)
 
-    def test_ambiguous_tool_wording_fails(self) -> None:
+    def test_english_and_code_left_verbatim(self) -> None:
+        cases = (
+            "Read the docs. Write clean code. Edit each conflict hunk.\n",
+            "Use Read replicas for reporting queries.\n",
+            "Grant Read and Write permissions on the bucket.\n",
+            "Match files with filepath.Glob and the Grep-style matcher.\n",
+            "Bash scripts must use strict mode.\n",
+            "Implement `Write(p []byte)` and call `Read(buf)`.\n",
+            "```go\nmatches, _ := filepath.Glob(pattern)\nfunc (w *W) Write(p []byte) (int, error)\nBash(ls)\n```\n",
+        )
+        for source in cases:
+            with self.subTest(source=source):
+                self.assertEqual(self.render_body(source), source)
+
+    def test_lists_collapsing_onto_one_omp_tool_fail(self) -> None:
         for source in (
-            "Use `Read` or `WebFetch`.\n",  # both become `read`
-            "```\nBash(ls)\n```\n",
-            "Call `Edit(path)` now.\n",
+            "Use `Read` or `WebFetch`.\n",
+            "Use `WebFetch` or `Read`.\n",
+            "Use Read, then WebFetch\nor Read.\n",
         ):
             with self.subTest(source=source):
-                self.assert_fails(DEMO_AGENT + source, "agents/demo-agent.md")
+                self.assert_fails(DEMO_AGENT + source, "same OMP tool")
+
+    def test_claude_tool_residue(self) -> None:
+        flagged = ("Call TodoWrite now.", "Run Bash(ls) first.", "Ask with AskUserQuestion.", "Then `Grep`.")
+        clean = (
+            "Read the docs.",
+            "Implement `Write(p []byte)`.",
+            "Use `bash` (`git` commands).",
+            "```\nTodoWrite\n```",
+        )
+        self.assertEqual(omp.claude_tool_residue("\n".join(flagged)), list(flagged))
+        self.assertEqual(omp.claude_tool_residue("\n".join(clean)), [])
 
     def test_sentence_table_applied_and_stale_entry_fails(self) -> None:
-        sentences = {"helper-file": (("Helper body.", "Rewritten body."),)}
-        omp.write_tree(
-            self.dest,
-            dry_run=False,
-            src_root=self.agents,
-            skills_root=self.skills,
-            mcp_path=self.mcp,
-            sentences=sentences,
-        )
+        def generate(sentences: PathSentences) -> None:
+            omp.write_tree(
+                self.dest,
+                dry_run=False,
+                src_root=self.agents,
+                skills_root=self.skills,
+                mcp_path=self.mcp,
+                sentences=sentences,
+            )
+
+        generate({"helper-file": (("Helper body.", "Rewritten body."),)})
         self.assertEqual(self.output("helper-file")[1], "\nRewritten body.\n")
         for stale in ({"helper-file": (("gone", "x"),)}, {"nobody": (("a", "b"),)}):
-            with self.subTest(stale=stale), self.assertRaises(OmpGenerationError):
-                omp.write_tree(
-                    self.dest,
-                    dry_run=False,
-                    src_root=self.agents,
-                    skills_root=self.skills,
-                    mcp_path=self.mcp,
-                    sentences=stale,
-                )
+            with self.subTest(stale=stale), self.assertRaisesRegex(OmpGenerationError, "AGENT_SENTENCES"):
+                generate(stale)
 
     def test_unknown_body_reference_fails(self) -> None:
         self.assert_fails(DEMO_AGENT.replace("/ycc:demo", "/ycc:nope"), "/ycc:nope")

@@ -9,22 +9,26 @@ python3 "${REPO_ROOT}/scripts/generate_omp_agents.py" --check
 
 echo "== Content policy (generated agents) =="
 # Each source agent appears exactly once; frontmatter holds only OMP keys, OMP tool
-# IDs and role aliases (OUTPUT_FRONTMATTER_KEYS / TOOL_MAP / MODEL_MAP in
-# scripts/generate_omp_agents.py are imported, never copied); bodies carry no Claude
-# plugin paths, ycc: references, `Bash(<cmd>:*)` scopes or backticked Claude tool names.
+# IDs and role aliases; bodies carry no Claude plugin paths, ycc: references or Claude
+# tool residue. OUTPUT_FRONTMATTER_KEYS, MODEL_MAP, OMP_TOOL_IDS and
+# claude_tool_residue come from scripts/generate_omp_agents.py, so the validator checks
+# exactly what the generator guarantees. claude_tool_residue flags, outside fenced code
+# only: AskUserQuestion, TodoWrite, TaskCreate/Update/List/Get, WebFetch, WebSearch,
+# NotebookEdit; `Bash(` outside code spans; and a code span that is exactly a Claude
+# file/shell tool name (`Read`, `Write`, `Edit`, `Glob`, `Grep`, `Bash`). English words
+# such as "Read the docs" and code spans like `Write(p []byte)` are not flagged.
 PYTHONPATH="${REPO_ROOT}/scripts" python3 - "${REPO_ROOT}" <<'PY'
 import re
 import sys
 from pathlib import Path
 
 from generate_codex_common import parse_frontmatter
-from generate_omp_agents import MODEL_MAP, OMP_TOOL_IDS, OUTPUT_FRONTMATTER_KEYS, TOOL_MAP
+from generate_omp_agents import MODEL_MAP, OMP_TOOL_IDS, OUTPUT_FRONTMATTER_KEYS, claude_tool_residue
 
 repo = Path(sys.argv[1])
 src = repo / "ycc/agents"
 dest = repo / "packages/omp/ycc/agents"
-claude_tools = "|".join(sorted(map(re.escape, TOOL_MAP), key=len, reverse=True))
-forbidden = re.compile(r"CLAUDE_PLUGIN_ROOT|/ycc:|\bycc:|\bBash\(|`(?:" + claude_tools + r")`")
+forbidden = re.compile(r"CLAUDE_PLUGIN_ROOT|/ycc:|\bycc:")
 models = {alias for alias in MODEL_MAP.values() if alias is not None}
 bad = False
 
@@ -68,6 +72,8 @@ for path in generated:
     for number, line in enumerate(text.splitlines(), 1):
         if forbidden.search(line) or "mcp**" in line:
             fail(f"FORBIDDEN pattern in {path}:{number}: {line.strip()}")
+    for line in claude_tool_residue(text):
+        fail(f"Claude tool name in {path}: {line}")
 sys.exit(1 if bad else 0)
 PY
 

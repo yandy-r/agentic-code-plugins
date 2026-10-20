@@ -356,11 +356,16 @@ def _check_no_plugin_root(text: str, rel: Path) -> None:
             raise OmpGenerationError(f"{rel}: unresolved {PLUGIN_ROOT_TOKEN} reference: {line.strip()}")
 
 
-def apply_path_sentences(text: str, rel: Path, sentences: tuple[tuple[str, str], ...]) -> str:
-    """Apply the PATH_TOOL_SENTENCES entries for one file; a missing sentence raises."""
+def apply_path_sentences(
+    text: str,
+    rel: Path,
+    sentences: tuple[tuple[str, str], ...],
+    table: str = "PATH_TOOL_SENTENCES",
+) -> str:
+    """Apply one file's sentence-table entries; a missing sentence raises, naming the table."""
     for source, replacement in sentences:
         if source not in text:
-            raise OmpGenerationError(f"{rel}: PATH_TOOL_SENTENCES entry no longer matches: {source!r}")
+            raise OmpGenerationError(f"{rel}: {table} entry no longer matches: {source!r}")
         text = text.replace(source, replacement)
     return text
 

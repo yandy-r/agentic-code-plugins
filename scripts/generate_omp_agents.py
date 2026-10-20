@@ -76,29 +76,53 @@ _MCP_TOOL = re.compile(r"^mcp__(?P<server>[A-Za-z0-9_.-]+?)__(?P<tool>[A-Za-z0-9
 
 SHELL_SCOPE_HEADING = "## Shell scope (OMP)"
 
-# Body tool wording. The shared skills rewrite maps WebSearch/WebFetch/Agent; agent
-# bodies also name file and shell tools. Read, Write and Edit are English words, so
-# prose rewrites them only in tool contexts (a list with an unambiguous tool name,
-# "<Tool> tool", "use/using/via <Tool>"); Glob, Grep, Bash and NotebookEdit always.
+# Body tool wording (D7). The shared skills rewrite already maps WebSearch, WebFetch,
+# AskUserQuestion, the Todo/Task tools and Agent. Agent bodies also name file and shell
+# tools, which are ordinary English words (Read, Write, Edit, Grep, Glob, Bash), so prose
+# rewrites them only in tool contexts and never inside fenced code or other code spans:
+#   - a code span whose whole content is a Claude tool name, or `Bash(<prefix>:*)`;
+#   - a list of tool names that holds a backticked tool or a non-English name;
+#   - "<Tool> tool(s)", "<Tool> exists";
+#   - "use/uses/using/via <Tool>" followed by a function word, punctuation or line end.
+# NotebookEdit is never English, so it is always rewritten.
 _FENCE = re.compile(r"^[ \t]*(?:```|~~~)")
 _CODE_SPAN = re.compile(r"(`[^`\n]+`)")
-_NAME_END = r"(?![\w-])"
-_BODY_TOOLS = r"(?:Read|Write|Edit|Glob|Grep|Bash|NotebookEdit)"
-_UNAMBIGUOUS = re.compile(r"\b(?:Glob|Grep|Bash|NotebookEdit)" + _NAME_END)
-_LIST_SEP = r"(?:[ \t]*/[ \t]*|,\s+(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)"
-_PROSE_LIST = re.compile(r"\b" + _BODY_TOOLS + _NAME_END + r"(?:" + _LIST_SEP + _BODY_TOOLS + _NAME_END + r")+")
-_PROSE_NAME = re.compile(r"\b(" + _BODY_TOOLS + r")" + _NAME_END)
-_PROSE_NOUN = re.compile(r"\b(the )?(" + _BODY_TOOLS + r") (tools?)\b")
-_PROSE_SUBJECT = re.compile(r"\b(" + _BODY_TOOLS + r")(?= exists\b)")
-_PROSE_VERB = re.compile(r"\b((?:[Uu]se|[Uu]sing|via)\s+)(" + _BODY_TOOLS + r")" + _NAME_END)
-_SPAN_CALL = re.compile(r"^`" + _BODY_TOOLS + r"\(")
 _SPAN_SCOPED_BASH = re.compile(r"^`Bash\((?P<prefix>[^()`]*\S):\*\)`$")
-_SPAN_LIST = re.compile(r"`[^`\n]+`(?:" + _LIST_SEP + r"`[^`\n]+`)+")
+_PLACEHOLDER = "\x00{}\x00"
+_BARE_NAMES = r"(?:Read|Write|Edit|Glob|Grep|Bash|NotebookEdit)"
+_BARE = r"(?<![\w.\-/\x00])" + _BARE_NAMES + r"(?![\w\-(])(?!\s+scripts?\b)"
+# Tokens already mapped to OMP (by the span pass or the shared WebFetch/WebSearch rewrite).
+_OMP_TOKEN = r"`(?:read|write|edit|glob|grep|bash|web_search)`(?: \(URL\))?"
+_TOKEN = r"(?:" + _OMP_TOKEN + r"|" + _BARE + r")"
+_LIST_SEP = r"(?:[ \t]*/[ \t]*|,\s+(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)"
+_LIST = re.compile(_TOKEN + r"(?:" + _LIST_SEP + _TOKEN + r")+")
+_LIST_TRIGGER = re.compile(_OMP_TOKEN + r"|(?<![\w.\-/\x00])(?:Glob|Grep|NotebookEdit)(?![\w\-(])")
+_BARE_NAME = re.compile(_BARE)
+_NOUN = re.compile(r"(?<![\w.\-/\x00])(the\s+)?(" + _BARE_NAMES + r")(\s+)(tools?)\b")
+_SUBJECT = re.compile(r"(" + _BARE + r")(?=\s+exists\b)")
+_FOLLOW = r"(?=[ \t]*(?:$|[.,;:)!?]|\s+(?:to|with|for|on|or|and|in|when|if|instead|first|calls?)\b))"
+_VERB = re.compile(r"\b((?:[Uu]ses?|[Uu]sing|via)\s+)(" + _BARE + r")" + _FOLLOW, re.MULTILINE)
+_NOTEBOOK = re.compile(r"(?<![\w.\-/\x00])NotebookEdit(?![\w\-(])")
+_OMP_LIST = re.compile(_OMP_TOKEN + r"(?:" + _LIST_SEP + _OMP_TOKEN + r")+")
+_OMP_ID = re.compile(r"`([a-z_]+)`")
+# Claude tool identifiers that must not survive outside fenced code. None is English, and
+# the shared rewrite plus the passes above map every use in prose and code spans, so a
+# leftover would point an OMP agent at a tool it does not have:
+#   - anywhere outside fences: the Claude-only names below;
+#   - in prose (outside code spans): `Bash(` scope syntax;
+#   - as a whole code span: a Claude file/shell tool name.
+# Other code spans, e.g. `Write(p []byte)`, stay verbatim and are not checked.
+_CLAUDE_ONLY_TOOLS = re.compile(
+    r"\b(?:AskUserQuestion|TodoWrite|TaskCreate|TaskUpdate|TaskList|TaskGet|WebFetch|WebSearch|NotebookEdit)\b"
+)
+_PROSE_BASH_SCOPE = re.compile(r"\bBash\(")
+_TOOL_SPAN = re.compile(r"`(?:" + _BARE_NAMES + r")`")
 
 # Sentences that read wrongly once tool names are mapped, keyed by source file stem
 # and rewritten before every other transform. Generation fails when a listed agent or
 # sentence is gone, so rewording the source cannot silently skip the rewrite.
 AGENT_SENTENCES: PathSentences = {
+    "db-modifier": (("because permission mode permits Bash.", "because permission mode permits `bash`."),),
     "git-cleanup": (
         (
             "Where a runtime cannot enforce\n"
@@ -254,68 +278,103 @@ def _omp_tool(name: str) -> str:
     return f"`{TOOL_MAP[name]}`"
 
 
-def _rewrite_span(span: str, rel: Path) -> str:
+def _rewrite_span(span: str) -> str:
+    """A span holding exactly a Claude tool name or a scoped Bash form; others stay verbatim."""
     content = span[1:-1]
     if content in TOOL_MAP:
         return _omp_tool(content)
     scoped = _SPAN_SCOPED_BASH.match(span)
     if scoped:
         return f"`bash` (`{scoped.group('prefix')}` commands)"
-    if _SPAN_CALL.match(span):
-        raise OmpGenerationError(f"{rel}: no OMP wording for Claude tool call {span}")
     return span
 
 
 def _noun(match: re.Match[str]) -> str:
     # "the Write tool" -> "the `write` tool"; "using Edit tools" -> "using the `edit` tool".
-    article = "the " if match.group(1) or match.group(3) == "tools" else ""
-    return f"{article}{_omp_tool(match.group(2))} tool"
+    article = match.group(1) or ("the " if match.group(4) == "tools" else "")
+    return f"{article}{_omp_tool(match.group(2))}{match.group(3)}tool"
 
 
 def _rewrite_prose(prose: str) -> str:
+    """Paragraph-level pass over prose whose non-tool code spans are placeholders."""
+
     def tool_list(match: re.Match[str]) -> str:
-        return _PROSE_NAME.sub(lambda name: _omp_tool(name.group(1)), match.group(0))
+        run = match.group(0)
+        if not _LIST_TRIGGER.search(run):
+            return run
+        return _BARE_NAME.sub(lambda name: _omp_tool(name.group(0)), run)
 
-    prose = _PROSE_LIST.sub(tool_list, prose)
-    prose = _PROSE_NOUN.sub(_noun, prose)
-    prose = _PROSE_SUBJECT.sub(lambda match: _omp_tool(match.group(1)), prose)
-    prose = _PROSE_VERB.sub(lambda match: match.group(1) + _omp_tool(match.group(2)), prose)
-    return _UNAMBIGUOUS.sub(lambda match: _omp_tool(match.group(0)), prose)
+    prose = _LIST.sub(tool_list, prose)
+    prose = _NOUN.sub(_noun, prose)
+    prose = _SUBJECT.sub(lambda match: _omp_tool(match.group(1)), prose)
+    prose = _VERB.sub(lambda match: match.group(1) + _omp_tool(match.group(2)), prose)
+    return _NOTEBOOK.sub(lambda match: _omp_tool(match.group(0)), prose)
 
 
-def _check_tool_lists(text: str, rel: Path) -> None:
-    for run in _SPAN_LIST.finditer(text):
-        tools = [span[1:-1] for span in _CODE_SPAN.findall(run.group(0)) if span[1:-1] in OMP_TOOL_IDS]
+def _check_tool_lists(prose: str, rel: Path) -> None:
+    for run in _OMP_LIST.finditer(prose):
+        tools = _OMP_ID.findall(run.group(0))
         if len(tools) != len(set(tools)):
             raise OmpGenerationError(
                 f"{rel}: Claude tools in '{run.group(0)}' map to the same OMP tool; reword the source list"
             )
 
 
-def rewrite_agent_tool_names(text: str, rel: Path) -> str:
-    """Claude file/shell tool names in an agent body -> backticked OMP tool IDs.
+def _rewrite_prose_chunk(chunk: str, rel: Path) -> str:
+    spans: list[str] = []
 
-    Code spans and prose are rewritten; fenced code holding a tool name fails, as does
-    a list whose names collapse onto one OMP tool, because neither has one right wording.
+    def protect(match: re.Match[str]) -> str:
+        span = _rewrite_span(match.group(0))
+        if span != match.group(0) or span[1:-1] in OMP_TOOL_IDS:
+            return span
+        spans.append(span)
+        return _PLACEHOLDER.format(len(spans) - 1)
+
+    prose = _rewrite_prose(_CODE_SPAN.sub(protect, chunk))
+    _check_tool_lists(prose, rel)
+    for index, span in enumerate(spans):
+        prose = prose.replace(_PLACEHOLDER.format(index), span, 1)
+    return prose
+
+
+def rewrite_agent_tool_names(text: str, rel: Path) -> str:
+    """Claude file/shell tool names in agent prose -> backticked OMP tool IDs.
+
+    Fenced code and code spans other than bare tool names stay verbatim. A list whose
+    names collapse onto one OMP tool fails, because it has no single right wording.
     """
     chunks: list[str] = []
+    prose: list[str] = []
     in_fence = False
     for line in text.splitlines(keepends=True):
         if _FENCE.match(line):
+            if not in_fence:
+                chunks.append(_rewrite_prose_chunk("".join(prose), rel))
+                prose = []
             in_fence = not in_fence
             chunks.append(line)
         elif in_fence:
-            if _UNAMBIGUOUS.search(line) or _SPAN_CALL.search("`" + line.lstrip()):
-                raise OmpGenerationError(f"{rel}: Claude tool name in fenced code: {line.strip()}")
             chunks.append(line)
         else:
-            parts = _CODE_SPAN.split(line)
-            for index, part in enumerate(parts):
-                parts[index] = _rewrite_span(part, rel) if index % 2 else _rewrite_prose(part)
-            chunks.append("".join(parts))
-    output = "".join(chunks)
-    _check_tool_lists(output, rel)
-    return output
+            prose.append(line)
+    chunks.append(_rewrite_prose_chunk("".join(prose), rel))
+    return "".join(chunks)
+
+
+def claude_tool_residue(text: str) -> list[str]:
+    """Lines outside fenced code that still name a Claude tool (see _CLAUDE_ONLY_TOOLS)."""
+    hits: list[str] = []
+    in_fence = False
+    for line in text.splitlines():
+        if _FENCE.match(line):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        prose = _CODE_SPAN.sub("", line)
+        if _CLAUDE_ONLY_TOOLS.search(line) or _PROSE_BASH_SCOPE.search(prose) or _TOOL_SPAN.search(line):
+            hits.append(line.strip())
+    return hits
 
 
 def transform_agent(
@@ -342,7 +401,9 @@ def transform_agent(
     if model is not None:
         output["model"] = model
 
-    body = rewrite(apply_path_sentences(agent.body, rel, sentences))
+    body = rewrite(apply_path_sentences(agent.body, rel, sentences, "AGENT_SENTENCES"))
+    for line in claude_tool_residue(output["description"] + "\n" + body):
+        raise OmpGenerationError(f"{rel}: Claude tool name left after OMP rewrites: {line}")
     if plan is not None and plan.shell_scope:
         body = body.rstrip("\n") + "\n\n" + shell_scope_section(plan.shell_scope)
     return dump_frontmatter(output) + body

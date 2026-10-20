@@ -328,14 +328,17 @@ Source: spike §3.
 **AGENTS:omp**
 Partial: `scripts/generate_omp_agents.py` generates every agent as an OMP task agent under
 `packages/omp/ycc/agents/`, and it loads via `omp --plugin-dir`. `name` and `description` are kept.
-Tools map to OMP IDs (`WebSearch` → `web_search`, `WebFetch` → `read`, `NotebookEdit` → `edit`),
-and Claude tool names in agent bodies are rewritten the same way. `mcp__*` entries are dropped:
-OMP mounts every MCP tool in every agent, including agents that listed none (such as the
-read-only auditors), and cannot restrict MCP tools per agent. Models map to roles: `opus` →
-`@slow`, `sonnet` → `@task`, and `inherit` emits no `model:`. `color` is dropped. Generation fails
-on any other key, tool or model, and on names that would shadow OMP's bundled agents (`task`,
-`sonic`, `scout`, `reviewer`, `security-reviewer`, `seance`). OMP has no command-scoped shell
-permission, so `Bash(<cmd>:*)` becomes `bash` plus a `## Shell scope (OMP)` prompt section.
+Tools map to OMP IDs (`WebSearch` → `web_search`, `WebFetch` → `read`, `NotebookEdit` → `edit`).
+Claude tool names in agent prose are rewritten the same way, but only in tool contexts; fenced
+code and other code spans stay verbatim. An `mcp__<server>__*` entry is dropped only when
+`<server>` is configured in `mcp-configs/mcp.json`; an unknown server fails generation. OMP
+mounts every MCP tool in every agent, including agents that listed none (such as the read-only
+auditors), and cannot restrict MCP tools per agent. Models map to roles: `opus` → `@slow`,
+`sonnet` → `@task`, and `inherit` emits no `model:`. `color` is dropped. Generation fails on any
+other key, tool or model. It also fails on OMP's reserved session names (`main`, `sub`) and on
+names that would shadow OMP's bundled agents (`task`, `sonic`, `scout`, `reviewer`,
+`security-reviewer`, `seance`). OMP has no command-scoped shell permission, so `Bash(<cmd>:*)`
+becomes `bash` plus a `## Shell scope (OMP)` prompt section.
 Subagents run with `approvalMode: yolo`, so that scope is a prompt rule, not enforced. OMP drops
 agent `model:` only for Claude-dialect roots (a `.claude-plugin/plugin.json` without an
 `.omp-plugin/plugin.json`). The manifest-less `packages/omp/ycc` tree under `--plugin-dir` and an
