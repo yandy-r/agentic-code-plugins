@@ -66,8 +66,13 @@
 //     plugin API lists saved permissions (v2.0.30-v2.1.1). The host publishes
 //     permission.asked (the request, `save` included) and permission.replied
 //     on the bus that ctx.event.subscribe streams for this location, so the
-//     package records the same patterns in its own storage, keyed by
-//     project, and keeps an allow they cover.
+//     package records the same patterns in its own storage, one key per
+//     pattern under the project (ctx.storage.scan reads them back), and keeps
+//     an allow they cover. After saving, the host re-evaluates every other
+//     pending request and publishes an "always" reply, without saving
+//     anything, for each one that now evaluates to allow. Such a request's
+//     resources are already covered by the patterns just recorded, so a
+//     covered request's reply records nothing.
 //
 // Coexistence with the primary file-copy install (install.sh --target
 // opencode): config agents/skills/commands apply in the `post` plugin group,
@@ -355,37 +360,65 @@ async function sessionAgent(ctx, sessionID) {
   return (session?.data ?? session)?.agent;
 }
 
-// Saved external_directory approvals of one project, mirrored from the host.
-function savedKey(ctx) {
-  return `saved/${EXTERNAL}/${ctx.location.project.id}`;
+// Saved external_directory approvals of one project, mirrored from the host:
+// one storage key per pattern, so instances sharing a project never
+// overwrite each other's records.
+function savedPrefix(ctx) {
+  return `saved/${EXTERNAL}/${encodeURIComponent(ctx.location.project.id)}/`;
 }
 
-async function savedPatterns(ctx) {
+async function storedPatterns(ctx) {
+  const patterns = [];
+  const prefix = savedPrefix(ctx);
+  let after;
+  do {
+    const page = await ctx.storage.scan({ prefix, after });
+    for (const entry of page.entries) if (typeof entry.value === "string") patterns.push(entry.value);
+    after = page.next;
+  } while (after !== undefined);
+  return patterns;
+}
+
+// Recorded patterns: this instance's in-memory records (set as soon as the
+// reply arrives, before the storage write lands) plus the stored ones.
+async function savedPatterns(ctx, recorded) {
   try {
-    const value = await ctx.storage.get(savedKey(ctx));
-    return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+    return [...recorded, ...(await storedPatterns(ctx))];
   } catch {
-    return [];
+    return [...recorded];
   }
+}
+
+function covered(resources, patterns) {
+  return resources.every((resource) => patterns.some((pattern) => wildcardMatch(resource, pattern)));
 }
 
 // Record the `save` patterns of every external_directory request the user
 // answers "always", as the host saves them (any agent and session of the
-// project). A reply this package never saw asked, or any other reply, records
-// nothing, so an unknown approval still prompts.
-function trackSavedApprovals(ctx, signal) {
+// project). A reply this package never saw asked, any other reply, and a reply
+// to a request the recorded patterns already covered (the host's re-evaluation
+// of other pending requests, which saves nothing) record nothing. Events are
+// handled one at a time; a failed write loses only that record.
+function trackSavedApprovals(ctx, signal, recorded) {
   const asked = new Map();
   void (async () => {
     for await (const event of ctx.event.subscribe({ signal })) {
-      if (event.type === "permission.asked") {
-        if (event.data.action === EXTERNAL && event.data.save?.length) asked.set(event.data.id, event.data.save);
-      } else if (event.type === "permission.replied") {
-        const save = asked.get(event.data.requestID);
-        asked.delete(event.data.requestID);
-        if (!save || event.data.reply !== "always") continue;
-        const patterns = await savedPatterns(ctx);
-        const added = save.filter((item) => !patterns.includes(item));
-        if (added.length) await ctx.storage.set(savedKey(ctx), [...patterns, ...added]);
+      try {
+        if (event.type === "permission.asked") {
+          const { id, action, resources, save } = event.data;
+          if (action === EXTERNAL && save?.length) asked.set(id, { resources, save });
+        } else if (event.type === "permission.replied") {
+          const request = asked.get(event.data.requestID);
+          asked.delete(event.data.requestID);
+          if (!request || event.data.reply !== "always") continue;
+          if (covered(request.resources, await savedPatterns(ctx, recorded))) continue;
+          for (const pattern of request.save) recorded.add(pattern);
+          for (const pattern of request.save) {
+            await ctx.storage.set(savedPrefix(ctx) + encodeURIComponent(pattern), pattern);
+          }
+        }
+      } catch {
+        // Unrecorded patterns prompt again once this instance is rebuilt.
       }
     }
   })().catch(() => {
@@ -402,7 +435,8 @@ function trackSavedApprovals(ctx, signal) {
 // prompted again. Every other action keeps the host's allow or ask.
 async function registerPermissionFloor(ctx, signal) {
   if (RESTRICTED_RULES.size === 0) return;
-  trackSavedApprovals(ctx, signal);
+  const recorded = new Set();
+  trackSavedApprovals(ctx, signal, recorded);
   await ctx.permission.hook("evaluate", async (event) => {
     if (event.effect === "deny") return;
     let agent = event.agent;
@@ -427,8 +461,7 @@ async function registerPermissionFloor(ctx, signal) {
     if (event.effect !== "allow" || event.action !== EXTERNAL) return;
     const asked = event.resources.filter((_, index) => effects[index] === "ask");
     if (asked.length === 0) return;
-    const saved = await savedPatterns(ctx);
-    if (!asked.every((resource) => saved.some((pattern) => wildcardMatch(resource, pattern)))) event.effect = "ask";
+    if (!covered(asked, await savedPatterns(ctx, recorded))) event.effect = "ask";
   });
   await ctx.tool.hook("execute.before", async (event) => {
     const rules = RESTRICTED_RULES.get(event.agent);
