@@ -155,7 +155,7 @@ edited and foreign catalog entries remain preserved.
 - Cursor generated packages: `packages/cursor/{ycc,ycc-rules,ycc-mcp,ycc-hooks}/` (all listed in the root `.cursor-plugin/marketplace.json`)
 - Cursor file-copy settings input: `packages/cursor/installer-fallback/config/cli-config.json`, generated from `ycc/settings/cursor/cli-config.json`
 - opencode generated bundle: `.opencode-plugin/` (skills, agents, commands, AGENTS.md, opencode.json)
-- OMP generated skills and task agents: `packages/omp/ycc/{skills,agents}/` (not installable until YAN-1171 and YAN-1172)
+- OMP generated skills, task agents and command entrypoints: `packages/omp/ycc/{skills,agents,commands}/` (not installable until YAN-1171 and YAN-1172)
 - Skills go in `ycc/skills/<skill-name>/SKILL.md`
 - Scripts must be executable (`chmod +x`) and use `set -euo pipefail`
 - Reference templates go in `ycc/skills/<skill-name>/references/`
@@ -270,6 +270,7 @@ need to target a single surface:
 # OMP (oh-my-pi)
 ./scripts/generate-omp-skills.sh && ./scripts/validate-omp-skills.sh
 ./scripts/generate-omp-agents.sh && ./scripts/validate-omp-agents.sh
+./scripts/generate-omp-commands.sh && ./scripts/validate-omp-commands.sh
 ```
 
 ## Plugin evals

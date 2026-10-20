@@ -64,7 +64,7 @@
           "status": "deferred",
           "listed": false,
           "mechanism": "native",
-          "components": ["skills", "agents", "shared"],
+          "components": ["skills", "agents", "commands", "shared"],
           "requires": [],
           "target_release": "v6.1.0",
           "experimental": false,
@@ -77,7 +77,7 @@
             "YAN-1171 .omp-plugin/marketplace.json and per-package tree generator",
             "YAN-1178 live acceptance matrix passes on the real ycc tree"
           ],
-          "notes": "Generated OMP package (omp >=18.12.2) with rewritten ${CLAUDE_PLUGIN_ROOT}, /ycc: and _shared references and agents translated to @role models; optional commands/ wrappers stay with YAN-1168."
+          "notes": "Generated OMP package (omp >=18.12.2) with rewritten ${CLAUDE_PLUGIN_ROOT}, /ycc: and _shared references, agents translated to @role models, and one commands/<skill>.md entrypoint per public skill (/ycc:<skill>)."
         }
       }
     },

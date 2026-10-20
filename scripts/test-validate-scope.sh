@@ -67,15 +67,16 @@ expect_targets "Cursor native policy tests select content, native and config" "c
 expect_targets "Cursor generator selects content, native, config and types" "cursor cursor-native config types" scripts/generate_cursor_packages.py
 expect_targets "Cursor resources select content, native, config and types" "cursor cursor-native config types" scripts/cursor_native_resources.py
 expect_targets "Cursor package tests select content, native and config" "cursor cursor-native config" scripts/test_generate_cursor_packages.py
-expect_targets "generated OMP skills and agents select omp" "omp" \
-    packages/omp/ycc/skills/init/SKILL.md packages/omp/ycc/agents/planner.md
+expect_targets "generated OMP skills, agents and commands select omp" "omp" \
+    packages/omp/ycc/skills/init/SKILL.md packages/omp/ycc/agents/planner.md packages/omp/ycc/commands/plan.md
 expect_targets "OMP generators select omp and types" "omp types" \
-    scripts/generate_omp_skills.py scripts/generate_omp_agents.py
+    scripts/generate_omp_skills.py scripts/generate_omp_agents.py scripts/generate_omp_commands.py
 expect_targets "OMP wrappers and validators select omp" "omp" \
     scripts/generate-omp-skills.sh scripts/validate-omp-skills.sh \
-    scripts/generate-omp-agents.sh scripts/validate-omp-agents.sh
+    scripts/generate-omp-agents.sh scripts/validate-omp-agents.sh \
+    scripts/generate-omp-commands.sh scripts/validate-omp-commands.sh
 expect_targets "OMP golden tests select omp and types (mypy files)" "omp types" \
-    scripts/test_generate_omp_skills.py scripts/test_generate_omp_agents.py
+    scripts/test_generate_omp_skills.py scripts/test_generate_omp_agents.py scripts/test_generate_omp_commands.py
 expect_targets "unrelated package output selects everything" "${ALL}" packages/other/ycc-mcp/mcp.json
 expect_targets "Cursor hook source selects everything" "${ALL}" ycc/settings/cursor/herdr-session-start.sh
 expect_targets "vendored Cursor schemas select cursor native and config" "cursor cursor-native config" scripts/vendor/cursor/plugin.schema.json
