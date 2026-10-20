@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-"""Opt-in isolated-host smoke for the ycc sensitive-file guard (YAN-1026).
+"""Opt-in isolated-host smoke for the ycc sensitive-file guard (YAN-1026, YAN-1260, YAN-1261).
 
 Installs the generated file-copy bundle (agents, the ycc-sensitive-guard unit, and the generated
 `plugins` entry) into a disposable OpenCode V2 config root, writes a synthetic
 canary into secret-bearing fixture files, and drives real tool calls through a
 loopback fake provider. Every provider request body is recorded; the canary
 must never appear in one for a restricted specialist, while ordinary work and
-an unrestricted agent keep working. A second scenario loads the generated npm
-package directory instead of the file copy. Run through
+an unrestricted agent keep working. Further scenarios load the generated npm
+package directory instead of the file copy, load a package copy without the
+guard under host-wide allow rules (the packaged agent rules must still hold),
+and run the file copy with the guard absent or removed by project config
+(restricted specialists must have no search tool). Run through
 scripts/test-opencode-sensitive-guard.sh, never directly against a real home.
 """
 
@@ -28,11 +31,20 @@ from pathlib import Path
 from typing import Any
 
 from opencode_config_hook_checks import check, snapshot
-from opencode_config_hook_spike import Scenario, run_env
+from opencode_config_hook_spike import Api, Scenario, run_env
+from opencode_sensitive_policy import load_policy
 
 GUARD_ID = "yandy-r.ycc-sensitive-guard"
 PACKAGE_ID = "yandy-r.ycc-opencode"
 PROBE = re.compile(r"PROBE-[a-z0-9]+-\d+")
+SEARCH_TOOLS = frozenset({"grep", "glob", "ycc_grep", "ycc_glob"})
+# Host-wide rules a user might set in their own opencode.json.
+HOST_ALLOW = [
+    {"action": action, "resource": "*", "effect": "allow"} for action in ("read", "edit", "shell", "webfetch")
+]
+# Restricted specialists, from the same registry the generator and guard use.
+RESTRICTED_AGENTS = frozenset(load_policy().restricted_agents)
+SEARCH_AGENT = "ycc-sensitive-search"
 
 
 @dataclass
@@ -44,11 +56,19 @@ class Probe:
     tool: str
     arguments: dict[str, Any]
     expect: str  # "blocked"/"clean": canary absent | "control": control token present | "visible": canary present
+    # | "unavailable": no search tool is offered and the forced call fails
     must_contain: str = ""
     must_not_contain: tuple[str, ...] = ()
+    # Answer every permission prompt with this decision ("reject" declines with
+    # feedback so the turn continues); the prompted actions land in `asked`.
+    reply: str = ""
+    must_ask: str = ""
+    # When set, the model may be offered only these tool names.
+    offered_within: frozenset[str] = frozenset()
     key: str = ""
     result: str = ""
     layer: str = ""
+    asked: list[str] = field(default_factory=list)
     bodies: list[dict[str, Any]] = field(default_factory=list)
 
 
@@ -140,6 +160,9 @@ def write_fixtures(lab: Path, work: Path, canary: str, control: str) -> None:
     (work / "config" / ".env.production").write_text(f"API_TOKEN={canary}\n", encoding="utf-8")
     (work / ".env.example").write_text(f"API_TOKEN=example-{control}\n", encoding="utf-8")
     (work / "notes.txt").symlink_to(".env")
+    # Not gitignored, so a directory-wide search reaches it unless filtered.
+    (work / "keys").mkdir()
+    (work / "keys" / "server.pem").write_text(f"-----BEGIN KEY {canary}-----\n", encoding="utf-8")
     (work / ".gitignore").write_text("config/.env.production\n.env\n", encoding="utf-8")
     env = run_env(lab)
     subprocess.run(["git", "init", "-q", str(work)], env=env, check=True, timeout=30)
@@ -153,8 +176,8 @@ def install_file_copy(repo: Path, root: Path) -> None:
         shutil.copytree(bundle / unit, root / unit, symlinks=True)
 
 
-def wait_ready(sc: Scenario, plugin_id: str, agents: tuple[str, ...]) -> None:
-    """Wait until the guard-bearing plugin is active and the probe agents exist."""
+def wait_ready(sc: Scenario, plugin_id: str | None, agents: tuple[str, ...]) -> None:
+    """Wait until the guard-bearing plugin (if any) is active and the probe agents exist."""
     deadline = time.monotonic() + 60
     states: dict[str, str] = {}
     while time.monotonic() < deadline:
@@ -163,12 +186,17 @@ def wait_ready(sc: Scenario, plugin_id: str, agents: tuple[str, ...]) -> None:
         try:
             states = {p["id"]: p["state"]["status"] for p in sc.api.items("plugin") if p["source"]["type"] != "builtin"}
             ids = {a["id"] for a in sc.api.items("agent")}
-            if states.get(plugin_id) == "active" and set(agents) <= ids:
-                return
-            if states.get(plugin_id) == "failed":
-                raise SystemExit(f"FAIL {sc.name}: plugin {plugin_id} failed: {states}")
         except (OSError, TimeoutError):
-            pass
+            states, ids = {}, set()
+        except SystemExit as error:
+            # The server answers 503 service_starting until boot finishes.
+            if "service_starting" not in str(error):
+                raise
+            states, ids = {}, set()
+        if (plugin_id is None or states.get(plugin_id) == "active") and ids and set(agents) <= ids:
+            return
+        if plugin_id is not None and states.get(plugin_id) == "failed":
+            raise SystemExit(f"FAIL {sc.name}: plugin {plugin_id} failed: {states}")
         time.sleep(0.25)
     raise SystemExit(f"FAIL {sc.name}: not ready; plugins={states}")
 
@@ -187,6 +215,13 @@ def run_probe(sc: Scenario, provider: Provider, probe: Probe, index: int, sessio
     sc.api.request(f"/api/session/{sid}/prompt", {"text": f"{probe.key}: run the scripted tool call."})
     deadline = time.monotonic() + 45
     while not probe.result and time.monotonic() < deadline:
+        if probe.reply:
+            for request in sc.api.request(f"/api/session/{sid}/permission")["data"]:
+                probe.asked.append(request["action"])
+                decision = {"decision": probe.reply}
+                if probe.reply == "reject":
+                    decision["message"] = "declined by the smoke"
+                sc.api.request(f"/api/session/{sid}/permission/{request['id']}/reply", decision)
         time.sleep(0.2)
     if not probe.result:
         raise SystemExit(f"FAIL {probe.label}: no tool result reached the provider (agent {probe.agent})")
@@ -194,27 +229,48 @@ def run_probe(sc: Scenario, provider: Provider, probe: Probe, index: int, sessio
     time.sleep(0.5)
 
 
+def offered_tools(probe: Probe) -> set[str]:
+    """Tool names the model was offered in the probe's first request."""
+    return {tool.get("function", {}).get("name") for body in probe.bodies[:1] for tool in body.get("tools", [])}
+
+
 def classify(probe: Probe) -> str:
     text = probe.result
     if "ycc sensitive-file guard" in text:
         return "guard"
+    if re.search(r"No tool named|not available", text):
+        return "unavailable"
+    if "ycc restricted-agent rules" in text:
+        return "floor"
     if re.search(r"denied|not allowed|rule", text, re.IGNORECASE):
         return "native-deny"
-    return "filtered" if probe.tool in {"grep", "glob"} else "allowed"
+    return "filtered" if probe.tool in SEARCH_TOOLS else "allowed"
 
 
 def evaluate(probes: list[Probe], canary: str, control: str) -> None:
     for probe in probes:
         probe.layer = classify(probe)
         encoded = json.dumps(probe.bodies)
-        if probe.expect in {"blocked", "clean"}:
+        if probe.expect in {"blocked", "clean", "unavailable"}:
             check(f"{probe.label}: canary absent from every provider body", False, canary in encoded)
-        if probe.expect == "blocked" and probe.tool not in {"grep", "glob"}:
-            check(f"{probe.label}: call was rejected", True, probe.layer in {"guard", "native-deny"})
+        if probe.expect == "blocked" and probe.tool not in SEARCH_TOOLS:
+            check(f"{probe.label}: call was rejected", True, probe.layer in {"guard", "floor", "native-deny"})
+        elif probe.expect == "unavailable":
+            check(f"{probe.label}: no search tool offered", set(), offered_tools(probe) & SEARCH_TOOLS)
+            check(f"{probe.label}: forced call failed", "unavailable", probe.layer)
         elif probe.expect == "control":
             check(f"{probe.label}: control result reached the model", True, control in probe.result)
         elif probe.expect == "visible":
             check(f"{probe.label}: unrestricted agent unaffected (canary visible)", True, canary in probe.result)
+        if probe.expect != "unavailable" and probe.agent in RESTRICTED_AGENTS and probe.tool in SEARCH_TOOLS:
+            # Guarded search reaches the model under the built-in names only.
+            offered = offered_tools(probe) & SEARCH_TOOLS
+            check(f"{probe.label}: guarded search offered as grep/glob", {"grep", "glob"}, offered)
+        if probe.must_ask:
+            check(f"{probe.label}: prompted for {probe.must_ask}", True, probe.must_ask in probe.asked)
+        if probe.offered_within:
+            extra = offered_tools(probe) - probe.offered_within
+            check(f"{probe.label}: offered only its own tools", set(), extra)
         if probe.must_contain:
             check(f"{probe.label}: result mentions {probe.must_contain!r}", True, probe.must_contain in probe.result)
         for needle in probe.must_not_contain:
@@ -276,6 +332,94 @@ def file_copy_probes(work: Path) -> list[Probe]:
         Probe(
             "unrestricted agent grep .env", "code-finder", "grep", {"pattern": "API_TOKEN", "path": ".env"}, "visible"
         ),
+        Probe(
+            "internal search agent cannot be a subagent",
+            "build",
+            "subagent",
+            {"agent": "ycc-sensitive-search", "description": "probe", "prompt": "search"},
+            "clean",
+            must_contain="cannot run as a subagent",
+        ),
+        # The internal search agent only runs inside the guarded tools.
+        Probe(
+            "internal search agent session has no tools",
+            SEARCH_AGENT,
+            "grep",
+            {"pattern": "API_TOKEN"},
+            "clean",
+            must_contain="ycc sensitive-file guard",
+        ),
+    ]
+
+
+def external_search_probes(work: Path, canary: str) -> list[Probe]:
+    """A search outside the project asks as the restricted agent, even when the
+    host allows external directories; the prompt is declined here."""
+    outside = work.parent / f"{work.name}-outside"
+    outside.mkdir(exist_ok=True)
+    (outside / "secret.txt").write_text(f"OUTSIDE {canary}\n", encoding="utf-8")
+    return [
+        Probe(
+            "external search asks the restricted agent",
+            "pr-comment-fixer",
+            "grep",
+            {"pattern": "OUTSIDE", "path": str(outside)},
+            "clean",
+            reply="reject",
+            must_ask="external_directory",
+        ),
+        Probe(
+            "external glob asks the restricted agent",
+            "review-fixer",
+            "glob",
+            {"pattern": "*", "path": str(outside)},
+            "clean",
+            reply="reject",
+            must_ask="external_directory",
+            must_not_contain=("secret.txt",),
+        ),
+    ]
+
+
+# Tools a restricted specialist's packaged rules allow, as the model sees them.
+PACKAGED_TOOLS = frozenset({"read", "edit", "write", "patch", "shell", "grep", "glob"})
+
+
+def host_wildcard_probes() -> list[Probe]:
+    """A host-wide `* * allow` offers and runs nothing beyond the packaged tools."""
+    return [
+        Probe(
+            "npm wildcard: control read src",
+            "pr-comment-fixer",
+            "read",
+            {"path": "src/app.ts"},
+            "control",
+            offered_within=PACKAGED_TOOLS,
+        ),
+        Probe(
+            "npm wildcard: webfetch outside allowlist",
+            "pr-comment-fixer",
+            "webfetch",
+            {"url": "http://127.0.0.1:9/"},
+            "blocked",
+            offered_within=PACKAGED_TOOLS,
+        ),
+        Probe(
+            "npm wildcard: question outside allowlist",
+            "review-fixer",
+            "question",
+            {"questions": [{"question": "q?", "header": "h", "options": [{"label": "a", "description": "a"}]}]},
+            "blocked",
+        ),
+        Probe(
+            "npm wildcard: subagent outside allowlist",
+            "pr-comment-fixer",
+            "subagent",
+            {"agent": "code-finder", "description": "probe", "prompt": "x"},
+            "blocked",
+        ),
+        Probe("npm wildcard: read .env", "pr-comment-fixer", "read", {"path": ".env"}, "blocked"),
+        Probe("npm wildcard: unrestricted agent read .env", "code-finder", "read", {"path": ".env"}, "visible"),
     ]
 
 
@@ -286,6 +430,71 @@ def npm_probes() -> list[Probe]:
         Probe("npm: read symlink to .env", "pr-comment-fixer", "read", {"path": "notes.txt"}, "blocked"),
         Probe("npm: control grep src", "pr-comment-fixer", "grep", {"pattern": "marker", "path": "src"}, "control"),
     ]
+
+
+def host_allow_probes(prefix: str) -> list[Probe]:
+    """Host-wide allow rules must not loosen a restricted specialist's own rules."""
+    return [
+        Probe(f"{prefix}: read .env", "pr-comment-fixer", "read", {"path": ".env"}, "blocked"),
+        Probe(f"{prefix}: read nested .env", "pr-comment-fixer", "read", {"path": "config/.env.production"}, "blocked"),
+        Probe(f"{prefix}: read key file", "pr-comment-fixer", "read", {"path": "keys/server.pem"}, "blocked"),
+        Probe(
+            f"{prefix}: edit .env",
+            "pr-comment-fixer",
+            "edit",
+            {"path": ".env", "oldString": "API_TOKEN=", "newString": "API_TOKEN=x"},
+            "blocked",
+        ),
+        Probe(f"{prefix}: shell outside allowlist", "review-fixer", "shell", {"command": "cat .env"}, "blocked"),
+        Probe(
+            f"{prefix}: webfetch outside allowlist",
+            "pr-comment-fixer",
+            "webfetch",
+            {"url": "http://127.0.0.1:9/"},
+            "blocked",
+        ),
+        Probe(f"{prefix}: control read src", "pr-comment-fixer", "read", {"path": "src/app.ts"}, "control"),
+        Probe(f"{prefix}: unrestricted agent read .env", "code-finder", "read", {"path": ".env"}, "visible"),
+    ]
+
+
+def guard_absent_probes(prefix: str) -> list[Probe]:
+    """Without the guard a restricted specialist has no search tool at all."""
+    return [
+        Probe(
+            f"{prefix}: grep directory-wide", "pr-comment-fixer", "grep", {"pattern": "API_TOKEN|BEGIN"}, "unavailable"
+        ),
+        Probe(
+            f"{prefix}: grep key dir", "pr-comment-fixer", "grep", {"pattern": "BEGIN", "path": "keys"}, "unavailable"
+        ),
+        Probe(f"{prefix}: glob key files", "review-fixer", "glob", {"pattern": "**/*.pem"}, "unavailable"),
+        Probe(f"{prefix}: guarded grep name", "pr-comment-fixer", "ycc_grep", {"pattern": "API_TOKEN"}, "unavailable"),
+        Probe(f"{prefix}: guarded glob name", "pr-comment-fixer", "ycc_glob", {"pattern": "**/*"}, "unavailable"),
+        Probe(f"{prefix}: native read .env", "pr-comment-fixer", "read", {"path": ".env"}, "blocked"),
+        Probe(f"{prefix}: control read src", "pr-comment-fixer", "read", {"path": "src/app.ts"}, "control"),
+        Probe(
+            f"{prefix}: unrestricted agent grep",
+            "code-finder",
+            "grep",
+            {"pattern": "BEGIN", "path": "keys"},
+            "visible",
+        ),
+    ]
+
+
+def guard_stubbed_package(repo: Path, lab: Path) -> Path:
+    """Lab copy of the generated package whose setup skips the guard plugin,
+    so only the agents' own rules (and the permission floor) protect them."""
+    dest = lab / "packages" / "ycc-opencode-noguard"
+    if dest.exists():
+        shutil.rmtree(dest)
+    shutil.copytree(repo / "packages/opencode/ycc-opencode", dest, symlinks=True)
+    index = dest / "index.js"
+    text = index.read_text(encoding="utf-8")
+    call = "      await registerSensitiveGuard(ctx);\n"
+    check("package setup registers the guard once", 1, text.count(call))
+    index.write_text(text.replace(call, ""), encoding="utf-8")
+    return dest
 
 
 def session_location_probes(work: Path) -> list[Probe]:
@@ -325,16 +534,19 @@ def scenario(
     provider: Provider,
     name: str,
     config: dict[str, Any],
-    plugin_id: str,
+    plugin_id: str | None,
     probes_for: Any,
     canary: str,
     control: str,
     install: Any = None,
     separate_session: bool = False,
+    project_config: dict[str, Any] | None = None,
 ) -> list[Probe]:
     """Run one scenario. With separate_session the server runs in an empty
     directory and every session is created in a different project directory,
-    so the guard must resolve paths against the session location."""
+    so the guard must resolve paths against the session location. A
+    project_config is written as that project's opencode.json before any
+    session uses it."""
     root = lab / "config/opencode"
     if root.exists():
         shutil.rmtree(root)
@@ -346,6 +558,8 @@ def scenario(
     work.mkdir(parents=True, exist_ok=True)
     try:
         write_fixtures(lab, work, canary, control)
+        if project_config is not None:
+            (work / "opencode.json").write_text(json.dumps(project_config, indent=2), encoding="utf-8")
         probes: list[Probe] = probes_for(work)
         wait_ready(sc, plugin_id, tuple(sorted({p.agent for p in probes})))
         for index, probe in enumerate(probes):
@@ -354,6 +568,10 @@ def scenario(
         if probes_for in (file_copy_probes, session_location_probes):
             check(".env unchanged on disk", f"API_TOKEN={canary}\n", (work / ".env").read_text(encoding="utf-8"))
             check("control edit applied", True, "/* edited */" in (work / "src/app.ts").read_text(encoding="utf-8"))
+        if project_config is not None:
+            located = Api(int(sc.api.base.rsplit(":", 1)[1]), work)
+            states = {p["id"]: p["state"]["status"] for p in located.items("plugin")}
+            check(f"{name}: guard not active in the project", False, states.get(GUARD_ID) == "active")
         return probes
     finally:
         sc.close()
@@ -402,6 +620,23 @@ def main() -> None:
             install=lambda root: install_file_copy(repo, root),
             separate_session=True,
         )
+        # Host-wide external-directory approval on the file copy: guarded search
+        # still asks as the restricted agent, whose own `ask` comes last there.
+        # (On npm a host-wide allow is the user's choice; the floor only
+        # enforces packaged denies.)
+        external_allow = {"permissions": [{"action": "external_directory", "resource": "*", "effect": "allow"}]}
+        results += scenario(
+            lab,
+            binary,
+            provider,
+            "file-copy-external-allow",
+            base_config(provider, guard_entries) | external_allow,
+            GUARD_ID,
+            lambda work: external_search_probes(work, canary),
+            canary,
+            control,
+            install=lambda root: install_file_copy(repo, root),
+        )
         package = repo / "packages/opencode/ycc-opencode"
         results += scenario(
             lab,
@@ -413,6 +648,70 @@ def main() -> None:
             lambda _work: npm_probes(),
             canary,
             control,
+        )
+        # Host-wide allow rules in the user's own config: the shipped package
+        # (both layers) and a lab copy without the guard (agent rules only).
+        results += scenario(
+            lab,
+            binary,
+            provider,
+            "npm-package-host-allow",
+            base_config(provider, [package.as_uri()]) | {"permissions": HOST_ALLOW},
+            PACKAGE_ID,
+            lambda _work: host_allow_probes("npm host-allow"),
+            canary,
+            control,
+        )
+        stubbed = guard_stubbed_package(repo, lab)
+        results += scenario(
+            lab,
+            binary,
+            provider,
+            "npm-noguard-host-allow",
+            base_config(provider, [stubbed.as_uri()]) | {"permissions": HOST_ALLOW},
+            PACKAGE_ID,
+            lambda _work: host_allow_probes("npm no-guard host-allow"),
+            canary,
+            control,
+        )
+        wildcard = {"permissions": [{"action": "*", "resource": "*", "effect": "allow"}]}
+        results += scenario(
+            lab,
+            binary,
+            provider,
+            "npm-host-wildcard",
+            base_config(provider, [package.as_uri()]) | wildcard,
+            PACKAGE_ID,
+            lambda _work: host_wildcard_probes(),
+            canary,
+            control,
+        )
+        # File copy without the guard: not configured, or removed by a project config.
+        results += scenario(
+            lab,
+            binary,
+            provider,
+            "file-copy-guard-absent",
+            base_config(provider, []),
+            None,
+            lambda _work: guard_absent_probes("guard absent"),
+            canary,
+            control,
+            install=lambda root: install_file_copy(repo, root),
+        )
+        results += scenario(
+            lab,
+            binary,
+            provider,
+            "file-copy-guard-removed",
+            base_config(provider, guard_entries),
+            None,
+            lambda _work: guard_absent_probes("guard removed by project"),
+            canary,
+            control,
+            install=lambda root: install_file_copy(repo, root),
+            separate_session=True,
+            project_config={"plugins": [f"-{GUARD_ID}"]},
         )
         restricted = [p for p in results if p.agent != "code-finder"]
         check(

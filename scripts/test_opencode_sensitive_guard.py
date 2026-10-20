@@ -2,9 +2,10 @@
 """Behaviour tests for the generated ycc sensitive-file guard (OpenCode V2 plugin).
 
 The generated plugin is imported under node and driven with a fake V2 context
-whose `tool.hook` records the registered callbacks, so each case exercises the
-same `execute.before` / `execute.after` events OpenCode v2.0.32 triggers
-(packages/plugin/src/effect/tool.ts ToolHooks).
+whose `tool.hook`, `tool.transform`, `agent.transform`, `session.hook` and
+`permission.hook` record the registrations, so each case exercises the same
+events OpenCode v2.0.32 triggers (packages/plugin/src/promise/tool.ts,
+session.ts, permission.ts).
 """
 
 from __future__ import annotations
@@ -21,28 +22,70 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from opencode_sensitive_policy import GUARDED_SEARCH_TOOLS  # noqa: E402
+from test_generate_opencode_agents import evaluate  # noqa: E402
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 GUARD_DIR = REPO_ROOT / ".opencode-plugin" / "ycc-sensitive-guard"
 NODE = shutil.which("node")
 RESTRICTED = "pr-comment-fixer"
 OPEN_AGENT = "code-finder"
+SEARCH_AGENT = "ycc-sensitive-search"
 
 # Reads cases as JSON on stdin and prints one JSON outcome per case. The setup
 # location (`setupDir`, like a server started elsewhere) differs from the
 # session location that ctx.session.get reports for each case's sessionID.
+# Built-in grep/glob are fakes that record the context they ran with and
+# return the case's scripted result.
 DRIVER = r"""
 import { pathToFileURL } from "node:url";
 import { readFileSync } from "node:fs";
 const [guardDir, setupDir] = process.argv.slice(2);
-const { sessions, setupLocation, cases } = JSON.parse(readFileSync(0, "utf8"));
+const { sessions, setupLocation, builtins, cases } = JSON.parse(readFileSync(0, "utf8"));
 const plugin = (await import(pathToFileURL(guardDir + "/index.js").href)).default;
-const hooks = {};
+const hooks = {}, sessionHooks = {};
+const agents = new Map(), tools = new Map(), calls = [], asserts = [];
+let decisions = {};
+let scripted = null;
+for (const name of builtins) {
+  tools.set(name, {
+    name, description: `builtin ${name}`, input: { schema: name }, output: { schema: name },
+    options: { codemode: false },
+    execute: async (input, context) => {
+      calls.push({ tool: name, agent: context.agent, input });
+      return structuredClone(scripted);
+    },
+  });
+}
 const ctx = {
   location: setupLocation === false
     ? undefined
     : { directory: setupDir, project: { directory: setupDir, canonical: setupDir } },
-  tool: { hook: async (name, cb) => { (hooks[name] ??= []).push(cb); } },
+  tool: {
+    hook: async (name, cb) => { (hooks[name] ??= []).push(cb); },
+    transform: async (cb) => cb({
+      get: (id) => tools.get(id),
+      add: (tool) => tools.set(tool.name, tool),
+    }),
+  },
+  agent: {
+    transform: async (cb) => cb({
+      get: (id) => agents.get(id),
+      update: (id, fn) => { const record = agents.get(id) ?? { id }; fn(record); agents.set(id, record); },
+    }),
+  },
+  // Permission checks the guard makes itself: a case's `decisions` maps an
+  // action to "deny" (rule deny) or "reject" (the user declines a prompt).
+  permission: {
+    assert: async (input) => {
+      asserts.push(structuredClone(input));
+      const decision = decisions[input.action] ?? "allow";
+      if (decision === "deny") throw new Error(`Permission denied: ${input.action}`);
+      if (decision === "reject") throw new Error(`Permission rejected by user: ${input.action}`);
+    },
+  },
   session: {
+    hook: async (name, cb) => { (sessionHooks[name] ??= []).push(cb); },
     get: async ({ sessionID }) => {
       if (!(sessionID in sessions)) throw new Error(`session not found: ${sessionID}`);
       return { data: { id: sessionID, location: { directory: sessions[sessionID] } } };
@@ -52,10 +95,23 @@ const ctx = {
 await plugin.setup(ctx);
 const results = [];
 for (const item of cases) {
-  const event = { sessionID: item.sessionID ?? "ses", messageID: "msg", id: "call",
-    agent: item.agent, tool: item.tool, input: item.input };
+  const sessionID = item.sessionID ?? "ses";
+  const event = { sessionID, messageID: "msg", id: "call", agent: item.agent, tool: item.tool, input: item.input };
+  calls.length = 0;
+  asserts.length = 0;
+  decisions = item.decisions ?? {};
   try {
-    if (item.result) {
+    if (item.kind === "execute") {
+      scripted = item.result ?? { output: [], content: "No matches found", metadata: {} };
+      const context = { sessionID, agent: item.agent, messageID: "msg", id: "call" };
+      const result = await tools.get(item.tool).execute(item.input, context);
+      results.push({ ok: true, result, calls: structuredClone(calls), asserts: structuredClone(asserts) });
+    } else if (item.kind === "context") {
+      const ctxEvent = { sessionID, agent: item.agent, system: [], messages: [], options: {}, tools: item.tools };
+      for (const cb of sessionHooks.context ?? []) await cb(ctxEvent);
+      results.push({ ok: true, tools: Object.keys(ctxEvent.tools).sort(),
+        identity: Object.fromEntries(Object.entries(ctxEvent.tools).map(([k, v]) => [k, v.tag])) });
+    } else if (item.result) {
       Object.assign(event, { status: "completed", result: item.result });
       for (const cb of hooks["execute.after"] ?? []) await cb(event);
       results.push({ ok: true, result: event.result });
@@ -64,10 +120,20 @@ for (const item of cases) {
       results.push({ ok: true });
     }
   } catch (error) {
-    results.push({ ok: false, message: String(error?.message ?? error) });
+    results.push({ ok: false, message: String(error?.message ?? error), calls: structuredClone(calls),
+      asserts: structuredClone(asserts) });
   }
 }
-console.log(JSON.stringify({ id: plugin.id, hooks: Object.keys(hooks).sort(), results }));
+const registered = [...tools.values()].filter((tool) => !builtins.includes(tool.name)).map((tool) => ({
+  name: tool.name, description: tool.description, input: tool.input, output: tool.output, options: tool.options,
+}));
+console.log(JSON.stringify({
+  id: plugin.id,
+  hooks: Object.keys(hooks).sort(),
+  agents: [...agents.values()],
+  tools: registered,
+  results,
+}));
 """
 
 
@@ -91,18 +157,15 @@ class SensitiveGuardTestCase(unittest.TestCase):
         # Curly-quote name that the read tool's look-alike fallback would pick.
         (self.work / "it\u2019s.txt").symlink_to(self.work / ".env")
 
-    def run_cases(
+    def drive(
         self,
         cases: list[dict[str, Any]],
         sessions: dict[str, str] | None = None,
         setup_dir: Path | None = None,
         setup_location: bool = True,
-    ) -> list[dict[str, Any]]:
-        """Drive the hooks; session "ses" lives in self.work unless overridden.
-
-        The plugin's setup location defaults to a separate server directory, so
-        every case also proves paths resolve against the session location.
-        """
+        builtins: tuple[str, ...] = ("grep", "glob"),
+    ) -> dict[str, Any]:
+        """Set the guard up against the fake context and run every case."""
         assert NODE is not None
         script = self.tmp / "driver.mjs"
         script.write_text(DRIVER, encoding="utf-8")
@@ -111,6 +174,7 @@ class SensitiveGuardTestCase(unittest.TestCase):
         payload = {
             "sessions": {"ses": str(self.work)} if sessions is None else sessions,
             "setupLocation": setup_location,
+            "builtins": list(builtins),
             "cases": cases,
         }
         result = subprocess.run(
@@ -123,10 +187,24 @@ class SensitiveGuardTestCase(unittest.TestCase):
             check=False,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        observed = json.loads(result.stdout.strip().splitlines()[-1])
+        observed: dict[str, Any] = json.loads(result.stdout.strip().splitlines()[-1])
         self.assertEqual(observed["id"], "yandy-r.ycc-sensitive-guard")
         self.assertEqual(observed["hooks"], ["execute.after", "execute.before"])
-        results: list[dict[str, Any]] = observed["results"]
+        return observed
+
+    def run_cases(
+        self,
+        cases: list[dict[str, Any]],
+        sessions: dict[str, str] | None = None,
+        setup_dir: Path | None = None,
+        setup_location: bool = True,
+    ) -> list[dict[str, Any]]:
+        """Drive the hooks; session "ses" lives in self.work unless overridden.
+
+        The plugin's setup location defaults to a separate server directory, so
+        every case also proves paths resolve against the session location.
+        """
+        results: list[dict[str, Any]] = self.drive(cases, sessions, setup_dir, setup_location)["results"]
         return results
 
     def assert_blocked(self, tool: str, input_: dict[str, Any], agent: str = RESTRICTED) -> None:
@@ -369,6 +447,201 @@ class SensitiveGuardTestCase(unittest.TestCase):
         self.assertEqual(outcomes[1]["result"]["output"], [])
         self.assertIn("withheld", outcomes[1]["result"]["content"])
         self.assertTrue(outcomes[2]["ok"])
+
+    # -- guarded search tools (restricted agents' only search path) -----------
+
+    def test_registers_guarded_search_tools_reusing_builtin_definitions(self) -> None:
+        observed = self.drive([])
+        tools = {tool["name"]: tool for tool in observed["tools"]}
+        self.assertEqual(set(tools), set(GUARDED_SEARCH_TOOLS.values()))
+        for base, name in GUARDED_SEARCH_TOOLS.items():
+            with self.subTest(tool=name):
+                self.assertEqual(tools[name]["description"], f"builtin {base}")
+                self.assertEqual(tools[name]["input"], {"schema": base})
+                self.assertEqual(tools[name]["output"], {"schema": base})
+                self.assertEqual(tools[name]["options"], {"codemode": False})
+
+    def test_internal_search_agent_may_only_search(self) -> None:
+        (helper,) = self.drive([])["agents"]
+        self.assertEqual(helper["id"], SEARCH_AGENT)
+        self.assertTrue(helper["hidden"])
+        # `primary`: the subagent tool refuses to start it.
+        self.assertEqual(helper["mode"], "primary")
+        rules = helper["permissions"]
+        for action in ("grep", "glob", "external_directory"):
+            self.assertEqual(evaluate(rules, action, "/elsewhere/*"), "allow", action)
+        for action in ("read", "edit", "shell", "webfetch", "subagent", "ycc_grep", "skill"):
+            self.assertEqual(evaluate(rules, action, "x"), "deny", action)
+
+    def test_internal_search_agent_cannot_run_tools_directly(self) -> None:
+        cases = [
+            {"agent": SEARCH_AGENT, "tool": tool, "input": input_}
+            for tool, input_ in (("grep", {"pattern": "x"}), ("glob", {"pattern": "*"}), ("read", {"path": "src"}))
+        ]
+        for outcome in self.run_cases(cases):
+            self.assertFalse(outcome["ok"], outcome)
+            self.assertIn("ycc sensitive-file guard", outcome["message"])
+
+    def test_guarded_search_authorizes_as_the_calling_agent(self) -> None:
+        cases = [
+            {"kind": "execute", "agent": RESTRICTED, "tool": "ycc_grep", "input": {"pattern": "value", "path": "src"}},
+            {"kind": "execute", "agent": RESTRICTED, "tool": "ycc_glob", "input": {"pattern": "**/*.ts"}},
+        ]
+        for outcome, name, pattern in zip(
+            self.run_cases(cases), ("ycc_grep", "ycc_glob"), ("value", "**/*.ts"), strict=True
+        ):
+            with self.subTest(tool=name):
+                self.assertTrue(outcome["ok"], outcome)
+                (check,) = outcome["asserts"]
+                self.assertEqual(check["action"], name)
+                self.assertEqual(check["agent"], RESTRICTED)
+                self.assertEqual(check["resources"], [pattern])
+                self.assertEqual(check["sessionID"], "ses")
+
+    def test_guarded_search_honors_the_calling_agents_deny_and_rejection(self) -> None:
+        cases = [
+            {
+                "kind": "execute",
+                "agent": RESTRICTED,
+                "tool": "ycc_grep",
+                "input": {"pattern": "value"},
+                "decisions": {"ycc_grep": decision},
+            }
+            for decision in ("deny", "reject")
+        ]
+        for outcome in self.run_cases(cases):
+            self.assertFalse(outcome["ok"], outcome)
+            self.assertEqual(outcome["calls"], [])
+
+    def test_guarded_search_outside_the_session_asks_as_the_calling_agent(self) -> None:
+        outside = self.tmp / "outside"
+        (outside / "lib").mkdir(parents=True)
+        cases = [
+            {
+                "kind": "execute",
+                "agent": RESTRICTED,
+                "tool": "ycc_grep",
+                "input": {"pattern": "x", "path": str(outside)},
+            },
+            {
+                "kind": "execute",
+                "agent": RESTRICTED,
+                "tool": "ycc_glob",
+                "input": {"pattern": "*", "path": "../outside/lib"},
+                "decisions": {"external_directory": "reject"},
+            },
+        ]
+        allowed, rejected = self.run_cases(cases)
+        self.assertTrue(allowed["ok"], allowed)
+        external = [check for check in allowed["asserts"] if check["action"] == "external_directory"]
+        self.assertEqual(len(external), 1)
+        self.assertEqual(external[0]["agent"], RESTRICTED)
+        self.assertEqual(external[0]["resources"], [f"{outside}/*"])
+        self.assertFalse(rejected["ok"])
+        self.assertEqual(rejected["calls"], [])
+        self.assertEqual(rejected["asserts"][0]["resources"], [f"{outside}/lib/*"])
+        # Inside the session no directory approval is requested.
+        (inside,) = self.run_cases(
+            [{"kind": "execute", "agent": RESTRICTED, "tool": "ycc_grep", "input": {"pattern": "x", "path": "src"}}]
+        )
+        self.assertEqual([check["action"] for check in inside["asserts"]], ["ycc_grep"])
+
+    def test_missing_builtin_search_tool_is_not_replaced(self) -> None:
+        observed = self.drive([], builtins=("glob",))
+        self.assertEqual([tool["name"] for tool in observed["tools"]], ["ycc_glob"])
+        observed = self.drive([], builtins=())
+        self.assertEqual(observed["tools"], [])
+
+    def test_guarded_search_delegates_and_filters_for_restricted_agents(self) -> None:
+        grep = {
+            "output": [
+                {"entry": {"path": ".env"}, "line": 1, "offset": 0, "text": "TOKEN=synthetic", "submatches": []},
+                {"entry": {"path": "src/app.ts"}, "line": 1, "offset": 0, "text": "value", "submatches": []},
+            ],
+            "content": "raw",
+            "metadata": {"matches": 2, "truncated": False},
+        }
+        glob = {"output": [{"path": ".env"}, {"path": "src/app.ts"}], "content": "raw", "metadata": {"count": 2}}
+        cases = [
+            {"kind": "execute", "agent": RESTRICTED, "tool": "ycc_grep", "input": {"pattern": "."}, "result": grep},
+            {"kind": "execute", "agent": RESTRICTED, "tool": "ycc_glob", "input": {"pattern": "**/*"}, "result": glob},
+        ]
+        grep_outcome, glob_outcome = self.run_cases(cases)
+        for outcome, tool in ((grep_outcome, "grep"), (glob_outcome, "glob")):
+            with self.subTest(tool=tool):
+                self.assertTrue(outcome["ok"], outcome)
+                (call,) = outcome["calls"]
+                self.assertEqual(call["tool"], tool)
+                self.assertEqual(call["agent"], SEARCH_AGENT)
+                self.assertNotIn("synthetic", json.dumps(outcome["result"]))
+                self.assertIn(str(self.work / "src" / "app.ts"), outcome["result"]["content"])
+        self.assertEqual(grep_outcome["result"]["metadata"]["matches"], 1)
+        self.assertEqual(glob_outcome["result"]["metadata"]["count"], 1)
+
+    def test_guarded_search_rejects_sensitive_roots_before_delegating(self) -> None:
+        cases = [
+            {"kind": "execute", "agent": RESTRICTED, "tool": "ycc_grep", "input": {"pattern": "T", "path": ".env"}},
+            {"kind": "execute", "agent": RESTRICTED, "tool": "ycc_grep", "input": {"pattern": "T", "include": ".env"}},
+            {"kind": "execute", "agent": RESTRICTED, "tool": "ycc_glob", "input": {"pattern": "*", "path": ".ssh"}},
+        ]
+        for outcome in self.run_cases(cases):
+            self.assertFalse(outcome["ok"], outcome)
+            self.assertIn("ycc sensitive-file guard", outcome["message"])
+            self.assertEqual(outcome["calls"], [])
+
+    def test_guarded_search_is_reserved_for_restricted_agents(self) -> None:
+        cases = [
+            {"kind": "execute", "agent": agent, "tool": tool, "input": {"pattern": "x"}}
+            for agent in (OPEN_AGENT, SEARCH_AGENT, "build")
+            for tool in ("ycc_grep", "ycc_glob")
+        ]
+        for outcome in self.run_cases(cases):
+            self.assertFalse(outcome["ok"], outcome)
+            self.assertEqual(outcome["calls"], [])
+
+    def test_guarded_search_fails_closed_without_a_session_root(self) -> None:
+        cases = [
+            {"kind": "execute", "agent": RESTRICTED, "tool": "ycc_grep", "input": {"pattern": "x"}, "sessionID": "x"}
+        ]
+        (outcome,) = self.run_cases(cases, setup_location=False)
+        self.assertFalse(outcome["ok"])
+        self.assertEqual(outcome["calls"], [])
+
+    def test_guarded_tool_names_are_aliases_in_execute_hooks(self) -> None:
+        cases = [
+            {"agent": RESTRICTED, "tool": "ycc_grep", "input": {"pattern": "T", "path": ".env"}},
+            {"agent": RESTRICTED, "tool": "ycc_glob", "input": {"pattern": "*", "path": ".ssh"}},
+            {"agent": RESTRICTED, "tool": "ycc_grep", "input": {"pattern": "value", "path": "src"}},
+        ]
+        outcomes = self.run_cases(cases)
+        self.assertEqual([outcome["ok"] for outcome in outcomes], [False, False, True])
+        result = {"output": [{"path": ".env"}, {"path": "src/app.ts"}], "content": "x", "metadata": {"count": 2}}
+        (outcome,) = self.run_cases(
+            [{"agent": RESTRICTED, "tool": "ycc_glob", "input": {"pattern": "*"}, "result": result}]
+        )
+        self.assertEqual([entry["path"] for entry in outcome["result"]["output"]], ["src/app.ts"])
+
+    def test_context_hook_shows_guarded_tools_under_builtin_names_for_restricted_agents_only(self) -> None:
+        offered = {
+            "read": {"description": "read", "input": {}, "tag": "read"},
+            "ycc_grep": {"description": "g", "input": {}, "tag": "ycc_grep"},
+            "ycc_glob": {"description": "f", "input": {}, "tag": "ycc_glob"},
+        }
+        both = {**offered, "grep": {"description": "b", "input": {}, "tag": "grep"}}
+        restricted, unrestricted, explicit = self.run_cases(
+            [
+                {"kind": "context", "agent": RESTRICTED, "tools": offered},
+                {"kind": "context", "agent": OPEN_AGENT, "tools": offered},
+                {"kind": "context", "agent": RESTRICTED, "tools": both},
+            ]
+        )
+        self.assertEqual(restricted["tools"], ["glob", "grep", "read"])
+        self.assertEqual(restricted["identity"], {"read": "read", "grep": "ycc_grep", "glob": "ycc_glob"})
+        self.assertEqual(unrestricted["tools"], ["read", "ycc_glob", "ycc_grep"])
+        # A built-in the host still offers keeps its own name; nothing is shadowed.
+        self.assertEqual(explicit["identity"]["grep"], "grep")
+        self.assertEqual(explicit["identity"]["glob"], "ycc_glob")
+        self.assertEqual(explicit["identity"]["ycc_grep"], "ycc_grep")
 
 
 if __name__ == "__main__":

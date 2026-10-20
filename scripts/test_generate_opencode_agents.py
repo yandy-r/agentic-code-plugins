@@ -8,6 +8,7 @@ import re
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from generate_opencode_agents import convert_tools_to_permissions, transform_agent
 from generate_opencode_common import load_agent_aliases, parse_frontmatter
@@ -294,6 +295,34 @@ Review code.
         self.assertEqual(evaluate(permissions, "read", ".envrc"), "allow")
         self.assertFalse(any(rule["effect"] == "deny" and rule["action"] in {"read", "edit"} for rule in permissions))
 
+    def test_restricted_agents_search_only_through_guarded_tools(self) -> None:
+        from opencode_sensitive_policy import GUARDED_SEARCH_TOOLS
+
+        for stem in RESTRICTED_AGENTS:
+            with self.subTest(agent=stem):
+                permissions = generated_permissions(stem)
+                actions = {rule["action"] for rule in permissions}
+                self.assertFalse(actions & set(GUARDED_SEARCH_TOOLS), permissions)
+                for base, guarded in GUARDED_SEARCH_TOOLS.items():
+                    self.assertEqual(evaluate(permissions, base, "*"), "deny")
+                    self.assertEqual(evaluate(permissions, guarded, "*"), "allow")
+                self.assertEqual(evaluate(permissions, "external_directory", "/elsewhere/*"), "ask")
+
+    def test_guarded_search_mapping_keeps_external_directory_approval(self) -> None:
+        from opencode_sensitive_policy import load_policy
+
+        permissions = convert_tools_to_permissions(["Grep"], sensitive_policy=load_policy())
+        self.assertEqual(
+            permissions,
+            [DENY_ALL, {"action": "ycc_grep", "resource": "*", "effect": "allow"}, EXTERNAL_DIRECTORY_ASK],
+        )
+
+    def test_unrestricted_agents_keep_builtin_search_actions(self) -> None:
+        permissions = generated_permissions("code-finder")
+        self.assertEqual(evaluate(permissions, "grep", "*"), "allow")
+        self.assertEqual(evaluate(permissions, "glob", "*"), "allow")
+        self.assertFalse(any(rule["action"].startswith("ycc_") for rule in permissions))
+
     def test_backport_open_code_prompt_uses_shell_workdir(self) -> None:
         source = (REPO_ROOT / "ycc" / "agents" / "backport-conflict-resolver.md").read_text(encoding="utf-8")
 
@@ -333,6 +362,17 @@ class SensitiveFilePolicyTestCase(unittest.TestCase):
                     path.write_text(json.dumps(payload), encoding="utf-8")
                     with self.assertRaises(ValueError):
                         load_policy(path)
+
+    def test_guard_template_must_register_the_granted_search_tools(self) -> None:
+        import opencode_sensitive_policy as policy
+
+        with tempfile.TemporaryDirectory() as tmp:
+            template = Path(tmp) / "sensitive-guard.js"
+            text = policy.GUARD_TEMPLATE_PATH.read_text(encoding="utf-8")
+            template.write_text(text.replace('glob: "ycc_glob"', 'glob: "other_glob"'), encoding="utf-8")
+            with patch.object(policy, "GUARD_TEMPLATE_PATH", template):
+                with self.assertRaisesRegex(ValueError, "ycc_glob"):
+                    policy.guard_payloads()
 
     def test_generated_guard_policy_matches_registry(self) -> None:
         from opencode_sensitive_policy import GUARD_DIR, POLICY_PATH, guard_drift, guard_payloads

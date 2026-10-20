@@ -19,6 +19,7 @@ import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -44,7 +45,8 @@ if (preAgent) agents.set(preAgent, { id: preAgent, preexisting: true });
 if (preMcp) mcp.set(preMcp, { preexisting: true });
 const ctx = {
   location: { directory: process.cwd(), project: { directory: process.cwd(), canonical: process.cwd() } },
-  tool: { hook: async (name) => { toolHooks.push(name); } },
+  tool: { hook: async (name) => { toolHooks.push(name); }, transform: async (cb) => cb({ get: () => undefined }) },
+  permission: { hook: async (name) => { toolHooks.push(`permission.${name}`); } },
   skill: { transform: async (cb) => cb({ get: (id) => skills.get(id), add: (s) => skills.set(s.id, s) }) },
   agent: { transform: async (cb) => cb({
     get: (id) => agents.get(id),
@@ -84,6 +86,104 @@ console.log(JSON.stringify({
 }));
 await cleanup();
 """
+
+# Sets the adapter up twice (two state rebuilds), appends host rules to the
+# registered records the way opencode.config.agent does after the package
+# transform, then replays permission.evaluate, tool execute.before, and
+# session context events through the second setup's hooks. The fake tool
+# inventory carries the built-ins' permission names (write/patch -> edit).
+FLOOR_DRIVER = r"""
+import { pathToFileURL } from "node:url";
+import { readFileSync } from "node:fs";
+const [root] = process.argv.slice(2);
+const { hostRules, inventory, sessions, cases } = JSON.parse(readFileSync(0, "utf8"));
+const plugin = (await import(pathToFileURL(root + "/index.js").href)).default;
+async function setup() {
+  const agents = new Map(), hooks = { evaluate: [], "execute.before": [], context: [] };
+  const add = (name, cb) => { if (name in hooks) hooks[name].push(cb); };
+  const ctx = {
+    location: { directory: process.cwd(), project: { directory: process.cwd(), canonical: process.cwd() } },
+    tool: {
+      hook: async (name, cb) => add(name, cb),
+      transform: async (cb) => cb({ get: () => undefined }),
+      list: async () => inventory.map((tool) => ({ ...tool, execute: async () => ({}) })),
+    },
+    permission: { hook: async (name, cb) => add(name, cb) },
+    skill: { transform: async (cb) => cb({ get: () => undefined, add: () => {} }) },
+    agent: { transform: async (cb) => cb({
+      get: (id) => agents.get(id),
+      update: (id, fn) => { const record = agents.get(id) ?? { id }; fn(record); agents.set(id, record); } }) },
+    command: { transform: async (cb) => cb({ add: () => {} }) },
+    mcp: { transform: async (cb) => cb({ get: () => undefined, set: () => {} }) },
+    session: {
+      hook: async (name, cb) => add(name, cb),
+      get: async ({ sessionID }) => {
+        if (!(sessionID in sessions)) throw new Error(`session not found: ${sessionID}`);
+        return { data: { id: sessionID, agent: sessions[sessionID] ?? undefined,
+          location: { directory: process.cwd() } } };
+      },
+    },
+  };
+  const cleanup = await plugin.setup(ctx);
+  // opencode.config.agent pushes host rules into every existing agent in place.
+  for (const record of agents.values()) record.permissions?.push(...structuredClone(hostRules));
+  return { agents, hooks, cleanup };
+}
+const first = await setup();
+const second = await setup();
+const results = [];
+for (const item of cases) {
+  const sessionID = item.sessionID ?? "ses";
+  try {
+    if (item.kind === "execute") {
+      const event = { sessionID, messageID: "msg", id: "call", agent: item.agent, tool: item.tool,
+        input: item.input ?? {} };
+      for (const cb of second.hooks["execute.before"]) await cb(event);
+      results.push({ ok: true });
+    } else if (item.kind === "context") {
+      const event = { sessionID, agent: item.agent, system: [], messages: [], options: {},
+        tools: Object.fromEntries(item.tools.map((name) => [name, { description: name, input: {}, tag: name }])) };
+      for (const cb of second.hooks.context) await cb(event);
+      results.push({ ok: true, tools: Object.fromEntries(Object.entries(event.tools).map(([k, v]) => [k, v.tag])) });
+    } else {
+      const event = { sessionID, action: item.action, resources: item.resources, effect: item.effect };
+      if (item.agent !== null) event.agent = item.agent;
+      for (const cb of second.hooks.evaluate) await cb(event);
+      results.push({ ok: true, effect: event.effect, message: event.message ?? null });
+    }
+  } catch (error) {
+    results.push({ ok: false, message: String(error?.message ?? error) });
+  }
+}
+const count = (state, id) => state.agents.get(id).permissions.length;
+console.log(JSON.stringify({
+  counts: { first: count(first, "pr-comment-fixer"), second: count(second, "pr-comment-fixer") },
+  results,
+}));
+await first.cleanup();
+await second.cleanup();
+"""
+
+# Built-in tool names and the permission action each is gated by.
+FAKE_INVENTORY = [
+    {"name": name, "options": {"codemode": False, **({"permission": permission} if permission else {})}}
+    for name, permission in (
+        ("read", None),
+        ("edit", "edit"),
+        ("write", "edit"),
+        ("patch", "edit"),
+        ("shell", None),
+        ("grep", None),
+        ("glob", None),
+        ("webfetch", None),
+        ("websearch", None),
+        ("question", None),
+        ("subagent", None),
+        ("ycc_grep", None),
+        ("ycc_glob", None),
+        ("third_party_tool", None),
+    )
+]
 
 
 def run_driver(root: Path, *extra: str, env: dict[str, str] | None = None) -> dict:
@@ -257,12 +357,14 @@ class OpencodeNpmPackageTests(unittest.TestCase):
         shutil.copytree(self.root, moved)
         observed = run_driver(moved)
         self.assertEqual(len(observed["skills"]), len(self.registration["skills"]))
-        self.assertEqual(len(observed["agents"]), len(self.registration["agents"]))
+        # The guard adds its hidden internal search agent beside the packaged agents.
+        self.assertEqual(
+            {agent["id"] for agent in observed["agents"]},
+            {agent["id"] for agent in self.registration["agents"]} | {"ycc-sensitive-search"},
+        )
         self.assertEqual(len(observed["commandNames"]), len(self.registration["commands"]))
         self.assertEqual(set(observed["mcp"]), set(self.registration["mcp"]))
-        self.assertEqual(observed["hooks"], ["context"])
         # The package carries the same sensitive-file guard as the file-copy install.
-        self.assertEqual(observed["toolHooks"], ["execute.before", "execute.after"])
         for rel in ("index.js", "policy.json", "package.json"):
             with self.subTest(guard_file=rel):
                 self.assertEqual(
@@ -327,6 +429,177 @@ class OpencodeNpmPackageTests(unittest.TestCase):
         (moved / "registration.json").write_text(json.dumps(registration), encoding="utf-8")
         with self.assertRaisesRegex(AssertionError, "escapes the package root"):
             run_driver(moved)
+
+    def run_floor(self, name: str, host: list[dict[str, str]], cases: list[dict[str, Any]]) -> dict[str, Any]:
+        """Drive the package's floor hooks with host rules appended after setup."""
+        assert NODE is not None
+        moved = self.tmp / name / "ycc-opencode"
+        shutil.copytree(self.root, moved)
+        script = moved.parent / "floor.mjs"
+        script.write_text(FLOOR_DRIVER, encoding="utf-8")
+        payload = {
+            "hostRules": host,
+            "inventory": FAKE_INVENTORY,
+            "sessions": {"ses": None, "ses-fixer": "pr-comment-fixer", "ses-finder": "code-finder"},
+            "cases": cases,
+        }
+        result = subprocess.run(
+            [NODE, str(script), str(moved)],
+            input=json.dumps(payload),
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        observed: dict[str, Any] = json.loads(result.stdout.strip().splitlines()[-1])
+        return observed
+
+    @unittest.skipIf(NODE is None, "node is required")
+    def test_host_permission_rules_cannot_loosen_restricted_agents(self) -> None:
+        restricted_agents = json.loads((self.root / "ycc-sensitive-guard/policy.json").read_text(encoding="utf-8"))[
+            "restricted_agents"
+        ]
+        host = [
+            {"action": action, "resource": "*", "effect": "allow"}
+            for action in ("read", "edit", "shell", "webfetch", "grep", "glob")
+        ]
+
+        def case(
+            agent: str | None, action: str, resources: list[str], effect: str = "allow", **extra: str
+        ) -> dict[str, Any]:
+            return {"agent": agent, "action": action, "resources": resources, "effect": effect, **extra}
+
+        fixer = "pr-comment-fixer"
+        expected = [
+            # Packaged denies win over host allows.
+            *[(case(agent, "read", [".env"]), "deny") for agent in restricted_agents],
+            (case(fixer, "edit", ["config/.env.production"]), "deny"),
+            (case(fixer, "read", ["keys/server.pem"]), "deny"),
+            (case(fixer, "read", ["src/app.ts", ".env"]), "deny"),
+            (case(fixer, "shell", ["cat .env"]), "deny"),
+            (case(fixer, "webfetch", ["https://example.test"]), "deny"),
+            # The unguarded built-in search stays outside a restricted agent's own rules.
+            (case(fixer, "grep", ["TOKEN"]), "deny"),
+            # Resources the packaged rules do not deny keep the host's effect.
+            (case(fixer, "read", ["src/app.ts"]), "allow"),
+            (case(fixer, "read", ["src/app.ts"], "ask"), "ask"),
+            (case(fixer, "read", [".env.example"]), "allow"),
+            (case(fixer, "ycc_grep", ["TOKEN"]), "allow"),
+            (case(fixer, "shell", ["npm test"]), "allow"),
+            # A saved approval of an `ask` rule is not re-raised to a prompt.
+            (case(fixer, "external_directory", ["/elsewhere/*"]), "allow"),
+            # A check without an agent is judged by the session's agent.
+            (case(None, "read", [".env"], sessionID="ses-fixer"), "deny"),
+            (case(None, "read", [".env"], sessionID="ses-finder"), "allow"),
+            # Unrestricted agents are untouched.
+            (case("code-finder", "read", [".env"]), "allow"),
+            (case("code-finder", "shell", ["cat .env"]), "allow"),
+            (case("build", "read", [".env"], "ask"), "ask"),
+        ]
+        observed = self.run_floor("floor", host, [item for item, _ in expected])
+        for (item, effect), outcome in zip(expected, observed["results"], strict=True):
+            with self.subTest(**{k: str(v) for k, v in item.items()}):
+                self.assertEqual(outcome["effect"], effect)
+                if effect == "deny" and item["effect"] != "deny":
+                    self.assertIn("ycc", outcome["message"])
+                elif effect != "deny":
+                    self.assertIsNone(outcome["message"])
+        # Each setup registers its own copy: host rules never accumulate in the
+        # packaged registration across state rebuilds.
+        packaged = next(a for a in self.registration["agents"] if a["id"] == fixer)["permissions"]
+        self.assertEqual(observed["counts"], {"first": len(packaged) + len(host), "second": len(packaged) + len(host)})
+
+    @unittest.skipIf(NODE is None, "node is required")
+    def test_host_wildcard_allow_cannot_widen_a_restricted_agents_tools(self) -> None:
+        host = [{"action": "*", "resource": "*", "effect": "allow"}]
+        everything = [tool["name"] for tool in FAKE_INVENTORY]
+        fixer = "pr-comment-fixer"
+        cases: list[dict[str, Any]] = [
+            {"kind": "context", "agent": fixer, "tools": everything},
+            {"kind": "context", "agent": "code-finder", "tools": everything},
+            *[{"kind": "execute", "agent": fixer, "tool": tool} for tool in everything],
+            {"kind": "execute", "agent": "code-finder", "tool": "third_party_tool"},
+        ]
+        observed = self.run_floor("tools", host, cases)
+        restricted_view, open_view, *calls, open_call = observed["results"]
+        # Only the packaged allowlist (edit covers write/patch) reaches the model;
+        # the guarded search tools appear under the built-in names.
+        packaged = {"read", "edit", "write", "patch", "shell", "ycc_grep", "ycc_glob"}
+        self.assertEqual(
+            restricted_view["tools"],
+            {
+                **{name: name for name in packaged - {"ycc_grep", "ycc_glob"}},
+                "grep": "ycc_grep",
+                "glob": "ycc_glob",
+            },
+        )
+        self.assertEqual(set(open_view["tools"]), set(everything))
+        # grep/glob calls are the guarded tools' advertised names; a call that
+        # reaches the unguarded built-in is denied by the evaluate hook instead.
+        for tool, outcome in zip(everything, calls, strict=True):
+            with self.subTest(tool=tool):
+                self.assertEqual(outcome["ok"], tool in packaged | {"grep", "glob"}, outcome)
+        self.assertTrue(open_call["ok"], open_call)
+
+    @unittest.skipIf(NODE is None, "node is required")
+    def test_agentless_permission_check_in_an_unresolvable_session_fails_closed(self) -> None:
+        observed = self.run_floor(
+            "agentless",
+            [{"action": "*", "resource": "*", "effect": "allow"}],
+            [{"agent": None, "action": "read", "resources": ["src/app.ts"], "effect": "allow", "sessionID": "gone"}],
+        )
+        (outcome,) = observed["results"]
+        self.assertEqual(outcome["effect"], "deny", outcome)
+
+    @unittest.skipIf(NODE is None, "node is required")
+    def test_registered_agent_fields_are_not_shared_across_setups(self) -> None:
+        moved = self.tmp / "request" / "ycc-opencode"
+        shutil.copytree(self.root, moved)
+        registration = json.loads((moved / "registration.json").read_text(encoding="utf-8"))
+        registration["agents"][0]["request"] = {"settings": {}, "headers": {}, "body": {}}
+        (moved / "registration.json").write_text(json.dumps(registration), encoding="utf-8")
+        agent_id = registration["agents"][0]["id"]
+        script = moved.parent / "request.mjs"
+        script.write_text(
+            r"""
+import { pathToFileURL } from "node:url";
+const [root, id] = process.argv.slice(2);
+const plugin = (await import(pathToFileURL(root + "/index.js").href)).default;
+const seen = [];
+for (let round = 0; round < 2; round++) {
+  const agents = new Map();
+  const noop = async () => {};
+  const ctx = {
+    location: { directory: process.cwd(), project: { directory: process.cwd(), canonical: process.cwd() } },
+    tool: { hook: noop, transform: async (cb) => cb({ get: () => undefined }), list: async () => [] },
+    permission: { hook: noop },
+    skill: { transform: async (cb) => cb({ get: () => undefined, add: () => {} }) },
+    agent: { transform: async (cb) => cb({ get: (k) => agents.get(k),
+      update: (k, fn) => { const r = agents.get(k) ?? { id: k }; fn(r); agents.set(k, r); } }) },
+    command: { transform: async (cb) => cb({ add: () => {} }) },
+    mcp: { transform: async (cb) => cb({ get: () => undefined, set: () => {} }) },
+    session: { hook: noop, get: async () => ({}) },
+  };
+  const cleanup = await plugin.setup(ctx);
+  const record = agents.get(id);
+  seen.push(structuredClone(record.request));
+  // opencode.config.agent merges config headers into the record in place.
+  Object.assign(record.request.headers, { "x-host": String(round) });
+  await cleanup();
+}
+console.log(JSON.stringify(seen));
+""",
+            encoding="utf-8",
+        )
+        assert NODE is not None
+        result = subprocess.run(
+            [NODE, str(script), str(moved), agent_id], capture_output=True, text=True, timeout=60, check=False
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        first, second = json.loads(result.stdout.strip().splitlines()[-1])
+        self.assertEqual(first["headers"], {})
+        self.assertEqual(second["headers"], {})
 
     # -- generator ownership and safety ---------------------------------------
 

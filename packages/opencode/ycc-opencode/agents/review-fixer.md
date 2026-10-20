@@ -10,10 +10,10 @@ permissions:
 - action: read
   resource: '*'
   effect: allow
-- action: grep
+- action: ycc_grep
   resource: '*'
   effect: allow
-- action: glob
+- action: ycc_glob
   resource: '*'
   effect: allow
 - action: edit
