@@ -123,7 +123,8 @@ fi
 # Prose mentions of older versions (e.g., "2.0.0 breaking change") are not
 # matched because the pattern requires a "version" key preceding the semver.
 #
-# Generated bundles (.opencode-plugin, .cursor-plugin, .codex-plugin) and
+# Generated bundles (.opencode-plugin, .cursor-plugin, .codex-plugin, the
+# .omp-plugin catalog, packages/ including packages/omp/<pkg>/.omp-plugin) and
 # historical directories (docs/releases, docs/plans, docs/research,
 # docs/internal) are excluded.
 

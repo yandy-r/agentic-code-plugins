@@ -61,8 +61,9 @@ COMPONENT_ROOT = OUTPUT_ROOT / WORKFLOW_PACKAGE
 @dataclass(frozen=True)
 class Payload:
     content: bytes
-    # Exact permission bits. Component files keep the mode their generator produced so
-    # this generator and generate_omp_{skills,agents,commands} never fight over it.
+    # Permission bits written to disk. Component files keep the mode their generator
+    # produced so this generator and generate_omp_{skills,agents,commands} never fight
+    # over it; drift checks compare bytes and executable bits only (see check_payloads).
     mode: int = 0o644
 
 

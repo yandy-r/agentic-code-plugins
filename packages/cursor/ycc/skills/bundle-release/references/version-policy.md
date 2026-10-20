@@ -15,17 +15,18 @@ The following files carry version information for the `ycc` bundle. Only hand-ed
 files are modified directly; regenerated files are produced by running the listed
 generator script.
 
-| File                                                                                                                                            | Kind        | Maintained by                                                                                                       |
-| ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------- |
-| `ycc/.claude-plugin/plugin.json`                                                                                                                | hand-edited | `bundle-release` `bump-version.sh`                                                                                  |
-| `.claude-plugin/marketplace.json`                                                                                                               | hand-edited | `bundle-release` `bump-version.sh`                                                                                  |
-| `ycc/package.json`                                                                                                                              | optional    | `bundle-release` `bump-version.sh` (only if it already has a `version` field)                                       |
-| `ycc/settings/packages.json`                                                                                                                    | hand-edited | package model read directly by release discovery; validated, never bumped                                           |
-| `packages/<package>` and `packages/<runtime>/<package>` manifests (`{.claude-plugin,.codex-plugin,.cursor-plugin}/plugin.json`, `package.json`) | regenerated | runtime package generators via `scripts/sync.sh`; included native manifests required, generated versions check-only |
-| `.agents/plugins/marketplace.json`                                                                                                              | regenerated | `scripts/generate-codex-plugin.sh`                                                                                  |
-| `.codex-plugin/**`                                                                                                                              | regenerated | `scripts/generate-codex-plugin.sh`                                                                                  |
-| `.cursor-plugin/**`                                                                                                                             | regenerated | `scripts/sync.sh --only cursor`                                                                                     |
-| `.opencode-plugin/**`                                                                                                                           | regenerated | `scripts/sync.sh --only opencode`                                                                                   |
+| File                                                                                                                                                        | Kind        | Maintained by                                                                                                       |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------- |
+| `ycc/.claude-plugin/plugin.json`                                                                                                                            | hand-edited | `bundle-release` `bump-version.sh`                                                                                  |
+| `.claude-plugin/marketplace.json`                                                                                                                           | hand-edited | `bundle-release` `bump-version.sh`                                                                                  |
+| `ycc/package.json`                                                                                                                                          | optional    | `bundle-release` `bump-version.sh` (only if it already has a `version` field)                                       |
+| `ycc/settings/packages.json`                                                                                                                                | hand-edited | package model read directly by release discovery; validated, never bumped                                           |
+| `packages/<package>` and `packages/<runtime>/<package>` manifests (`{.claude-plugin,.codex-plugin,.cursor-plugin,.omp-plugin}/plugin.json`, `package.json`) | regenerated | runtime package generators via `scripts/sync.sh`; included native manifests required, generated versions check-only |
+| `.agents/plugins/marketplace.json`                                                                                                                          | regenerated | `scripts/generate-codex-plugin.sh`                                                                                  |
+| `.codex-plugin/**`                                                                                                                                          | regenerated | `scripts/generate-codex-plugin.sh`                                                                                  |
+| `.cursor-plugin/**`                                                                                                                                         | regenerated | `scripts/sync.sh --only cursor`                                                                                     |
+| `.opencode-plugin/**`                                                                                                                                       | regenerated | `scripts/sync.sh --only opencode`                                                                                   |
+| `.omp-plugin/marketplace.json` (catalog; present only while an OMP row is listed)                                                                           | regenerated | `scripts/sync.sh --only omp`                                                                                        |
 
 Discovery rules are implemented in `bundle-release/scripts/release_versions.py`
 (shared by `bump-version.sh` and `preflight.sh`):
@@ -36,8 +37,10 @@ Discovery rules are implemented in `bundle-release/scripts/release_versions.py`
 - Every `included` native entry must have an existing manifest with a non-empty
   string version, regardless of `listed`: Claude `ycc` uses the canonical source;
   other Claude packages use `packages/claude/<key>/` with the same manifest suffix,
-  Codex uses `.codex-plugin/<key>/.codex-plugin/plugin.json`, and Cursor uses
-  `packages/cursor/<key>/.cursor-plugin/plugin.json`. Generated manifests are check-only.
+  Codex uses `.codex-plugin/<key>/.codex-plugin/plugin.json`, Cursor uses
+  `packages/cursor/<key>/.cursor-plugin/plugin.json`, and OMP uses
+  `packages/omp/<key>/.omp-plugin/plugin.json` plus `packages/omp/<key>/.cursor-plugin/plugin.json`
+  and `packages/omp/<key>/package.json`. Generated manifests are check-only.
 - Included opencode npm packages use `packages/opencode/<unscoped-key>/package.json`
   and are required to exist at the lockstep version (check-only). The package is
   experimental, opt-in, and not yet published.
@@ -60,7 +63,8 @@ non-excluded `plugins[]` entry's `version`, the required included native manifes
 and the optional versioned manifests above. Only source manifests and versioned
 `ycc/package.json` are bumped directly; `packages/**` is generated check-only.
 Generated marketplaces and package manifests (`.agents/plugins/marketplace.json`,
-`.cursor-plugin/**`, `.codex-plugin/**`, `packages/**`) are checked for parity too, refreshed only by
+`.omp-plugin/marketplace.json`, `.cursor-plugin/**`, `.codex-plugin/**`, `packages/**`) are checked
+for parity too, refreshed only by
 `./scripts/sync.sh`. `bundle-release/scripts/preflight.sh` enforces all of this before
 any release action proceeds. If generated surfaces are stale after a bump, run
 `./scripts/sync.sh` — never hand-edit them. If hand-edited sources diverge, fix them
@@ -95,7 +99,8 @@ current bundle version. Prose mentions (e.g., "the 2.0.0 breaking change") are n
 matched because the pattern requires a `version` key preceding the semver — those are
 allowed in historical context.
 
-Generated bundles (`.cursor-plugin/`, `.codex-plugin/`, `.opencode-plugin/`) and
+Generated bundles (`.cursor-plugin/`, `.codex-plugin/`, `.opencode-plugin/`, `.omp-plugin/`,
+`packages/`) and
 historical dirs (`docs/releases/`, `docs/plans/`, `docs/research/`, `docs/internal/`)
 are excluded from the scan.
 
@@ -138,6 +143,7 @@ scripts) to propagate:
 - `.cursor-plugin/**`
 - `.codex-plugin/**`
 - `.opencode-plugin/**`
+- `.omp-plugin/**`
 - `docs/inventory.json`
 
 ## Pre-Bump Checklist

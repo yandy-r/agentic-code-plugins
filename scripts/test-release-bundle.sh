@@ -543,11 +543,16 @@ wf "docs/releases/1.1.0.md" <<<'# v1.1.0'
 assert_eq "staging: leaves zero unstaged changes" "" "$(git -C "${FIX}" diff --name-only)"
 assert_contains "staging: stages ycc/package.json" "$(git -C "${FIX}" diff --cached --name-only)" "ycc/package.json"
 assert_contains "staging: stages generated packages/" "$(git -C "${FIX}" diff --cached --name-only)" "packages/ycc/package.json"
-# Generated runtime copies must keep the source manifest discovery tuple.
-for bundle in .opencode-plugin/skills .codex-plugin/ycc/skills packages/cursor/ycc/skills .agents-plugin/skills; do
-  assert_contains "generated ${bundle%%/*}: keeps .claude-plugin manifest discovery" \
-    "$(grep -F 'MANIFEST_SUBDIRS =' "${REPO_ROOT}/${bundle}/bundle-release/scripts/release_versions.py")" \
+# Generated runtime copies must keep the source manifest discovery tuples.
+for bundle in .opencode-plugin/skills packages/opencode/ycc-opencode/skills .codex-plugin/ycc/skills \
+  packages/cursor/ycc/skills .agents-plugin/skills packages/omp/ycc/skills; do
+  generated_versions="${REPO_ROOT}/${bundle}/bundle-release/scripts/release_versions.py"
+  assert_contains "generated ${bundle}: keeps .claude-plugin manifest discovery" \
+    "$(grep -F 'MANIFEST_SUBDIRS =' "${generated_versions}")" \
     'MANIFEST_SUBDIRS = (".claude-plugin", ".codex-plugin", ".cursor-plugin")'
+  assert_contains "generated ${bundle}: keeps OMP .claude-plugin manifest discovery" \
+    "$(grep -F 'OMP_MANIFEST_SUBDIRS =' "${generated_versions}")" \
+    'OMP_MANIFEST_SUBDIRS = (".omp-plugin", ".claude-plugin")'
 done
 # === Case 9: model-driven included manifests and release notes ==============
 MODEL_GENERATED=(

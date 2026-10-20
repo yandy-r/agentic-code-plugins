@@ -74,9 +74,9 @@ def installed_entry(list_json: Path) -> dict[str, Any]:
     return entry
 
 
-def tree(root: Path) -> dict[Path, tuple[bytes, bool]]:
+def tree(root: Path) -> dict[Path, tuple[bytes, int]]:
     return {
-        path.relative_to(root): (path.read_bytes(), bool(path.stat().st_mode & 0o100))
+        path.relative_to(root): (path.read_bytes(), path.stat().st_mode & 0o111)
         for path in sorted(root.rglob("*"))
         if path.is_file() and not path.is_symlink()
     }
@@ -95,7 +95,8 @@ def check_installed(list_json: Path, source_root: Path, version: str) -> str:
     changed = sorted(str(rel) for rel in expected if rel in actual and actual[rel] != expected[rel])
     if missing or changed:
         raise SmokeError(f"{install}: cache differs from the package root; missing={missing[:5]} changed={changed[:5]}")
-    return f"{PLUGIN_ID} {version} at {install} ({len(expected)} payload files byte- and mode-identical)"
+    count = len(expected)
+    return f"{PLUGIN_ID} {version} at {install} ({count} payload files byte-identical, executable bits preserved)"
 
 
 def skill_names(skills: Path) -> set[str]:

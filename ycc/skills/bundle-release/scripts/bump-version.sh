@@ -16,7 +16,8 @@
 # paths are suppressed and file-copy entries are skipped. Included opencode npm
 # manifests are required to exist at the lockstep version (check-only).
 # Never touches ycc/mods (versioned separately) or generated bundles
-# (packages/, .agents/plugins/, .cursor-plugin/, .codex-plugin/, .opencode-plugin/) —
+# (packages/ including packages/omp/<pkg>/.omp-plugin/plugin.json, .agents/plugins/,
+# .cursor-plugin/, .codex-plugin/, .opencode-plugin/, the .omp-plugin/ catalog) —
 # refresh those with ./scripts/sync.sh after the bump; preflight.sh enforces their parity.
 set -euo pipefail
 
@@ -63,8 +64,9 @@ Bump the product version across every hand-edited version surface in lockstep:
   - .claude-plugin/marketplace.json (.metadata.version and every .plugins[].version)
   - ycc/package.json if it already carries a version
 Versionless entries stay versionless. ycc/mods is never touched. Generated
-bundles (packages/, .agents/plugins/, .cursor-plugin/, .codex-plugin/,
-.opencode-plugin/) are not edited — run ./scripts/sync.sh afterwards. Validates
+bundles (packages/ including packages/omp/<pkg>/.omp-plugin/plugin.json,
+.agents/plugins/, .cursor-plugin/, .codex-plugin/, .opencode-plugin/, the
+.omp-plugin/ catalog) are not edited — run ./scripts/sync.sh afterwards. Validates
 semver format (x.y.z); malformed inputs, a missing/malformed package model, or a
 missing/versionless required manifest abort before any file is written.
 EOF

@@ -22,7 +22,7 @@ and package manifests under ``.codex-plugin/`` and ``.cursor-plugin/`` (the dire
 and its direct child directories), plus ``packages/<package>`` and
 ``packages/<runtime>/<package>`` plugin/package manifests (same bounded manifest
 filenames). An included native OMP package must have ``.omp-plugin/plugin.json``,
-``.opencode-plugin/plugin.json`` and ``package.json`` under ``packages/omp/<package>``.
+``.claude-plugin/plugin.json`` and ``package.json`` under ``packages/omp/<package>``.
 
 Included native manifests must exist and have a version. Unmodeled optional files
 and versionless marketplace entries never gain a field.
@@ -46,7 +46,7 @@ OPTIONAL_MARKETPLACES = (
     ".omp-plugin/marketplace.json",
 )
 MANIFEST_SUBDIRS = (".claude-plugin", ".codex-plugin", ".cursor-plugin")
-OMP_MANIFEST_SUBDIRS = (".omp-plugin", ".opencode-plugin")
+OMP_MANIFEST_SUBDIRS = (".omp-plugin", ".claude-plugin")
 EXCLUDED_NAME = "ycc-mods"
 EXCLUDED_SOURCE_PREFIX = "ycc/mods"
 PACKAGE_RUNTIMES = ("claude", "codex", "cursor", "opencode", "agents", "omp")

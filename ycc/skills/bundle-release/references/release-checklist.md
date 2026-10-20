@@ -124,8 +124,8 @@ for path in ycc/.claude-plugin/plugin.json .claude-plugin/marketplace.json \
             packages .agents/plugins/marketplace.json .agents-plugin \
             .cursor-plugin .codex-plugin .opencode-plugin .omp-plugin docs/inventory.json \
             docs/releases/<new-version>.md; do
-  if [ -e "$path" ]; then
-    git add -- "$path"
+  if [ -e "$path" ] || git ls-files --error-unmatch -- "$path" >/dev/null 2>&1; then
+    git add -A -- "$path"
   fi
 done
 git commit -m "chore(release): v<new-version>"
