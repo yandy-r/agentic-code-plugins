@@ -88,19 +88,46 @@ await cleanup();
 # Sets the adapter up twice (two state rebuilds), appends host rules to the
 # registered records the way opencode.config.agent does after the package
 # transform, then replays permission.evaluate, tool execute.before, and
-# session context events through the second setup's hooks. The fake tool
+# session context events through the latest setup's hooks. The fake tool
 # inventory carries the built-ins' permission names (write/patch -> edit).
+# `event` cases publish a host bus event to every live subscriber; `rebuild`
+# sets the adapter up again over the same plugin storage.
 FLOOR_DRIVER = r"""
 import { pathToFileURL } from "node:url";
 import { readFileSync } from "node:fs";
 const [root] = process.argv.slice(2);
 const { hostRules, inventory, sessions, cases } = JSON.parse(readFileSync(0, "utf8"));
 const plugin = (await import(pathToFileURL(root + "/index.js").href)).default;
+const storage = new Map(), subscribers = new Set();
+function subscribe(options) {
+  return { [Symbol.asyncIterator]() {
+    const queue = [];
+    let wake, done = false;
+    const sub = { push(event) { queue.push(event); wake?.(); } };
+    const stop = () => { done = true; subscribers.delete(sub); wake?.(); };
+    subscribers.add(sub);
+    options?.signal?.addEventListener("abort", stop, { once: true });
+    return {
+      async next() {
+	while (!queue.length && !done) await new Promise((resolve) => (wake = resolve));
+	return queue.length ? { done: false, value: queue.shift() } : { done: true, value: undefined };
+      },
+      async return() { stop(); return { done: true, value: undefined }; },
+    };
+  } };
+}
 async function setup() {
   const agents = new Map(), hooks = { evaluate: [], "execute.before": [], context: [] };
   const add = (name, cb) => { if (name in hooks) hooks[name].push(cb); };
   const ctx = {
-    location: { directory: process.cwd(), project: { directory: process.cwd(), canonical: process.cwd() } },
+    location: { directory: process.cwd(),
+      project: { id: "prj", directory: process.cwd(), canonical: process.cwd() } },
+    event: { subscribe },
+    storage: {
+      get: async (key) => structuredClone(storage.get(key)),
+      set: async (key, value) => { storage.set(key, structuredClone(value)); },
+      remove: async (key) => { storage.delete(key); },
+    },
     tool: {
       hook: async (name, cb) => add(name, cb),
       transform: async (cb) => cb({ get: () => undefined }),
@@ -127,16 +154,29 @@ async function setup() {
   for (const record of agents.values()) record.permissions?.push(...structuredClone(hostRules));
   return { agents, hooks, cleanup };
 }
+const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 const first = await setup();
 const second = await setup();
+const states = [first, second];
+let current = second;
+await settle();
 const results = [];
 for (const item of cases) {
   const sessionID = item.sessionID ?? "ses";
   try {
-    if (item.kind === "execute") {
+    if (item.kind === "event") {
+      for (const sub of subscribers) sub.push({ id: "evt", created: 0, type: item.type, data: item.data });
+      await settle();
+      results.push({ ok: true });
+    } else if (item.kind === "rebuild") {
+      current = await setup();
+      states.push(current);
+      await settle();
+      results.push({ ok: true });
+    } else if (item.kind === "execute") {
       const event = { sessionID, messageID: "msg", id: "call", agent: item.agent, tool: item.tool,
         input: item.input ?? {} };
-      for (const cb of second.hooks["execute.before"]) await cb(event);
+      for (const cb of current.hooks["execute.before"]) await cb(event);
       results.push({ ok: true });
     } else if (item.kind === "context") {
       // `renamed` replays a guard that already showed ycc_* as grep/glob
@@ -144,12 +184,12 @@ for (const item of cases) {
       const tag = (name) => (item.renamed && name in item.renamed ? item.renamed[name] : name);
       const event = { sessionID, agent: item.agent, system: [], messages: [], options: {},
         tools: Object.fromEntries(item.tools.map((name) => [name, { description: name, input: {}, tag: tag(name) }])) };
-      for (const cb of second.hooks.context) await cb(event);
+      for (const cb of current.hooks.context) await cb(event);
       results.push({ ok: true, tools: Object.fromEntries(Object.entries(event.tools).map(([k, v]) => [k, v.tag])) });
     } else {
       const event = { sessionID, action: item.action, resources: item.resources, effect: item.effect };
       if (item.agent !== null) event.agent = item.agent;
-      for (const cb of second.hooks.evaluate) await cb(event);
+      for (const cb of current.hooks.evaluate) await cb(event);
       results.push({ ok: true, effect: event.effect, message: event.message ?? null });
     }
   } catch (error) {
@@ -161,8 +201,7 @@ console.log(JSON.stringify({
   counts: { first: count(first, "pr-comment-fixer"), second: count(second, "pr-comment-fixer") },
   results,
 }));
-await first.cleanup();
-await second.cleanup();
+for (const state of states) await state.cleanup();
 """
 
 # Built-in tool names and the permission action each is gated by.
@@ -489,8 +528,8 @@ class OpencodeNpmPackageTests(unittest.TestCase):
             (case(fixer, "ycc_grep", ["TOKEN"]), "allow"),
             (case(fixer, "shell", ["pytest -q"]), "allow"),
             (case(fixer, "shell", ['python3 -c "print(1)"']), "deny"),
-            # A saved approval of an `ask` rule is not re-raised to a prompt.
-            (case(fixer, "external_directory", ["/elsewhere/*"]), "allow"),
+            # A host allow for a restricted agent's `ask` is raised to a prompt.
+            (case(fixer, "external_directory", ["/elsewhere/*"]), "ask"),
             # A check without an agent is judged by the session's agent.
             (case(None, "read", [".env"], sessionID="ses-fixer"), "deny"),
             (case(None, "read", [".env"], sessionID="ses-finder"), "allow"),
@@ -511,6 +550,70 @@ class OpencodeNpmPackageTests(unittest.TestCase):
         # packaged registration across state rebuilds.
         packaged = next(a for a in self.registration["agents"] if a["id"] == fixer)["permissions"]
         self.assertEqual(observed["counts"], {"first": len(packaged) + len(host), "second": len(packaged) + len(host)})
+
+    @unittest.skipIf(NODE is None, "node is required")
+    def test_host_external_directory_allow_prompts_restricted_agents_until_saved(self) -> None:
+        host = [{"action": "external_directory", "resource": "*", "effect": "allow"}]
+        fixer = "pr-comment-fixer"
+
+        def check(agent: str, resources: list[str], session: str = "ses") -> dict[str, Any]:
+            return {
+                "agent": agent,
+                "action": "external_directory",
+                "resources": resources,
+                "effect": "allow",
+                "sessionID": session,
+            }
+
+        def asked(request: str, resources: list[str], save: list[str], session: str = "ses") -> dict[str, Any]:
+            data = {
+                "id": request,
+                "sessionID": session,
+                "action": "external_directory",
+                "resources": resources,
+                "save": save,
+            }
+            return {"kind": "event", "type": "permission.asked", "data": data}
+
+        def replied(request: str, reply: str, session: str = "ses") -> dict[str, Any]:
+            data = {"sessionID": session, "requestID": request, "reply": reply}
+            return {"kind": "event", "type": "permission.replied", "data": data}
+
+        steps: list[tuple[dict[str, Any], str | None]] = [
+            # A config-level allow does not reach a restricted agent's own `ask`.
+            (check(fixer, ["/elsewhere/a/*"]), "ask"),
+            (check("code-finder", ["/elsewhere/a/*"]), "allow"),
+            # The user answers that prompt "always"; the host saves the project root.
+            (asked("per_1", ["/elsewhere/a/*"], ["/elsewhere/*"]), None),
+            (replied("per_1", "always"), None),
+            (check(fixer, ["/elsewhere/a/*"]), "allow"),
+            (check(fixer, ["/elsewhere/b/*"]), "allow"),
+            (check(fixer, ["/elsewhere/b/*", "/other/*"]), "ask"),
+            # "once" saves nothing, so the next call prompts again.
+            (asked("per_2", ["/other/*"], ["/other/*"]), None),
+            (replied("per_2", "once"), None),
+            (check(fixer, ["/other/*"]), "ask"),
+            # A reply to a request never seen asked records nothing; "reject" neither.
+            (replied("per_unknown", "always"), None),
+            (asked("per_3", ["/third/*"], ["/third/*"]), None),
+            (replied("per_3", "reject"), None),
+            (check(fixer, ["/third/*"]), "ask"),
+            # Saved approvals are per project, for every agent and session, as the host saves them.
+            (asked("per_4", ["/fourth/*"], ["/fourth/*"], "ses-finder"), None),
+            (replied("per_4", "always", "ses-finder"), None),
+            (check(fixer, ["/fourth/x/*"]), "allow"),
+            # The approval outlives a state rebuild.
+            ({"kind": "rebuild"}, None),
+            (check(fixer, ["/elsewhere/a/*"]), "allow"),
+            (check(fixer, ["/other/*"]), "ask"),
+        ]
+        observed = self.run_floor("external", host, [step for step, _ in steps])
+        for index, ((step, effect), outcome) in enumerate(zip(steps, observed["results"], strict=True)):
+            with self.subTest(index=index, step=json.dumps(step)):
+                self.assertTrue(outcome["ok"], outcome)
+                if effect is not None:
+                    self.assertEqual(outcome["effect"], effect)
+                    self.assertIsNone(outcome["message"])
 
     @unittest.skipIf(NODE is None, "node is required")
     def test_host_wildcard_allow_cannot_widen_a_restricted_agents_tools(self) -> None:

@@ -39,15 +39,17 @@
 //     appends the config documents' top-level permissions to every agent
 //     already registered (config/plugin/agent.ts). Evaluation is last match
 //     wins (permission.ts evaluate), so a host-wide allow would otherwise
-//     override a package agent's own denies. Three hooks re-apply the
+//     override a package agent's own rules. Three hooks re-apply the
 //     restricted agent's packaged ruleset with the same wildcard and
 //     last-match semantics; none of them loosens anything:
 //       * ctx.permission.hook("evaluate") runs after the merged rules produce
 //         an allow/ask effect (permission.ts evaluateInput; a deny
 //         short-circuits before hooks) and its mutated effect/message is
 //         final (plugin/src/promise/permission.ts). It turns the effect into
-//         deny when the packaged rules deny any resource. The event's agent is
-//         optional; without it the session's agent is used, as the host does.
+//         deny when the packaged rules deny any resource, and an
+//         external_directory allow into ask when the packaged rules ask for a
+//         resource no saved approval covers. The event's agent is optional;
+//         without it the session's agent is used, as the host does.
 //       * ctx.tool.hook("execute.before") rejects a call to a tool whose
 //         permission action the packaged rules wholly deny, which also covers
 //         tools that never request a permission.
@@ -56,6 +58,16 @@
 //         snapshot/whollyDisabled).
 //     registerAgents assigns each record its own copy of the packaged rules
 //     and request settings, because config.agent mutates them in place.
+//
+//     Saved approvals: an "always" reply makes the host save the request's
+//     `save` patterns for the project (permission.ts reply, saved.add) and
+//     append them as allow rules after every configured rule, so the evaluate
+//     event cannot tell a saved approval from a config-level allow, and no
+//     plugin API lists saved permissions (v2.0.30-v2.1.1). The host publishes
+//     permission.asked (the request, `save` included) and permission.replied
+//     on the bus that ctx.event.subscribe streams for this location, so the
+//     package records the same patterns in its own storage, keyed by
+//     project, and keeps an allow they cover.
 //
 // Coexistence with the primary file-copy install (install.sh --target
 // opencode): config agents/skills/commands apply in the `post` plugin group,
@@ -93,6 +105,8 @@ const RESTRICTED_RULES = new Map(
     .map((agent) => [agent.id, structuredClone(agent.permissions)]),
 );
 const FLOOR_DENIED = "Permission denied by ycc restricted-agent rules: ";
+// The only action the floor raises from allow to ask.
+const EXTERNAL = "external_directory";
 
 // Token the generator writes where a package asset path is needed; it points
 // at the *rendered* tree created below, which sits beside the package root.
@@ -341,14 +355,54 @@ async function sessionAgent(ctx, sessionID) {
   return (session?.data ?? session)?.agent;
 }
 
-// Only a packaged deny is enforced on top of the host's effect. The packaged
-// rules are never used to raise allow to ask: the only `ask` a restricted
-// agent ships is external_directory, and the host turns a saved "always"
-// approval into an allow before this hook runs, so re-raising it would prompt
-// on every call. Every restricted ruleset starts with `* * deny`, so any
-// action or resource outside the agent's own allowlist is still denied here.
-async function registerPermissionFloor(ctx) {
+// Saved external_directory approvals of one project, mirrored from the host.
+function savedKey(ctx) {
+  return `saved/${EXTERNAL}/${ctx.location.project.id}`;
+}
+
+async function savedPatterns(ctx) {
+  try {
+    const value = await ctx.storage.get(savedKey(ctx));
+    return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+// Record the `save` patterns of every external_directory request the user
+// answers "always", as the host saves them (any agent and session of the
+// project). A reply this package never saw asked, or any other reply, records
+// nothing, so an unknown approval still prompts.
+function trackSavedApprovals(ctx, signal) {
+  const asked = new Map();
+  void (async () => {
+    for await (const event of ctx.event.subscribe({ signal })) {
+      if (event.type === "permission.asked") {
+        if (event.data.action === EXTERNAL && event.data.save?.length) asked.set(event.data.id, event.data.save);
+      } else if (event.type === "permission.replied") {
+        const save = asked.get(event.data.requestID);
+        asked.delete(event.data.requestID);
+        if (!save || event.data.reply !== "always") continue;
+        const patterns = await savedPatterns(ctx);
+        const added = save.filter((item) => !patterns.includes(item));
+        if (added.length) await ctx.storage.set(savedKey(ctx), [...patterns, ...added]);
+      }
+    }
+  })().catch(() => {
+    // Without the event stream nothing is recorded: saved approvals prompt.
+  });
+}
+
+// A packaged deny is enforced on top of the host's effect for every action.
+// Every restricted ruleset starts with `* * deny`, so any action or resource
+// outside the agent's own allowlist is denied here. The packaged `ask` a
+// restricted agent ships is external_directory: a host allow is raised back
+// to ask unless a recorded saved approval covers every resource it asks for,
+// so a config-level allow cannot skip the prompt and an "always" answer is not
+// prompted again. Every other action keeps the host's allow or ask.
+async function registerPermissionFloor(ctx, signal) {
   if (RESTRICTED_RULES.size === 0) return;
+  trackSavedApprovals(ctx, signal);
   await ctx.permission.hook("evaluate", async (event) => {
     if (event.effect === "deny") return;
     let agent = event.agent;
@@ -364,10 +418,17 @@ async function registerPermissionFloor(ctx) {
     }
     const rules = RESTRICTED_RULES.get(agent);
     if (!rules) return;
-    if (event.resources.some((resource) => packagedEffect(rules, event.action, resource) === "deny")) {
+    const effects = event.resources.map((resource) => packagedEffect(rules, event.action, resource));
+    if (effects.includes("deny")) {
       event.effect = "deny";
       event.message = FLOOR_DENIED + event.action;
+      return;
     }
+    if (event.effect !== "allow" || event.action !== EXTERNAL) return;
+    const asked = event.resources.filter((_, index) => effects[index] === "ask");
+    if (asked.length === 0) return;
+    const saved = await savedPatterns(ctx);
+    if (!asked.every((resource) => saved.some((pattern) => wildcardMatch(resource, pattern)))) event.effect = "ask";
   });
   await ctx.tool.hook("execute.before", async (event) => {
     const rules = RESTRICTED_RULES.get(event.agent);
@@ -393,18 +454,23 @@ export default {
   id: "yandy-r.ycc-opencode",
   async setup(ctx) {
     const renderedRoot = renderTree();
+    const events = new AbortController();
+    const dispose = () => {
+      events.abort();
+      teardown(renderedRoot);
+    };
     try {
       await registerSkills(ctx, renderedRoot);
       await registerAgents(ctx, renderedRoot);
       await registerCommands(ctx);
       await registerMcp(ctx);
       await registerInstructions(ctx);
-      await registerPermissionFloor(ctx);
+      await registerPermissionFloor(ctx, events.signal);
       await registerSensitiveGuard(ctx);
     } catch (error) {
-      teardown(renderedRoot);
+      dispose();
       throw error;
     }
-    return () => teardown(renderedRoot);
+    return dispose;
   },
 };
