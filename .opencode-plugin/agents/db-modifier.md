@@ -64,6 +64,12 @@ permissions:
 - action: read
   resource: '*/.envrc'
   effect: deny
+- action: read
+  resource: '*.env'
+  effect: deny
+- action: read
+  resource: '*.env.*'
+  effect: deny
 - action: edit
   resource: .env
   effect: deny
@@ -93,6 +99,12 @@ permissions:
   effect: deny
 - action: edit
   resource: '*/.envrc'
+  effect: deny
+- action: edit
+  resource: '*.env'
+  effect: deny
+- action: edit
+  resource: '*.env.*'
   effect: deny
 - action: read
   resource: '*.env.example'

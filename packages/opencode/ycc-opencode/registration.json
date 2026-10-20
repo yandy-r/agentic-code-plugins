@@ -783,6 +783,16 @@
           "effect": "deny"
         },
         {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "deny"
+        },
+        {
           "action": "edit",
           "resource": ".env",
           "effect": "deny"
@@ -830,6 +840,16 @@
         {
           "action": "edit",
           "resource": "*/.envrc",
+          "effect": "deny"
+        },
+        {
+          "action": "edit",
+          "resource": "*.env",
+          "effect": "deny"
+        },
+        {
+          "action": "edit",
+          "resource": "*.env.*",
           "effect": "deny"
         },
         {
@@ -2020,6 +2040,16 @@
           "effect": "deny"
         },
         {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "deny"
+        },
+        {
           "action": "edit",
           "resource": ".env",
           "effect": "deny"
@@ -2067,6 +2097,16 @@
         {
           "action": "edit",
           "resource": "*/.envrc",
+          "effect": "deny"
+        },
+        {
+          "action": "edit",
+          "resource": "*.env",
+          "effect": "deny"
+        },
+        {
+          "action": "edit",
+          "resource": "*.env.*",
           "effect": "deny"
         },
         {
@@ -3599,6 +3639,16 @@
           "effect": "deny"
         },
         {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "deny"
+        },
+        {
           "action": "edit",
           "resource": ".env",
           "effect": "deny"
@@ -3646,6 +3696,16 @@
         {
           "action": "edit",
           "resource": "*/.envrc",
+          "effect": "deny"
+        },
+        {
+          "action": "edit",
+          "resource": "*.env",
+          "effect": "deny"
+        },
+        {
+          "action": "edit",
+          "resource": "*.env.*",
           "effect": "deny"
         },
         {
@@ -4695,6 +4755,16 @@
           "effect": "deny"
         },
         {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "deny"
+        },
+        {
           "action": "edit",
           "resource": ".env",
           "effect": "deny"
@@ -4742,6 +4812,16 @@
         {
           "action": "edit",
           "resource": "*/.envrc",
+          "effect": "deny"
+        },
+        {
+          "action": "edit",
+          "resource": "*.env",
+          "effect": "deny"
+        },
+        {
+          "action": "edit",
+          "resource": "*.env.*",
           "effect": "deny"
         },
         {
@@ -5558,6 +5638,16 @@
           "effect": "deny"
         },
         {
+          "action": "read",
+          "resource": "*.env",
+          "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*.env.*",
+          "effect": "deny"
+        },
+        {
           "action": "edit",
           "resource": ".env",
           "effect": "deny"
@@ -5605,6 +5695,16 @@
         {
           "action": "edit",
           "resource": "*/.envrc",
+          "effect": "deny"
+        },
+        {
+          "action": "edit",
+          "resource": "*.env",
+          "effect": "deny"
+        },
+        {
+          "action": "edit",
+          "resource": "*.env.*",
           "effect": "deny"
         },
         {

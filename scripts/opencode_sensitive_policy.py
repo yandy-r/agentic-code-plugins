@@ -111,14 +111,15 @@ SHELL_DENIES = ("git diff *--no-index*",)
 def native_sensitive_rules(actions: set[str], policy: SensitivePolicy) -> list[PermissionRule]:
     """Ordered rules appended last to a restricted agent's permissions.
 
-    The .env-family basename denies come first, then the allow exceptions
-    (`*.env.example`), then every other basename deny and the directory and
-    path-suffix denies, so an allowed name that is also a key file or sits under
-    a sensitive directory stays denied (OpenCode uses the last matching rule).
+    The .env-family basename denies (every basename pattern containing `.env`)
+    come first, then the allow exceptions (`*.env.example`), then every other
+    basename deny and the directory and path-suffix denies, so an allowed name
+    that is also a key file or sits under a sensitive directory stays denied
+    (OpenCode uses the last matching rule).
     A restricted agent that may run shell commands also gets SHELL_DENIES.
     """
     guarded = [action for action in _GUARDED_ACTIONS if action in actions]
-    env_names = [pattern for pattern in policy.patterns if "/" not in pattern and pattern.startswith(".env")]
+    env_names = [pattern for pattern in policy.patterns if "/" not in pattern and ".env" in pattern]
     later = [pattern for pattern in policy.patterns if pattern not in env_names]
 
     def rules(patterns: list[str], effect: str) -> list[PermissionRule]:

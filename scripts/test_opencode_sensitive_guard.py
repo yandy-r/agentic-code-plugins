@@ -201,6 +201,12 @@ class SensitiveGuardTestCase(unittest.TestCase):
             ("read", {"path": "it's.txt"}),
             ("read", {"path": "keys/id_rsa.env.example"}),
             ("read", {"path": "id_ed25519.prod.env.example"}),
+            ("read", {"path": "prod.env"}),
+            ("read", {"path": "config/app.env"}),
+            ("read", {"path": "app.env.local"}),
+            ("edit", {"path": "config/app.env", "oldString": "a", "newString": "b"}),
+            ("grep", {"pattern": "TOKEN", "path": "prod.env"}),
+            ("shell", {"command": "ls; head prod.env"}),
         ]
         cases = [{"agent": RESTRICTED, "tool": tool, "input": input_} for tool, input_ in blocked]
         for (tool, input_), outcome in zip(blocked, self.run_cases(cases), strict=True):
@@ -212,6 +218,8 @@ class SensitiveGuardTestCase(unittest.TestCase):
         allowed = [
             ("read", {"path": "src/app.ts"}),
             ("read", {"path": ".env.example"}),
+            ("read", {"path": "app.env.example"}),
+            ("read", {"path": "config/app.env.example"}),
             ("read", {"path": "."}),
             ("edit", {"path": "src/app.ts", "oldString": "1", "newString": "2"}),
             ("grep", {"pattern": "value", "path": "src"}),

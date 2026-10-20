@@ -58,6 +58,9 @@ SENSITIVE_RESOURCES = (
     ".env",
     "app/.env",
     ".env.local",
+    "prod.env",
+    "config/app.env",
+    "app.env.local",
     ".envrc",
     ".env-prod",
     "deploy/server.pem",
@@ -78,7 +81,14 @@ SENSITIVE_RESOURCES = (
     "id_rsa.env.example",
     "keys/id_ed25519.prod.env.example",
 )
-ALLOWED_RESOURCES = ("src/app.ts", "README.md", ".env.example", "app/.env.example", ".env.local.example")
+ALLOWED_RESOURCES = (
+    "src/app.ts",
+    "README.md",
+    ".env.example",
+    "app/.env.example",
+    ".env.local.example",
+    "app.env.example",
+)
 
 
 class OpenCodeAgentGenerationTestCase(unittest.TestCase):

@@ -14,9 +14,9 @@ OPENCODE_PLUGIN_DIR="${SCRIPT_DIR}/.opencode-plugin"
 # cross-skill scripts and references that ycc/skills/_shared/... is rewritten
 # to at generation time (~/.config/opencode/shared/...). `ycc-sensitive-guard/`
 # is the local plugin the managed `plugins` entry "./ycc-sensitive-guard"
-# loads; it belongs with the agents it protects (the agents generator writes
-# it, the agents slice installs it) and is never dropped by skills
-# consolidation. Both MUST stay in this list:
+# loads; the agents generator writes it beside the agents it protects, `base`
+# (or the `plugins` settings group) installs it, and it is never dropped by
+# skills consolidation. Both MUST stay in this list:
 # scripts/validate-opencode-install-coverage.sh parses this line and checks
 # every <dir> the bundle references is either listed here or explicitly
 # allowlisted as a user-global/runtime path.

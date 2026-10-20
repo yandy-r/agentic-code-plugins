@@ -56,11 +56,12 @@ function globRegExp(glob) {
 }
 
 const RESTRICTED = new Set(POLICY.restricted_agents);
-// Allow exceptions (`*.env.example`) only lift the .env-family patterns; a name
-// that also matches another basename pattern (`id_rsa.env.example`) stays denied.
+// Allow exceptions (`*.env.example`) only lift the .env-family patterns (every
+// basename pattern containing `.env`); a name that also matches another
+// basename pattern (`id_rsa.env.example`) stays denied.
 const NAME_PATTERNS = POLICY.patterns.filter((pattern) => !pattern.includes("/"));
-const ENV_NAMES = NAME_PATTERNS.filter((pattern) => pattern.startsWith(".env")).map(globRegExp);
-const OTHER_NAMES = NAME_PATTERNS.filter((pattern) => !pattern.startsWith(".env")).map(globRegExp);
+const ENV_NAMES = NAME_PATTERNS.filter((pattern) => pattern.includes(".env")).map(globRegExp);
+const OTHER_NAMES = NAME_PATTERNS.filter((pattern) => !pattern.includes(".env")).map(globRegExp);
 const DIRECTORIES = POLICY.patterns
   .filter((pattern) => pattern.endsWith("/"))
   .map((pattern) => pattern.slice(0, -1).toLowerCase());
