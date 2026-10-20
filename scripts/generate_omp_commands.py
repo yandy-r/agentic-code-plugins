@@ -200,9 +200,9 @@ def load_commands(
         if not isinstance(name, str) or not COMMAND_NAME.match(name):
             raise OmpGenerationError(f"skill '{directory}': command name {name!r} must match {COMMAND_NAME.pattern}")
         rel = _rel(name)
-        if name.lower() in seen:
-            raise OmpGenerationError(f"{rel}: duplicate command name '{name}' (also skill '{seen[name.lower()]}')")
-        seen[name.lower()] = directory
+        if name in seen:
+            raise OmpGenerationError(f"{rel}: duplicate command name '{name}' (also skill '{seen[name]}')")
+        seen[name] = directory
         qualified = f"{namespace}:{name}"
         if qualified in reserved:
             raise OmpGenerationError(f"{rel}: '{qualified}' is an OMP built-in command name or alias")
@@ -213,8 +213,6 @@ def load_commands(
         if hint is not None and not isinstance(hint, str):
             raise OmpGenerationError(f"{rel}: 'argument-hint' must be a string, got {hint!r}")
         description = _rewrite(description, rel, catalog)
-        if not description.strip():
-            raise OmpGenerationError(f"{rel}: description is empty after OMP rewrites")
         commands.append(Command(name, description, None if hint is None else _rewrite(hint, rel, catalog)))
     return commands
 

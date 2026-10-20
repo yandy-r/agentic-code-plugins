@@ -332,9 +332,10 @@ OMP keeps agent `model:` only with it, so the YAN-1171 root needs both manifests
 for `/ycc:<skill>` (verified live on omp 18.12.3).
 `omp plugin link` registers bare names, and OMP's built-ins (such as `/plan`) and bundled file
 commands (such as `/init`) shadow them. Generation fails on names OMP cannot dispatch, duplicate
-names, a `ycc:<name>` equal to an OMP built-in name or alias (the set is pinned from omp 18.12.3),
-empty descriptions and non-string hints. `/skill:<name>` is an alternative when
-`skills.enableSkillCommands` is on (the default). The package is not installable until YAN-1171.
+names, a `ycc` namespace or `ycc:<name>` equal to an OMP built-in name or alias (the set is pinned
+from omp 18.12.3), empty descriptions, non-string hints and a non-boolean `user-invocable`.
+`/skill:<name>` is an alternative when `skills.enableSkillCommands` is on (the default). The
+package is not installable until YAN-1171.
 Source: spike §3.
 
 **AGENTS:omp**
