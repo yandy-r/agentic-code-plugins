@@ -35,11 +35,11 @@ complete -c ycc -n $none -a cli -d 'Link install.sh onto PATH as ycc'
 complete -c ycc -n $none -a completion -d 'Print or install shell completion'
 complete -c ycc -n $none -a list-mcps -d 'List the managed MCP servers'
 
-complete -c ycc -n $isr -l target -x -a '(__ycc_csv "claude cursor codex opencode agents all")' -d Targets
+complete -c ycc -n $isr -l target -x -a '(__ycc_csv "claude cursor codex opencode agents omp all")' -d Targets
 complete -c ycc -n $isr -l skills-home -x -a 'agents native' -d 'Duplicate-skills choice'
 complete -c ycc -n $sr -l intent -x -a '(__ycc_csv "base skills agents commands settings rules mcp hooks plugins mods")' -d Intents
 complete -c ycc -n $isr -l mcps -x -a '(__ycc_mcps)' -d 'Only these managed MCP servers'
-complete -c ycc -n '__fish_seen_subcommand_from list-mcps' -l target -x -a '(__ycc_csv "claude cursor codex opencode agents all")' -d Targets
+complete -c ycc -n '__fish_seen_subcommand_from list-mcps' -l target -x -a '(__ycc_csv "claude cursor codex opencode agents omp all")' -d Targets
 complete -c ycc -n $ir -l only -x -a '(__ycc_csv "base skills agents commands settings rules mcp hooks mods")' -d Steps
 complete -c ycc -n $is -l mode -x -a 'local repo' -d 'Marketplace source mode'
 complete -c ycc -n $inst -l package -x -a '(__ycc_csv "ycc ycc-mcp ycc-hooks ycc-rules")' -d 'Install package closures'
@@ -49,7 +49,8 @@ complete -c ycc -n $inst -l mcp -d 'Also merge MCP servers'
 complete -c ycc -n $inst -l hooks -d 'Also link hooks'
 complete -c ycc -n $isr -l project -d 'Write into the current project'
 complete -c ycc -n $isr -l global -d 'Write into user-global config'
-complete -c ycc -n '__fish_seen_subcommand_from migrate' -l target -x -a '(__ycc_csv "claude codex cursor all")' -d Targets
+complete -c ycc -n $isr -l dry-run -d 'Preview omp calls without writing (omp only)'
+complete -c ycc -n '__fish_seen_subcommand_from migrate' -l target -x -a '(__ycc_csv "claude codex cursor omp all")' -d Targets
 complete -c ycc -n '__fish_seen_subcommand_from migrate' -l apply -d 'Apply migration (default: dry-run)'
 complete -c ycc -n '__fish_seen_subcommand_from migrate' -l marketplace-source -x -a '(__fish_complete_directories)' -d 'Eligible native Codex marketplace'
 

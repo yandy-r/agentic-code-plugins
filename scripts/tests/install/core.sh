@@ -264,6 +264,24 @@ if ! command -v zsh >/dev/null || zsh -n "${REPO_ROOT}/scripts/completions/_ycc"
 if ! command -v fish >/dev/null || fish -n "${REPO_ROOT}/scripts/completions/ycc.fish"; then ok "fish completion parses"; else ko "fish completion parses"; fi
 out="$(bash -c 'source "$1"; COMP_WORDS=(ycc sync --target claude,co); COMP_CWORD=3; _ycc; echo "${COMPREPLY[*]}"' _ "${REPO_ROOT}/scripts/completions/ycc.bash")"
 assert_contains "${out}" "claude,codex" "bash completion completes comma lists"
+# bash completion behaviour: omp is a --target value (migrate too) and the
+# omp-only --dry-run is offered for install, sync and remove.
+complete_bash() {
+    bash -c 'source "$1"; shift; COMP_WORDS=("$@"); COMP_CWORD=$(($# - 1)); _ycc; echo "${COMPREPLY[*]}"' \
+        _ "${REPO_ROOT}/scripts/completions/ycc.bash" "$@"
+}
+assert_contains " $(complete_bash ycc install --target o) " " omp " "bash completion offers --target omp"
+assert_contains " $(complete_bash ycc migrate --target o) " " omp " "bash completion offers migrate --target omp"
+for sub in install sync remove; do
+    assert_contains " $(complete_bash ycc "${sub}" --dry) " " --dry-run " "bash completion offers ${sub} --dry-run"
+done
+assert_not_contains "$(complete_bash ycc migrate --dry)" "--dry-run" "bash completion keeps --dry-run off migrate"
+# zsh and fish: the static target lists and the --dry-run option.
+for f in _ycc ycc.fish; do
+    script="$(cat "${REPO_ROOT}/scripts/completions/${f}")"
+    assert_contains "${script}" "claude cursor codex opencode agents omp all" "${f} completes --target omp"
+    assert_contains "${script}" "dry-run" "${f} completes --dry-run"
+done
 
 # Every target in ALL_TARGETS implements the per-target lib contract.
 missing="$(bash -c 'REPO_ROOT="$1"; INSTALL="$2"; '"$(declare -f source_install_libs)"'

@@ -79,11 +79,15 @@ expect_targets "OMP golden tests select omp and types (mypy files)" "omp types" 
     scripts/test_generate_omp_skills.py scripts/test_generate_omp_agents.py scripts/test_generate_omp_commands.py
 expect_targets "generated OMP manifests and catalog select omp" "omp" \
     packages/omp/ycc/.omp-plugin/plugin.json packages/omp/ycc/package.json .omp-plugin/marketplace.json
-expect_targets "OMP package generator, policy and smoke driver select omp and types" "omp types" \
-    scripts/generate_omp_packages.py scripts/validate_omp_native.py scripts/omp_native_smoke.py
+expect_targets "OMP package generator and policy select omp, config and types" "omp config types" \
+    scripts/generate_omp_packages.py scripts/validate_omp_native.py
+expect_targets "OMP smoke driver selects omp and types" "omp types" scripts/omp_native_smoke.py
 expect_targets "OMP package wrappers, validator and live harness select omp" "omp" \
     scripts/generate-omp-packages.sh scripts/validate-omp-packages.sh scripts/test-omp-native-packages.sh
 expect_targets "OMP package tests select omp and types (mypy files)" "omp types" scripts/test_generate_omp_packages.py
+expect_targets "OMP install helper selects omp, config and types" "omp config types" scripts/omp_install.py
+expect_targets "OMP install tests select omp, config and types (mypy files)" "omp config types" scripts/test_omp_install.py
+expect_targets "OMP install live harness selects omp" "omp" scripts/test-omp-install-lifecycle.sh
 expect_targets "unrelated package output selects everything" "${ALL}" packages/other/ycc-mcp/mcp.json
 expect_targets "Cursor hook source selects everything" "${ALL}" ycc/settings/cursor/herdr-session-start.sh
 expect_targets "vendored Cursor schemas select cursor native and config" "cursor cursor-native config" scripts/vendor/cursor/plugin.schema.json
@@ -115,6 +119,12 @@ expect_targets "migration helper selects config and types" "config types" script
 expect_targets "migration fixture suite selects config" "config" scripts/tests/install/migrate.sh
 expect_targets "install target libs also select the coverage validators" "opencode agents config" \
     scripts/lib/install/targets/agents.sh
+expect_targets "OMP install target lib also selects the coverage validators" "opencode agents config" \
+    scripts/lib/install/targets/omp.sh
+expect_targets "OMP install fixture suite selects config" "config" scripts/tests/install/omp.sh
+expect_targets "fake omp selects config and types (mypy files)" "config types" scripts/tests/install/fake_omp.py
+expect_targets "package install plan selects config and types" "config types" scripts/package_install_plan.py
+expect_targets "package install plan tests select config" "config" scripts/test_package_install_plan.py
 expect_targets "mods select mods and the install tests" "config mods" ycc/mods/README.md
 expect_targets "release tests select release" "release" scripts/test-release-model.sh
 expect_targets "plan-workflow validator test selects inventory" "inventory" scripts/test-plan-workflow-validators.sh

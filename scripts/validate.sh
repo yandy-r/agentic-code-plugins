@@ -194,6 +194,10 @@ run_config_part() {
             echo "== validate: codex marketplace helper =="
             python3 "${REPO_ROOT}/scripts/test_codex_marketplace.py" || fail "test_codex_marketplace.py"
             python3 "${REPO_ROOT}/scripts/test_codex_install.py" || fail "test_codex_install.py"
+            echo "== test: package install plan =="
+            python3 "${REPO_ROOT}/scripts/test_package_install_plan.py" || fail "test_package_install_plan.py"
+            echo "== test: omp install helper =="
+            python3 "${REPO_ROOT}/scripts/test_omp_install.py" || fail "test_omp_install.py"
             ;;
         install-sync)
             echo "== validate: install sync CLI =="

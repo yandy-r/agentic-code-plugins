@@ -46,6 +46,7 @@ fi
 before="$(migrate_snapshot "${home}")"
 install_must_succeed "${home}" migrate --target all
 assert_contains "${INSTALL_OUT}" "claude,codex,cursor" "all resolves only supported migrations"
+assert_contains "${INSTALL_OUT}" "omp: run migrate --target omp separately" "all points omp at its own migration"
 if repo_codex_native; then
     assert_contains "${INSTALL_OUT}" "Codex: would add marketplace" "listed Codex preview forecasts the native migration"
 else
@@ -463,5 +464,42 @@ assert_contains "$(cat "${home}/.agents/plugins/marketplace.json")" 'yandy-r/cla
 
 STUB_BIN="${old_stub_bin}"
 unset MIGRATE_NATIVE_SOURCE
+
+echo "== install.sh migrate: omp link fixture =="
+
+# migrate_omp_link <home> — a legacy 'omp plugin link' of this checkout's
+# packages/omp/ycc, made through the fake omp so the helper can prove ownership.
+migrate_omp_link() {
+    (cd "$1" && env -u OMP_PROFILE -u OMP_BIN -u FAKE_OMP_LOG \
+        HOME="$1" FAKE_OMP_HOME="$1/.fake-omp" CLAUDE_STUB_LOG="$1/claude-calls.log" \
+        "${STUB_BIN}/omp" plugin link "${REPO_ROOT}/packages/omp/ycc" >/dev/null)
+}
+# omp_installed <home> — the fake omp's user-scope 'plugin list --json' as
+# 'npm=<names> marketplace=<ids>' (space-separated, one entry per install).
+omp_installed() {
+    (cd "$1" && env -u OMP_PROFILE -u OMP_BIN -u FAKE_OMP_LOG HOME="$1" FAKE_OMP_HOME="$1/.fake-omp" \
+        "${STUB_BIN}/omp" plugin list --json) | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+npm = " ".join(item["name"] for item in data["npm"])
+market = " ".join(item["id"] for item in data["marketplace"])
+print(f"npm=[{npm}] marketplace=[{market}]")'
+}
+
+home="$(new_home)"
+migrate_fixture_must_succeed migrate_omp_link "${home}"
+if out="$(run_install "${home}" install --target omp)"; then
+    ko "omp install refuses a linked ycc"
+else
+    assert_contains "${out}" "runtime package ycc is linked (omp plugin link); run ./install.sh migrate --target omp" "omp install refuses a linked ycc"
+fi
+install_must_succeed "${home}" migrate --target omp
+assert_contains "${INSTALL_OUT}" "[dry-run] would run: omp plugin uninstall ycc" "omp migrate preview forecasts the link removal"
+assert_contains "$(omp_installed "${home}")" "npm=[ycc] marketplace=[]" "omp migrate preview keeps the link"
+install_must_succeed "${home}" migrate --target omp --apply
+assert_contains "$(cat "${home}/claude-calls.log")" "omp plugin uninstall ycc" "omp migrate --apply uninstalls the link"
+assert_contains "$(omp_installed "${home}")" "npm=[] marketplace=[]" "omp migrate --apply removes the link"
+install_must_succeed "${home}" install --target omp
+assert_contains "$(omp_installed "${home}")" "npm=[] marketplace=[ycc@ycc]" "omp install after migrate leaves exactly one ycc@ycc"
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then install_tests_finish; fi

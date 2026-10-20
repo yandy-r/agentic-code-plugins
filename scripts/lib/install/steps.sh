@@ -243,16 +243,37 @@ resolve_targets() {
             err "--target 'all' cannot be combined with other targets"
             exit 1
         fi
-        if [[ "${MODE}" == "repo" ]]; then
-            warn "--mode repo: skipping cursor, opencode and agents targets (no remote-source concept)."
-            warn "  use --target cursor / opencode / agents (default --mode local) to install those bundles."
-        fi
+        local reason
+        local -a skipped=()
         for target in "${ALL_TARGETS[@]}"; do
+            # Optional <t>_in_all: a target that cannot install here yet is
+            # skipped; install/sync/remove say why (on stderr). Queries such as
+            # list-mcps run before COMMAND is set and skip silently.
+            if declare -F "${target}_in_all" >/dev/null && ! "${target}_in_all"; then
+                if [[ -n "${COMMAND:-}" ]]; then
+                    reason="not available here"
+                    declare -F "${target}_all_skip_reason" >/dev/null && reason="$("${target}_all_skip_reason")"
+                    info "--target all: skipping ${target} (${reason})" >&2
+                fi
+                continue
+            fi
             if [[ "${MODE}" == "repo" ]] && ! supports_repo_mode "${target}"; then
+                skipped+=("${target}")
                 continue
             fi
             TARGETS+=("${target}")
         done
+        if [[ ${#skipped[@]} -gt 0 ]]; then
+            local n=${#skipped[@]} list="${skipped[0]}" slashed="${skipped[0]}" i
+            for ((i = 1; i < n; i++)); do
+                if ((i == n - 1)); then list+=" and ${skipped[i]}"; else list+=", ${skipped[i]}"; fi
+                slashed+=" / ${skipped[i]}"
+            done
+            local noun="targets"
+            [[ ${n} -eq 1 ]] && noun="target"
+            warn "--mode repo: skipping ${list} ${noun} (no remote-source concept)."
+            warn "  use --target ${slashed} (default --mode local) to install those bundles."
+        fi
         return 0
     fi
 
@@ -416,9 +437,18 @@ preflight_targets() {
     for target in "${TARGETS[@]}"; do
         if [[ "${MODE}" == "repo" ]] && ! supports_repo_mode "${target}"; then
             err "--mode repo is not supported by the ${target} target"
-            err "  ${target} has no remote-source concept; it reads bundles from local directories."
+            if declare -F "${target}_repo_mode_hint" >/dev/null; then
+                err "  $("${target}_repo_mode_hint")"
+            else
+                err "  ${target} has no remote-source concept; it reads bundles from local directories."
+            fi
             err "  use --mode local (default), or --target all to skip it automatically."
             exit 1
+        fi
+        # Optional <t>_preflight: target-specific checks (tool versions, scope
+        # sanity) that must pass before any target runs.
+        if declare -F "${target}_preflight" >/dev/null; then
+            "${target}_preflight"
         fi
         if [[ -n "${PACKAGE:-}" ]]; then
             package_configure_steps "$(package_steps_csv "${target}")"
@@ -485,8 +515,8 @@ preflight_step_support() {
     valid_csv="$(valid_steps_for_target "${target}")"
     for step in ${valid_csv//,/ }; do
         step_enabled "${step}" || continue
-        if [[ "${SCOPE}" == "project" ]] && ! step_supports_project "${target}" "${step}"; then
-            err "--project is not supported by step '${step}' for target '${target}' (project scope currently supports: mcp)"
+        if [[ "${SCOPE}" == "project" ]] && ! step_allows_project "${target}" "${step}"; then
+            err "--project is not supported by step '${step}' for target '${target}' (project scope currently supports: mcp; omp: base)"
             err "  use --global, or select only project-capable steps with --only / --intent."
             exit 1
         fi

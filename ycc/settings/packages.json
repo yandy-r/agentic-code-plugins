@@ -74,7 +74,7 @@
             "docs/internal/spikes/omp-runtime-contract.md"
           ],
           "gates": ["YAN-1178 live acceptance matrix passes on the real ycc tree"],
-          "notes": "Generated OMP package under packages/omp/ycc (omp >=18.12.2) with .omp-plugin and .claude-plugin manifests and package.json, rewritten ${CLAUDE_PLUGIN_ROOT}, /ycc: and _shared references, agents translated to @role models, and one commands/<skill>.md entrypoint per public skill (/ycc:<skill>). Unlisted: the root .omp-plugin/marketplace.json stays absent until listing; install.sh --target omp is YAN-1172."
+          "notes": "Generated OMP package under packages/omp/ycc (omp >=18.12.2) with .omp-plugin and .claude-plugin manifests and package.json, rewritten ${CLAUDE_PLUGIN_ROOT}, /ycc: and _shared references, agents translated to @role models, and one commands/<skill>.md entrypoint per public skill (/ycc:<skill>). install.sh --target omp exports it to a local marketplace and installs it through omp plugin (user or project scope). Unlisted: the root .omp-plugin/marketplace.json stays absent until listing."
         }
       }
     },
@@ -322,10 +322,7 @@
             "docs/internal/adr/0002-omp-runtime-contract.md",
             "docs/internal/spikes/omp-runtime-contract.md"
           ],
-          "gates": [
-            "YAN-1175 rules flattener",
-            "YAN-1178 live acceptance matrix passes on the real ycc tree"
-          ],
+          "gates": ["YAN-1175 rules flattener", "YAN-1178 live acceptance matrix passes on the real ycc tree"],
           "notes": "Generated package with flat rules/ (omp >=18.12.2): the nested Cursor tree flattens under unique names, paths becomes globs, and alwaysApply and description are kept."
         }
       }
@@ -445,10 +442,7 @@
             "docs/internal/adr/0002-omp-runtime-contract.md",
             "docs/internal/spikes/omp-runtime-contract.md"
           ],
-          "gates": [
-            "YAN-1172 install.sh OMP lifecycle through omp plugin",
-            "YAN-1175 settings, rules, and modelRoles fallback snippets"
-          ],
+          "gates": ["YAN-1175 settings, rules, and modelRoles fallback snippets"],
           "notes": "User and project config.yml layers (modelRoles, task.agentModelOverrides); OMP has no plugin channel for settings or model roles, so these stay documented or opt-in snippets."
         }
       }

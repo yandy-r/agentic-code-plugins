@@ -52,7 +52,7 @@ Follow these rules exactly or the parser will misread cells:
 | HOOKS.PostToolUse | supported | partial     | unsupported | partial     | unsupported |
 | HOOKS.Stop        | supported | partial     | unsupported | partial     | unsupported |
 | MCP               | supported | supported   | partial     | supported   | unsupported |
-| INSTALL_PATH      | supported | supported   | supported   | supported   | unsupported |
+| INSTALL_PATH      | supported | supported   | supported   | supported   | partial     |
 | DANGEROUS_MODE    | supported | unsupported | unsupported | unsupported | unsupported |
 | WORKTREE          | supported | partial     | partial     | partial     | unsupported |
 | MODS              | supported | unsupported | unsupported | unsupported | unsupported |
@@ -66,14 +66,14 @@ from installer-managed artifacts and gated work in `ycc/settings/packages.json`.
 `listed: false` packages are not published catalog entries; generated trees and successful spikes
 alone do not make them shipping user install paths. This does not revise the capability verdicts above.
 
-| target   | native, listed today                                                                                                                          | install.sh fallback today                                                    | unlisted or gated native packages                                                                                             |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Claude   | `ycc@ycc`, `ycc-mcp@ycc`, `ycc-hooks@ycc` (2.1.300+), `ycc-all@ycc`; `status-bar@ycc-mods`                                                    | Rules, settings, statusline, hooks link, MCP, standalone skills/agents       | `ycc-agents@ycc` in v7.0.0                                                                                                    |
-| Cursor   | `ycc`, `ycc-rules`, `ycc-mcp`, `ycc-hooks` via the root `.cursor-plugin/marketplace.json` (interactive `/plugins`); hooks `sessionStart` only | Skills, agents, commands, rules, settings under `~/.cursor/`; optional hooks | None                                                                                                                          |
-| Codex    | `ycc@ycc`, `ycc-mcp@ycc` via the root `.agents/plugins/marketplace.json`                                                                      | Agent TOMLs, `AGENTS.md`, `config.toml`                                      | `ycc-hooks` excluded (YAN-1149)                                                                                               |
-| opencode | None                                                                                                                                          | Skills, agents, commands, shared, `opencode.json`, `AGENTS.md`               | `@yandy-r/ycc-opencode` npm plugin: experimental, opt-in, unpublished                                                         |
-| `agents` | None                                                                                                                                          | Skills and `ycc-shared` copied into `~/.agents/`                             | None planned                                                                                                                  |
-| `omp`    | None                                                                                                                                          | None                                                                         | `ycc` generated, unlisted until v6.1.0; `ycc-mcp`, `ycc-hooks`, `ycc-rules` deferred to v6.1.0 (ADR 0002); `ycc-all` excluded |
+| target   | native, listed today                                                                                                                          | install.sh fallback today                                                                               | unlisted or gated native packages                                                                                             |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Claude   | `ycc@ycc`, `ycc-mcp@ycc`, `ycc-hooks@ycc` (2.1.300+), `ycc-all@ycc`; `status-bar@ycc-mods`                                                    | Rules, settings, statusline, hooks link, MCP, standalone skills/agents                                  | `ycc-agents@ycc` in v7.0.0                                                                                                    |
+| Cursor   | `ycc`, `ycc-rules`, `ycc-mcp`, `ycc-hooks` via the root `.cursor-plugin/marketplace.json` (interactive `/plugins`); hooks `sessionStart` only | Skills, agents, commands, rules, settings under `~/.cursor/`; optional hooks                            | None                                                                                                                          |
+| Codex    | `ycc@ycc`, `ycc-mcp@ycc` via the root `.agents/plugins/marketplace.json`                                                                      | Agent TOMLs, `AGENTS.md`, `config.toml`                                                                 | `ycc-hooks` excluded (YAN-1149)                                                                                               |
+| opencode | None                                                                                                                                          | Skills, agents, commands, shared, `opencode.json`, `AGENTS.md`                                          | `@yandy-r/ycc-opencode` npm plugin: experimental, opt-in, unpublished                                                         |
+| `agents` | None                                                                                                                                          | Skills and `ycc-shared` copied into `~/.agents/`                                                        | None planned                                                                                                                  |
+| `omp`    | None                                                                                                                                          | `install.sh --target omp`: local export of `ycc` installed through `omp plugin` (user or project scope) | `ycc` generated, unlisted until v6.1.0; `ycc-mcp`, `ycc-hooks`, `ycc-rules` deferred to v6.1.0 (ADR 0002); `ycc-all` excluded |
 
 Native dependency resolution is a Claude platform feature, not a cross-runtime guarantee.
 The Claude `ycc-all` meta plugin's automatic dependency install was verified on Claude Code 2.1.301 and in the v6.0.0 maintainer clean-host verification; Cursor and Codex have no
@@ -100,8 +100,9 @@ The recommendation in `docs/research/ystack/recommendation.md` is qualified by
   dedicated generated `.omp-plugin/` tree; shell hooks, `hooks.json`, and `WorktreeCreate` never
   run, and `ycc-all` is omitted because OMP ignores plugin dependencies. See ADR 0002. The
   opt-in harness installs a generated export of `ycc` (its catalog includes unlisted rows) from
-  a local pinned fixture on omp 18.12.3 (YAN-1171); it is not installable from this repository
-  until a row is listed.
+  a local pinned fixture on omp 18.12.3 (YAN-1171). `install.sh install --target omp` installs the
+  same export from a checkout through `omp plugin` (YAN-1172); the repository has no published OMP
+  catalog until a row is listed (YAN-1180).
 
 ---
 
@@ -320,9 +321,10 @@ Partial: `scripts/generate_omp_skills.py` generates every skill under `packages/
 and it loads via `omp --plugin-dir`. Skills run as `/skill:<name>`, and `disable-model-invocation`
 maps natively. `${CLAUDE_PLUGIN_ROOT}` and `_shared` paths become `skill://` URLs, and `_shared`
 ships once as the hidden `ycc-shared` skill. `/ycc:<name>` becomes `/skill:<name>`. The tree ships
-in the generated `ycc` package (YAN-1171), which is unlisted until release; `install.sh --target
-omp` is YAN-1172. Workflow semantics (worktree roots, background jobs, questions in
-non-interactive modes) stay with YAN-1170. Source: ADR 0002; spike §3.
+in the generated `ycc` package (YAN-1171), which is unlisted until release; `install.sh install
+--target omp` installs it from a checkout (see INSTALL_PATH:omp). Workflow semantics (worktree
+roots, background jobs, questions in non-interactive modes) stay with YAN-1170. Source: ADR 0002;
+spike §3.
 
 **COMMANDS:omp**
 Partial: `scripts/generate_omp_commands.py` writes one thin command per public skill to
@@ -339,8 +341,9 @@ commands (such as `/init`) shadow them. Generation fails on names OMP cannot dis
 names, a `ycc` namespace or `ycc:<name>` equal to an OMP built-in name or alias (the set is pinned
 from omp 18.12.3), empty descriptions, non-string hints and a non-boolean `user-invocable`.
 `/skill:<name>` is an alternative when `skills.enableSkillCommands` is on (the default). The
-generated root carries both manifests (YAN-1171); it is not installable from this repository until
-the package is listed (see INSTALL_PATH:omp).
+generated root carries both manifests (YAN-1171); a checkout installs it with `install.sh install
+--target omp`, and the repository publishes no OMP catalog until the package is listed (see
+INSTALL_PATH:omp).
 Source: spike §3.
 
 **AGENTS:omp**
@@ -385,16 +388,19 @@ Unsupported today: ycc ships no OMP MCP package yet. OMP's plugin MCP loader rea
 Owner: YAN-1173. Source: spike §2.5, §3.
 
 **INSTALL_PATH:omp**
-Unsupported today: the `ycc` package is generated but hidden. `scripts/generate_omp_packages.py`
-builds `packages/omp/ycc/` with `.omp-plugin/plugin.json`, `.claude-plugin/plugin.json` and
-`package.json` at the lockstep version, and writes the root `.omp-plugin/marketplace.json` (relative
-`./packages/omp/<package>` sources) only once a package is `listed` in `ycc/settings/packages.json`.
-None is listed, so the repository has no OMP catalog yet. The opt-in
-`scripts/test-omp-native-packages.sh` installs an export from a pinned fork commit on omp 18.12.3
-(add, dry run, install, list, doctor, commands, agent models, upgrade, uninstall). `install.sh
---target omp` is YAN-1172; `ycc-mcp`, `ycc-hooks` and `ycc-rules` are YAN-1173 to YAN-1175. The
-supported floor is omp `>=18.12.2`. OMP has no trust prompt: installed plugin code runs in-process
-with full user privileges. Source: ADR 0002.
+Partial: `install.sh install --target omp` (omp `>=18.12.2` on PATH) is the only install path, and
+only from a checkout. `scripts/generate_omp_packages.py` builds `packages/omp/ycc/` with
+`.omp-plugin/plugin.json`, `.claude-plugin/plugin.json` and `package.json` at the lockstep version.
+`scripts/omp_install.py` exports it to `${XDG_DATA_HOME:-~/.local/share}/ycc/omp-marketplace`,
+registers that as the `ycc` marketplace, and runs `omp plugin install --scope user ycc@ycc`
+(`--project`: `--scope project` in the git root). Ownership is recorded per omp profile in
+`~/.config/ycc/omp-native-install.json`; a re-run updates the marketplace and upgrades only on a
+version change, and `remove` uninstalls only recorded installs. `--dry-run` previews every `omp`
+call. Gaps: the root `.omp-plugin/marketplace.json` (relative `./packages/omp/<package>` sources)
+is written only once a package is `listed` in `ycc/settings/packages.json`; none is, so there is
+no published OMP catalog, `--mode repo` is refused, and `--target all` skips omp until YAN-1180.
+`ycc-mcp`, `ycc-hooks` and `ycc-rules` are YAN-1173 to YAN-1175. OMP has no trust prompt:
+installed plugin code runs in-process with full user privileges. Source: ADR 0002.
 
 **DANGEROUS_MODE:omp**
 Unsupported. ycc ships no mapping for `--dangerously-skip-permissions`. OMP's default

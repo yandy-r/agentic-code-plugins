@@ -36,6 +36,7 @@ def test_closures() -> None:
         ("ycc", "cursor", ("base", "commands", "settings")),
         ("ycc-hooks", "cursor", ("settings", "hooks")),
         ("ycc-hooks", "claude", ("settings", "rules", "hooks")),
+        ("ycc", "omp", ("base",)),
     ):
         assert plan_install(MODEL, (package,), (target,)).targets[0].steps == expected
     rules = plan_install(MODEL, ("ycc-rules",), ("cursor",)).targets[0]
@@ -59,6 +60,11 @@ def test_rejections() -> None:
         ("ycc", "opencode", "not available"),
         ("ycc", "agents", "not available"),
         ("ycc-hooks", "codex", "excluded"),
+        ("ycc-mcp", "omp", "is deferred or opt-in for target 'omp'"),
+        ("ycc-hooks", "omp", "is deferred or opt-in for target 'omp'"),
+        ("ycc-rules", "omp", "is deferred or opt-in for target 'omp'"),
+        ("ycc-all", "omp", "dependency installation proof"),
+        ("installer-fallback", "omp", "internal modeling key"),
     ):
         expect_error((package,), target, needle)
     all_plan = plan_install(MODEL, ("ycc",), ("claude", "cursor", "codex", "opencode", "agents"), skip_unsupported=True)

@@ -75,11 +75,19 @@ validate_scope_owned_targets() {
         scripts/generate_omp_agents.py | scripts/generate-omp-agents.sh | scripts/validate-omp-agents.sh) echo "omp" ;;
         scripts/generate_omp_commands.py | scripts/generate-omp-commands.sh | scripts/validate-omp-commands.sh) echo "omp" ;;
         scripts/test_generate_omp_skills.py | scripts/test_generate_omp_agents.py | scripts/test_generate_omp_commands.py) echo "omp types" ;;
-        # OMP native packages: generator and policy (typed, so they also select `types`),
-        # wrappers, golden tests, and the opt-in live harness with its smoke driver.
-        scripts/generate_omp_packages.py | scripts/validate_omp_native.py | scripts/omp_native_smoke.py) echo "omp" ;;
+        # OMP native packages: generator and policy (typed, so they also select `types`; the
+        # install helper imports both, so they also select `config` for its tests), wrappers,
+        # golden tests, and the opt-in live harness with its smoke driver.
+        scripts/generate_omp_packages.py | scripts/validate_omp_native.py) echo "omp config" ;;
+        scripts/omp_native_smoke.py) echo "omp" ;;
         scripts/generate-omp-packages.sh | scripts/validate-omp-packages.sh | scripts/test-omp-native-packages.sh) echo "omp" ;;
         scripts/test_generate_omp_packages.py) echo "omp types" ;;
+        # OMP install lifecycle (install.sh --target omp): the helper and its unit
+        # tests (both in [tool.mypy] files, so they select `types`) and the opt-in
+        # live harness.
+        scripts/omp_install.py) echo "omp config" ;;
+        scripts/test_omp_install.py) echo "omp config types" ;;
+        scripts/test-omp-install-lifecycle.sh) echo "omp" ;;
 
         # Install docs contain model-validated public package identifiers.
         docs/install/*) echo "packages" ;;
@@ -104,7 +112,7 @@ validate_scope_owned_targets() {
         scripts/lib/install/*) echo "opencode agents config" ;;
         install.sh | scripts/tests/install/* | scripts/test-install-sync.sh | scripts/completions/*) echo "config" ;;
         scripts/install_slices.py | scripts/test_install_slices_legacy.py) echo "config" ;;
-        scripts/install_migrate.py) echo "config" ;;
+        scripts/install_migrate.py | scripts/package_install_plan.py | scripts/test_package_install_plan.py) echo "config" ;;
         scripts/merge_managed_config.py | scripts/managed_config_*.py) echo "config" ;;
         scripts/test_merge_managed_config.py | scripts/test_managed_config_entries.py) echo "config" ;;
         scripts/codex_marketplace.py | scripts/test_codex_marketplace.py) echo "config codex-native" ;;

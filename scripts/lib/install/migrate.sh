@@ -21,6 +21,7 @@ run_migrate_command() {
     if [[ "${target_csv}" == "all" ]]; then
         target_csv="claude,codex,cursor"
         info "migrate --target all resolves only claude,codex,cursor (opencode and agents are unsupported)"
+        info "omp: run migrate --target omp separately"
     fi
     [[ "${target_csv}" != ,* && "${target_csv}" != *, && "${target_csv}" != *,,* ]] || {
         err "--target contains an empty value"; return 1;
@@ -29,9 +30,9 @@ run_migrate_command() {
     IFS=',' read -r -a requested <<< "${target_csv}"
     for target in "${requested[@]}"; do
         case "${target}" in
-            claude|codex|cursor) ;;
+            claude|codex|cursor|omp) ;;
             all) err "'all' cannot be combined with other targets"; return 1 ;;
-            *) err "migrate is not supported for target '${target}' (supported: claude, codex, cursor)"; return 1 ;;
+            *) err "migrate is not supported for target '${target}' (supported: claude, codex, cursor, omp)"; return 1 ;;
         esac
         [[ " ${targets[*]:-} " == *" ${target} "* ]] || targets+=("${target}")
     done
@@ -39,9 +40,19 @@ run_migrate_command() {
         err "--marketplace-source is only supported with the codex migration"; return 1
     fi
     command -v python3 >/dev/null 2>&1 || { err "python3 is required for migration"; return 1; }
+    if [[ " ${targets[*]} " == *" omp "* ]]; then
+        local reason
+        if ! reason="$(python3 "${SCRIPT_DIR}/scripts/omp_install.py" available 2>&1 >/dev/null)"; then
+            err "omp >= 18.12.2 is required for migrate --target omp"
+            [[ -n "${reason}" ]] && err "  ${reason}"
+            return 1
+        fi
+    fi
     local -a command=(python3 "${SCRIPT_DIR}/scripts/install_migrate.py" --targets "$(IFS=,; printf '%s' "${targets[*]}")")
     [[ "${apply}" == 1 ]] && command+=(--apply)
     [[ -n "${marketplace_source}" ]] && command+=(--marketplace-source "${marketplace_source}")
+    # omp records project installs at the installer's project root; migrate must use the same one.
+    [[ " ${targets[*]} " == *" omp "* ]] && command+=(--project-root "$(project_root)")
     "${command[@]}"
 }
 
