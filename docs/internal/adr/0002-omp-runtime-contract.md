@@ -82,7 +82,10 @@ the [spike, section 3](../spikes/omp-runtime-contract.md#3-component--verdict-ma
 
 1. OMP catalog and package-tree generator: `.omp-plugin/marketplace.json`, per-package
    `.omp-plugin/plugin.json` and `package.json`, and the lockstep version in the catalog and
-   `package.json`.
+   `package.json`. Implemented by `scripts/generate_omp_packages.py` (YAN-1171). The root also
+   ships `.claude-plugin/plugin.json` named after the package: it sets the `/ycc:` command prefix
+   under `--plugin-dir`, and OMP reads the install and upgrade version from it, never from
+   `.omp-plugin/plugin.json` (an `.omp-plugin`-only bump was ignored live on omp 18.12.3).
 2. Skill-body rewriter: `${CLAUDE_PLUGIN_ROOT}` paths, `/ycc:<name>` invocations, and `_shared`
    references.
 3. Agent translator: tool IDs (`WebSearch` → `web_search`, with `WebFetch` and `NotebookEdit`

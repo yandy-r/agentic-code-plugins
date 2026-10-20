@@ -17,7 +17,8 @@
 #          cursor-native, codex-native, json, config, packages, release, mods, practices, scope, types
 #   - inventory  validates ycc skill frontmatter, the shared inventory, the formatter bundle and
 #                plan-workflow regressions and per-runtime worktree roots (scripts/test-worktree-roots.sh)
-#   - omp        checks generated OMP skill, agent and command drift (bytes and modes), content policy and golden tests
+#   - omp        checks generated OMP skill, agent and command drift (bytes and modes), content policy and golden
+#                tests, plus native package manifests, catalog listing, lockstep versions and closure
 #   - json       validates .claude-plugin/marketplace.json plus ycc/.claude-plugin/plugin.json
 #   - claude     tests the generated hidden Claude package generator
 #   - *-native   checks generated native package drift, runtime policies and fixtures;
@@ -263,6 +264,10 @@ run_target() {
             "${REPO_ROOT}/scripts/validate-omp-commands.sh" || fail "validate-omp-commands.sh"
             echo "== test: omp commands generator =="
             python3 "${REPO_ROOT}/scripts/test_generate_omp_commands.py" || fail "test_generate_omp_commands.py"
+            echo "== validate: omp native packages and catalog =="
+            "${REPO_ROOT}/scripts/validate-omp-packages.sh" || fail "validate-omp-packages.sh"
+            echo "== test: omp packages generator and policy =="
+            python3 "${REPO_ROOT}/scripts/test_generate_omp_packages.py" || fail "test_generate_omp_packages.py"
             ;;
         opencode)
             echo "== validate: opencode skills =="

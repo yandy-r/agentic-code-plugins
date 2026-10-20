@@ -145,7 +145,7 @@ Not tested live: how Claude-cased `tools:` names are normalized. Per upstream (`
 | `omp plugin uninstall --scope user …`                                                                | 0    | `node_modules` link removed; `installed_plugins.json` no longer lists the id; marketplace clone kept |
 
 - **Upgrade rule:** for relative string sources, `#resolveCatalogVersion` reads `.claude-plugin/plugin.json`, then root `plugin.json`, **before** the catalog `version`. Object sources use the catalog version first (`manager.ts:555-580`). A catalog-only bump is therefore invisible to `omp plugin upgrade`.
-- **Generator consequence:** an OMP package whose only manifest is `.omp-plugin/plugin.json` has no plugin-manifest version for this lookup, so the catalog `version` and then `package.json#version` decide. The generator must stamp the lockstep version into the catalog entry and `package.json` [INFERENCE from the source order; not run with an `.omp-plugin`-only fixture].
+- **Generator consequence:** `.omp-plugin/plugin.json` is never read for the version. The YAN-1171 generator stamps the lockstep version into the catalog entry, `.omp-plugin/plugin.json`, `.claude-plugin/plugin.json` and `package.json`. Verified live on omp 18.12.3 (`scripts/test-omp-native-packages.sh`): an `.omp-plugin`-only bump leaves `plugin upgrade` at `All marketplace plugins are up to date.`, and the lockstep bump upgrades `6.0.0 -> 6.0.2`.
 - **Restart:** per `docs/marketplace.md:80`, newly installed non-MCP tools, hooks, and extension modules need a session restart. `/reload-plugins` refreshes agents, skills, commands, and MCP. Live: `/reload-plugins` is a builtin; hot-loading of new extensions was not exercised.
 
 ### 1.6 Scopes, shadowing, overrides
@@ -381,7 +381,7 @@ Also:
 - herdr acceptance of an OMP-originated `session_start` report, and whether herdr's API has a shutdown report [INFERENCE]; needs herdr-side confirmation.
 - Whether to generate `commands/` wrappers for `/ycc:<name>` parity, or document `/skill:<name>`.
 - Dedupe policy when both `install.sh`'s `agents` target (`~/.agents/skills`) and the OMP ycc package are present (§1.8, §2.8).
-- Upgrade detection for `.omp-plugin`-only packages relies on the catalog `version` (§1.5) [INFERENCE]; verify in the generator's live smoke.
+- ~~Upgrade detection for `.omp-plugin`-only packages relies on the catalog `version` (§1.5).~~ Settled live on omp 18.12.3 by `scripts/test-omp-native-packages.sh` (YAN-1171): a bump only in `.omp-plugin/plugin.json` is ignored (`All marketplace plugins are up to date.`), and a lockstep bump of `.claude-plugin/plugin.json`, catalog entry and `package.json` upgrades. The generated root ships `.claude-plugin/plugin.json`, so that manifest decides.
 - The probe in §1.4 imports an internal omp module (`task/discovery`). If that path moves, the harness case fails loudly instead of passing silently.
 
 ## 6. Reproduction

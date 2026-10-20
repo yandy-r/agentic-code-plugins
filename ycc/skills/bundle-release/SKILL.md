@@ -86,7 +86,8 @@ If `--dry-run` was passed, print the full release plan:
   `.claude-plugin/marketplace.json`, and `ycc/package.json` when it carries a version.
   The package model is validated, not bumped; generated `packages/**` and runtime
   manifests are check-only (including the required opencode npm manifest).
-- Derived bundles that will be regenerated (`.cursor-plugin/`, `.codex-plugin/`, `.opencode-plugin/`).
+- Derived bundles that will be regenerated (`.cursor-plugin/`, `.codex-plugin/`, `.opencode-plugin/`,
+  the `.omp-plugin/` catalog, and `packages/omp/<pkg>/.omp-plugin/plugin.json`).
 - All commands that would be executed, in order.
 
 Then STOP without writing or executing anything.
@@ -100,7 +101,8 @@ The wrappers share `scripts/release_versions.py`, which reads
 unmodeled product version fields, and validates all inputs before writing. A missing
 or malformed model or required manifest causes no writes; a write error mid-bump
 has best-effort rollback only (not crash-atomic).
-Generated surfaces (`packages/`, runtime bundles, `.agents/plugins/marketplace.json`)
+Generated surfaces (`packages/` including `packages/omp/<pkg>/.omp-plugin/plugin.json`,
+runtime bundles, the `.omp-plugin/` catalog, `.agents/plugins/marketplace.json`)
 are checked by preflight but never bumped directly. Bumped files are JSON
 re-serialized (2-space indent, trailing newline), preserving key order and unrelated
 fields. After it exits, surface the diff (`git diff` of the modified files from
@@ -121,7 +123,7 @@ If it fails, surface the following rollback command and STOP:
 for path in ycc/.claude-plugin/plugin.json .claude-plugin/marketplace.json \
             ycc/package.json \
             packages .agents/plugins/marketplace.json .agents-plugin \
-            .cursor-plugin .codex-plugin .opencode-plugin docs/inventory.json; do
+            .cursor-plugin .codex-plugin .opencode-plugin .omp-plugin docs/inventory.json; do
   if git ls-files --error-unmatch -- "$path" >/dev/null 2>&1; then
     git checkout -- "$path"
   fi
@@ -130,7 +132,7 @@ done
 ```
 
 Do not hand-edit `packages/`, `.agents/plugins/marketplace.json`, `.agents-plugin/`,
-`.cursor-plugin/`, `.codex-plugin/`, or `.opencode-plugin/` — regenerate them only.
+`.cursor-plugin/`, `.codex-plugin/`, `.opencode-plugin/`, or `.omp-plugin/` — regenerate them only.
 The rollback loop restores tracked paths (including deleted files) but does not
 remove newly generated untracked files; review those separately.
 
@@ -169,10 +171,10 @@ Release prepared. No commits have been made — review the diff, then run:
 for path in ycc/.claude-plugin/plugin.json .claude-plugin/marketplace.json \
             ycc/package.json \
             packages .agents/plugins/marketplace.json .agents-plugin \
-            .cursor-plugin .codex-plugin .opencode-plugin docs/inventory.json \
+            .cursor-plugin .codex-plugin .opencode-plugin .omp-plugin docs/inventory.json \
             docs/releases/<new-version>.md; do
-  if [ -e "$path" ]; then
-    git add -- "$path"
+  if [ -e "$path" ] || git ls-files --error-unmatch -- "$path" >/dev/null 2>&1; then
+    git add -A -- "$path"
   fi
 done
 git commit -m "chore(release): v<new-version>"
