@@ -305,7 +305,9 @@ run_omp_checks() {
   local odir="${REPO_ROOT}/.omp-plugin"
   local matrix="${REPO_ROOT}/ycc/skills/_shared/references/target-capability-matrix.md"
 
-  # OM1: the generated tree and the matrix INSTALL_PATH:omp verdict must agree.
+  # OM1: the generated catalog and the matrix INSTALL_PATH:omp verdict must agree.
+  # While no OMP package is listed (YAN-1180) the root .omp-plugin/ is absent;
+  # 'partial' then means install.sh --target omp installs from a generated export.
   if [[ ! -f "$matrix" ]]; then
     record "omp" "OM1" "FAIL" "${matrix} does not exist — cannot read INSTALL_PATH:omp"; return
   fi
@@ -333,11 +335,11 @@ PY
   if [[ -z "$verdict" ]]; then
     record "omp" "OM1" "FAIL" "INSTALL_PATH:omp not found in ${matrix}"
   elif [[ ! -d "$odir" ]]; then
-    if [[ "$verdict" == "unsupported" ]]; then
-      record "omp" "OM1" "PASS" "${odir} not generated yet (matrix INSTALL_PATH:omp=unsupported)"
-    else
-      record "omp" "OM1" "FAIL" "${odir} does not exist but matrix INSTALL_PATH:omp=${verdict}"
-    fi
+    case "$verdict" in
+      unsupported) record "omp" "OM1" "PASS" "${odir} not generated yet (matrix INSTALL_PATH:omp=unsupported)" ;;
+      partial)     record "omp" "OM1" "PASS" "${odir} absent until a package is listed; install.sh --target omp installs a generated export (matrix INSTALL_PATH:omp=partial)" ;;
+      *)           record "omp" "OM1" "FAIL" "${odir} does not exist but matrix INSTALL_PATH:omp=${verdict}" ;;
+    esac
     return
   elif [[ "$verdict" == "unsupported" ]]; then
     record "omp" "OM1" "FAIL" "${odir} exists but matrix INSTALL_PATH:omp=unsupported"

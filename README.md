@@ -154,6 +154,11 @@ Or enable in `~/.claude/settings.json`:
 }
 ```
 
+OMP (oh-my-pi, `omp >= 18.12.2`) is pre-release: its package is unlisted until
+YAN-1180, so install it from a checkout with
+`./install.sh install --target omp` (add `--project` for this project only,
+`--dry-run` to preview). See [`docs/install/omp.md`](docs/install/omp.md).
+
 For local development installs, generated compatibility bundles, model defaults,
 and desktop app notes, use the dedicated install guides. Recommended sync form:
 
@@ -162,6 +167,7 @@ and desktop app notes, use the dedicated install guides. Recommended sync form:
 ./install.sh sync --target claude --intent mods                          # Claude Code mods (ycc/mods)
 ./install.sh sync --target all --intent settings,rules
 ./install.sh install --target all --only agents                         # standalone agents, no plugin
+./install.sh install --target omp                                       # OMP via omp plugin (pre-release)
 ./install.sh sync --target codex,claude,opencode --intent mcp            # current project
 ./install.sh sync --target codex,claude,opencode --intent mcp --global   # user-global
 ./install.sh sync --target opencode --intent mcp --mcps github,linear    # only these servers
@@ -200,6 +206,7 @@ Dedicated guides:
 | Codex / Codex Desktop          | [`docs/install/codex.md`](docs/install/codex.md)         |
 | opencode                       | [`docs/install/opencode.md`](docs/install/opencode.md)   |
 | `~/.agents/skills` (Zed etc)   | [`docs/install/agents.md`](docs/install/agents.md)       |
+| OMP (oh-my-pi)                 | [`docs/install/omp.md`](docs/install/omp.md)             |
 | Shared installer concepts      | [`docs/install/README.md`](docs/install/README.md)       |
 | Native packages (all runtimes) | [`docs/install/v6/README.md`](docs/install/v6/README.md) |
 

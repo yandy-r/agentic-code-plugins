@@ -15,7 +15,7 @@ _ycc() {
     [[ ${COMP_CWORD} -gt 1 ]] && sub="${COMP_WORDS[1]}"
 
     case "${prev}" in
-        --target) values="claude cursor codex opencode agents all"; [[ "${sub}" == migrate ]] && values="claude codex cursor all" ;;
+        --target) values="claude cursor codex opencode agents omp all"; [[ "${sub}" == migrate ]] && values="claude codex cursor omp all" ;;
         --skills-home) mapfile -t COMPREPLY < <(compgen -W "agents native" -- "${cur}"); return ;;
         --intent) values="base skills agents commands settings rules mcp hooks plugins mods" ;;
         --package) [[ "${sub}" == "install" ]] && values="ycc ycc-mcp ycc-hooks ycc-rules" ;;
@@ -46,9 +46,9 @@ _ycc() {
             cli)        words="--dir --force --help" ;;
             completion) words="--shell --install --force --help" ;;
             list-mcps)  words="--target --help" ;;
-            install)    words="--target --package --only --mode --skills-home --settings --rules --mcp --mcps --hooks --project --global --force --help" ;;
-            sync)       words="--target --intent --mcps --mode --skills-home --project --global --force --help" ;;
-            remove)     words="--target --only --intent --mcps --project --global --force --help" ;;
+            install)    words="--target --package --only --mode --skills-home --settings --rules --mcp --mcps --hooks --project --global --force --dry-run --help" ;;
+            sync)       words="--target --intent --mcps --mode --skills-home --project --global --force --dry-run --help" ;;
+            remove)     words="--target --only --intent --mcps --project --global --force --dry-run --help" ;;
             migrate)    words="--target --apply --marketplace-source --help" ;;
             *)          words="" ;;
         esac

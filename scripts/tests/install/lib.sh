@@ -80,6 +80,14 @@ cat > "${STUB_BIN}/black" <<'SH'
 exit 0
 SH
 chmod +x "${STUB_BIN}/claude" "${STUB_BIN}/codex" "${STUB_BIN}/ruff" "${STUB_BIN}/black"
+# Stateful fake omp (fake_omp.py, version 18.12.3 unless FAKE_OMP_VERSION says
+# otherwise). It shadows a real omp on PATH; its state lives in FAKE_OMP_HOME
+# and every call is logged to CLAUDE_STUB_LOG as 'omp <args>'.
+cat > "${STUB_BIN}/omp" <<SH
+#!/usr/bin/env bash
+exec python3 "${REPO_ROOT}/scripts/tests/install/fake_omp.py" "\$@"
+SH
+chmod +x "${STUB_BIN}/omp"
 
 # run_install <home> <args...> — run install.sh sandboxed; print output and return the installer status.
 # Runs from <home>/project (not a git repo) so project-scoped steps write
@@ -91,9 +99,12 @@ run_install() {
     shift
     out="$(
         cd "${home}/project" || exit 1
+        # A caller's omp overrides would escape the stub and the sandbox.
+        unset OMP_BIN OMP_PROFILE FAKE_OMP_LOG
         HOME="${home}" \
         PATH="${STUB_BIN}:${PATH}" \
         CLAUDE_STUB_LOG="${home}/claude-calls.log" \
+        FAKE_OMP_HOME="${home}/.fake-omp" \
         YCC_MANAGED_CONFIG_STATE="${home}/.config/ycc/managed-config-state.json" \
         YCC_INSTALL_SKIP_BUILD="${YCC_INSTALL_SKIP_BUILD:-1}" \
             bash "${INSTALL}" "$@" 2>&1

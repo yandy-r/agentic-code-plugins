@@ -9,7 +9,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 CLI_NAME="ycc"
 # shellcheck disable=SC2034  # read by steps.sh (target resolution).
-ALL_TARGETS=(claude cursor codex opencode agents)
+ALL_TARGETS=(claude cursor codex opencode agents omp)
 
 # shellcheck source=scripts/lib/install/core.sh
 source "${SCRIPT_DIR}/scripts/lib/install/core.sh"
@@ -34,14 +34,15 @@ Usage: $(basename "$0") <command> [options]
 
 Commands:
   install     Initial setup: base step plus opt-in steps (flags below).
-              $(basename "$0") install --target <targets> [--mode <mode>] [--settings] [--rules] [--mcp] [--hooks] [--only <steps>] [--package <ids>] [--mcps <servers>] [--project|--global] [--force]
+              $(basename "$0") install --target <targets> [--mode <mode>] [--settings] [--rules] [--mcp] [--hooks] [--only <steps>] [--package <ids>] [--mcps <servers>] [--project|--global] [--force] [--dry-run]
   sync        Sync what you name, nothing else.
-              $(basename "$0") sync --target <targets> --intent <intents> [--mcps <servers>] [--mode <mode>] [--project|--global] [--force]
+              $(basename "$0") sync --target <targets> --intent <intents> [--mcps <servers>] [--mode <mode>] [--project|--global] [--force] [--dry-run]
   remove      Strip installer-managed config.
-              $(basename "$0") remove --target <targets> (--only <steps> | --intent <intents>) [--mcps <servers>] [--project|--global] [--force]
+              $(basename "$0") remove --target <targets> (--only <steps> | --intent <intents>) [--mcps <servers>] [--project|--global] [--force] [--dry-run]
   migrate     Preview a global native-package migration (no writes by default).
-              $(basename "$0") migrate --target claude|codex|cursor|all [--apply] [--marketplace-source <dir>]
-              all resolves only claude,codex,cursor. --marketplace-source is Codex-only
+              $(basename "$0") migrate --target claude|codex|cursor|omp|all [--apply] [--marketplace-source <dir>]
+              all resolves only claude,codex,cursor (run omp separately; it needs
+              omp >= 18.12.2). --marketplace-source is Codex-only
               and must contain an eligible native ycc catalog (not a gate bypass).
   cli         Put this installer on PATH as '${CLI_NAME}'.
               $(basename "$0") cli [--dir <dir>] [--force]
@@ -84,7 +85,8 @@ step-flag form used for first-time setup.
 Intents (valid: base, skills, agents, commands, settings, rules, mcp, hooks,
 plugins, mods):
   base      Install/register the target's whole bundle (claude/codex: the
-            ycc plugin; cursor/opencode: the mirrored bundle dirs).
+            ycc plugin; cursor/opencode: the mirrored bundle dirs; omp: the
+            native ycc package via 'omp plugin').
   skills    Standalone skills, one entry each, in the tool's own skills dir.
             On claude these skills are the slash commands; 'commands' below
             is an alias for this step there.
@@ -137,6 +139,8 @@ plugins, mods):
               plugins → settings (opencode.json)  hooks, mods → no-op
     agents    base→skills  skills→skills  everything else → no-op
               (~/.agents/skills + ycc-shared/ is the whole target)
+    omp       base→base  plugins→base  everything else → no-op
+              (one native package carries skills, agents and commands)
 
 Remove ('remove' subcommand):
   Undoes what the selected steps installed, for every target and intent (same
@@ -152,7 +156,10 @@ Remove ('remove' subcommand):
                                 marketplace remove; cursor/opencode: the
                                 bundle entries from the synced dirs; codex:
                                 plugin links, plugin cache, custom agents
-                                and the marketplace.json entry.
+                                and the marketplace.json entry; omp: the
+                                ycc-owned 'omp plugin' installs of the
+                                scope, then the ycc marketplace and export
+                                once nothing ycc-owned or foreign needs them.
     skills / agents / commands  the standalone entries ycc installed (or
                                 that are still identical to the bundle);
                                 never the plugin, never your own entries.
@@ -165,12 +172,14 @@ Remove ('remove' subcommand):
   $(basename "$0") remove --target codex --intent settings,rules
   $(basename "$0") remove --target all --intent base,settings,rules,hooks,plugins,mods
   $(basename "$0") remove --target opencode --intent agents,commands
+  $(basename "$0") remove --target omp --only base --dry-run    # preview the omp uninstall
 
 Scope (--project | --global, mutually exclusive):
   Without a flag, steps that support project scope use it; all others stay
   global. --project with a step lacking project support is an error. The
   project is the git toplevel of the current directory (else the directory).
-  Project-capable steps today: mcp.
+  Project-capable steps today: mcp (default project), and omp base (opt-in:
+  only with an explicit --project; omp installs default to user scope).
 
     target    mcp --project                   mcp --global
     claude    <project>/.mcp.json             ~/.claude.json
@@ -178,6 +187,10 @@ Scope (--project | --global, mutually exclusive):
     codex     <project>/.codex/config.toml    ~/.codex/config.toml
               (Codex loads it only for trusted projects)
     opencode  <project>/opencode.json         ~/.config/opencode/opencode.json
+
+    target    base --project                  base (default, or --global)
+    omp       omp plugin install --scope      omp plugin install --scope user
+              project (refused at \$HOME)
 
 Merge semantics (all structured config files):
   - Keys this repo declares as managed are written; every other key is kept.
@@ -189,8 +202,9 @@ Merge semantics (all structured config files):
 
 Options:
   --target <targets>  Comma-separated targets: claude, cursor, codex, opencode,
-                      agents, or all (which must stand alone). Every target is
-                      validated before any of them runs.
+                      agents, omp, or all (which must stand alone). Every target
+                      is validated before any of them runs. all skips omp unless
+                      omp >= 18.12.2 is on PATH and an OMP package is listed.
   --mode <mode>       Marketplace source mode (default: local). Supported:
                         local — register the local repo checkout as the
                                 marketplace source. claude target adds the
@@ -208,7 +222,9 @@ Options:
                                 ycc-mcp@ycc from it, skipping local
                                 generation and agents-sync.
                                 cursor, opencode and agents REJECT --mode repo
-                                (they have no remote-source concept).
+                                (they have no remote-source concept); omp
+                                rejects it until an OMP package is listed
+                                (YAN-1180) and installs from a local export.
                                 With --target all + --mode repo, cursor,
                                 opencode and agents are skipped with a warning.
   --settings          Additive: MERGE repo-managed keys into per-machine config
@@ -241,7 +257,9 @@ Options:
                       manages is an error. Names: '$(basename "$0") list-mcps'
                       (shell completion offers them).
   --project           Scope-capable steps (today: mcp) write into the current
-                      project. Default when neither flag is given.
+                      project. Default when neither flag is given. omp base
+                      installs at omp's project scope only with an explicit
+                      --project (never at \$HOME).
   --global            Scope-capable steps write into user-global config.
   --hooks             Additive: also run the target's 'hooks' step.
                       Currently supported by the claude target only; silently
@@ -249,6 +267,13 @@ Options:
   --force             Let repo-managed config values win over local edits, and
                       replace real rules files with repo symlinks when needed.
                       Unknown/unmanaged config keys are never removed.
+                      omp: reinstall ycc-owned packages
+                      ('omp plugin install --force') and replace a stale ycc
+                      export directory.
+  --dry-run           install / sync / remove, omp target only (every resolved
+                      target must be omp). Previews every 'omp plugin' call
+                      (omp's own --dry-run where it has one) without building,
+                      exporting or writing state.
   --only <steps>      Exclusive: run only the comma-separated steps
                       (e.g. --only settings, --only rules,settings).
                       Overrides defaults and --settings/--rules/--mcp/--hooks.
@@ -269,7 +294,8 @@ Options:
                       above). Cannot be combined with --only or the additive
                       --settings/--rules/--mcp/--hooks flags.
   --package <ids>     'install' only. Comma-separated ids from the package model:
-                      ycc, ycc-mcp, ycc-hooks (Claude and Cursor), ycc-rules (Cursor only).
+                      ycc, ycc-mcp, ycc-hooks (Claude and Cursor), ycc-rules (Cursor only);
+                      omp: ycc (ycc-mcp, ycc-hooks, ycc-rules are deferred there).
                       Expands dependency and installer-fallback components into
                       existing installer steps. The 'base' step of the Claude and
                       Codex ycc package uses native marketplace registration
@@ -387,8 +413,18 @@ Target steps:
                       install each skill into ~/.agents/skills/ (+ shared
                       helpers in ~/.agents/ycc-shared/). Foreign skills and
                       ~/.agents/plugins/ are never touched.
-  all       Run claude then cursor then codex then opencode then agents; step
-            flags propagate.
+  omp       base (needs omp >= 18.12.2 on PATH)
+            base:     generate + validate packages/omp, export them to
+                      \${XDG_DATA_HOME:-~/.local/share}/ycc/omp-marketplace,
+                      register that export as the omp marketplace 'ycc', then
+                      'omp plugin install|upgrade --scope user|project ycc@ycc'.
+                      Ownership is recorded per omp profile in
+                      ~/.config/ycc/omp-native-install.json; remove touches
+                      only what ycc installed. Legacy ycc skills in
+                      ~/.agents/skills are reported by 'migrate --target omp'.
+  all       Run claude then cursor then codex then opencode then agents (then
+            omp, once omp >= 18.12.2 is on PATH and an OMP package is listed);
+            step flags propagate.
 
 Examples:
   $(basename "$0") install --target claude                         # base only (register local marketplace)
@@ -433,6 +469,15 @@ Examples:
   $(basename "$0") install --target all    --mode repo             # claude + codex in repo mode;
                                                                      # cursor/opencode are skipped
   $(basename "$0") install --target claude --mode repo --settings --rules
+
+  # OMP (oh-my-pi >= 18.12.2; native package through 'omp plugin'):
+  $(basename "$0") install --target omp                            # export + install ycc@ycc (user scope)
+  $(basename "$0") install --target omp --dry-run                  # preview every omp call; no writes
+  $(basename "$0") install --target omp --package ycc              # same, through the package planner
+  $(basename "$0") install --target omp --project                  # omp project scope (not at \$HOME)
+  $(basename "$0") install --target omp --force                    # reinstall the ycc-owned package
+  $(basename "$0") remove  --target omp --only base                # uninstall what ycc installed
+  $(basename "$0") migrate --target omp                            # report legacy ycc skills in ~/.agents/skills
 EOF
 }
 
@@ -457,6 +502,8 @@ PACKAGE=""
 PACKAGE_CONFLICT_FLAG=0
 MCP_SERVERS=()
 SCOPE=""
+# Read by targets/omp.sh (the only target with a dry-run).
+export DRY_RUN=0
 
 case "${1:-}" in
     migrate) shift; run_migrate_command "$@"; exit $? ;;
@@ -558,6 +605,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --hooks)
             HOOKS=1
+            shift
+            ;;
+        --dry-run)
+            DRY_RUN=1
             shift
             ;;
         --project|--global)
@@ -670,6 +721,14 @@ if [[ ${#ONLY_STEPS[@]} -gt 0 ]]; then
 fi
 
 resolve_targets "${TARGET}"
+if [[ "${DRY_RUN}" == "1" ]]; then
+    for target in "${TARGETS[@]}"; do
+        if [[ "${target}" != "omp" ]]; then
+            err "--dry-run is only supported by the omp target"
+            exit 1
+        fi
+    done
+fi
 [[ "${COMMAND}" == "remove" ]] || print_native_deprecation_hints "${TARGETS[@]}"
 if [[ -n "${PACKAGE}" ]]; then
     [[ "${TARGET}" == "all" ]] && PACKAGE_ALL_TARGETS_REQUESTED=1

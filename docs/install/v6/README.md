@@ -101,8 +101,11 @@ build output, or CLI state. Only `--apply` makes changes:
 
 `--target all` resolves to exactly Claude, Codex, and Cursor; opencode and
 agents are excluded from `all`, and naming either target explicitly is
-rejected. Migration preserves user edits/data and uncertain entries, is safe
-to run repeatedly, and rejects `--force`. See each runtime guide for details.
+rejected. OMP has its own `migrate --target omp` (see
+[`../omp.md`](../omp.md#migrate-from-older-installs)); `all` prints a reminder
+to run it separately. Migration preserves user edits/data and uncertain
+entries, is safe to run repeatedly, and rejects `--force`. See each runtime
+guide for details.
 For Codex, apply checks installed/enabled CLI state before retiring legacy;
 that metadata check is not runtime session, MCP execution, or hook-dispatch
 verification.
@@ -114,9 +117,13 @@ closure into existing installer steps. It is a file/config delivery route and
 never edits a catalog. The one native piece is the `base` step it selects for
 `ycc`: on Claude that registers the marketplace and installs `ycc@ycc`; on
 Codex it registers the `ycc` marketplace and installs `ycc@ycc` plus
-`ycc-mcp@ycc`. Accepted ids are `ycc`, `ycc-mcp`, `ycc-hooks` (not Codex), and
-`ycc-rules` (Cursor only); `ycc-all` is not accepted — install it through the
-Claude marketplace. See `./install.sh --help` for the full contract.
+`ycc-mcp@ycc`; on OMP (pre-release, see [`../omp.md`](../omp.md)) it exports
+the OMP package and installs `ycc@ycc` through `omp plugin`. Accepted ids are
+`ycc`, `ycc-mcp`, `ycc-hooks` (not Codex or OMP), and `ycc-rules` (Cursor
+only); OMP accepts only `ycc` today. `ycc-all` is not accepted — install it
+through the Claude marketplace. `install --target all` includes OMP only once
+an OMP package is listed (YAN-1180) and `omp >= 18.12.2` is on `PATH`; until
+then it prints a skip line. See `./install.sh --help` for the full contract.
 
 ## Evidence
 

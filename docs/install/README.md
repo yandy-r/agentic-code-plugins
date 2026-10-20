@@ -13,6 +13,7 @@ every target's installer behavior.
 | Codex    | [`codex.md`](codex.md)       | Codex plugin installs, custom agents, Codex Desktop setup                  |
 | opencode | [`opencode.md`](opencode.md) | opencode-native skills, agents, commands, config, and rules                |
 | agents   | [`agents.md`](agents.md)     | Cross-tool skills in `~/.agents/skills` (Zed and others)                   |
+| OMP      | [`omp.md`](omp.md)           | OMP (oh-my-pi) native package via `omp plugin` (pre-release, unlisted)     |
 
 Since v6.0.0 `ycc` is also published as native packages in the Claude, Codex,
 and Cursor marketplaces. The v6 guides cover the package IDs, the marketplace
@@ -39,7 +40,7 @@ first-time setup (base step plus opt-in `--settings`/`--rules`/`--mcp`/`--hooks`
 or `--only`); `sync` is the recommended entry point after that:
 
 ```bash
-./install.sh sync --target <claude|cursor|codex|opencode|all> --intent <intents>
+./install.sh sync --target <claude|cursor|codex|opencode|agents|omp|all> --intent <intents>
 ```
 
 You say **what** you want synced; each target maps the intent onto the steps it
@@ -71,11 +72,15 @@ Pass `--apply` to make the reported changes:
 ./install.sh migrate --target codex --apply
 ./install.sh migrate --target cursor           # dry-run
 ./install.sh migrate --target cursor --apply
+./install.sh migrate --target omp              # dry-run
+./install.sh migrate --target omp --apply
 ```
 
-- `--target` accepts `claude`, `codex`, or `cursor`; `--target all` resolves
-  to exactly those three. `opencode` and `agents` have no migration and are
-  rejected when named explicitly — their file-copy installs stay as they are.
+- `--target` accepts `claude`, `codex`, `cursor`, or `omp`; `--target all`
+  resolves to exactly `claude`, `codex` and `cursor` and prints a reminder to
+  run `migrate --target omp` separately. `opencode` and `agents` have no
+  migration and are rejected when named explicitly — their file-copy installs
+  stay as they are.
 - Migration preserves user edits and data. It removes only entries it can
   prove are installer-owned, and it reports anything uncertain as a conflict
   instead of deleting it. Proof is managed-config ownership, a byte-identical
@@ -115,6 +120,11 @@ Pass `--apply` to make the reported changes:
   it. Edited or foreign entries stay, and shared helpers stay while any skills
   remain. Migration prints the interactive `/add-plugin` step. It does not
   install the Cursor plugin.
+- **OMP:** retires `omp plugin link` installs of this checkout's packages and a
+  `ycc` marketplace registered at the checkout root (Claude-catalog fallback),
+  then installs the native package in the same scopes. Foreign links and
+  marketplaces are kept and reported. Needs `omp >= 18.12.2`; see
+  [`omp.md`](omp.md#migrate-from-older-installs).
 
 Migration does not install Claude or Cursor packages (enable `ycc-hooks@ycc` /
 `ycc-mcp@ycc` first on Claude; Cursor prints the interactive `/add-plugin`
@@ -165,18 +175,18 @@ or `source <(ycc completion --shell zsh)`.
 
 Per-target mapping (intents a target cannot execute are skipped with a notice):
 
-| Intent     | claude             | cursor     | codex      | opencode   |
-| ---------- | ------------------ | ---------- | ---------- | ---------- |
-| `base`     | `base`             | `base`     | `base`     | `base`     |
-| `skills`   | `skills`           | `skills`   | `skills`   | `skills`   |
-| `agents`   | `agents`           | `agents`   | `agents`   | `agents`   |
-| `commands` | `skills` (alias)   | `commands` | no-op      | `commands` |
-| `settings` | `settings`         | `settings` | `settings` | `settings` |
-| `rules`    | `rules`            | `rules`    | `rules`    | `rules`    |
-| `mcp`      | `mcp`              | `mcp`      | `mcp`      | `mcp`      |
-| `hooks`    | `settings`+`hooks` | `hooks`    | no-op      | no-op      |
-| `plugins`  | `settings`         | no-op      | `settings` | `settings` |
-| `mods`     | `mods`             | no-op      | no-op      | no-op      |
+| Intent     | claude             | cursor     | codex      | opencode   | omp    |
+| ---------- | ------------------ | ---------- | ---------- | ---------- | ------ |
+| `base`     | `base`             | `base`     | `base`     | `base`     | `base` |
+| `skills`   | `skills`           | `skills`   | `skills`   | `skills`   | no-op  |
+| `agents`   | `agents`           | `agents`   | `agents`   | `agents`   | no-op  |
+| `commands` | `skills` (alias)   | `commands` | no-op      | `commands` | no-op  |
+| `settings` | `settings`         | `settings` | `settings` | `settings` | no-op  |
+| `rules`    | `rules`            | `rules`    | `rules`    | `rules`    | no-op  |
+| `mcp`      | `mcp`              | `mcp`      | `mcp`      | `mcp`      | no-op  |
+| `hooks`    | `settings`+`hooks` | `hooks`    | no-op      | no-op      | no-op  |
+| `plugins`  | `settings`         | no-op      | `settings` | `settings` | `base` |
+| `mods`     | `mods`             | no-op      | no-op      | no-op      | no-op  |
 
 `sync` is exclusive: it never implicitly runs `base`.
 
@@ -241,18 +251,22 @@ trusted projects, provider credentials, or CLI-written marketplace entries.
 `--project` and `--global` (mutually exclusive) work with `install`, `sync`,
 and `remove`. Without either flag, steps that support project scope use it and
 every other step stays global. The project is the git root of the current
-directory, else the current directory. Today only the `mcp` step is
-project-capable:
+directory, else the current directory. Today the `mcp` step is
+project-capable, and the omp `base` step accepts an explicit `--project`
+(omp's own default stays user scope):
 
-| Target   | `--project` (default)          | `--global`                         |
-| -------- | ------------------------------ | ---------------------------------- |
-| claude   | `<project>/.mcp.json`          | `~/.claude.json`                   |
-| cursor   | `<project>/.cursor/mcp.json`   | `~/.cursor/mcp.json`               |
-| codex    | `<project>/.codex/config.toml` | `~/.codex/config.toml`             |
-| opencode | `<project>/opencode.json`      | `~/.config/opencode/opencode.json` |
+| Target   | `--project`                                          | `--global`                         |
+| -------- | ---------------------------------------------------- | ---------------------------------- |
+| claude   | `<project>/.mcp.json` (default)                      | `~/.claude.json`                   |
+| cursor   | `<project>/.cursor/mcp.json` (default)               | `~/.cursor/mcp.json`               |
+| codex    | `<project>/.codex/config.toml` (default)             | `~/.codex/config.toml`             |
+| opencode | `<project>/opencode.json` (default)                  | `~/.config/opencode/opencode.json` |
+| omp      | `base`: `omp plugin install --scope project ycc@ycc` | `--scope user` (default)           |
 
 Codex loads a project `.codex/config.toml` only for trusted projects; the
-installer warns when it writes one. An explicit `--project` combined with a step
+installer warns when it writes one. An OMP project install shadows the user
+install inside that project, and `--project` at `$HOME` is refused (see
+[`omp.md`](omp.md#project-scope)). An explicit `--project` combined with a step
 that has no project scope (for example `--only settings,mcp --project`) is
 rejected before anything runs: the error is about `settings`, not `mcp`. Drop
 `--project` to get project MCP plus global settings in one run.
@@ -332,15 +346,15 @@ requires `--only` or `--intent`, and rejects `--mode` and the additive
 `--settings`/`--rules`/`--mcp`/`--hooks` flags. Only what the installer owns is
 taken back:
 
-| Step / intent                  | What `remove` does                                                                                                                                                                                                                          |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `settings`, `plugins`, `hooks` | Strips repo-managed keys from the structured config (`settings.json`, `cli-config.json`, `config.toml`, `opencode.json`). List entries (plugin lists, Cursor permissions) lose only the items the installer appended.                       |
-| `mcp`                          | Strips managed MCP servers, including ones the repo has since dropped. Servers you added are never touched.                                                                                                                                 |
-| `rules`, claude `hooks` dir    | Removes the symlinks, only while they still point at this checkout. A real file you put there is never deleted.                                                                                                                             |
-| claude statusline script       | Removed while identical to the repo copy; an edited copy needs `--force`.                                                                                                                                                                   |
-| `base`                         | claude: `claude plugin uninstall ycc@ycc` + marketplace remove. cursor / opencode: the bundle's entries in the synced dirs (your own skills stay). codex: plugin links, plugin cache, custom agents, marketplace entry.                     |
-| `skills`, `agents`, `commands` | Removes the standalone entries ycc recorded (or that are still identical to the bundle). Never the plugin, never your own entries without `--force`. On claude, `commands` retires only the recorded legacy `~/.claude/commands/` wrappers. |
-| `mods` (claude)                | Uninstalls each mod and the `ycc-mods` marketplace.                                                                                                                                                                                         |
+| Step / intent                  | What `remove` does                                                                                                                                                                                                                                                                                                             |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `settings`, `plugins`, `hooks` | Strips repo-managed keys from the structured config (`settings.json`, `cli-config.json`, `config.toml`, `opencode.json`). List entries (plugin lists, Cursor permissions) lose only the items the installer appended.                                                                                                          |
+| `mcp`                          | Strips managed MCP servers, including ones the repo has since dropped. Servers you added are never touched.                                                                                                                                                                                                                    |
+| `rules`, claude `hooks` dir    | Removes the symlinks, only while they still point at this checkout. A real file you put there is never deleted.                                                                                                                                                                                                                |
+| claude statusline script       | Removed while identical to the repo copy; an edited copy needs `--force`.                                                                                                                                                                                                                                                      |
+| `base`                         | claude: `claude plugin uninstall ycc@ycc` + marketplace remove. cursor / opencode: the bundle's entries in the synced dirs (your own skills stay). codex: plugin links, plugin cache, custom agents, marketplace entry. omp: the recorded `ycc@ycc` installs for the scope, then the `ycc` marketplace and export once unused. |
+| `skills`, `agents`, `commands` | Removes the standalone entries ycc recorded (or that are still identical to the bundle). Never the plugin, never your own entries without `--force`. On claude, `commands` retires only the recorded legacy `~/.claude/commands/` wrappers.                                                                                    |
+| `mods` (claude)                | Uninstalls each mod and the `ycc-mods` marketplace.                                                                                                                                                                                                                                                                            |
 
 - Cursor `hooks` removes the owned session script in `~/.cursor/hooks/` and the managed `sessionStart` entries in `~/.cursor/hooks.json`.
 - A managed value you edited is kept with a warning; `--force` removes it.
@@ -352,7 +366,7 @@ taken back:
 The original flag CLI keeps working unchanged:
 
 ```bash
-./install.sh install --target <claude|cursor|codex|opencode|all> [flags]
+./install.sh install --target <claude|cursor|codex|opencode|agents|omp|all> [flags]
 ```
 
 Without `--only`, the target's `base` step runs by default, and additive flags
@@ -382,7 +396,8 @@ step:
 contributors can iterate locally.
 
 `--mode repo` registers the upstream GitHub repository instead of the local
-checkout. It is supported by the `claude` and `codex` targets only:
+checkout. It is supported by the `claude` and `codex` targets only (omp joins
+once an OMP package is listed, YAN-1180):
 
 ```bash
 ./install.sh install --target claude --mode repo
@@ -391,7 +406,8 @@ checkout. It is supported by the `claude` and `codex` targets only:
 ```
 
 With `--target all --mode repo`, Cursor and opencode are skipped because they do
-not have a remote-source install surface.
+not have a remote-source install surface. `--target all` (any mode) also skips
+omp until a package is listed and `omp >= 18.12.2` is on `PATH`.
 
 ## Regenerate And Validate
 

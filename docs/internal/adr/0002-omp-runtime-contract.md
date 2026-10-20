@@ -123,7 +123,7 @@ the [spike, section 3](../spikes/omp-runtime-contract.md#3-component--verdict-ma
 | YAN-1169 | Agent translator (tools, `@role` models, MCP names) under `.omp-plugin/plugin.json`                                     |
 | YAN-1170 | Workflow semantics: tool-name gaps, OMP task isolation instead of `WorktreeCreate`, background jobs                     |
 | YAN-1171 | `.omp-plugin/marketplace.json` and per-package tree generator; `ycc-all` omitted                                        |
-| YAN-1172 | `install.sh` OMP lifecycle using `omp plugin` (`--dry-run`, scopes, profile and XDG-aware paths)                        |
+| YAN-1172 | Delivered: `install.sh --target omp` lifecycle using `omp plugin` (`--dry-run`, scopes, profile and XDG-aware paths)    |
 | YAN-1173 | `ycc-mcp` OMP package (native `.mcp.json`)                                                                              |
 | YAN-1174 | `ycc-hooks` extension package: herdr `session_start` shim; `WorktreeCreate` documented unsupported                      |
 | YAN-1175 | `ycc-rules` flattener; `modelRoles` and settings fallback snippets; permission defaults                                 |

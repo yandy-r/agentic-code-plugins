@@ -1,0 +1,747 @@
+#!/usr/bin/env python3
+"""Hermetic lifecycle matrix for the native OMP installer (scripts/omp_install.py).
+
+The helper runs in-process against the stateful fake omp (scripts/tests/install/fake_omp.py),
+placed on a temporary PATH as ``omp``, with a temporary HOME, isolated XDG variables and no
+inherited GIT_* variables. The real ~/.omp is never touched.
+"""
+
+from __future__ import annotations
+
+import io
+import json
+import os
+import re
+import shutil
+import stat
+import subprocess
+import sys
+import tempfile
+import unittest
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, ClassVar
+from unittest.mock import patch
+
+import omp_install
+from codex_install import inventory
+from omp_native_smoke import bump
+from package_install_plan import plan_install
+from package_model import PackageModelError, load_package_model
+
+FAKE_OMP = Path(__file__).resolve().parent / "tests/install/fake_omp.py"
+REAL_BUILD_EXPORT: Callable[[Path], None] = omp_install.build_export
+FIXTURE = ("ycc", "ycc-extra")
+BUMPED = "9.9.9"
+READ_VERBS = ("omp --version", "omp config path", "omp plugin list --json", "omp plugin marketplace list")
+DRY_RUN_PREVIEW = re.compile(r"^omp plugin (install|uninstall)( --force)? --dry-run( |$)")
+Snapshot = dict[str, tuple[str, bytes]]
+
+
+@dataclass
+class Result:
+    code: int
+    out: str
+    err: str
+    child: str
+
+
+def write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def make_fixture(root: Path, packages: tuple[str, ...], version: str, name: str = "ycc") -> Path:
+    """A repository-shaped OMP export (the layout ``generate_omp_packages.py --export`` writes)."""
+    write_json(
+        root / ".omp-plugin/marketplace.json",
+        {
+            "name": name,
+            "owner": {"name": "test"},
+            "metadata": {"description": "fixture", "version": version},
+            "plugins": [
+                {"name": package, "source": f"./packages/omp/{package}", "description": package, "version": version}
+                for package in packages
+            ],
+        },
+    )
+    for package in packages:
+        base = root / "packages/omp" / package
+        manifest = {"name": package, "version": version, "description": package, "author": {"name": "test"}}
+        write_json(base / ".omp-plugin/plugin.json", manifest)
+        write_json(base / ".claude-plugin/plugin.json", manifest)
+        write_json(base / "package.json", {"name": package, "version": version, "private": True})
+        skill = base / "skills" / f"{package}-skill" / "SKILL.md"
+        skill.parent.mkdir(parents=True, exist_ok=True)
+        skill.write_text(f"---\nname: {package}-skill\ndescription: fixture\n---\n", encoding="utf-8")
+    return root
+
+
+def bump_files(packages: tuple[str, ...]) -> list[str]:
+    files = [".omp-plugin/marketplace.json"]
+    for package in packages:
+        base = f"packages/omp/{package}"
+        files += [f"{base}/.omp-plugin/plugin.json", f"{base}/.claude-plugin/plugin.json", f"{base}/package.json"]
+    return files
+
+
+class OmpInstallTests(unittest.TestCase):
+    cache: ClassVar[Path]
+    cached_export: ClassVar[Path]
+    model_version: ClassVar[str]
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.cache = Path(tempfile.mkdtemp(prefix="ycc-omp-test-export."))
+        cls.cached_export = cls.cache / "export"
+        REAL_BUILD_EXPORT(cls.cached_export)
+        cls.model_version = omp_install.package_version(cls.cached_export, "ycc")
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        shutil.rmtree(cls.cache, ignore_errors=True)
+
+    def setUp(self) -> None:
+        temporary = tempfile.TemporaryDirectory(prefix="ycc-omp-test.")
+        self.addCleanup(temporary.cleanup)
+        self.tmp = Path(temporary.name).resolve()
+        self.home = self.tmp / "home"
+        self.project = self.tmp / "work/proj"
+        (self.project / ".git").mkdir(parents=True)
+        self.home.mkdir()
+        (self.tmp / "tmp").mkdir()
+        bin_dir = self.tmp / "bin"
+        bin_dir.mkdir()
+        wrapper = bin_dir / "omp"
+        wrapper.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{FAKE_OMP}" "$@"\n', encoding="utf-8")
+        wrapper.chmod(wrapper.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+        self.log = self.tmp / "omp.log"
+        self.fake_root = self.home / ".omp"
+        env = {
+            "HOME": str(self.home),
+            "PATH": f"{bin_dir}{os.pathsep}/usr/bin{os.pathsep}/bin",
+            "TMPDIR": str(self.tmp / "tmp"),
+            "XDG_CONFIG_HOME": str(self.home / ".config"),
+            "XDG_DATA_HOME": str(self.home / ".local/share"),
+            "XDG_STATE_HOME": str(self.home / ".local/state"),
+            "XDG_CACHE_HOME": str(self.home / ".cache"),
+            "FAKE_OMP_HOME": str(self.fake_root),
+            "FAKE_OMP_LOG": str(self.log),
+            "LANG": "C.UTF-8",
+        }
+        patcher = patch.dict(os.environ, env, clear=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        home_patcher = patch.object(Path, "home", return_value=self.home)
+        home_patcher.start()
+        self.addCleanup(home_patcher.stop)
+        export_patcher = patch.object(omp_install, "build_export", side_effect=self.build_export)
+        export_patcher.start()
+        self.addCleanup(export_patcher.stop)
+        previous = os.getcwd()
+        os.chdir(self.home)
+        self.addCleanup(os.chdir, previous)
+
+        self.source = self.cached_export
+        self.real_export = False
+        self.assertTrue(Path.home().is_relative_to(self.tmp), "HOME must be a temporary directory")
+        self.assertTrue(Path(os.environ["HOME"]).is_relative_to(self.tmp))
+        self.assertTrue(Path(os.environ["FAKE_OMP_HOME"]).is_relative_to(self.tmp))
+        self.assertTrue(omp_install.state_path().is_relative_to(self.tmp))
+        self.assertTrue(omp_install.export_dir().is_relative_to(self.tmp))
+        self.assertFalse(any(key.startswith("GIT_") for key in os.environ))
+        self.assertIsNone(os.environ.get("OMP_BIN"))
+        self.assertEqual(shutil.which("omp"), str(wrapper))
+
+    # -- harness -------------------------------------------------------------------------------
+
+    def build_export(self, staging: Path) -> None:
+        if self.real_export:
+            REAL_BUILD_EXPORT(staging)
+        else:
+            shutil.copytree(self.source, staging, dirs_exist_ok=True)
+
+    def use_fixture(self) -> None:
+        self.source = make_fixture(self.tmp / "fixture", FIXTURE, "1.0.0")
+        for name, value in (
+            ("select_packages", lambda csv: FIXTURE),
+            ("package_components", lambda package: ("skills",)),
+        ):
+            patcher = patch.object(omp_install, name, side_effect=value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def bump(self, packages: tuple[str, ...], version: str = BUMPED) -> None:
+        """Lockstep version bump of the export the next install builds (like omp_native_smoke bump)."""
+        bumped = Path(tempfile.mkdtemp(dir=self.tmp, prefix=f"source-{version}."))
+        shutil.copytree(self.source, bumped, dirs_exist_ok=True)
+        bump(bumped, version, bump_files(packages))
+        self.source = bumped
+
+    def omp(self, *argv: str) -> Result:
+        """Run ``omp_install.main`` in-process; capture its prints and the fake's inherited output."""
+        out, err = io.StringIO(), io.StringIO()
+        with tempfile.TemporaryFile() as child_out, tempfile.TemporaryFile() as child_err:
+            sys.stdout.flush()
+            sys.stderr.flush()
+            saved = os.dup(1), os.dup(2)
+            os.dup2(child_out.fileno(), 1)
+            os.dup2(child_err.fileno(), 2)
+            try:
+                with redirect_stdout(out), redirect_stderr(err):
+                    code = omp_install.main(list(argv))
+            finally:
+                sys.stdout.flush()
+                sys.stderr.flush()
+                os.dup2(saved[0], 1)
+                os.dup2(saved[1], 2)
+                os.close(saved[0])
+                os.close(saved[1])
+            child_out.seek(0)
+            child_err.seek(0)
+            child = child_out.read().decode() + child_err.read().decode()
+        return Result(code, out.getvalue(), err.getvalue(), child)
+
+    def ok(self, *argv: str) -> Result:
+        result = self.omp(*argv)
+        self.assertEqual(result.code, 0, f"{argv}: {result.err}{result.child}")
+        return result
+
+    def refused(self, *argv: str) -> Result:
+        result = self.omp(*argv)
+        self.assertEqual(result.code, 2, f"{argv}: {result.out}{result.err}")
+        self.assertTrue(result.err.startswith("[err] native OMP "), result.err)
+        return result
+
+    def root_of(self, scope: str) -> Path:
+        return self.project if scope == "project" else self.home
+
+    def install(self, scope: str, *extra: str) -> Result:
+        return self.ok("install", "--scope", scope, "--project-root", str(self.root_of(scope)), *extra)
+
+    def remove(self, scope: str, *extra: str) -> Result:
+        return self.ok("remove", "--scope", scope, "--project-root", str(self.root_of(scope)), *extra)
+
+    @contextmanager
+    def quiet(self, **env: str) -> Iterator[None]:
+        """Direct fake calls and helper reads that must not reach the call log."""
+        with patch.dict(os.environ, {"FAKE_OMP_LOG": "", **env}):
+            yield
+
+    def fake(self, *argv: str, cwd: Path | None = None, **env: str) -> str:
+        with self.quiet(**env):
+            result = subprocess.run(
+                [sys.executable, str(FAKE_OMP), *argv],
+                cwd=cwd or self.home,
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        self.assertEqual(result.returncode, 0, f"fake omp {argv}: {result.stderr}")
+        return result.stdout
+
+    def listing(self, cwd: Path, **env: str) -> dict[str, Any]:
+        with self.quiet(**env):
+            return omp_install.OmpCli().installed(cwd)
+
+    def marketplaces(self, **env: str) -> dict[str, str]:
+        with self.quiet(**env):
+            return omp_install.OmpCli().marketplaces()
+
+    def entry(self, package: str, scope: str, **env: str) -> dict[str, Any] | None:
+        return omp_install.scope_entry(self.listing(self.root_of(scope), **env), package, scope)
+
+    def calls(self) -> list[str]:
+        try:
+            return self.log.read_text(encoding="utf-8").splitlines()
+        except FileNotFoundError:
+            return []
+
+    def clear_log(self) -> None:
+        self.log.unlink(missing_ok=True)
+
+    def mutating(self) -> list[str]:
+        return [
+            line
+            for line in self.calls()
+            if line not in READ_VERBS and not line.startswith("omp plugin discover") and not DRY_RUN_PREVIEW.match(line)
+        ]
+
+    def snapshot(self) -> Snapshot:
+        """Every path under the sandbox (fake omp state, ycc state, export, projects) but the call log."""
+        result: Snapshot = {}
+        for path in sorted(self.tmp.rglob("*")):
+            if path == self.log or path.is_relative_to(self.tmp / "tmp"):
+                continue
+            rel = str(path.relative_to(self.tmp))
+            if path.is_symlink():
+                result[rel] = ("link", os.readlink(path).encode())
+            elif path.is_dir():
+                result[rel] = ("dir", b"")
+            else:
+                result[rel] = ("file", path.read_bytes())
+        return result
+
+    def state(self) -> dict[str, Any]:
+        payload: dict[str, Any] = json.loads(omp_install.state_path().read_text(encoding="utf-8"))
+        return payload
+
+    def profile_key(self, profile: str | None = None) -> str:
+        root = self.fake_root / "profiles" / profile if profile else self.fake_root
+        return str(root / "agent")
+
+    def record(self, package: str, scope: str, profile: str | None = None) -> dict[str, Any] | None:
+        root = str(self.project.resolve()) if scope == "project" else None
+        installs = self.state()["profiles"].get(self.profile_key(profile), {}).get("installs", [])
+        return next(
+            (
+                item
+                for item in installs
+                if item["package"] == package and item["scope"] == scope and item.get("project_root") == root
+            ),
+            None,
+        )
+
+    def assert_installed(self, packages: tuple[str, ...], scope: str, version: str) -> None:
+        for package in packages:
+            entry = self.entry(package, scope)
+            self.assertIsNotNone(entry, f"{package}@ycc ({scope})")
+            assert entry is not None
+            self.assertEqual(entry["version"], version)
+            self.assertTrue((Path(entry["installPath"]) / ".omp-plugin/plugin.json").is_file())
+            record = self.record(package, scope)
+            self.assertIsNotNone(record, f"{package} ({scope}) is recorded")
+            assert record is not None
+            self.assertEqual(record["version"], version)
+            self.assertEqual(record["cache_root"], str(Path(entry["installPath"]).parent))
+
+    def assert_dry_run(self, argv: tuple[str, ...]) -> Result:
+        before = self.snapshot()
+        self.clear_log()
+        result = self.ok(*argv)
+        self.assertEqual(self.snapshot(), before, f"dry-run mutated: {argv}")
+        self.assertEqual(self.mutating(), [], f"dry-run ran mutating omp calls: {argv}")
+        return result
+
+    # -- matrix --------------------------------------------------------------------------------
+
+    def lifecycle(self, packages: tuple[str, ...], scope: str, version: str) -> None:
+        exported = omp_install.export_dir()
+        root = self.root_of(scope)
+        base = ("--scope", scope, "--project-root", str(root))
+
+        # Dry-run of a fresh install: nothing is written, no mutating omp call runs.
+        preview = self.assert_dry_run(("install", *base, "--dry-run"))
+        self.assertIn(f"[dry-run] would export OMP packages → {exported}", preview.out)
+        self.assertIn(f"[dry-run] would run: omp plugin marketplace add {exported}", preview.out)
+        for package in packages:
+            self.assertIn(f"[dry-run] would run: omp plugin install --scope {scope} {package}@ycc", preview.out)
+        self.assertFalse(omp_install.state_path().exists())
+
+        # Install.
+        self.clear_log()
+        result = self.install(scope)
+        calls = self.calls()
+        self.assertIn(f"omp plugin marketplace add {exported}", calls)
+        for package in packages:
+            self.assertIn(f"omp plugin install --scope {scope} {package}@ycc", calls)
+        self.assert_installed(packages, scope, version)
+        self.assertEqual(self.marketplaces(), {"ycc": str(exported)})
+        state = self.state()
+        self.assertEqual(state["export"], str(exported))
+        self.assertEqual(state["export_inventory"], inventory(exported))
+        self.assertEqual(state["profiles"][self.profile_key()]["marketplace"], {"name": "ycc", "source": str(exported)})
+        self.assertIn(omp_install.TRUST, result.out)
+        self.assertIn("[ok] running omp sessions: run /reload-plugins", result.out)
+        shadow = "[ok] a project install shadows your user install here"
+        self.assertEqual(shadow in result.out, scope == "project")
+
+        # Idempotent re-run: zero mutating omp calls.
+        self.clear_log()
+        again = self.install(scope)
+        self.assertEqual(self.mutating(), [])
+        for package in packages:
+            self.assertIn(f"[ok] {package}@ycc {version} up to date ({scope})", again.out)
+        self.assertNotIn(omp_install.TRUST, again.out)
+
+        # Dry-run of an update.
+        self.bump(packages)
+        preview = self.assert_dry_run(("install", *base, "--dry-run"))
+        self.assertIn("[dry-run] would run: omp plugin marketplace update ycc", preview.out)
+        for package in packages:
+            self.assertIn(f"[dry-run] would run: omp plugin upgrade --scope {scope} {package}@ycc", preview.out)
+
+        # Update: marketplace update, then upgrade per package in that scope.
+        self.clear_log()
+        result = self.install(scope)
+        calls = self.calls()
+        self.assertIn("omp plugin marketplace update ycc", calls)
+        for package in packages:
+            self.assertIn(f"omp plugin upgrade --scope {scope} {package}@ycc", calls)
+            self.assertIn(f"[ok] {package}@ycc {version} -> {BUMPED} upgraded ({scope})", result.out)
+        self.assertFalse(any(" enable " in line or " disable " in line for line in calls))
+        self.assert_installed(packages, scope, BUMPED)
+        self.assertEqual(self.state()["export_inventory"], inventory(exported))
+
+        # Dry-run of remove.
+        preview = self.assert_dry_run(("remove", *base, "--dry-run"))
+        calls = self.calls()
+        for package in packages:
+            self.assertIn(f"omp plugin uninstall --dry-run --scope {scope} {package}@ycc", calls)
+            self.assertIn(f"[dry-run] would run: omp plugin uninstall --scope {scope} {package}@ycc", preview.out)
+        self.assertIn("[dry-run] would run: omp plugin marketplace remove ycc", preview.out)
+        self.assertIn(f"[dry-run] would remove {exported}", preview.out)
+
+        # Remove: everything ycc created goes, and only that.
+        self.clear_log()
+        self.remove(scope)
+        calls = self.calls()
+        for package in packages:
+            self.assertIn(f"omp plugin uninstall --scope {scope} {package}@ycc", calls)
+        self.assertIn("omp plugin marketplace remove ycc", calls)
+        self.assertEqual(omp_install.ycc_items(self.listing(root), scope), [])
+        self.assertEqual(self.marketplaces(), {})
+        self.assertFalse(exported.exists())
+        self.assertFalse(omp_install.state_path().exists())
+
+        # Remove again: no state, no-op.
+        self.clear_log()
+        self.assertIn("[ok] nothing ycc-owned to remove for omp", self.remove(scope).out)
+        self.assertEqual(self.calls(), [])
+        # The helper never opts omp into XDG routing.
+        self.assertFalse((Path(os.environ["XDG_DATA_HOME"]) / "omp").exists())
+
+    def test_matrix_model_packages_user_scope(self) -> None:
+        packages = omp_install.select_packages("")
+        self.assertIn("ycc", packages)
+        self.lifecycle(packages, "user", self.model_version)
+
+    def test_matrix_model_packages_project_scope(self) -> None:
+        self.lifecycle(omp_install.select_packages(""), "project", self.model_version)
+
+    def test_matrix_two_package_fixture_user_scope(self) -> None:
+        self.use_fixture()
+        self.lifecycle(FIXTURE, "user", "1.0.0")
+
+    def test_matrix_two_package_fixture_project_scope(self) -> None:
+        self.use_fixture()
+        self.lifecycle(FIXTURE, "project", "1.0.0")
+
+    def test_real_build_export_end_to_end(self) -> None:
+        self.real_export = True
+        self.install("user")
+        exported = omp_install.export_dir()
+        self.assertEqual(inventory(exported), inventory(self.cached_export))
+        self.assert_installed(omp_install.select_packages(""), "user", self.model_version)
+        self.clear_log()
+        self.install("user")
+        self.assertEqual(self.mutating(), [])
+
+    # -- disabled, ownership -------------------------------------------------------------------
+
+    def test_disabled_install_is_upgraded_and_kept_disabled(self) -> None:
+        for scope in omp_install.SCOPES:
+            with self.subTest(scope=scope):
+                self.source = self.cached_export
+                self.install(scope)
+                self.fake("plugin", "disable", "--scope", scope, "ycc@ycc", cwd=self.root_of(scope))
+                self.bump(("ycc",))
+                self.clear_log()
+                result = self.install(scope)
+                calls = self.calls()
+                self.assertIn(f"omp plugin upgrade --scope {scope} ycc@ycc", calls)
+                self.assertFalse(any(" enable" in line for line in calls), calls)
+                self.assertIn(f"[ok] ycc@ycc disabled at {scope} scope: kept", result.out)
+                entry = self.entry("ycc", scope)
+                assert entry is not None
+                self.assertIs(entry.get("enabled"), False)
+                self.assertEqual(entry["version"], BUMPED)
+                self.remove(scope)
+
+    def test_unrecorded_install_is_never_uninstalled_and_keeps_the_marketplace(self) -> None:
+        self.install("user")
+        state = self.state()
+        state["profiles"][self.profile_key()]["installs"] = []
+        omp_install.save_state(state)
+
+        self.clear_log()
+        result = self.install("user")
+        self.assertEqual(self.mutating(), [])
+        self.assertIn(
+            "[!!] ycc@ycc is already installed (user) and not recorded as ycc-owned; left untouched", result.out
+        )
+        self.assertIsNone(self.record("ycc", "user"))
+
+        self.clear_log()
+        result = self.remove("user")
+        self.assertEqual(self.mutating(), [])
+        self.assertIn("[!!] kept marketplace ycc: ycc@ycc (user) still installed", result.out)
+        self.assertIsNotNone(self.entry("ycc", "user"))
+        self.assertIn("ycc", self.marketplaces())
+        self.assertTrue(omp_install.export_dir().is_dir())
+
+    def test_foreign_marketplace_refuses_before_any_mutation(self) -> None:
+        foreign = make_fixture(self.tmp / "foreign", ("ycc",), "0.1.0")
+        self.fake("plugin", "marketplace", "add", str(foreign))
+        before = self.snapshot()
+        self.clear_log()
+        result = self.refused("install", "--scope", "user", "--project-root", str(self.home))
+        self.assertIn(f"marketplace ycc has a different source ({foreign})", result.err)
+        self.assertIn("./install.sh migrate --target omp", result.err)
+        self.assertEqual(self.mutating(), [])
+        self.assertEqual(self.snapshot(), before)
+
+    def test_ycc_link_refuses_before_any_mutation(self) -> None:
+        self.fake("plugin", "link", str(self.cached_export / "packages/omp/ycc"))
+        before = self.snapshot()
+        self.clear_log()
+        for scope in omp_install.SCOPES:
+            result = self.refused("install", "--scope", scope, "--project-root", str(self.root_of(scope)))
+            self.assertIn("runtime package ycc is linked (omp plugin link)", result.err)
+        self.assertEqual(self.mutating(), [])
+        self.assertEqual(self.snapshot(), before)
+
+    def test_unrecorded_export_dir_is_refused_unless_forced(self) -> None:
+        exported = omp_install.export_dir()
+        exported.mkdir(parents=True)
+        (exported / "mine.txt").write_text("user data", encoding="utf-8")
+        before = self.snapshot()
+        self.clear_log()
+        result = self.refused("install", "--scope", "user", "--project-root", str(self.home))
+        self.assertIn(f"{exported} exists but is not the recorded ycc export; rerun with --force", result.err)
+        self.assertEqual(self.mutating(), [])
+        self.assertEqual(self.snapshot(), before)
+
+        self.install("user", "--force")
+        self.assertFalse((exported / "mine.txt").exists())
+        self.assertEqual(inventory(exported), inventory(self.cached_export))
+        self.assert_installed(("ycc",), "user", self.model_version)
+
+    # -- partial failure, GC, profiles -----------------------------------------------------------
+
+    def test_failed_first_install_rolls_back_marketplace_state_and_export(self) -> None:
+        exported = omp_install.export_dir()
+        with patch.dict(os.environ, {"FAKE_OMP_FAIL": "install"}):
+            result = self.refused("install", "--scope", "user", "--project-root", str(self.home))
+        self.assertIn("'omp plugin install --scope user ycc@ycc' failed (exit 1)", result.err)
+        calls = self.calls()
+        self.assertIn(f"omp plugin marketplace add {exported}", calls)
+        self.assertIn("omp plugin marketplace remove ycc", calls)
+        self.assertEqual(self.marketplaces(), {})
+        self.assertIsNone(self.entry("ycc", "user"))
+        self.assertFalse(omp_install.state_path().exists())
+        self.assertFalse(exported.exists())
+        self.assertEqual(list(exported.parent.iterdir()) if exported.parent.exists() else [], [])
+
+    def test_failure_on_second_package_keeps_the_first_and_rerun_completes(self) -> None:
+        self.use_fixture()
+        with patch.dict(os.environ, {"FAKE_OMP_FAIL": "install:ycc-extra@ycc"}):
+            result = self.refused("install", "--scope", "user", "--project-root", str(self.home))
+        self.assertIn("'omp plugin install --scope user ycc-extra@ycc' failed (exit 1)", result.err)
+        self.assertIsNotNone(self.record("ycc", "user"))
+        self.assertIsNone(self.record("ycc-extra", "user"))
+        self.assertIsNotNone(self.entry("ycc", "user"))
+        self.assertIsNone(self.entry("ycc-extra", "user"))
+
+        self.clear_log()
+        self.install("user")
+        calls = self.calls()
+        self.assertIn("omp plugin install --scope user ycc-extra@ycc", calls)
+        self.assertNotIn("omp plugin install --scope user ycc@ycc", calls)
+        self.assert_installed(FIXTURE, "user", "1.0.0")
+        self.assertEqual(self.marketplaces(), {"ycc": str(omp_install.export_dir())})
+
+    def test_user_upgrade_dangling_a_recorded_project_prints_and_takes_the_repair(self) -> None:
+        self.install("project")
+        self.install("user")
+        self.bump(("ycc",))
+        result = self.install("user")
+        root = self.project.resolve()
+        self.assertIn(f"repair: cd {root} && ./install.sh install --target omp --project", result.out)
+        entry = self.entry("ycc", "project")
+        assert entry is not None
+        self.assertFalse(Path(entry["installPath"]).exists())
+
+        self.clear_log()
+        result = self.install("project")
+        self.assertIn("omp plugin install --force --scope project ycc@ycc", self.calls())
+        self.assertIn(f"[ok] ycc@ycc {BUMPED} reinstalled (project)", result.out)
+        self.assert_installed(("ycc",), "project", BUMPED)
+        self.assert_installed(("ycc",), "user", BUMPED)
+
+    def test_profiles_are_recorded_and_removed_separately(self) -> None:
+        with patch.dict(os.environ, {"OMP_PROFILE": "work"}):
+            self.install("user")
+        work = self.profile_key("work")
+        self.assertTrue(work.endswith("/profiles/work/agent"))
+        self.assertIn(work, self.state()["profiles"])
+        self.assertNotIn(self.profile_key(), self.state()["profiles"])
+        self.assertIsNotNone(self.record("ycc", "user", "work"))
+        self.assertIsNone(self.entry("ycc", "user"))
+
+        self.install("user")
+        self.assertIsNotNone(self.record("ycc", "user"))
+        work_before = self.state()["profiles"][work]
+
+        self.remove("user")
+        state = self.state()
+        self.assertNotIn(self.profile_key(), state["profiles"])
+        self.assertEqual(state["profiles"][work], work_before)
+        self.assertIsNone(self.entry("ycc", "user"))
+        self.assertEqual(self.marketplaces(), {})
+        self.assertIsNotNone(self.entry("ycc", "user", OMP_PROFILE="work"))
+        self.assertIn("ycc", self.marketplaces(OMP_PROFILE="work"))
+        self.assertTrue(omp_install.export_dir().is_dir())
+
+    # -- version and home ----------------------------------------------------------------------
+
+    def test_old_omp_is_unavailable_and_refused(self) -> None:
+        with patch.dict(os.environ, {"FAKE_OMP_VERSION": "18.12.1"}):
+            result = self.omp("available")
+            self.assertEqual(result.code, 1)
+            self.assertIn("omp 18.12.1 is older than 18.12.2", result.err)
+            before = self.snapshot()
+            self.clear_log()
+            result = self.refused("install", "--scope", "user", "--project-root", str(self.home))
+            self.assertIn("omp 18.12.1 is older than 18.12.2", result.err)
+            self.assertEqual(self.mutating(), [])
+            self.assertEqual(self.snapshot(), before)
+        result = self.omp("available")
+        self.assertEqual((result.code, result.out), (0, "18.12.3\n"))
+
+    def test_missing_omp_is_unavailable_and_migrate_is_a_noop(self) -> None:
+        with patch.dict(os.environ, {"PATH": f"/usr/bin{os.pathsep}/bin"}):
+            if shutil.which("omp") is not None:
+                self.skipTest("an omp binary is installed system-wide")
+            result = self.omp("available")
+            self.assertEqual((result.code, result.err), (1, "omp not found on PATH\n"))
+            self.assertEqual(
+                self.ok("migrate", "--apply").out, "[ok] omp: nothing to migrate (omp not found on PATH)\n"
+            )
+
+    def test_project_scope_at_home_is_refused(self) -> None:
+        before = self.snapshot()
+        result = self.refused("install", "--scope", "project", "--project-root", str(self.home))
+        self.assertIn(omp_install.HOME_REFUSAL, result.err)
+        self.assertEqual(self.calls(), [])
+        self.assertEqual(self.snapshot(), before)
+
+    def test_repo_mode_needs_a_listed_package(self) -> None:
+        self.assertFalse(omp_install.listed())
+        self.assertEqual(self.omp("listed").code, 1)
+        result = self.refused("install", "--scope", "user", "--project-root", str(self.home), "--mode", "repo")
+        self.assertIn(omp_install.REPO_REFUSAL, result.err)
+        self.assertEqual(self.calls(), [])
+
+    # -- migration -----------------------------------------------------------------------------
+
+    def test_migrate_retires_an_in_checkout_link(self) -> None:
+        self.fake("plugin", "link", str(omp_install.ROOT / "packages/omp/ycc"))
+        self.assertEqual([item["name"] for item in self.listing(self.home)["npm"]], ["ycc"])
+
+        preview = self.assert_dry_run(("migrate",))
+        self.assertIn("[dry-run] would run: omp plugin uninstall ycc", preview.out)
+        self.assertIn("omp plugin uninstall --dry-run ycc", self.calls())
+
+        self.clear_log()
+        result = self.ok("migrate", "--apply")
+        self.assertIn("omp plugin uninstall ycc", self.calls())
+        self.assertIn("[ok] run ./install.sh install --target omp to reinstall natively", result.out)
+        self.assertEqual(self.listing(self.home)["npm"], [])
+
+        self.clear_log()
+        self.assertIn("[ok] omp: nothing to migrate", self.ok("migrate", "--apply").out)
+        self.assertEqual(self.mutating(), [])
+
+    def test_migrate_retires_the_checkout_root_marketplace_and_reinstalls_natively(self) -> None:
+        other = make_fixture(self.tmp / "other", ("thing",), "1.0.0", name="other")
+        self.fake("plugin", "marketplace", "add", str(other))
+        self.fake("plugin", "marketplace", "add", str(omp_install.ROOT))
+        self.fake("plugin", "install", "--scope", "user", "ycc@ycc")
+        legacy = self.entry("ycc", "user")
+        assert legacy is not None
+        self.assertFalse((Path(legacy["installPath"]) / ".omp-plugin/plugin.json").exists())
+        skill = next(path.name for path in sorted((omp_install.ROOT / "packages/omp/ycc/skills").iterdir()))
+        overlap = self.home / ".agents/skills" / skill / "SKILL.md"
+        overlap.parent.mkdir(parents=True)
+        overlap.write_text("mine", encoding="utf-8")
+        overlap_line = "[!!] ~/.agents/skills holds 1 ycc skills that OMP also loads"
+
+        preview = self.assert_dry_run(("migrate",))
+        self.assertIn("[dry-run] would run: omp plugin uninstall --scope user ycc@ycc", preview.out)
+        self.assertIn("[dry-run] would run: omp plugin marketplace remove ycc", preview.out)
+        self.assertIn("[ok] would install the native OMP packages (user scope)", preview.out)
+        self.assertIn(overlap_line, preview.out)
+        self.assertIn("omp plugin uninstall --dry-run --scope user ycc@ycc", self.calls())
+
+        self.clear_log()
+        result = self.ok("migrate", "--apply")
+        exported = omp_install.export_dir()
+        calls = self.calls()
+        for line in (
+            "omp plugin uninstall --scope user ycc@ycc",
+            "omp plugin marketplace remove ycc",
+            f"omp plugin marketplace add {exported}",
+            "omp plugin install --scope user ycc@ycc",
+        ):
+            self.assertIn(line, calls)
+        self.assertLess(
+            calls.index("omp plugin marketplace remove ycc"), calls.index(f"omp plugin marketplace add {exported}")
+        )
+        self.assertIn(overlap_line, result.out)
+        items = omp_install.ycc_items(self.listing(self.home), "user")
+        self.assertEqual([item["id"] for item in items], ["ycc@ycc"])
+        self.assertEqual(len(items[0]["entries"]), 1)
+        self.assert_installed(("ycc",), "user", self.model_version)
+        self.assertEqual(self.marketplaces(), {"other": str(other), "ycc": str(exported)})
+        self.assertEqual(overlap.read_text(encoding="utf-8"), "mine")
+
+        self.clear_log()
+        result = self.ok("migrate", "--apply")
+        self.assertIn("[ok] omp: nothing to migrate", result.out)
+        self.assertIn(overlap_line, result.out)
+        self.assertEqual(self.mutating(), [])
+
+    def test_migrate_keeps_a_foreign_ycc_marketplace(self) -> None:
+        foreign = make_fixture(self.tmp / "foreign", ("ycc",), "0.1.0")
+        self.fake("plugin", "marketplace", "add", str(foreign))
+        self.fake("plugin", "install", "--scope", "user", "ycc@ycc")
+        before = self.snapshot()
+        self.clear_log()
+        for argv in (("migrate",), ("migrate", "--apply")):
+            result = self.ok(*argv)
+            self.assertIn(f"[!!] kept marketplace ycc ({foreign}): foreign", result.out)
+            self.assertIn("[ok] omp: nothing to migrate", result.out)
+        self.assertEqual(self.mutating(), [])
+        self.assertEqual(self.snapshot(), before)
+
+    # -- rejection -----------------------------------------------------------------------------
+
+    def test_every_non_included_omp_row_is_rejected_with_the_model_reason(self) -> None:
+        model = load_package_model()
+        rejected = [
+            package.key
+            for package in model.packages
+            for runtime in package.runtimes
+            if runtime.runtime == "omp"
+            and not (runtime.status == "included" and runtime.mechanism == "native" and not runtime.opt_in)
+        ]
+        self.assertTrue({"ycc-mcp", "ycc-hooks", "ycc-rules", "ycc-all", "installer-fallback"} <= set(rejected))
+        before = self.snapshot()
+        for package in rejected:
+            with self.subTest(package=package):
+                with self.assertRaises(PackageModelError) as planned:
+                    plan_install(model, (package,), ("omp",))
+                result = self.refused(
+                    "install", "--packages", package, "--scope", "user", "--project-root", str(self.home)
+                )
+                self.assertEqual(result.err, f"[err] native OMP install stopped: {planned.exception}\n")
+        self.assertEqual(self.calls(), [])
+        self.assertEqual(self.snapshot(), before)
+
+
+if __name__ == "__main__":
+    unittest.main()

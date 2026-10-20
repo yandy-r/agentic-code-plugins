@@ -15,7 +15,7 @@ from generate_codex_common import PLUGIN_ROOT, VERBATIM_SKILL_FILES
 from generate_codex_skills import plugin_output_path
 from package_model import PackageModel, PackageModelError, load_package_model
 
-TARGETS = ("claude", "cursor", "codex", "opencode", "agents")
+TARGETS = ("claude", "cursor", "codex", "opencode", "agents", "omp")
 STEP_ORDER = ("base", "agents", "commands", "settings", "rules", "mcp", "hooks")
 CARRIERS: dict[str, dict[str, str]] = {
     "claude": {
@@ -49,6 +49,14 @@ CARRIERS: dict[str, dict[str, str]] = {
         "hooks": "hooks",
         "settings": "settings",
         "mcp": "mcp",
+    },
+    # The native OMP package is one `omp plugin install`; hooks, mcp and rules
+    # get no carrier until YAN-1173-1175, so those rows fail closed.
+    "omp": {
+        "skills": "base",
+        "agents": "base",
+        "commands": "base",
+        "shared": "base",
     },
 }
 

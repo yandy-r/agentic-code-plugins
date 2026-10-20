@@ -155,7 +155,7 @@ edited and foreign catalog entries remain preserved.
 - Cursor generated packages: `packages/cursor/{ycc,ycc-rules,ycc-mcp,ycc-hooks}/` (all listed in the root `.cursor-plugin/marketplace.json`)
 - Cursor file-copy settings input: `packages/cursor/installer-fallback/config/cli-config.json`, generated from `ycc/settings/cursor/cli-config.json`
 - opencode generated bundle: `.opencode-plugin/` (skills, agents, commands, AGENTS.md, opencode.json)
-- OMP generated package: `packages/omp/ycc/` with `{skills,agents,commands}/`, `.omp-plugin/plugin.json`, `.claude-plugin/plugin.json` and `package.json`; the root `.omp-plugin/marketplace.json` appears only once a package is listed (`install.sh --target omp` is YAN-1172)
+- OMP generated package: `packages/omp/ycc/` with `{skills,agents,commands}/`, `.omp-plugin/plugin.json`, `.claude-plugin/plugin.json` and `package.json`; the root `.omp-plugin/marketplace.json` appears only once a package is listed. `install.sh install --target omp` (`scripts/omp_install.py`) exports the package to a local `ycc` marketplace and installs it through `omp plugin` ([`docs/install/omp.md`](docs/install/omp.md))
 - Skills go in `ycc/skills/<skill-name>/SKILL.md`
 - Scripts must be executable (`chmod +x`) and use `set -euo pipefail`
 - Reference templates go in `ycc/skills/<skill-name>/references/`

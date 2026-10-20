@@ -241,6 +241,15 @@ step_supports_project() {
     [[ "$2" == "mcp" ]]
 }
 
+# step_allows_project <target> <step> — true when an explicit --project is
+# valid for <step>: the default-to-project steps above, plus any step the
+# target lists in its optional <t>_project_steps (opt-in only, never default).
+step_allows_project() {
+    step_supports_project "$1" "$2" && return 0
+    declare -F "${1}_project_steps" >/dev/null || return 1
+    [[ ",$("${1}_project_steps")," == *",$2,"* ]]
+}
+
 # step_scope <target> <step> — echo 'project' or 'global'.
 step_scope() {
     if [[ -n "${SCOPE}" ]]; then

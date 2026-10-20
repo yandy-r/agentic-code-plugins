@@ -16,11 +16,12 @@ _ycc() {
     local _ycc_cmd="${words[1]}"
     local -a common
     common=(
-        '--target[targets to sync]:targets:_values -s , target claude cursor codex opencode agents all'
+        '--target[targets to sync]:targets:_values -s , target claude cursor codex opencode agents omp all'
         '--skills-home[resolve duplicate skills]:dir:(agents native)'
         '(--global)--project[write into the current project]'
         '(--project)--global[write into user-global config]'
         '--force[let repo values win]'
+        '--dry-run[preview omp calls without writing (omp only)]'
         '--help[show help]'
     )
     local mode='--mode[marketplace source mode]:mode:(local repo)'
@@ -50,7 +51,7 @@ _ycc() {
     (( CURRENT-- ))
     case "${sub}" in
         migrate)
-            _arguments '--target[migration targets]:targets:_values -s , target claude codex cursor all' \
+            _arguments '--target[migration targets]:targets:_values -s , target claude codex cursor omp all' \
                 '--apply[apply the migration (default: dry-run)]' \
                 '--marketplace-source[eligible native Codex marketplace]:directory:_directories' '--help[show help]'
             ;;
@@ -58,7 +59,7 @@ _ycc() {
             _arguments '--dir[install directory]:directory:_directories' '--force[replace existing]' '--help[show help]'
             ;;
         list-mcps)
-            _arguments '--target[targets to list for]:targets:_values -s , target claude cursor codex opencode agents all' '--help[show help]'
+            _arguments '--target[targets to list for]:targets:_values -s , target claude cursor codex opencode agents omp all' '--help[show help]'
             ;;
         completion)
             _arguments '--shell[shell]:shell:(bash zsh fish)' '--install[install for the shell]' '--force[replace existing]' '--help[show help]'

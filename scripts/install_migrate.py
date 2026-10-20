@@ -494,6 +494,11 @@ class Migration:
         print("Cursor: open /add-plugin and add the ycc marketplace, then select the native packages.")
         print("Cursor migrate complete; native installation is interactive, not automatic.")
 
+    def omp(self) -> None:
+        import omp_install
+
+        omp_install.migrate(self.apply)
+
     def codex_skills(self, legacy: Path | None = None) -> None:
         """Retire exact standalone ~/.codex/skills copies; never ~/.codex/agents.
 
@@ -727,7 +732,7 @@ def main() -> int:
     parser.add_argument("--marketplace-source", type=Path, default=ROOT)
     args = parser.parse_args()
     targets = args.targets.split(",")
-    if not targets or any(target not in {"claude", "codex", "cursor"} for target in targets):
+    if not targets or any(target not in {"claude", "codex", "cursor", "omp"} for target in targets):
         print("[err] unsupported migration targets", file=sys.stderr)
         return 1
     migration = Migration(args.apply)
@@ -745,6 +750,13 @@ def main() -> int:
                 print(f"[!!] Codex native gate: {error}")
                 if args.apply:
                     raise ValueError(f"Codex native gate failed: {error}; legacy retained (YAN-1140)") from error
+        if "omp" in targets:
+            import omp_install  # Lazy: keeps the claude/codex/cursor paths free of the omp helper.
+
+            try:
+                omp_install.available()
+            except (OSError, ValueError) as error:
+                raise ValueError(f"omp unavailable: {error}") from error
         print(f"Migration {'apply' if args.apply else 'dry-run (pass --apply to change files)'}")
         for target in targets:
             if target == "codex":

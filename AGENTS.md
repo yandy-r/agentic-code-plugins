@@ -44,6 +44,7 @@ this table records install ownership, not a claim of runtime feature parity:
 | Cross-tool `agents`    | `.agents-plugin/skills/`, `ycc-shared/`                                                            | `~/.agents/skills/`, `~/.agents/ycc-shared/`                                   |
 | Claude native add-ons  | `packages/claude/` MCP, hooks, dependency bundle                                                   | Listed in root `.claude-plugin/marketplace.json`; `install.sh migrate` dedupes |
 | Cursor native packages | `packages/cursor/{ycc,ycc-rules,ycc-mcp,ycc-hooks}/`                                               | Listed in root `.cursor-plugin/marketplace.json`; file-copy installer remains  |
+| OMP native package     | `packages/omp/ycc/`; exported by `scripts/omp_install.py` (unlisted until YAN-1180)                | `install.sh install --target omp` via `omp plugin` (user or `--project` scope) |
 
 - The `agents` target is skills-only; never write `~/.agents/plugins/` (owned by Codex).
 - Project rules here are not user-global plugin rules. opencode's generated `AGENTS.md`
