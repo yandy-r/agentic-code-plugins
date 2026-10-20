@@ -487,7 +487,8 @@ class OpencodeNpmPackageTests(unittest.TestCase):
             (case(fixer, "read", ["src/app.ts"], "ask"), "ask"),
             (case(fixer, "read", [".env.example"]), "allow"),
             (case(fixer, "ycc_grep", ["TOKEN"]), "allow"),
-            (case(fixer, "shell", ["npm test"]), "allow"),
+            (case(fixer, "shell", ["pytest -q"]), "allow"),
+            (case(fixer, "shell", ['python3 -c "print(1)"']), "deny"),
             # A saved approval of an `ask` rule is not re-raised to a prompt.
             (case(fixer, "external_directory", ["/elsewhere/*"]), "allow"),
             # A check without an agent is judged by the session's agent.

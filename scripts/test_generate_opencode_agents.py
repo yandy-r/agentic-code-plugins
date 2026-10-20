@@ -271,6 +271,32 @@ Review code.
                 self.assertEqual(evaluate(permissions, "shell", "git diff --stat --no-index a b"), "deny")
                 self.assertEqual(evaluate(permissions, "shell", "git diff HEAD~1 -- src"), "allow")
 
+    def test_fixer_agents_allow_only_validation_commands(self) -> None:
+        denied = (
+            'python3 -c "print(1)"',
+            "python -c x",
+            "npm exec x",
+            "npm run anything",
+            "npx node -e x",
+            "bun -e x",
+            "go run x.go",
+            "cargo run",
+            "make",
+            "make all",
+            "yarn node x",
+            "pnpm exec x",
+        )
+        allowed = ("pytest -q", "pnpm typecheck", "cargo check", "go vet ./...", "npx tsc --noEmit")
+        build = ("pnpm build", "cargo build")
+        for stem in ("pr-comment-fixer", "review-fixer", "release-fix-applier"):
+            permissions = generated_permissions(stem)
+            build_effect = "allow" if stem == "release-fix-applier" else "deny"
+            expected = {**dict.fromkeys(denied, "deny"), **dict.fromkeys(allowed, "allow")}
+            expected |= dict.fromkeys(build, build_effect)
+            for command, effect in expected.items():
+                with self.subTest(agent=stem, command=command):
+                    self.assertEqual(evaluate(permissions, "shell", command), effect)
+
     def test_restricted_agent_sensitive_rules_come_after_every_allow(self) -> None:
         for stem in RESTRICTED_AGENTS:
             with self.subTest(agent=stem):

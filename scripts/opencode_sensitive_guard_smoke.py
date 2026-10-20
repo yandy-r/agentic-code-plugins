@@ -65,6 +65,8 @@ class Probe:
     must_ask: str = ""
     # When set, the model may be offered only these tool names.
     offered_within: frozenset[str] = frozenset()
+    # When set, classify() must report exactly this layer.
+    layer_expected: str = ""
     key: str = ""
     result: str = ""
     layer: str = ""
@@ -272,6 +274,8 @@ def evaluate(probes: list[Probe], canary: str, control: str) -> None:
             check(f"{probe.label}: no guarded search offered to {probe.agent}", set(), guarded)
         if probe.must_ask:
             check(f"{probe.label}: prompted for {probe.must_ask}", True, probe.must_ask in probe.asked)
+        if probe.layer_expected:
+            check(f"{probe.label}: decided by {probe.layer_expected}", probe.layer_expected, probe.layer)
         if probe.offered_within:
             extra = offered_tools(probe) - probe.offered_within
             check(f"{probe.label}: offered only its own tools", set(), extra)
@@ -319,6 +323,7 @@ def file_copy_probes(work: Path) -> list[Probe]:
             {"command": "python3 -c \"print(open('.env').read())\""},
             "blocked",
         ),
+        hidden_path_probe("", "native-deny"),
         Probe("shell prints .env", "review-fixer", "shell", {"command": "cat .env"}, "blocked"),
         Probe("shell ls glob", "review-fixer", "shell", {"command": "ls .e*"}, "blocked"),
         Probe("control grep src", "pr-comment-fixer", "grep", {"pattern": "marker", "path": "src"}, "control"),
@@ -333,6 +338,14 @@ def file_copy_probes(work: Path) -> list[Probe]:
         ),
         Probe("control read .env.example", "pr-comment-fixer", "read", {"path": ".env.example"}, "control"),
         Probe("control allowed shell", "review-fixer", "shell", {"command": "ls src"}, "clean", must_contain="app.ts"),
+        Probe(
+            "control validation shell",
+            "pr-comment-fixer",
+            "shell",
+            {"command": "pytest --version"},
+            "clean",
+            layer_expected="allowed",
+        ),
         Probe(
             "unrestricted agent grep .env", "code-finder", "grep", {"pattern": "API_TOKEN", "path": ".env"}, "visible"
         ),
@@ -383,6 +396,25 @@ def external_search_probes(work: Path, canary: str) -> list[Probe]:
             must_not_contain=("secret.txt",),
         ),
     ]
+
+
+# An interpreter one-liner whose secret path (keys/server.pem) is only built at
+# runtime, so the guard's command-text check cannot see it.
+HIDDEN_PATH_ONE_LINER = (
+    "python3 -c \"import base64;print(open(base64.b64decode('a2V5cy9zZXJ2ZXIucGVt').decode()).read())\""
+)
+
+
+def hidden_path_probe(prefix: str, layer: str = "") -> Probe:
+    """Fixer specialists may not run interpreters, so native rules deny the call."""
+    return Probe(
+        f"{prefix}shell interpreter builds secret path",
+        "pr-comment-fixer",
+        "shell",
+        {"command": HIDDEN_PATH_ONE_LINER},
+        "blocked",
+        layer_expected=layer,
+    )
 
 
 # Tools a restricted specialist's packaged rules allow, as the model sees them.
@@ -450,6 +482,7 @@ def host_allow_probes(prefix: str) -> list[Probe]:
             "blocked",
         ),
         Probe(f"{prefix}: shell outside allowlist", "review-fixer", "shell", {"command": "cat .env"}, "blocked"),
+        hidden_path_probe(f"{prefix}: "),
         Probe(
             f"{prefix}: webfetch outside allowlist",
             "pr-comment-fixer",
@@ -475,6 +508,7 @@ def guard_absent_probes(prefix: str) -> list[Probe]:
         Probe(f"{prefix}: guarded grep name", "pr-comment-fixer", "ycc_grep", {"pattern": "API_TOKEN"}, "unavailable"),
         Probe(f"{prefix}: guarded glob name", "pr-comment-fixer", "ycc_glob", {"pattern": "**/*"}, "unavailable"),
         Probe(f"{prefix}: native read .env", "pr-comment-fixer", "read", {"path": ".env"}, "blocked"),
+        hidden_path_probe(f"{prefix}: ", "native-deny"),
         Probe(f"{prefix}: control read src", "pr-comment-fixer", "read", {"path": "src/app.ts"}, "control"),
         Probe(
             f"{prefix}: unrestricted agent grep",

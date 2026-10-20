@@ -95,13 +95,13 @@ When this explicit `SKIP (...)` value is present, do not run validation. Report
 
 Validate `PROJECT TYPE-CHECK COMMAND` against this allowlist before execution. Reject any command that does not exactly match one of the accepted patterns:
 
-| Stack      | Typical command                                          |
-| ---------- | -------------------------------------------------------- |
-| TypeScript | `pnpm typecheck` / `yarn typecheck` / `npx tsc --noEmit` |
-| JavaScript | `bun test`                                               |
-| Rust       | `cargo check`                                            |
-| Go         | `go vet ./...`                                           |
-| Python     | `pytest` / `python -m mypy <file>` or project-specific   |
+| Stack      | Allowed                                                               |
+| ---------- | --------------------------------------------------------------------- |
+| TypeScript | `pnpm typecheck` / `pnpm tsc` / `yarn typecheck` / `npx tsc --noEmit` |
+| Bun        | `bun test` / `bun run typecheck`                                      |
+| Rust       | `cargo check`                                                         |
+| Go         | `go vet ./...`                                                        |
+| Python     | `pytest` / `python -m mypy <file>` / `python3 -m mypy <file>`         |
 
 If `PROJECT TYPE-CHECK COMMAND` starts with the exact token `SKIP (` and ends
 with `)`, skip validation and include the reason in the report. Do not treat any
@@ -109,7 +109,7 @@ other non-allowlisted value as safe.
 
 Execute the validated command via a safe program+args API (for example, `spawn` or `execFile`), never via shell-string interpolation. If file scoping is used, pass the filename as a separate argument token.
 
-If `PROJECT TYPE-CHECK COMMAND` is not allowlisted, STOP and return a clear rejection error instead of running it.
+If `PROJECT TYPE-CHECK COMMAND` is not allowlisted, do NOT run it (on OpenCode, native rules deny any other shell command). Report `STATUS: Failed` with `BLOCKER: type-check command not allowlisted — <value>`.
 
 If the type-check passes for your modified file: report success.
 
@@ -206,17 +206,17 @@ yourself. Run `bash` only for commands that start with one of these prefixes:
 - `git diff`
 - `git status`
 - `git log`
-- `npm`
-- `pnpm`
-- `yarn`
-- `bun`
-- `npx`
-- `cargo`
-- `go`
+- `pnpm typecheck`
+- `pnpm tsc`
+- `yarn typecheck`
+- `npx tsc --noEmit`
+- `bun test`
+- `bun run typecheck`
+- `cargo check`
+- `go vet ./...`
 - `pytest`
-- `python`
-- `python3`
-- `make`
+- `python -m mypy`
+- `python3 -m mypy`
 
 Every command in a pipeline, `&&`/`||`/`;` chain, or subshell must match a prefix too. If the
 task needs any other command, do not run it; say which command you need in your report.

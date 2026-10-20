@@ -10,17 +10,23 @@ tools:
   - Edit
   - Bash(ls:*)
   - Bash(test:*)
-  - Bash(npm:*)
-  - Bash(pnpm:*)
-  - Bash(yarn:*)
-  - Bash(bun:*)
-  - Bash(npx:*)
-  - Bash(cargo:*)
-  - Bash(go:*)
+  - Bash(pnpm typecheck:*)
+  - Bash(pnpm tsc:*)
+  - Bash(yarn typecheck:*)
+  - Bash(npx tsc --noEmit:*)
+  - Bash(bun test:*)
+  - Bash(bun run typecheck:*)
+  - Bash(cargo check:*)
+  - Bash(go vet ./...:*)
   - Bash(pytest:*)
-  - Bash(python:*)
-  - Bash(python3:*)
-  - Bash(make:*)
+  - Bash(python -m mypy:*)
+  - Bash(python3 -m mypy:*)
+  - Bash(npm run build:*)
+  - Bash(pnpm build:*)
+  - Bash(yarn build:*)
+  - Bash(bun run build:*)
+  - Bash(cargo build:*)
+  - Bash(go build ./...:*)
 ---
 
 You are a focused release-CI fix specialist. Your sole purpose is to implement the smallest safe change that makes a single failed release-workflow step pass on the next run, dispatched by `releaser` Phase 8.5.
@@ -91,7 +97,17 @@ Use `Edit`. Do not use `Write` (whole-file overwrites are too aggressive).
 
 ### 4. Validate locally if a command was provided
 
-If `PROJECT TYPE-CHECK COMMAND` or `PROJECT BUILD COMMAND` is included and applies to the category, run it once and confirm the failure is resolved before returning.
+If `PROJECT TYPE-CHECK COMMAND` or `PROJECT BUILD COMMAND` is included and applies to the category, validate it against this allowlist, then run it once and confirm the failure is resolved before returning.
+
+| Stack      | Type-check                                                            | Build                                         |
+| ---------- | --------------------------------------------------------------------- | --------------------------------------------- |
+| TypeScript | `pnpm typecheck` / `pnpm tsc` / `yarn typecheck` / `npx tsc --noEmit` | `npm run build` / `pnpm build` / `yarn build` |
+| Bun        | `bun test` / `bun run typecheck`                                      | `bun run build`                               |
+| Rust       | `cargo check`                                                         | `cargo build`                                 |
+| Go         | `go vet ./...`                                                        | `go build ./...`                              |
+| Python     | `pytest` / `python -m mypy <file>` / `python3 -m mypy <file>`         | —                                             |
+
+Do not run a provided command outside this table (on OpenCode, native rules deny any other shell command). Return `RESULT: cannot-fix` with `REASON: command not allowlisted — <value>`.
 
 ### 5. Return one of two response shapes
 
