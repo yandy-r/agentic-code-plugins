@@ -77,6 +77,13 @@ expect_targets "OMP wrappers and validators select omp" "omp" \
     scripts/generate-omp-commands.sh scripts/validate-omp-commands.sh
 expect_targets "OMP golden tests select omp and types (mypy files)" "omp types" \
     scripts/test_generate_omp_skills.py scripts/test_generate_omp_agents.py scripts/test_generate_omp_commands.py
+expect_targets "generated OMP manifests and catalog select omp" "omp" \
+    packages/omp/ycc/.omp-plugin/plugin.json packages/omp/ycc/package.json .omp-plugin/marketplace.json
+expect_targets "OMP package generator, policy and smoke driver select omp and types" "omp types" \
+    scripts/generate_omp_packages.py scripts/validate_omp_native.py scripts/omp_native_smoke.py
+expect_targets "OMP package wrappers, validator and live harness select omp" "omp" \
+    scripts/generate-omp-packages.sh scripts/validate-omp-packages.sh scripts/test-omp-native-packages.sh
+expect_targets "OMP package tests select omp and types (mypy files)" "omp types" scripts/test_generate_omp_packages.py
 expect_targets "unrelated package output selects everything" "${ALL}" packages/other/ycc-mcp/mcp.json
 expect_targets "Cursor hook source selects everything" "${ALL}" ycc/settings/cursor/herdr-session-start.sh
 expect_targets "vendored Cursor schemas select cursor native and config" "cursor cursor-native config" scripts/vendor/cursor/plugin.schema.json
@@ -131,7 +138,8 @@ expect_targets "capability matrix validator selects packages and types" "package
 expect_targets "capability matrix tests select packages" "packages" scripts/test_validate_capability_matrix.py
 expect_targets "capability matrix selects the bundle targets including packages" "${BUNDLES}" ycc/skills/_shared/references/target-capability-matrix.md
 expect_targets "settings select everything" "${ALL}" ycc/settings/models.json
-expect_targets "package model selects content, native, generators, parity and types" "cursor codex opencode claude claude-native cursor-native codex-native packages types" scripts/package_model.py
+expect_targets "package model selects content, native, generators, parity and types" "cursor codex opencode omp claude claude-native cursor-native codex-native packages types" scripts/package_model.py
+expect_targets "package manifest selects content, native, generators and parity" "cursor codex opencode omp claude claude-native cursor-native codex-native packages" ycc/settings/packages.json
 expect_targets "package graph builder selects native split, packages and types" "claude-native packages types" scripts/build_package_graph.py
 expect_targets "package graph extractor selects native split, packages and types" "claude-native packages types" scripts/package_graph_extract.py
 expect_targets "package graph tests select packages" "packages" scripts/test_package_graph.py

@@ -61,7 +61,7 @@
           "notes": "Ships through the GitHub marketplace; no cursor.com submission before post-6.0."
         },
         "omp": {
-          "status": "deferred",
+          "status": "included",
           "listed": false,
           "mechanism": "native",
           "components": ["skills", "agents", "commands", "shared"],
@@ -73,11 +73,8 @@
             "docs/internal/adr/0002-omp-runtime-contract.md",
             "docs/internal/spikes/omp-runtime-contract.md"
           ],
-          "gates": [
-            "YAN-1171 .omp-plugin/marketplace.json and per-package tree generator",
-            "YAN-1178 live acceptance matrix passes on the real ycc tree"
-          ],
-          "notes": "Generated OMP package (omp >=18.12.2) with rewritten ${CLAUDE_PLUGIN_ROOT}, /ycc: and _shared references, agents translated to @role models, and one commands/<skill>.md entrypoint per public skill (/ycc:<skill>)."
+          "gates": ["YAN-1178 live acceptance matrix passes on the real ycc tree"],
+          "notes": "Generated OMP package under packages/omp/ycc (omp >=18.12.2) with .omp-plugin and .claude-plugin manifests and package.json, rewritten ${CLAUDE_PLUGIN_ROOT}, /ycc: and _shared references, agents translated to @role models, and one commands/<skill>.md entrypoint per public skill (/ycc:<skill>). Unlisted: the root .omp-plugin/marketplace.json stays absent until listing; install.sh --target omp is YAN-1172."
         }
       }
     },
@@ -146,7 +143,6 @@
           ],
           "gates": [
             "YAN-1173 ycc-mcp OMP package with native .mcp.json",
-            "YAN-1171 .omp-plugin/marketplace.json and per-package tree generator",
             "YAN-1178 live acceptance matrix passes on the real ycc tree"
           ],
           "notes": "Generated package with .mcp.json (omp >=18.12.2); servers become ycc-mcp:<server> and ${VAR} env placeholders expand."
@@ -226,7 +222,6 @@
           ],
           "gates": [
             "YAN-1174 extension package with the herdr session_start shim",
-            "YAN-1171 .omp-plugin/marketplace.json and per-package tree generator",
             "YAN-1178 live acceptance matrix passes on the real ycc tree"
           ],
           "notes": "Extension adapter (omp.extensions, omp >=18.12.2) bound to session_start only for herdr reporting; WorktreeCreate is unsupported because OMP has no such event, and a session restart is needed after install."
@@ -329,7 +324,6 @@
           ],
           "gates": [
             "YAN-1175 rules flattener",
-            "YAN-1171 .omp-plugin/marketplace.json and per-package tree generator",
             "YAN-1178 live acceptance matrix passes on the real ycc tree"
           ],
           "notes": "Generated package with flat rules/ (omp >=18.12.2): the nested Cursor tree flattens under unique names, paths becomes globs, and alwaysApply and description are kept."

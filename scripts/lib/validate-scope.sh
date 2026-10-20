@@ -43,12 +43,13 @@ validate_scope_owned_targets() {
         packages/claude/*) echo "claude claude-native packages" ;;
         packages/opencode/*) echo "opencode release packages" ;;
         packages/omp/*) echo "omp" ;;
+        .omp-plugin/*) echo "omp" ;;
 
         # The package manifest and its model feed the packages validators and
         # per-runtime package generators, so they must match before the
         # catch-all settings rule.
-        ycc/settings/packages.json | ycc/settings/packages.schema.json) echo "cursor codex opencode claude claude-native cursor-native codex-native packages" ;;
-        scripts/package_model.py | scripts/test_package_model.py) echo "cursor codex opencode claude claude-native cursor-native codex-native packages" ;;
+        ycc/settings/packages.json | ycc/settings/packages.schema.json) echo "cursor codex opencode omp claude claude-native cursor-native codex-native packages" ;;
+        scripts/package_model.py | scripts/test_package_model.py) echo "cursor codex opencode omp claude claude-native cursor-native codex-native packages" ;;
         # The graph extractor also drives the hidden v7 Claude split check in claude-native.
         scripts/build_package_graph.py | scripts/package_graph_extract.py) echo "claude-native packages" ;;
         scripts/test_package_graph.py) echo "packages" ;;
@@ -74,6 +75,11 @@ validate_scope_owned_targets() {
         scripts/generate_omp_agents.py | scripts/generate-omp-agents.sh | scripts/validate-omp-agents.sh) echo "omp" ;;
         scripts/generate_omp_commands.py | scripts/generate-omp-commands.sh | scripts/validate-omp-commands.sh) echo "omp" ;;
         scripts/test_generate_omp_skills.py | scripts/test_generate_omp_agents.py | scripts/test_generate_omp_commands.py) echo "omp types" ;;
+        # OMP native packages: generator and policy (typed, so they also select `types`),
+        # wrappers, golden tests, and the opt-in live harness with its smoke driver.
+        scripts/generate_omp_packages.py | scripts/validate_omp_native.py | scripts/omp_native_smoke.py) echo "omp" ;;
+        scripts/generate-omp-packages.sh | scripts/validate-omp-packages.sh | scripts/test-omp-native-packages.sh) echo "omp" ;;
+        scripts/test_generate_omp_packages.py) echo "omp types" ;;
 
         # Install docs contain model-validated public package identifiers.
         docs/install/*) echo "packages" ;;

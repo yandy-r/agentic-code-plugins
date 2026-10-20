@@ -560,6 +560,9 @@ MODEL_GENERATED=(
   "packages/cursor/ycc-mcp/.cursor-plugin/plugin.json"
   "packages/cursor/ycc-hooks/.cursor-plugin/plugin.json"
   "packages/cursor/ycc-rules/.cursor-plugin/plugin.json"
+  "packages/omp/ycc/.omp-plugin/plugin.json"
+  "packages/omp/ycc/.claude-plugin/plugin.json"
+  "packages/omp/ycc/package.json"
 )
 new_fixture model
 write_source_fixture "5.3.0"
@@ -638,32 +641,73 @@ if OUT="$(YCC_REPO_ROOT="${FIX}" "${SCRIPTS}/draft-notes.sh" 6.0.0 2>&1)"; then
   assert_contains "notes: included listed package" "${NOTES}" "| ycc-hooks | cursor | included | native | yes | 6.0.0 |"
   assert_contains "notes: deferred target" "${NOTES}" "| ycc-agents | claude | deferred | native | no | target v7.0.0 |"
   assert_contains "notes: excluded target" "${NOTES}" "| ycc-hooks | codex | excluded | native | no | target v6.0.0 |"
-  assert_contains "notes: deferred omp target" "${NOTES}" "| ycc | omp | deferred | native | no | target v6.1.0 |"
+  assert_contains "notes: included unlisted omp package" "${NOTES}" "| ycc | omp | included | native | no | 6.0.0 |"
+  assert_contains "notes: deferred omp target" "${NOTES}" "| ycc-mcp | omp | deferred | native | no | target v6.1.0 |"
   assert_contains "notes: opencode npm release" "${NOTES}" "| @yandy-r/ycc-opencode | opencode | included | npm | no | 6.0.0 | experimental; opt-in; not yet published"
   assert_not_contains "notes: installer-fallback row omitted" "${NOTES}" "| installer-fallback |"
   assert_contains "notes: file-copy fallback note" "${NOTES}" "File-copy packages"
   assert_not_contains "notes: no unresolved package placeholder" "${NOTES}" "{{PACKAGES_TABLE}}"
 else not_ok "notes: renders packages table" "${OUT}"; fi
 
-# An included native omp row has no manifest layout yet (YAN-1171): fail closed.
+# An included native omp row needs its three generated OMP manifests, all in lockstep,
+# and a present OMP catalog is parity-checked (YAN-1171).
+OMP_MANIFESTS=(
+  "packages/omp/ycc/.omp-plugin/plugin.json"
+  "packages/omp/ycc/.claude-plugin/plugin.json"
+  "packages/omp/ycc/package.json"
+)
+for manifest in "${OMP_MANIFESTS[@]}"; do jset_all_versions "${manifest}" "6.0.0"; done
+commit_fix "omp manifests at 6.0.0"
+for manifest in "${OMP_MANIFESTS[@]}"; do
+  cp "${FIX}/${manifest}" "${SANDBOX_ROOT}/omp-manifest.json"
+  rm "${FIX}/${manifest}"
+  commit_fix "missing ${manifest}"
+  SOURCE_HASHES="$(sha "ycc/.claude-plugin/plugin.json");$(sha ".claude-plugin/marketplace.json")"
+  if run_pf "${FIX}"; then not_ok "model: missing ${manifest} fails check"; else
+    assert_contains "model: missing OMP manifest names the omp row" "${OUT}" "packages.ycc.runtimes.omp"
+    assert_contains "model: missing OMP manifest names the file" "${OUT}" "${manifest}: file not found"
+    assert_not_contains "model: missing OMP manifest has no traceback" "${OUT}" "Traceback"
+  fi
+  if run_bump "${FIX}" "6.1.0"; then not_ok "model: missing ${manifest} fails bump"; else
+    assert_eq "model: missing OMP manifest has no mutation" "${SOURCE_HASHES}" "$(sha "ycc/.claude-plugin/plugin.json");$(sha ".claude-plugin/marketplace.json")"
+  fi
+  mv "${SANDBOX_ROOT}/omp-manifest.json" "${FIX}/${manifest}"
+  jset_all_versions "${manifest}" "5.9.0"
+  commit_fix "stale ${manifest}"
+  if run_pf "${FIX}"; then not_ok "model: stale ${manifest} fails check"; else
+    assert_contains "model: stale OMP manifest named" "${OUT}" "${manifest} version = 5.9.0 (expected 6.0.0)"
+  fi
+  jset_all_versions "${manifest}" "6.0.0"
+done
+wf ".omp-plugin/marketplace.json" <<<'{"name":"ycc","owner":{"name":"o"},"metadata":{"version":"6.0.0"},"plugins":[{"name":"ycc","source":"./packages/omp/ycc","version":"5.9.0"}]}'
+commit_fix "stale omp catalog"
+if run_pf "${FIX}"; then not_ok "model: stale OMP catalog entry fails check"; else
+  assert_contains "model: stale OMP catalog entry named" "${OUT}" ".omp-plugin/marketplace.json plugins[0].version = 5.9.0"
+fi
+jset_all_versions ".omp-plugin/marketplace.json" "6.0.0"
+commit_fix "matching omp catalog"
+if run_pf "${FIX}"; then ok "model: matching OMP manifests and catalog pass"; else not_ok "model: OMP parity passes" "${OUT}"; fi
+OMP_HASHES="$(for manifest in "${OMP_MANIFESTS[@]}" ".omp-plugin/marketplace.json"; do sha "${manifest}"; done)"
+if run_bump "${FIX}" "6.1.0"; then
+  assert_eq "model: bump never hand-edits generated OMP surfaces" "${OMP_HASHES}" "$(for manifest in "${OMP_MANIFESTS[@]}" ".omp-plugin/marketplace.json"; do sha "${manifest}"; done)"
+else not_ok "model: bump 6.1.0 with OMP surfaces passes" "${OUT}"; fi
+git -C "${FIX}" checkout -q -- .
+# A deferred omp row suppresses its stale manifests, like other deferred rows.
 python3 - "${FIX}/ycc/settings/packages.json" <<'PY'
 import json, sys
 path = sys.argv[1]
 with open(path, encoding="utf-8") as fh:
     model = json.load(fh)
-model["packages"]["ycc"]["runtimes"]["omp"]["status"] = "included"
+model["packages"]["ycc"]["runtimes"]["omp"]["status"] = "deferred"
 with open(path, "w", encoding="utf-8") as fh:
     json.dump(model, fh, indent=2)
 PY
-commit_fix "included omp row"
-SOURCE_HASHES="$(sha "ycc/.claude-plugin/plugin.json");$(sha ".claude-plugin/marketplace.json")"
-if run_pf "${FIX}"; then not_ok "model: included omp row fails check"; else
-  assert_contains "model: included omp row named" "${OUT}" "packages.ycc.runtimes.omp"
-  assert_not_contains "model: included omp has no traceback" "${OUT}" "Traceback"
-fi
-if run_bump "${FIX}" "6.1.0"; then not_ok "model: included omp row fails bump"; else
-  assert_eq "model: included omp row has no mutation" "${SOURCE_HASHES}" "$(sha "ycc/.claude-plugin/plugin.json");$(sha ".claude-plugin/marketplace.json")"
-fi
+rm "${FIX}/.omp-plugin/marketplace.json"
+# Every OMP manifest goes stale: the generic scan finds the .claude-plugin and package.json ones,
+# so only the deferred-row suppression keeps this check green.
+for manifest in "${OMP_MANIFESTS[@]}"; do jset_all_versions "${manifest}" "0.0.1"; done
+commit_fix "deferred omp row"
+if run_pf "${FIX}"; then ok "model: deferred omp row ignores stale OMP manifests"; else not_ok "model: deferred omp ignored" "${OUT}"; fi
 
 # A model error must be clean and must precede all bump writes.
 for bad_model in '{' '{}' '{"version_source":"ycc/.claude-plugin/plugin.json","packages":{"ycc":{}}}' \

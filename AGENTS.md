@@ -62,23 +62,23 @@ this table records install ownership, not a claim of runtime feature parity:
 - There is no `npm test` or npm build target. Validation lives in `scripts/validate.sh`;
   run the relevant `scripts/test_*` / `scripts/test-*` suites for changed behavior.
 
-| Command                                                       | Purpose                                                          |
-| ------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `./scripts/sync.sh`                                           | Regenerate compatibility bundles and inventory                   |
-| `./scripts/validate.sh`                                       | Run every validate.sh target. CI runs it after `npm run lint`.   |
-| `./scripts/sync.sh --only claude`                             | Regenerate native Claude packages                                |
-| `./scripts/validate.sh --only claude,claude-native,packages`  | Generator, native policy, parity, optional CLI validation        |
-| `./scripts/sync.sh --only cursor`                             | Regenerate native Cursor packages and file-copy inputs           |
-| `./scripts/validate.sh --only cursor,cursor-native,packages`  | Cursor content, generator, native policy fixtures, parity        |
-| `./scripts/validate.sh --only codex,codex-native,packages`    | Codex content, native export, policy fixtures, parity            |
-| `./scripts/sync.sh --only omp`                                | Regenerate OMP skills, agents, commands (`packages/omp`)         |
-| `./scripts/validate.sh --only omp`                            | OMP skill/agent/command drift, policy, golden tests              |
-| `./scripts/validate.sh --only practices`                      | Authoring ratchet, including `.claude/rules` `paths` frontmatter |
-| `./scripts/validate.sh --only types`                          | `mypy --strict` over pyproject.toml `[tool.mypy]` files          |
-| `python3 scripts/test_validate_practices.py`                  | Authoring-validator regression tests                             |
-| `./scripts/install-shellcheck.sh`                             | Install the pinned ShellCheck matching CI                        |
-| `npm run lint` / `npm run lint:modified` / `npm run lint:fix` | Python, shell, and Markdown lint / changed files / fixes         |
-| `npm run format` / `npm run format:modified`                  | Python + docs formatting / changed files                         |
+| Command                                                       | Purpose                                                             |
+| ------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `./scripts/sync.sh`                                           | Regenerate compatibility bundles and inventory                      |
+| `./scripts/validate.sh`                                       | Run every validate.sh target. CI runs it after `npm run lint`.      |
+| `./scripts/sync.sh --only claude`                             | Regenerate native Claude packages                                   |
+| `./scripts/validate.sh --only claude,claude-native,packages`  | Generator, native policy, parity, optional CLI validation           |
+| `./scripts/sync.sh --only cursor`                             | Regenerate native Cursor packages and file-copy inputs              |
+| `./scripts/validate.sh --only cursor,cursor-native,packages`  | Cursor content, generator, native policy fixtures, parity           |
+| `./scripts/validate.sh --only codex,codex-native,packages`    | Codex content, native export, policy fixtures, parity               |
+| `./scripts/sync.sh --only omp`                                | Regenerate OMP skills, agents, commands, manifests (`packages/omp`) |
+| `./scripts/validate.sh --only omp`                            | OMP drift, policy, catalog/lockstep/closure, golden tests           |
+| `./scripts/validate.sh --only practices`                      | Authoring ratchet, including `.claude/rules` `paths` frontmatter    |
+| `./scripts/validate.sh --only types`                          | `mypy --strict` over pyproject.toml `[tool.mypy]` files             |
+| `python3 scripts/test_validate_practices.py`                  | Authoring-validator regression tests                                |
+| `./scripts/install-shellcheck.sh`                             | Install the pinned ShellCheck matching CI                           |
+| `npm run lint` / `npm run lint:modified` / `npm run lint:fix` | Python, shell, and Markdown lint / changed files / fixes            |
+| `npm run format` / `npm run format:modified`                  | Python + docs formatting / changed files                            |
 
 ## MUST / MUST NOT
 

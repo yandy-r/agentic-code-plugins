@@ -111,7 +111,7 @@ If it fails, surface the following rollback command and STOP:
 for path in ycc/.claude-plugin/plugin.json .claude-plugin/marketplace.json \
             ycc/package.json \
             packages .agents/plugins/marketplace.json .agents-plugin \
-            .cursor-plugin .codex-plugin .opencode-plugin docs/inventory.json; do
+            .cursor-plugin .codex-plugin .opencode-plugin .omp-plugin docs/inventory.json; do
   if git ls-files --error-unmatch -- "$path" >/dev/null 2>&1; then
     git checkout -- "$path"
   fi
@@ -120,7 +120,7 @@ done
 ```
 
 Do not hand-edit `packages/`, `.agents/plugins/marketplace.json`, `.agents-plugin/`,
-`.cursor-plugin/`, `.codex-plugin/`, or `.opencode-plugin/` — regenerate them only.
+`.cursor-plugin/`, `.codex-plugin/`, `.opencode-plugin/`, or `.omp-plugin/` — regenerate them only.
 The rollback loop restores tracked paths (including deleted files) but does not
 remove newly generated untracked files; review those separately.
 
@@ -159,7 +159,7 @@ Release prepared. No commits have been made — review the diff, then run:
 for path in ycc/.claude-plugin/plugin.json .claude-plugin/marketplace.json \
             ycc/package.json \
             packages .agents/plugins/marketplace.json .agents-plugin \
-            .cursor-plugin .codex-plugin .opencode-plugin docs/inventory.json \
+            .cursor-plugin .codex-plugin .opencode-plugin .omp-plugin docs/inventory.json \
             docs/releases/<new-version>.md; do
   if [ -e "$path" ]; then
     git add -- "$path"

@@ -122,7 +122,7 @@ The skill does NOT auto-commit. After reviewing all changes, run:
 for path in ycc/.claude-plugin/plugin.json .claude-plugin/marketplace.json \
             ycc/package.json \
             packages .agents/plugins/marketplace.json .agents-plugin \
-            .cursor-plugin .codex-plugin .opencode-plugin docs/inventory.json \
+            .cursor-plugin .codex-plugin .opencode-plugin .omp-plugin docs/inventory.json \
             docs/releases/<new-version>.md; do
   if [ -e "$path" ]; then
     git add -- "$path"
@@ -167,7 +167,7 @@ If anything fails after Phase 1:
    for path in ycc/.claude-plugin/plugin.json .claude-plugin/marketplace.json \
                ycc/package.json \
                packages .agents/plugins/marketplace.json .agents-plugin \
-               .cursor-plugin .codex-plugin .opencode-plugin docs/inventory.json; do
+               .cursor-plugin .codex-plugin .opencode-plugin .omp-plugin docs/inventory.json; do
      if git ls-files --error-unmatch -- "$path" >/dev/null 2>&1; then
        git checkout -- "$path"
      fi
