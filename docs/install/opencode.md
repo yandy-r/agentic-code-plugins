@@ -176,9 +176,9 @@ without the guard:
   `go vet ./...`, plus `ls` and `test` for `review-fixer` and
   `release-fix-applier` and the read-only git commands for `review-fixer`.
   Native rules deny every other shell command, including
-  interpreter one-liners, with or without the guard. Those runners still execute
-  project code and config (tests, package scripts, `build.rs`) that the agent
-  can edit.
+  interpreter one-liners, with or without the guard. Those runners still accept
+  options and execute project code and config (tests, package scripts,
+  `build.rs`) that the agent can edit.
 - `db-modifier` runs `psql` and `supabase`, which are interpreters by
   function and can read any file they are pointed at.
 - Read-only git history commands print committed file contents without naming
