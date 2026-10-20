@@ -66,6 +66,9 @@ dedupe, so move over with `install.sh migrate` instead of keeping both:
   `ycc`, listing `ycc@ycc` and `ycc-mcp@ycc`. Apply registers the `ycc`
   marketplace, installs both packages, verifies they are installed and
   enabled, and only then retires proven installer-owned legacy entries.
+  An untouched snapshot under `~/.codex/plugins/cache/local-ycc-plugins/ycc`
+  is retired when its git tree matches a committed `.codex-plugin/ycc` in
+  this checkout, including an older release. An edited snapshot stays.
   Migration never removes anything under `~/.codex/agents/`. A staged catalog
   can be selected with `--marketplace-source <dir>` (Codex only), subject to
   the same catalog and payload checks.

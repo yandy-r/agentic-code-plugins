@@ -147,8 +147,10 @@ If you clear `~/.codex/plugins/cache/`, rerun the base step so
 ```
 
 Leftovers from a pre-v6 install (`ycc@local-ycc-plugins`, the
-`~/.codex/plugins/ycc/` link, `~/.agents/plugins/marketplace.json` entries) are
-not touched by `install`; retire them with
+`~/.codex/plugins/ycc/` link, the cache under
+`~/.codex/plugins/cache/local-ycc-plugins/ycc`, and
+`~/.agents/plugins/marketplace.json` entries) are not touched by `install`.
+Retire them with
 [`migrate --target codex`](README.md#migrating-to-native-packages).
 
 ## Codex Desktop
