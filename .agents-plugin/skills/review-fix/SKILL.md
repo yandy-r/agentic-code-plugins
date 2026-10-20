@@ -84,15 +84,15 @@ Error paths:
 
 Package manager detection (`TYPECHECK_CMD`, `TEST_CMD`):
 
-| File                | Type-check                      | Tests           |
-| ------------------- | ------------------------------- | --------------- |
-| `bun.lockb`         | `bun run typecheck`             | `bun test`      |
-| `pnpm-lock.yaml`    | `pnpm typecheck` / `pnpm tsc`   | `pnpm test`     |
-| `yarn.lock`         | `yarn typecheck`                | `yarn test`     |
-| `package-lock.json` | `npx tsc --noEmit`              | `npm test`      |
-| `Cargo.toml`        | `cargo check`                   | `cargo test`    |
-| `go.mod`            | `go vet ./...`                  | `go test ./...` |
-| `pyproject.toml`    | project-specific (mypy/pyright) | `pytest`        |
+| File                | Type-check                                                                     | Tests           |
+| ------------------- | ------------------------------------------------------------------------------ | --------------- |
+| `bun.lockb`         | `bun run typecheck`                                                            | `bun test`      |
+| `pnpm-lock.yaml`    | `pnpm typecheck` / `pnpm tsc`                                                  | `pnpm test`     |
+| `yarn.lock`         | `yarn typecheck`                                                               | `yarn test`     |
+| `package-lock.json` | `npx tsc --noEmit`                                                             | `npm test`      |
+| `Cargo.toml`        | `cargo check`                                                                  | `cargo test`    |
+| `go.mod`            | `go vet ./...`                                                                 | `go test ./...` |
+| `pyproject.toml`    | `pytest` (`python3 -m mypy <paths>` only when mypy is configured with targets) | `pytest`        |
 
 ## Phase 1 — LOAD
 

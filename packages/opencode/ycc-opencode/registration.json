@@ -3530,37 +3530,42 @@
         },
         {
           "action": "shell",
-          "resource": "npm *",
+          "resource": "pnpm typecheck *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "pnpm *",
+          "resource": "pnpm tsc *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "yarn *",
+          "resource": "yarn typecheck *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "bun *",
+          "resource": "npx tsc --noEmit *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "npx *",
+          "resource": "bun test *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "cargo *",
+          "resource": "bun run typecheck *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "go *",
+          "resource": "cargo check *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "go vet ./... *",
           "effect": "allow"
         },
         {
@@ -3570,17 +3575,12 @@
         },
         {
           "action": "shell",
-          "resource": "python *",
+          "resource": "python -m mypy *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "python3 *",
-          "effect": "allow"
-        },
-        {
-          "action": "shell",
-          "resource": "make *",
+          "resource": "python3 -m mypy *",
           "effect": "allow"
         },
         {
@@ -4646,37 +4646,42 @@
         },
         {
           "action": "shell",
-          "resource": "npm *",
+          "resource": "pnpm typecheck *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "pnpm *",
+          "resource": "pnpm tsc *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "yarn *",
+          "resource": "yarn typecheck *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "bun *",
+          "resource": "npx tsc --noEmit *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "npx *",
+          "resource": "bun test *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "cargo *",
+          "resource": "bun run typecheck *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "go *",
+          "resource": "cargo check *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "go vet ./... *",
           "effect": "allow"
         },
         {
@@ -4686,17 +4691,42 @@
         },
         {
           "action": "shell",
-          "resource": "python *",
+          "resource": "python -m mypy *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "python3 *",
+          "resource": "python3 -m mypy *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "make *",
+          "resource": "npm run build *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "pnpm build *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "yarn build *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "bun run build *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "cargo build *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "go build ./... *",
           "effect": "allow"
         },
         {
@@ -5529,37 +5559,42 @@
         },
         {
           "action": "shell",
-          "resource": "npm *",
+          "resource": "pnpm typecheck *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "pnpm *",
+          "resource": "pnpm tsc *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "yarn *",
+          "resource": "yarn typecheck *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "bun *",
+          "resource": "npx tsc --noEmit *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "npx *",
+          "resource": "bun test *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "cargo *",
+          "resource": "bun run typecheck *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "go *",
+          "resource": "cargo check *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "go vet ./... *",
           "effect": "allow"
         },
         {
@@ -5569,17 +5604,12 @@
         },
         {
           "action": "shell",
-          "resource": "python *",
+          "resource": "python -m mypy *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "python3 *",
-          "effect": "allow"
-        },
-        {
-          "action": "shell",
-          "resource": "make *",
+          "resource": "python3 -m mypy *",
           "effect": "allow"
         },
         {

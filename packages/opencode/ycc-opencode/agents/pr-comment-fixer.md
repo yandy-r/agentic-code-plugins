@@ -21,37 +21,37 @@ permissions:
   resource: '*'
   effect: allow
 - action: shell
-  resource: npm *
+  resource: pnpm typecheck *
   effect: allow
 - action: shell
-  resource: pnpm *
+  resource: pnpm tsc *
   effect: allow
 - action: shell
-  resource: yarn *
+  resource: yarn typecheck *
   effect: allow
 - action: shell
-  resource: bun *
+  resource: npx tsc --noEmit *
   effect: allow
 - action: shell
-  resource: npx *
+  resource: bun test *
   effect: allow
 - action: shell
-  resource: cargo *
+  resource: bun run typecheck *
   effect: allow
 - action: shell
-  resource: go *
+  resource: cargo check *
+  effect: allow
+- action: shell
+  resource: go vet ./... *
   effect: allow
 - action: shell
   resource: pytest *
   effect: allow
 - action: shell
-  resource: python *
+  resource: python -m mypy *
   effect: allow
 - action: shell
-  resource: python3 *
-  effect: allow
-- action: shell
-  resource: make *
+  resource: python3 -m mypy *
   effect: allow
 - action: external_directory
   resource: '*'
@@ -513,17 +513,17 @@ Shape C has no comment anchor; treat `SCOPE` as the target file (verified by the
 
 Validate `PROJECT TYPE-CHECK COMMAND` against this allowlist before execution:
 
-| Stack      | Allowed                                                  |
-| ---------- | -------------------------------------------------------- |
-| TypeScript | `pnpm typecheck` / `yarn typecheck` / `npx tsc --noEmit` |
-| Bun        | `bun test` / `bun run typecheck`                         |
-| Rust       | `cargo check`                                            |
-| Go         | `go vet ./...`                                           |
-| Python     | `pytest` / `python -m mypy <file>` (project-specific)    |
+| Stack      | Allowed                                                               |
+| ---------- | --------------------------------------------------------------------- |
+| TypeScript | `pnpm typecheck` / `pnpm tsc` / `yarn typecheck` / `npx tsc --noEmit` |
+| Bun        | `bun test` / `bun run typecheck`                                      |
+| Rust       | `cargo check`                                                         |
+| Go         | `go vet ./...`                                                        |
+| Python     | `pytest` / `python -m mypy <file>` / `python3 -m mypy <file>`         |
 
 If the value starts with `SKIP (` and ends with `)`, skip validation and report `TYPE-CHECK: Skipped (<reason>)`.
 
-If the value is not allowlisted and is not a `SKIP (...)` token, do NOT run it. Report `STATUS: Failed` with `BLOCKER: type-check command not allowlisted — <value>`.
+If the value is not allowlisted and is not a `SKIP (...)` token, do NOT run it (on OpenCode, native rules deny any other shell command). Report `STATUS: Failed` with `BLOCKER: type-check command not allowlisted — <value>`.
 
 Execute the allowlisted command via Bash. If type-check passes for your modified file: report success.
 

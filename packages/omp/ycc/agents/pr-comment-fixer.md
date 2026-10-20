@@ -116,17 +116,17 @@ Shape C has no comment anchor; treat `SCOPE` as the target file (verified by the
 
 Validate `PROJECT TYPE-CHECK COMMAND` against this allowlist before execution:
 
-| Stack      | Allowed                                                  |
-| ---------- | -------------------------------------------------------- |
-| TypeScript | `pnpm typecheck` / `yarn typecheck` / `npx tsc --noEmit` |
-| Bun        | `bun test` / `bun run typecheck`                         |
-| Rust       | `cargo check`                                            |
-| Go         | `go vet ./...`                                           |
-| Python     | `pytest` / `python -m mypy <file>` (project-specific)    |
+| Stack      | Allowed                                                               |
+| ---------- | --------------------------------------------------------------------- |
+| TypeScript | `pnpm typecheck` / `pnpm tsc` / `yarn typecheck` / `npx tsc --noEmit` |
+| Bun        | `bun test` / `bun run typecheck`                                      |
+| Rust       | `cargo check`                                                         |
+| Go         | `go vet ./...`                                                        |
+| Python     | `pytest` / `python -m mypy <file>` / `python3 -m mypy <file>`         |
 
 If the value starts with `SKIP (` and ends with `)`, skip validation and report `TYPE-CHECK: Skipped (<reason>)`.
 
-If the value is not allowlisted and is not a `SKIP (...)` token, do NOT run it. Report `STATUS: Failed` with `BLOCKER: type-check command not allowlisted — <value>`.
+If the value is not allowlisted and is not a `SKIP (...)` token, do NOT run it (on OpenCode, native rules deny any other shell command). Report `STATUS: Failed` with `BLOCKER: type-check command not allowlisted — <value>`.
 
 Execute the allowlisted command via `bash`. If type-check passes for your modified file: report success.
 
@@ -233,17 +233,17 @@ You are a reliable fixer who executes exactly what is requested and communicates
 OMP cannot restrict `bash` to specific commands, so this scope is a hard rule you enforce
 yourself. Run `bash` only for commands that start with one of these prefixes:
 
-- `npm`
-- `pnpm`
-- `yarn`
-- `bun`
-- `npx`
-- `cargo`
-- `go`
+- `pnpm typecheck`
+- `pnpm tsc`
+- `yarn typecheck`
+- `npx tsc --noEmit`
+- `bun test`
+- `bun run typecheck`
+- `cargo check`
+- `go vet ./...`
 - `pytest`
-- `python`
-- `python3`
-- `make`
+- `python -m mypy`
+- `python3 -m mypy`
 
 Every command in a pipeline, `&&`/`||`/`;` chain, or subshell must match a prefix too. If the
 task needs any other command, do not run it; say which command you need in your report.

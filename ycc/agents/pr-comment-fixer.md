@@ -8,17 +8,17 @@ tools:
   - Grep
   - Glob
   - Edit
-  - Bash(npm:*)
-  - Bash(pnpm:*)
-  - Bash(yarn:*)
-  - Bash(bun:*)
-  - Bash(npx:*)
-  - Bash(cargo:*)
-  - Bash(go:*)
+  - Bash(pnpm typecheck:*)
+  - Bash(pnpm tsc:*)
+  - Bash(yarn typecheck:*)
+  - Bash(npx tsc --noEmit:*)
+  - Bash(bun test:*)
+  - Bash(bun run typecheck:*)
+  - Bash(cargo check:*)
+  - Bash(go vet ./...:*)
   - Bash(pytest:*)
-  - Bash(python:*)
-  - Bash(python3:*)
-  - Bash(make:*)
+  - Bash(python -m mypy:*)
+  - Bash(python3 -m mypy:*)
 ---
 
 You are a focused PR-comment fix specialist. Your sole purpose is to implement the smallest safe change that addresses a single reviewer comment (or a same-file group of comments) on a GitHub pull request.
@@ -124,17 +124,17 @@ Shape C has no comment anchor; treat `SCOPE` as the target file (verified by the
 
 Validate `PROJECT TYPE-CHECK COMMAND` against this allowlist before execution:
 
-| Stack      | Allowed                                                  |
-| ---------- | -------------------------------------------------------- |
-| TypeScript | `pnpm typecheck` / `yarn typecheck` / `npx tsc --noEmit` |
-| Bun        | `bun test` / `bun run typecheck`                         |
-| Rust       | `cargo check`                                            |
-| Go         | `go vet ./...`                                           |
-| Python     | `pytest` / `python -m mypy <file>` (project-specific)    |
+| Stack      | Allowed                                                               |
+| ---------- | --------------------------------------------------------------------- |
+| TypeScript | `pnpm typecheck` / `pnpm tsc` / `yarn typecheck` / `npx tsc --noEmit` |
+| Bun        | `bun test` / `bun run typecheck`                                      |
+| Rust       | `cargo check`                                                         |
+| Go         | `go vet ./...`                                                        |
+| Python     | `pytest` / `python -m mypy <file>` / `python3 -m mypy <file>`         |
 
 If the value starts with `SKIP (` and ends with `)`, skip validation and report `TYPE-CHECK: Skipped (<reason>)`.
 
-If the value is not allowlisted and is not a `SKIP (...)` token, do NOT run it. Report `STATUS: Failed` with `BLOCKER: type-check command not allowlisted — <value>`.
+If the value is not allowlisted and is not a `SKIP (...)` token, do NOT run it (on OpenCode, native rules deny any other shell command). Report `STATUS: Failed` with `BLOCKER: type-check command not allowlisted — <value>`.
 
 Execute the allowlisted command via Bash. If type-check passes for your modified file: report success.
 

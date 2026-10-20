@@ -28,37 +28,55 @@ permissions:
   resource: test *
   effect: allow
 - action: shell
-  resource: npm *
+  resource: pnpm typecheck *
   effect: allow
 - action: shell
-  resource: pnpm *
+  resource: pnpm tsc *
   effect: allow
 - action: shell
-  resource: yarn *
+  resource: yarn typecheck *
   effect: allow
 - action: shell
-  resource: bun *
+  resource: npx tsc --noEmit *
   effect: allow
 - action: shell
-  resource: npx *
+  resource: bun test *
   effect: allow
 - action: shell
-  resource: cargo *
+  resource: bun run typecheck *
   effect: allow
 - action: shell
-  resource: go *
+  resource: cargo check *
+  effect: allow
+- action: shell
+  resource: go vet ./... *
   effect: allow
 - action: shell
   resource: pytest *
   effect: allow
 - action: shell
-  resource: python *
+  resource: python -m mypy *
   effect: allow
 - action: shell
-  resource: python3 *
+  resource: python3 -m mypy *
   effect: allow
 - action: shell
-  resource: make *
+  resource: npm run build *
+  effect: allow
+- action: shell
+  resource: pnpm build *
+  effect: allow
+- action: shell
+  resource: yarn build *
+  effect: allow
+- action: shell
+  resource: bun run build *
+  effect: allow
+- action: shell
+  resource: cargo build *
+  effect: allow
+- action: shell
+  resource: go build ./... *
   effect: allow
 - action: external_directory
   resource: '*'
@@ -485,7 +503,17 @@ Use `Edit`. Do not use `Write` (whole-file overwrites are too aggressive).
 
 ### 4. Validate locally if a command was provided
 
-If `PROJECT TYPE-CHECK COMMAND` or `PROJECT BUILD COMMAND` is included and applies to the category, run it once and confirm the failure is resolved before returning.
+If `PROJECT TYPE-CHECK COMMAND` or `PROJECT BUILD COMMAND` is included and applies to the category, validate it against this allowlist, then run it once and confirm the failure is resolved before returning.
+
+| Stack      | Type-check                                                            | Build                                         |
+| ---------- | --------------------------------------------------------------------- | --------------------------------------------- |
+| TypeScript | `pnpm typecheck` / `pnpm tsc` / `yarn typecheck` / `npx tsc --noEmit` | `npm run build` / `pnpm build` / `yarn build` |
+| Bun        | `bun test` / `bun run typecheck`                                      | `bun run build`                               |
+| Rust       | `cargo check`                                                         | `cargo build`                                 |
+| Go         | `go vet ./...`                                                        | `go build ./...`                              |
+| Python     | `pytest` / `python -m mypy <file>` / `python3 -m mypy <file>`         | —                                             |
+
+Do not run a provided command outside this table (on OpenCode, native rules deny any other shell command). Return `RESULT: cannot-fix` with `REASON: command not allowlisted — <value>`.
 
 ### 5. Return one of two response shapes
 

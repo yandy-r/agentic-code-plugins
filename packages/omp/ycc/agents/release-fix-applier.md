@@ -82,7 +82,17 @@ Use `edit`. Do not use `write` (whole-file overwrites are too aggressive).
 
 ### 4. Validate locally if a command was provided
 
-If `PROJECT TYPE-CHECK COMMAND` or `PROJECT BUILD COMMAND` is included and applies to the category, run it once and confirm the failure is resolved before returning.
+If `PROJECT TYPE-CHECK COMMAND` or `PROJECT BUILD COMMAND` is included and applies to the category, validate it against this allowlist, then run it once and confirm the failure is resolved before returning.
+
+| Stack      | Type-check                                                            | Build                                         |
+| ---------- | --------------------------------------------------------------------- | --------------------------------------------- |
+| TypeScript | `pnpm typecheck` / `pnpm tsc` / `yarn typecheck` / `npx tsc --noEmit` | `npm run build` / `pnpm build` / `yarn build` |
+| Bun        | `bun test` / `bun run typecheck`                                      | `bun run build`                               |
+| Rust       | `cargo check`                                                         | `cargo build`                                 |
+| Go         | `go vet ./...`                                                        | `go build ./...`                              |
+| Python     | `pytest` / `python -m mypy <file>` / `python3 -m mypy <file>`         | —                                             |
+
+Do not run a provided command outside this table (on OpenCode, native rules deny any other shell command). Return `RESULT: cannot-fix` with `REASON: command not allowlisted — <value>`.
 
 ### 5. Return one of two response shapes
 
@@ -133,17 +143,23 @@ yourself. Run `bash` only for commands that start with one of these prefixes:
 
 - `ls`
 - `test`
-- `npm`
-- `pnpm`
-- `yarn`
-- `bun`
-- `npx`
-- `cargo`
-- `go`
+- `pnpm typecheck`
+- `pnpm tsc`
+- `yarn typecheck`
+- `npx tsc --noEmit`
+- `bun test`
+- `bun run typecheck`
+- `cargo check`
+- `go vet ./...`
 - `pytest`
-- `python`
-- `python3`
-- `make`
+- `python -m mypy`
+- `python3 -m mypy`
+- `npm run build`
+- `pnpm build`
+- `yarn build`
+- `bun run build`
+- `cargo build`
+- `go build ./...`
 
 Every command in a pipeline, `&&`/`||`/`;` chain, or subshell must match a prefix too. If the
 task needs any other command, do not run it; say which command you need in your report.

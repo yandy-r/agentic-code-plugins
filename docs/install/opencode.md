@@ -170,8 +170,17 @@ built-in for it. The npm package keeps it denied. The guard checks the text
 of each shell command, so some allowed commands stay outside it, with or
 without the guard:
 
-- Build, test, and interpreter commands (`npm`, `pytest`, `make`, `python`, …)
-  execute project code. An interpreter can read any file it is pointed at.
+- The fixer specialists (`pr-comment-fixer`, `review-fixer`,
+  `release-fix-applier`) may run only their listed type-check, test, and build
+  commands, such as `pnpm typecheck`, `pytest`, `cargo check`, or
+  `go vet ./...`, plus `ls` and `test` for `review-fixer` and
+  `release-fix-applier` and the read-only git commands for `review-fixer`.
+  Native rules deny every other shell command, including
+  interpreter one-liners, with or without the guard. Those runners still execute
+  project code and config (tests, package scripts, `build.rs`) that the agent
+  can edit.
+- `db-modifier` runs `psql` and `supabase`, which are interpreters by
+  function and can read any file they are pointed at.
 - Read-only git history commands print committed file contents without naming
   the file. `backport-conflict-resolver` may run `git show`, `git log`,
   `git blame`, and `git diff`, and `review-fixer` may run `git log` and
