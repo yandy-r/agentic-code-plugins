@@ -13,3 +13,24 @@ select = [
   "I",
   "UP",
 ]
+
+# `./scripts/validate.sh --only types` (scripts/validate-types.sh) runs mypy with
+# this config. Coverage grows module by module: add a file to `files` once it
+# passes `mypy --strict`. Pins live in scripts/requirements-mypy.txt.
+[tool.mypy]
+strict = true
+python_version = "3.11"
+files = [
+  "scripts/validate_codex_native.py",
+  "scripts/install_migrate.py",
+  "scripts/codex_install.py",
+  "scripts/generate_codex_plugin.py",
+  "scripts/codex_native_smoke.py",
+  "scripts/test_codex_native_smoke.py",
+  "scripts/validate_capability_matrix.py",
+  "scripts/generate_omp_skills.py",
+  "scripts/test_generate_omp_skills.py",
+  "scripts/claude_agents_split.py",
+  "scripts/claude_agents_split_smoke.py",
+  "scripts/test_claude_agents_split.py",
+]

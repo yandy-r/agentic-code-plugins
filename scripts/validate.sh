@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Unified validate entrypoint — run every validator that guards the ycc
-# source-of-truth directory and its generated Cursor/Codex/opencode bundles.
+# source-of-truth directory and its generated Cursor/Codex/opencode/OMP bundles.
 #
 # Usage:
 #   ./scripts/validate.sh                       # all targets
@@ -13,10 +13,11 @@
 # replayed in order. `config` runs last and alone: its install tests regenerate
 # the bundles in this checkout, which the other targets read.
 #
-# Targets: inventory, cursor, codex, opencode, agents, claude, claude-native,
-#          cursor-native, codex-native, json, config, packages, release, mods, practices, scope
+# Targets: inventory, cursor, codex, opencode, omp, agents, claude, claude-native,
+#          cursor-native, codex-native, json, config, packages, release, mods, practices, scope, types
 #   - inventory  validates ycc skill frontmatter, the shared inventory, the formatter bundle and
 #                plan-workflow regressions and per-runtime worktree roots (scripts/test-worktree-roots.sh)
+#   - omp        checks generated OMP skill drift (bytes and modes), content policy and golden tests
 #   - json       validates .claude-plugin/marketplace.json plus ycc/.claude-plugin/plugin.json
 #   - claude     tests the generated hidden Claude package generator
 #   - *-native   checks generated native package drift, runtime policies and fixtures;
@@ -32,6 +33,8 @@
 #                scripts/practices-baseline.json (unit tests + validator + optional
 #                `claude plugin validate`) and checks standalone agent references
 #   - scope      tests the changed-path -> target mapping behind --changed
+#   - types      runs `mypy --strict` over the modules listed in pyproject.toml [tool.mypy]
+#                (scripts/validate-types.sh; mypy pinned in scripts/requirements-mypy.txt)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -50,7 +53,7 @@ usage() {
 Usage: $(basename "$0") [--only <targets>] [--changed | --since <ref>] [--serial]
 
 Run every validator for the ycc source-of-truth directory and its generated
-Cursor / Codex / opencode bundles and managed configuration sync.
+Cursor / Codex / opencode / OMP bundles and managed configuration sync.
 
 Options:
   --only <targets>   Comma-separated subset (valid: ${VALID_TARGETS[*]})
@@ -66,6 +69,7 @@ Examples:
   $(basename "$0") --only cursor,codex
   $(basename "$0") --only json
   $(basename "$0") --only practices
+  $(basename "$0") --only types
   $(basename "$0") --changed
 EOF
 }
@@ -246,6 +250,12 @@ run_target() {
             echo "== test: codex skills generator =="
             python3 "${REPO_ROOT}/scripts/test_generate_codex_skills.py" || fail "test_generate_codex_skills.py"
             ;;
+        omp)
+            echo "== validate: omp skills =="
+            "${REPO_ROOT}/scripts/validate-omp-skills.sh" || fail "validate-omp-skills.sh"
+            echo "== test: omp skills generator =="
+            python3 "${REPO_ROOT}/scripts/test_generate_omp_skills.py" || fail "test_generate_omp_skills.py"
+            ;;
         opencode)
             echo "== validate: opencode skills =="
             "${REPO_ROOT}/scripts/validate-opencode-skills.sh" || fail "validate-opencode-skills.sh"
@@ -285,6 +295,9 @@ run_target() {
             echo "== validate: claude native packages =="
             "${REPO_ROOT}/scripts/validate-claude-packages.sh" || fail "validate-claude-packages.sh"
             python3 "${REPO_ROOT}/scripts/test_validate_claude_native.py" || fail "test_validate_claude_native.py"
+            echo "== validate: hidden v7 split (ycc skills + ycc-agents) =="
+            python3 "${REPO_ROOT}/scripts/claude_agents_split.py" --check || fail "claude_agents_split.py --check"
+            python3 "${REPO_ROOT}/scripts/test_claude_agents_split.py" || fail "test_claude_agents_split.py"
             ;;
         cursor-native)
             echo "== validate: cursor native packages =="
@@ -318,6 +331,9 @@ run_target() {
 		echo "== validate: install document package IDs =="
 		python3 "${REPO_ROOT}/scripts/validate_install_doc_ids.py" || fail "validate_install_doc_ids.py"
 		python3 "${REPO_ROOT}/scripts/test_validate_install_doc_ids.py" || fail "test_validate_install_doc_ids.py"
+		echo "== validate: target capability matrix =="
+		python3 "${REPO_ROOT}/scripts/test_validate_capability_matrix.py" || fail "test_validate_capability_matrix.py"
+		python3 "${REPO_ROOT}/scripts/validate_capability_matrix.py" || fail "validate_capability_matrix.py"
 		;;
         release)
             local -a release_tests=("${REPO_ROOT}"/scripts/test-release-*.sh)
@@ -349,6 +365,10 @@ run_target() {
         scope)
             echo "== validate: changed-path scoping =="
             "${REPO_ROOT}/scripts/test-validate-scope.sh" || fail "test-validate-scope.sh"
+            ;;
+        types)
+            echo "== validate: mypy --strict (pyproject.toml [tool.mypy]) =="
+            "${REPO_ROOT}/scripts/validate-types.sh" || fail "validate-types.sh"
             ;;
     esac
 }

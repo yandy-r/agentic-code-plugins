@@ -265,6 +265,59 @@ class StrictDispatchTests(unittest.TestCase):
             self.assertTrue(any("invalid agent reference" in e and "'RoleFocus'" in e for e in errors), errors)
             self.assertEqual(skill_agent_edges(graph, "s1"), [])
 
+    def test_column_and_prose_dispatch_syntaxes(self) -> None:
+        bodies = {
+            "subagent type column": "| Name | Subagent Type |\n| --- | --- |\n| `x` | `real-agent` |\n",
+            "plugin agent name column": "| Agent | Plugin Agent Name |\n| --- | --- |\n| A | `real-agent` |\n",
+            "teammate type column": "| Teammate | Type |\n| --- | --- |\n| t | `real-agent` |\n",
+            "prose subagent type": "Deploy agents using subagent type `real-agent`.\n",
+            "prose all use": "All eight use `real-agent`.\n",
+            "roster field": "- Agent: real-agent\n",
+            "recommended agent multi-span cell": (
+                "| Task | Recommended Agent |\n| --- | --- |\n| T | `explore`, `real-agent` |\n"
+            ),
+        }
+        for label, body in bodies.items():
+            with self.subTest(syntax=label), tempfile.TemporaryDirectory() as tmpdir:
+                graph, errors = extract_graph(build_tree(Path(tmpdir), body))
+                self.assertEqual(errors, [])
+                self.assertIn(("skill:s1", "agent:real-agent", "dispatch"), graph.edges)
+
+    def test_non_dispatch_columns_and_types_are_ignored(self) -> None:
+        body = "| Field | Type |\n| --- | --- |\n| `real-agent` | `string` |\n"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            graph, errors = extract_graph(build_tree(Path(tmpdir), body))
+            self.assertEqual(errors, [])
+            self.assertEqual(skill_agent_edges(graph, "s1"), [("skill:s1", "agent:real-agent", "mention")])
+
+    def test_bare_name_contexts_are_mentions_and_prose_is_not(self) -> None:
+        bodies = {
+            "arrow list": "- Frontend work → real-agent\n",
+            "heading": "#### real-agent\n",
+            "list lead": "1. real-agent (understand patterns)\n",
+            "parenthesized": "2. **Mapper** (`real-agent`) -> out.md\n",
+            "code span": "one `real-agent` per scope\n",
+        }
+        for label, body in bodies.items():
+            with self.subTest(context=label), tempfile.TemporaryDirectory() as tmpdir:
+                graph, errors = extract_graph(build_tree(Path(tmpdir), body))
+                self.assertEqual(errors, [])
+                self.assertIn(("skill:s1", "agent:real-agent", "mention"), graph.edges)
+        for prose in ("the real-agent runs later\n", "see real-agent.md and real-agent-extra\n"):
+            with self.subTest(prose=prose), tempfile.TemporaryDirectory() as tmpdir:
+                graph, _ = extract_graph(build_tree(Path(tmpdir), prose))
+                self.assertEqual(skill_agent_edges(graph, "s1"), [])
+
+    def test_same_named_skill_and_agent_follow_agent_context(self) -> None:
+        body = "Run `/ycc:s1` or the ycc:s1 skill; delegate to the `ycc:s1` agent.\n"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = build_tree(Path(tmpdir), body)
+            (root / "agents/s1.md").write_text("---\nname: s1\n---\n", encoding="utf-8")
+            graph, errors = extract_graph(root)
+            self.assertEqual(errors, [])
+            self.assertEqual(graph.edges[("skill:s1", "agent:s1", "mention")].count, 1)
+            self.assertEqual(graph.edges[("skill:s1", "skill:s1", "mention")].count, 2)
+
 
 class CatalogSkillTests(unittest.TestCase):
     def test_complete_synthetic_tree_has_no_errors(self) -> None:

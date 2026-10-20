@@ -199,6 +199,12 @@ The gates and feature switches are listed in
   `install.sh migrate` must delete those copies itself.
 - **Claude agents.** Splitting agents into `ycc-agents` in 6.x would need qualified
   `ycc-agents:` references, which is a breaking namespace change. It is therefore v7.0.0.
+  Hidden prep (YAN-1142): `scripts/claude_agents_split.py` builds the split on demand from
+  unchanged `ycc/` source and never commits it. The split has a skills-only `ycc` that
+  depends on an agents-only `ycc-agents`, and agent references become
+  `ycc-agents:<frontmatter-name>`. The `claude-native` validation target checks the built tree.
+  `scripts/test-claude-agents-split.sh` is the opt-in live dispatch proof. Results are in
+  the namespace spike's "Production prep" section.
 - **opencode.** The npm package is optional and experimental. The file copy stays primary.
   On v2.0.29, the tested local-file config `instructions` entry did not reach the model.
   Plugin-delivered instructions can use the verified context hook. Discovered global and
@@ -241,6 +247,10 @@ cache-relative helper execution, and MCP metadata assertions. The fixture payloa
 was 5.3.0, not the target v6.0.0. See the [public fork install evidence](../spikes/codex-public-fork-install.md)
 for pinned fixture/binary provenance, replay commands, and boundaries. Production listing
 (YAN-1140) and migration/dedupe (YAN-1139) remained closed; both have since landed in v6.0.0.
+YAN-1217 then made the public profile certify the production repo itself: on codex-cli 0.160.0
+and 0.163.0, `yandy-r/ystack` at a pinned `main` SHA installed both packages (v6.0.0 payload)
+from full and sparse checkouts; the fixture proof now ignores installer-owned `.codex-plugin/`
+entries, and `--codex-exact` keeps the exact-pin spike replay.
 
 YAN-1132 later generated the hidden native Cursor packages under `packages/cursor/` from
 `ycc/settings/packages.json`: `ycc` (skills, agents, shared, and thin command files derived

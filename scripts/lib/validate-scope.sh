@@ -8,12 +8,29 @@
 # the unscoped validate.sh, so a rule that is too narrow is caught there.
 
 # shellcheck disable=SC2034  # read by validate.sh and the scope tests.
-VALIDATE_TARGETS=(inventory cursor codex opencode agents claude claude-native cursor-native codex-native json config packages release mods practices scope)
+VALIDATE_TARGETS=(inventory cursor codex opencode omp agents claude claude-native cursor-native codex-native json config packages release mods practices scope types)
 
 # validate_scope_targets_for_path <path> — print the targets a changed
 # repo-relative path affects: a space-separated list, `all`, or nothing.
+# mypy follows imports from the modules in pyproject.toml [tool.mypy], so any
+# non-test script can join their import closure: each one also selects `types`.
 validate_scope_targets_for_path() {
+    local targets
+    targets="$(validate_scope_owned_targets "$1")"
     case "$1" in
+        scripts/test_*.py) ;;
+        scripts/*.py) [[ "${targets}" == "all" ]] || targets="${targets:+${targets} }types" ;;
+    esac
+    [[ -z "${targets}" ]] || echo "${targets}"
+}
+
+# validate_scope_owned_targets <path> — the targets that own <path> itself.
+validate_scope_owned_targets() {
+    case "$1" in
+        # The type-check pins and runner. pyproject.toml (the mypy config)
+        # stays on the catch-all, which includes `types`.
+        scripts/requirements-mypy.txt | scripts/validate-types.sh) echo "types" ;;
+
         # Generated artifacts and docs owned by a single target.
         docs/inventory.json | README.md) echo "inventory" ;;
         .cursor-plugin/*) echo "cursor cursor-native packages" ;;
@@ -25,23 +42,36 @@ validate_scope_targets_for_path() {
         packages/cursor/*) echo "cursor cursor-native packages" ;;
         packages/claude/*) echo "claude claude-native packages" ;;
         packages/opencode/*) echo "opencode release packages" ;;
+        packages/omp/*) echo "omp" ;;
 
         # The package manifest and its model feed the packages validators and
         # per-runtime package generators, so they must match before the
         # catch-all settings rule.
         ycc/settings/packages.json | ycc/settings/packages.schema.json) echo "cursor codex opencode claude claude-native cursor-native codex-native packages" ;;
         scripts/package_model.py | scripts/test_package_model.py) echo "cursor codex opencode claude claude-native cursor-native codex-native packages" ;;
-        scripts/build_package_graph.py | scripts/package_graph_extract.py | scripts/test_package_graph.py) echo "packages" ;;
+        # The graph extractor also drives the hidden v7 Claude split check in claude-native.
+        scripts/build_package_graph.py | scripts/package_graph_extract.py) echo "claude-native packages" ;;
+        scripts/test_package_graph.py) echo "packages" ;;
         scripts/validate_packages.py | scripts/test_validate_packages.py) echo "packages" ;;
         scripts/validate_install_doc_ids.py | scripts/test_validate_install_doc_ids.py) echo "packages" ;;
+        scripts/validate_capability_matrix.py | scripts/test_validate_capability_matrix.py) echo "packages" ;;
         # Claude package generator, validator and tests.
         scripts/generate_claude_packages.py | scripts/generate-claude-packages.sh | scripts/validate-claude-packages.sh | scripts/validate_claude_native.py | scripts/test_validate_claude_native.py | scripts/test_generate_claude_packages.py | scripts/test-claude-native-packages.sh | scripts/claude_native_smoke.py) echo "claude claude-native" ;;
+        # Hidden v7 Claude split (ycc + ycc-agents): builder/validator, tests and opt-in live harness.
+        # Its unit tests are in the [tool.mypy] file list, so they also select types.
+        scripts/claude_agents_split.py | scripts/claude_agents_split_smoke.py | scripts/test-claude-agents-split.sh) echo "claude-native" ;;
+        scripts/test_claude_agents_split.py) echo "claude-native types" ;;
 
         # Cursor native package generator, validator and tests. The component
         # generators (skills/agents/rules) stay on the catch-all: install tests
         # and other targets import or regenerate them.
         scripts/generate_cursor_packages.py | scripts/cursor_native_resources.py | scripts/generate-cursor-packages.sh | scripts/validate-cursor-packages.sh | scripts/validate_cursor_native.py | scripts/test_validate_cursor_native.py | scripts/test_generate_cursor_packages.py | scripts/vendor/cursor/*) echo "cursor cursor-native config" ;;
         scripts/cursor_live_smoke.py | scripts/test_cursor_live_smoke.py) echo "cursor-native" ;;
+
+        # OMP skill generator, validator and golden tests. The golden tests are
+        # in pyproject.toml [tool.mypy] files, so they also select `types`.
+        scripts/generate_omp_skills.py | scripts/generate-omp-skills.sh | scripts/validate-omp-skills.sh) echo "omp" ;;
+        scripts/test_generate_omp_skills.py) echo "omp types" ;;
 
         # Install docs contain model-validated public package identifiers.
         docs/install/*) echo "packages" ;;
@@ -59,7 +89,7 @@ validate_scope_targets_for_path() {
         # the install tests and the manifest checks, so they select everything.
         ycc/settings/* | ycc/.claude-plugin/*) echo "all" ;;
         ycc/mods/*) echo "config mods" ;;
-        ycc/*) echo "inventory cursor codex opencode agents claude-native cursor-native codex-native packages release practices" ;;
+        ycc/*) echo "inventory cursor codex opencode omp agents claude-native cursor-native codex-native packages release practices" ;;
 
         # install.sh and its tests. The install-coverage validators in the
         # agents and opencode targets parse the per-target install libs.

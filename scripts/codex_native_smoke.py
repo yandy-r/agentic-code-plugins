@@ -69,11 +69,39 @@ def file_inventory(root: Path) -> dict[Path, tuple[bytes, bool]]:
     return items
 
 
+def catalog_payload_dirs(catalog_path: Path) -> list[str]:
+    """Return the `.codex-plugin/<name>` payload dirs a native catalog names."""
+    plugins = json.loads(catalog_path.read_text(encoding="utf-8")).get("plugins")
+    if not isinstance(plugins, list) or not plugins:
+        raise ValueError(f"{catalog_path}: catalog names no plugins")
+    dirs: list[str] = []
+    for plugin in plugins:
+        source = plugin.get("source") if isinstance(plugin, dict) else None
+        path = source.get("path") if isinstance(source, dict) else None
+        # One safe segment: no traversal, nesting, absolute, or non-local source.
+        match = re.fullmatch(r"\./\.codex-plugin/([A-Za-z0-9][A-Za-z0-9._-]*)", path) if isinstance(path, str) else None
+        if match is None or source != {"source": "local", "path": path}:
+            raise ValueError(f"{catalog_path}: unsupported plugin source {source!r}")
+        name = match.group(1)
+        if name in dirs:
+            raise ValueError(f"{catalog_path}: duplicate plugin source {path!r}")
+        dirs.append(name)
+    return dirs
+
+
 def check_fixture(fresh_export: Path, remote_root: Path) -> None:
-    # Compare the entire owned distribution, not only files common to both trees.
-    # Fixture documentation outside these roots is not an installable payload.
+    # Compare the full catalog and every payload it names, not only files common
+    # to both trees. Other `.codex-plugin/` entries (installer-owned agents/ and
+    # config/) and fixture documentation are not installable payloads.
+    payloads = [
+        Path(".codex-plugin") / name for name in catalog_payload_dirs(fresh_export / ".agents/plugins/marketplace.json")
+    ]
     problems: list[str] = []
-    for rel in (Path(".agents/plugins"), Path(".codex-plugin")):
+    for rel in (Path(".agents/plugins"), *payloads):
+        for root in (fresh_export / rel, remote_root / rel):
+            # rglob follows a symlinked start directory, so reject it up front.
+            if root.is_symlink() or (root.exists() and not root.is_dir()):
+                raise ValueError(f"unexpected non-directory payload root: {root}")
         expected = file_inventory(fresh_export / rel)
         actual = file_inventory(remote_root / rel)
         missing = sorted(map(str, set(expected) - set(actual)))
@@ -83,7 +111,8 @@ def check_fixture(fresh_export: Path, remote_root: Path) -> None:
             problems.append(f"{rel}: missing={missing} extra={extra} changed={changed}")
     if problems:
         raise ValueError(f"public fixture drift (bytes/exec bits): {problems}")
-    print("PASS public fixture catalog/payload bytes and executable bits match fresh native export")
+    compared = ", ".join(map(str, payloads))
+    print(f"PASS public fixture catalog and payloads ({compared}) match fresh native export (bytes + exec bits)")
 
 
 def check_mcp_list(mcp_path: Path, expected_packages: set[str]) -> None:

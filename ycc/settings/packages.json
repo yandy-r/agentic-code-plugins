@@ -59,6 +59,26 @@
             "Interactive installation and installed-plugin runtime verification"
           ],
           "notes": "Ships through the GitHub marketplace; no cursor.com submission before post-6.0."
+        },
+        "omp": {
+          "status": "deferred",
+          "listed": false,
+          "mechanism": "native",
+          "components": ["skills", "agents", "shared"],
+          "requires": [],
+          "target_release": "v6.1.0",
+          "experimental": false,
+          "opt_in": false,
+          "evidence": [
+            "docs/internal/adr/0002-omp-runtime-contract.md",
+            "docs/internal/spikes/omp-runtime-contract.md"
+          ],
+          "gates": [
+            "YAN-1169 agent translator under .omp-plugin/plugin.json",
+            "YAN-1171 .omp-plugin/marketplace.json and per-package tree generator",
+            "YAN-1178 live acceptance matrix passes on the real ycc tree"
+          ],
+          "notes": "Generated OMP package (omp >=18.12.2) with rewritten ${CLAUDE_PLUGIN_ROOT}, /ycc: and _shared references and agents translated to @role models; optional commands/ wrappers stay with YAN-1168."
         }
       }
     },
@@ -111,6 +131,26 @@
             "Interactive installation and installed-plugin runtime verification"
           ],
           "notes": "Native MCP-only plugin."
+        },
+        "omp": {
+          "status": "deferred",
+          "listed": false,
+          "mechanism": "native",
+          "components": ["mcp"],
+          "requires": [],
+          "target_release": "v6.1.0",
+          "experimental": false,
+          "opt_in": false,
+          "evidence": [
+            "docs/internal/adr/0002-omp-runtime-contract.md",
+            "docs/internal/spikes/omp-runtime-contract.md"
+          ],
+          "gates": [
+            "YAN-1173 ycc-mcp OMP package with native .mcp.json",
+            "YAN-1171 .omp-plugin/marketplace.json and per-package tree generator",
+            "YAN-1178 live acceptance matrix passes on the real ycc tree"
+          ],
+          "notes": "Generated package with .mcp.json (omp >=18.12.2); servers become ycc-mcp:<server> and ${VAR} env placeholders expand."
         }
       }
     },
@@ -150,9 +190,7 @@
             "docs/internal/adr/0001-package-model-and-versioning.md",
             "docs/internal/spikes/codex-marketplace.md"
           ],
-          "gates": [
-            "YAN-1149 verifies hook trust and dispatch, or a later spike supersedes the YAN-1123 no-go"
-          ],
+          "gates": ["YAN-1149 verifies hook trust and dispatch, or a later spike supersedes the YAN-1123 no-go"],
           "notes": "Excluded: NO-GO until verified under YAN-1149 (YAN-1149 gate). Hooks stay out of the Codex bundle."
         },
         "cursor": {
@@ -173,6 +211,26 @@
             "Interactive installation and installed-plugin runtime verification"
           ],
           "notes": "sessionStart only; WorktreeCreate stays on install.sh."
+        },
+        "omp": {
+          "status": "deferred",
+          "listed": false,
+          "mechanism": "native",
+          "components": ["hooks"],
+          "requires": [],
+          "target_release": "v6.1.0",
+          "experimental": false,
+          "opt_in": false,
+          "evidence": [
+            "docs/internal/adr/0002-omp-runtime-contract.md",
+            "docs/internal/spikes/omp-runtime-contract.md"
+          ],
+          "gates": [
+            "YAN-1174 extension package with the herdr session_start shim",
+            "YAN-1171 .omp-plugin/marketplace.json and per-package tree generator",
+            "YAN-1178 live acceptance matrix passes on the real ycc tree"
+          ],
+          "notes": "Extension adapter (omp.extensions, omp >=18.12.2) bound to session_start only for herdr reporting; WorktreeCreate is unsupported because OMP has no such event, and a session restart is needed after install."
         }
       }
     },
@@ -194,6 +252,22 @@
             "Proof of automatic dependency installation on the candidate baseline and the latest client before listing"
           ],
           "notes": "Meta plugin that installs ycc, ycc-mcp, and ycc-hooks through Claude plugin dependencies."
+        },
+        "omp": {
+          "status": "excluded",
+          "listed": false,
+          "mechanism": "native",
+          "components": ["skills", "agents", "shared", "mcp", "hooks"],
+          "requires": [],
+          "target_release": "v6.1.0",
+          "experimental": false,
+          "opt_in": false,
+          "evidence": [
+            "docs/internal/adr/0002-omp-runtime-contract.md",
+            "docs/internal/spikes/omp-runtime-contract.md"
+          ],
+          "gates": [],
+          "notes": "Excluded: the OMP marketplace does not read plugin dependencies, so ycc-all (the union of ycc, ycc-mcp, and ycc-hooks) is omitted from the OMP catalog; install those parts separately."
         }
       }
     },
@@ -212,12 +286,12 @@
           "opt_in": false,
           "evidence": [
             "docs/internal/adr/0001-package-model-and-versioning.md",
-            "docs/internal/spikes/claude-namespace.md"
+            "docs/internal/spikes/claude-namespace.md",
+            "scripts/claude_agents_split.py",
+            "scripts/test-claude-agents-split.sh"
           ],
-          "gates": [
-            "Production reference validation and live dispatch tests pass, then v7.0.0 ships"
-          ],
-          "notes": "Deferred to v7.0.0 as a breaking change with qualified ycc-agents: references; the v6 namespace spike rejects a shared manifest name."
+          "gates": ["Production reference validation and live dispatch tests pass, then v7.0.0 ships"],
+          "notes": "Deferred to v7.0.0 as a breaking change with qualified ycc-agents: references; the v6 namespace spike rejects a shared manifest name. Hidden prep: claude_agents_split.py builds and validates the split on demand (claude-native check); test-claude-agents-split.sh is the opt-in live dispatch proof."
         }
       }
     },
@@ -240,6 +314,26 @@
             "Interactive installation and installed-plugin runtime verification"
           ],
           "notes": "Cursor-only rules package. No Claude ycc-rules: Claude rules stay on install.sh (see installer-fallback claude)."
+        },
+        "omp": {
+          "status": "deferred",
+          "listed": false,
+          "mechanism": "native",
+          "components": ["rules"],
+          "requires": [],
+          "target_release": "v6.1.0",
+          "experimental": false,
+          "opt_in": false,
+          "evidence": [
+            "docs/internal/adr/0002-omp-runtime-contract.md",
+            "docs/internal/spikes/omp-runtime-contract.md"
+          ],
+          "gates": [
+            "YAN-1175 rules flattener",
+            "YAN-1171 .omp-plugin/marketplace.json and per-package tree generator",
+            "YAN-1178 live acceptance matrix passes on the real ycc tree"
+          ],
+          "notes": "Generated package with flat rules/ (omp >=18.12.2): the nested Cursor tree flattens under unique names, paths becomes globs, and alwaysApply and description are kept."
         }
       }
     },
@@ -344,6 +438,25 @@
           "evidence": ["docs/internal/adr/0001-package-model-and-versioning.md"],
           "gates": [],
           "notes": "install.sh only: skills and ycc-shared into ~/.agents. The npx skills path is unspiked."
+        },
+        "omp": {
+          "status": "deferred",
+          "listed": false,
+          "mechanism": "file-copy",
+          "components": ["rules", "instructions", "settings", "statusline"],
+          "requires": [],
+          "target_release": "v6.1.0",
+          "experimental": false,
+          "opt_in": false,
+          "evidence": [
+            "docs/internal/adr/0002-omp-runtime-contract.md",
+            "docs/internal/spikes/omp-runtime-contract.md"
+          ],
+          "gates": [
+            "YAN-1172 install.sh OMP lifecycle through omp plugin",
+            "YAN-1175 settings, rules, and modelRoles fallback snippets"
+          ],
+          "notes": "User and project config.yml layers (modelRoles, task.agentModelOverrides); OMP has no plugin channel for settings or model roles, so these stay documented or opt-in snippets."
         }
       }
     }

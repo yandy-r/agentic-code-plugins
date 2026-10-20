@@ -233,7 +233,7 @@ def digest(path: Path) -> str:
 
 def snapshot(paths: list[str]) -> dict[str, Any]:
     """Capture content/mtime identity, not secret contents; do not follow symlinks."""
-    result = {}
+    result: dict[str, Any] = {}
     for raw in paths:
         root = Path(raw)
         items = [root]
