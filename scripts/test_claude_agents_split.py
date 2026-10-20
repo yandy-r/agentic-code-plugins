@@ -188,11 +188,11 @@ class ValidatorRuleTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.out = Path(self.tmp.name) / "out"
         self.expected = build_split(source_tree(Path(self.tmp.name) / "src"), self.out).dispatching_skills
-        self.assertEqual(validate_split(self.out, self.expected), ([], []))
+        self.assertEqual(validate_split(self.out, self.expected), [])
 
     def errors_after(self, relative: str, text: str) -> list[str]:
         write(self.out / relative, text)
-        return validate_split(self.out, self.expected)[0]
+        return validate_split(self.out, self.expected)
 
     def assert_rule(self, relative: str, text: str, needle: str) -> None:
         errors = self.errors_after(relative, text)
@@ -242,11 +242,18 @@ class ValidatorRuleTests(unittest.TestCase):
         manifest = {"name": "ycc", "version": "9.9.9", "author": {"name": "t"}}
         self.assert_rule("ycc/.claude-plugin/plugin.json", json.dumps(manifest), "dependencies ['ycc-agents']")
 
-    def test_agents_dir_reach_in_is_a_warning(self) -> None:
-        write(self.out / "ycc/skills/plan/check.sh", 'ls "${PLUGIN_ROOT}/agents"\n')
-        errors, warnings = validate_split(self.out, self.expected)
-        self.assertEqual(errors, [])
-        self.assertEqual(len(warnings), 1, warnings)
+    def test_agents_dir_reach_in_is_an_error(self) -> None:
+        for line in (
+            'ls "${PLUGIN_ROOT}/agents"',
+            'ls "${CLAUDE_PLUGIN_ROOT}"/agents/x.md',
+            'ls "${CLAUDE_PLUGIN_ROOT:-.}/agents"',
+            'ls "$SCRIPT_DIR/../../../agents"',
+        ):
+            with self.subTest(line=line):
+                self.assert_rule("ycc/skills/plan/check.sh", line + "\n", "reads the plugin's own agents/")
+
+    def test_agents_prefixed_path_is_not_a_reach_in(self) -> None:
+        self.assertEqual(self.errors_after("ycc/skills/plan/check.sh", 'ls "${PLUGIN_ROOT}/agents-team"\n'), [])
 
 
 class RealTreeTests(unittest.TestCase):

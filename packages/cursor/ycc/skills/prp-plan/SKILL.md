@@ -137,8 +137,6 @@ Gather codebase intelligence across 8 categories and 5 traces.
 
 **5 traces**: Entry Points, Data Flow, State Changes, Contracts, Patterns
 
-When `ENHANCED_MODE=true`, run `${CURSOR_PLUGIN_ROOT}/skills/prp-plan/scripts/preflight-enhanced-agents.sh` and abort with the script's stderr if it exits non-zero. This catches missing agent dependencies before any researcher is dispatched. The script auto-derives the plugin root from its own install location; no argument needed at runtime.
-
 Read `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/standalone-dispatch.md` when `AGENT_TEAM_MODE=false` for standalone research dispatch; read `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/agent-team-dispatch.md` only when `--team` is passed for Path C lifecycle.
 
 ### Path A — Sequential (default)
