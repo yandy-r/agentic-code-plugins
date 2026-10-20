@@ -202,9 +202,10 @@ OMP cannot restrict `bash` to specific commands, so this scope is a hard rule yo
 yourself. Run `bash` only for commands that start with one of these prefixes:
 
 - `ls`
-- `cat`
 - `test`
-- `git`
+- `git diff`
+- `git status`
+- `git log`
 - `npm`
 - `pnpm`
 - `yarn`
