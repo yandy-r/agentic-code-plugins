@@ -575,6 +575,15 @@ not the `index.js` file.
 - **MCP servers**: plain data from `mcp-configs/mcp.json`; `{{env:VAR}}` placeholders resolve from the
   environment at setup time.
 - **Instructions**: `AGENTS.md` pushed through the session `context` hook.
+- **Sensitive-file guard** (`ycc-sensitive-guard/`, the same plugin the file-copy install loads): for the
+  restricted specialists in its `policy.json` it checks tool calls against the sensitive-file policy,
+  filters search results, and provides their only search tools (`ycc_grep`/`ycc_glob`, shown to them as
+  `grep`/`glob`) after checking the caller's own permissions.
+- **Restricted-agent floor**: OpenCode appends your own top-level `permissions` after a package agent's
+  rules, so for the restricted specialists the package re-applies their packaged rules: a permission request
+  those rules deny is denied, and a tool whose permission they deny outright is neither offered nor run. It
+  never loosens or re-prompts a decision. Shell interpreters and build tools in their allowlists still run
+  project code, which the guard does not bound.
 
 ## Coexistence with the file-copy install
 

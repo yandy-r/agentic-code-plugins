@@ -61,6 +61,7 @@ from generate_opencode_dispatch import (
 )
 from opencode_sensitive_policy import (
     GUARD_DIR,
+    GUARDED_SEARCH_TOOLS,
     SensitivePolicy,
     guard_drift,
     load_policy,
@@ -114,7 +115,9 @@ EXTERNAL_DIRECTORY_ASK: PermissionRule = {
     "resource": "*",
     "effect": "ask",
 }
-FILESYSTEM_ACTIONS: frozenset[str] = frozenset({"read", "edit", "glob", "grep", "shell"})
+FILESYSTEM_ACTIONS: frozenset[str] = frozenset(
+    {"read", "edit", "glob", "grep", "shell", *GUARDED_SEARCH_TOOLS.values()}
+)
 # These restore OpenCode's sensitive-file defaults for the `read` action only.
 # Agents in the sensitive-file registry replace them with path denies; other
 # discovery actions retain their native V2 semantics and are emitted only
@@ -257,12 +260,16 @@ def convert_tools_to_permissions(
 
     With ``sensitive_policy`` the agent is restricted: its sensitive-path
     denies for `read`/`edit` are appended last so no earlier allow (and no
-    host default) can override them.
+    host default) can override them, and `grep`/`glob` are granted as the
+    guard's own search tools (GUARDED_SEARCH_TOOLS), so the agent has no
+    search tool when the guard is not loaded.
     """
     permissions: list[PermissionRule] = [DENY_ALL.copy()]
     seen: set[tuple[str, str, str]] = {("*", "*", "deny")}
     for spec in _enabled_tool_specs(value):
         for rule in _rules_for_tool(spec):
+            if sensitive_policy is not None:
+                rule["action"] = GUARDED_SEARCH_TOOLS.get(rule["action"], rule["action"])
             key = (rule["action"], rule["resource"], rule["effect"])
             if key not in seen:
                 permissions.append(rule)

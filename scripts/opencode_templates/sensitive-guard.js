@@ -18,6 +18,15 @@
 //   - execute.after removes sensitive files from grep and glob results and
 //     rebuilds the model-facing text, so a directory-wide search returns
 //     neither their names nor their content.
+//   - Search runs only through this plugin. Built-in grep/glob permissions
+//     are keyed by the search pattern, so native path rules cannot cover
+//     them; the generated restricted agents allow `ycc_grep`/`ycc_glob`
+//     instead of `grep`/`glob`. This plugin registers those tools by reusing
+//     the built-in definitions, applies the checks above inside them, and
+//     runs the built-in implementation as a hidden internal agent that may
+//     only search. A context hook shows them to restricted agents under the
+//     built-in names. When this plugin is not loaded, restricted agents have
+//     no search tool at all (fail closed).
 // Shell checks inspect the command text only. Build, test, and interpreter
 // commands execute project code, which this guard does not and cannot bound.
 //
@@ -28,10 +37,36 @@
 //     call, a mutable `result` { output?, content, metadata? }
 //     (packages/plugin/src/effect/tool.ts). Only execute.before may fail; a
 //     thrown error rejects that call before it runs
-//     (packages/plugin/src/promise/adapter.ts toolHook).
+//     (packages/plugin/src/promise/adapter.ts toolHook). execute.before sees
+//     the name the model called, execute.after the registered tool name
+//     (packages/core/src/tool.ts snapshot execute).
 //   - grep/glob output paths are relative to the session location; their
 //     model content lists absolute paths (packages/core/src/tool/plugin/grep.ts,
-//     glob.ts toModelContent).
+//     glob.ts toModelContent). Both assert their own action name against
+//     context.agent (grep.ts, glob.ts permission.assert).
+//   - ctx.tool.transform editor.get(id) returns a registered tool with a
+//     promise-returning execute; editor.add registers a tool whose visibility
+//     is gated by the permission action equal to its name
+//     (packages/plugin/src/promise/adapter.ts, packages/core/src/tool.ts
+//     snapshot/whollyDisabled).
+//   - ctx.session.hook("context") may move a tool definition to another key;
+//     the core maps it back to the registered tool by object identity
+//     (packages/plugin/src/promise/session.ts SessionContext,
+//     packages/core/src/session/model-request.ts).
+//   - `hidden` keeps an agent out of default selection and the subagent
+//     catalog, and the subagent tool refuses a `primary` agent
+//     (packages/core/src/agent.ts selectable, tool/plugin/subagent.ts). Such
+//     an agent is still listed by /api/agent and a client can select it.
+//   - ctx.permission.assert(input) evaluates the given agent's rules, prompts
+//     on `ask`, and rejects on deny or a declined prompt
+//     (packages/plugin/src/promise/permission.ts). Built-in search asks
+//     `external_directory` for a root outside both the session directory and
+//     the project worktree (the nearest `.git`/`.hg` ancestor), with resource
+//     `<directory>/*`; grep judges a file root by its parent, glob always
+//     treats the root as a directory (packages/core/src/file-access.ts
+//     resolve/authorizeExternal, project.ts resolve, tool/plugin/grep.ts,
+//     glob.ts). ctx.permission.hook("evaluate") may change an allow/ask
+//     effect; its event carries the request's `source` { messageID, id }.
 //   - ctx.session.get({ sessionID }) resolves { data: Session.Info } whose
 //     `location.directory` is the session's absolute directory
 //     (packages/protocol/src/groups/session.ts "session.get",
@@ -40,10 +75,27 @@
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { lstatSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
+import { lstatSync, readdirSync, readFileSync, readlinkSync, statSync } from "node:fs";
 
 const POLICY = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "policy.json"), "utf8"));
 const BLOCKED = "blocked by ycc sensitive-file guard: this specialist may not access secret-bearing files";
+// Built-in search tool -> guarded tool restricted agents are granted
+// (mirrors GUARDED_SEARCH_TOOLS in scripts/opencode_sensitive_policy.py).
+const GUARDED_SEARCH = { grep: "ycc_grep", glob: "ycc_glob" };
+const SEARCH_BASE = Object.fromEntries(Object.entries(GUARDED_SEARCH).map(([base, name]) => [name, base]));
+// Internal agent the guarded tools run the built-in implementation as. It may
+// only search. Every check that depends on the caller (its own search and
+// external-directory rules) is made as the calling agent before delegating,
+// so the helper allows external directories; host-wide rules appended after
+// its own can still deny them. execute.before rejects any tool call made by
+// it directly; the delegated call does not pass through tool hooks.
+const SEARCH_AGENT = "ycc-sensitive-search";
+const SEARCH_AGENT_RULES = [
+  { action: "*", resource: "*", effect: "deny" },
+  { action: "grep", resource: "*", effect: "allow" },
+  { action: "glob", resource: "*", effect: "allow" },
+  { action: "external_directory", resource: "*", effect: "allow" },
+];
 
 function globRegExp(glob) {
   let source = "";
@@ -298,7 +350,7 @@ function includeBlocked(include, root) {
 
 function blocked(tool, input, root) {
   const args = input && typeof input === "object" ? input : {};
-  switch (tool) {
+  switch (SEARCH_BASE[tool] ?? tool) {
     case "read":
       return readBlocked(args.path, root);
     case "edit":
@@ -384,23 +436,183 @@ async function sessionRoot(ctx, event) {
   return absoluteDirectory(ctx.location?.directory);
 }
 
+// Nearest ancestor holding `.git` or `.hg`: the project worktree the host
+// treats as internal (core/src/project.ts resolve). The filesystem root never
+// counts, as in core/src/file-access.ts resolve.
+function projectDirectory(start) {
+  let current = start;
+  while (true) {
+    for (const marker of [".git", ".hg"]) {
+      try {
+        lstatSync(join(current, marker));
+        return dirname(current) === current ? undefined : current;
+      } catch {
+        // Not here; keep walking up.
+      }
+    }
+    const parent = dirname(current);
+    if (parent === current) return undefined;
+    current = parent;
+  }
+}
+
+// The `external_directory` request the built-in makes for this search root
+// (`<directory>/*`), or undefined when the root is inside the session
+// directory or its project. Made for the calling agent instead of the helper;
+// an "always" reply saves only that directory.
+function externalDirectory(base, path, root) {
+  const target = resolve(root, expandHome(typeof path === "string" ? path : "."));
+  if (!outside(target, root)) return undefined;
+  const project = projectDirectory(root);
+  if (project && !outside(target, project)) return undefined;
+  let directory = target;
+  if (base === "grep") {
+    directory = dirname(target);
+    try {
+      if (statSync(target).isDirectory()) directory = target;
+    } catch {
+      // A missing root is judged by its parent, as the built-in does.
+    }
+  }
+  return join(directory, "*").replaceAll("\\", "/");
+}
+
+// The metadata the built-in attaches to its own search permission request.
+function searchMetadata(base, input) {
+  const args = input && typeof input === "object" ? input : {};
+  if (base === "grep") {
+    return {
+      root: ".",
+      path: args.path,
+      include: args.include,
+      literal: args.literal,
+      caseSensitive: args.caseSensitive,
+      limit: args.limit,
+    };
+  }
+  return { root: args.path ?? ".", path: args.path, hidden: args.hidden, limit: args.limit };
+}
+
+// Guarded calls in flight whose caller approved an external directory:
+// `${sessionID}\0${callID}` -> approved resource. The built-in then asks the
+// helper for the same directory, which would prompt the user a second time.
+const APPROVED = new Map();
+
+function approvalKey(sessionID, id) {
+  return `${sessionID}\u0000${id}`;
+}
+
+// Guarded search for restricted agents: the built-in grep/glob definition and
+// implementation, run as SEARCH_AGENT after the caller's own permission
+// checks, the same root checks the hooks apply, and with the same result
+// filtering. A host without the built-in gets no guarded tool, so the
+// restricted agent simply has no search (fail closed).
+async function registerSearchTools(ctx) {
+  await ctx.agent.transform((editor) => {
+    editor.update(SEARCH_AGENT, (agent) => {
+      agent.name = SEARCH_AGENT;
+      agent.description = "Internal: runs guarded searches for restricted ycc specialists.";
+      // Checked on an isolated v2.0.32 host: as a hidden `subagent` it could
+      // still be started by name through the subagent tool; as `primary` the
+      // tool rejects it ("cannot run as a subagent"). Explicit client
+      // selection remains possible, so execute.before also rejects its calls.
+      agent.mode = "primary";
+      agent.hidden = true;
+      agent.permissions = structuredClone(SEARCH_AGENT_RULES);
+    });
+  });
+  await ctx.tool.transform((editor) => {
+    for (const [base, name] of Object.entries(GUARDED_SEARCH)) {
+      const builtin = editor.get(base);
+      if (!builtin || typeof builtin.execute !== "function") continue;
+      editor.add({
+        name,
+        description: builtin.description,
+        input: builtin.input,
+        output: builtin.output,
+        options: { codemode: false },
+        execute: async (input, context) => {
+          if (!RESTRICTED.has(context.agent)) throw new Error(`${name} is reserved for restricted ycc specialists`);
+          const root = await sessionRoot(ctx, { sessionID: context.sessionID });
+          if (!root || blocked(base, input, root)) throw new Error(BLOCKED);
+          const caller = {
+            sessionID: context.sessionID,
+            agent: context.agent,
+            source: { type: "tool", messageID: context.messageID, id: context.id },
+          };
+          const external = externalDirectory(base, input?.path, root);
+          if (external) {
+            await ctx.permission.assert({ action: "external_directory", resources: [external], save: [external], ...caller });
+          }
+          await ctx.permission.assert({
+            action: name,
+            resources: [String(input?.pattern)],
+            save: ["*"],
+            metadata: searchMetadata(base, input),
+            ...caller,
+          });
+          const key = approvalKey(context.sessionID, context.id);
+          if (external) APPROVED.set(key, external);
+          try {
+            const result = await builtin.execute(input, { ...context, agent: SEARCH_AGENT });
+            filterResult(base, result, root);
+            return result;
+          } finally {
+            APPROVED.delete(key);
+          }
+        },
+      });
+    }
+  });
+  // The caller already approved this directory for this call: the helper's
+  // identical request is not asked again. Only an `ask` for exactly that
+  // resource, from the in-flight call, is changed; a deny never is.
+  await ctx.permission.hook("evaluate", (event) => {
+    if (event.agent !== SEARCH_AGENT || event.action !== "external_directory" || event.effect !== "ask") return;
+    const approved = APPROVED.get(approvalKey(event.sessionID, event.source?.id));
+    if (approved && event.resources.length > 0 && event.resources.every((resource) => resource === approved)) {
+      event.effect = "allow";
+    }
+  });
+  // Model-facing names stay grep/glob for restricted agents; a built-in the
+  // host still offers under that name is never shadowed. Other agents are
+  // never offered the guarded tools, which reject them anyway.
+  await ctx.session.hook("context", (event) => {
+    if (!RESTRICTED.has(event.agent)) {
+      for (const name of Object.values(GUARDED_SEARCH)) delete event.tools[name];
+      return;
+    }
+    for (const [base, name] of Object.entries(GUARDED_SEARCH)) {
+      const definition = event.tools[name];
+      if (!definition || event.tools[base]) continue;
+      event.tools[base] = definition;
+      delete event.tools[name];
+    }
+  });
+}
+
 export async function registerSensitiveGuard(ctx) {
   await ctx.tool.hook("execute.before", async (event) => {
+    // The internal search agent only runs inside the guarded tools, which
+    // call the built-in directly; a session running as it gets no tools.
+    if (event.agent === SEARCH_AGENT) throw new Error(BLOCKED);
     if (!RESTRICTED.has(event.agent)) return;
     const root = await sessionRoot(ctx, event);
     if (!root || blocked(event.tool, event.input, root)) throw new Error(BLOCKED);
   });
   await ctx.tool.hook("execute.after", async (event) => {
     if (!RESTRICTED.has(event.agent) || event.status !== "completed") return;
-    if (event.tool !== "grep" && event.tool !== "glob") return;
+    const base = SEARCH_BASE[event.tool] ?? event.tool;
+    if (base !== "grep" && base !== "glob") return;
     const root = await sessionRoot(ctx, event);
     if (!root) {
       event.result.output = [];
       event.result.content = "Search results withheld by ycc sensitive-file guard.";
       return;
     }
-    filterResult(event.tool, event.result, root);
+    filterResult(base, event.result, root);
   });
+  await registerSearchTools(ctx);
 }
 
 export default {

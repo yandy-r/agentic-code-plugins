@@ -132,14 +132,46 @@ Two layers enforce it:
   removes sensitive files from `grep` and `glob` results. Other agents are unaffected.
   The experimental npm package ships the same guard directory and registers it
   from its own setup.
+- **Guarded search.** Built-in `grep` and `glob` permissions match the search
+  pattern, not a file path, so native path rules cannot restrict them. The
+  restricted agents are therefore not granted `grep` or `glob`. They are granted
+  `ycc_grep` and `ycc_glob`, which only the guard plugin provides, and the
+  agents see them under the usual `grep`/`glob` names. Each call is first
+  checked against the calling agent's own rules: its `ycc_grep`/`ycc_glob`
+  permission, and an `external_directory` approval for a search root outside
+  the session's directory. The guard then applies its path checks, runs the
+  built-in search, and filters the results. The built-in runs as a hidden
+  internal agent, `ycc-sensitive-search`, whose rules allow only searching.
+  The guard rejects any tool call a session running as that agent makes
+  itself. Without the guard, a restricted agent has no search tool at all.
+- **Host rules cannot loosen the npm package's restricted agents.** OpenCode
+  appends your own top-level `permissions` after a package agent's rules, and
+  the last matching rule wins. The npm package therefore re-applies each
+  restricted agent's packaged rules on top of the host's decision:
+  - A permission request that the packaged rules deny for any resource is
+    denied, even with a user-global `read * allow`, `shell * allow`, or
+    `* * allow`.
+  - A tool whose permission the packaged rules deny outright is not offered to
+    the agent, and a call to it is rejected. This also covers tools that never
+    request a permission.
+  - The package never loosens a decision, and it does not turn an allow into a
+    prompt. A host-wide `external_directory` allow therefore still applies on
+    npm. Your rules can still make a restricted agent stricter.
 
-The guard plugin must be loaded. Keep the entry in your `opencode.json`. A
-project config that removes the plugin, or a plugin that fails to load, leaves
-only the native `read`/`edit` rules. The guard checks the text of each shell
-command, so some allowed commands stay outside it:
+  The file-copy install needs none of this, because there the agent's own
+  rules already come after host-wide rules.
+
+Keep the guard plugin entry in your `opencode.json`. A project config that
+removes the plugin, or a plugin that fails to load, leaves only the native
+`read`/`edit` rules, and the restricted agents lose search instead of gaining
+unguarded search. On the file-copy install, explicitly allowing `grep` or
+`glob` for a restricted agent in your own config re-enables the unguarded
+built-in for it. The npm package keeps it denied. The guard checks the text
+of each shell command, so some allowed commands stay outside it, with or
+without the guard:
 
 - Build, test, and interpreter commands (`npm`, `pytest`, `make`, `python`, …)
-  execute project code.
+  execute project code. An interpreter can read any file it is pointed at.
 - Read-only git history commands print committed file contents without naming
   the file. `backport-conflict-resolver` may run `git show`, `git log`,
   `git blame`, and `git diff`, and `review-fixer` may run `git log` and
@@ -147,8 +179,11 @@ command, so some allowed commands stay outside it:
   show a secret that was once committed.
 
 Maintainers can exercise the guard on an isolated host with
-`scripts/test-opencode-sensitive-guard.sh`. This opt-in check is not part of
-`validate.sh`.
+`scripts/test-opencode-sensitive-guard.sh`. It covers the file copy, the npm
+package with and without the guard under host-wide allow rules, the file copy
+with the guard absent or removed by a project config, and guarded search
+outside the project under a host-wide external-directory allow. This opt-in
+check is not part of `validate.sh`.
 
 ## Selective Steps
 

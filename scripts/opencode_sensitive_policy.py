@@ -7,10 +7,13 @@ count as sensitive. Two consumers read it:
 
 - ``generate_opencode_agents.py`` appends native ``read``/``edit`` deny rules
   to each restricted agent's ``permissions`` (OpenCode evaluates the last
-  matching rule, so these come last).
+  matching rule, so these come last) and grants search only through the
+  guard's own tools (``GUARDED_SEARCH_TOOLS``).
 - The ycc sensitive-file guard plugin (``opencode_templates/sensitive-guard.js``)
   ships beside a copy of the registry and enforces the same patterns, with
   symlink resolution, on read/edit/write/patch/grep/glob/shell tool calls.
+  It also registers the guarded search tools, so a restricted agent has no
+  search tool at all when the guard is not loaded (fail closed).
 
 Pattern forms (all relative, no leading ``/`` or ``~``):
 
@@ -47,6 +50,12 @@ GUARD_PLUGIN_SPEC = f"./{GUARD_DIRNAME}"
 _KEYS = frozenset({"restricted_agents", "patterns", "allow"})
 _PATTERN = re.compile(r"^[A-Za-z0-9._*-]+(?:/[A-Za-z0-9._-]+)*/?$")
 _GUARDED_ACTIONS = ("read", "edit")
+# Built-in search action -> guard-provided tool name. Built-in grep/glob
+# permissions are keyed by the search pattern, not a path, so native path
+# denies cannot cover them. Restricted agents are granted only the guarded
+# names; the guard registers those tools and shows them to the model under
+# the built-in names. The mapping is mirrored in sensitive-guard.js.
+GUARDED_SEARCH_TOOLS: dict[str, str] = {"grep": "ycc_grep", "glob": "ycc_glob"}
 
 
 @dataclass(frozen=True)
@@ -137,8 +146,17 @@ def native_sensitive_rules(actions: set[str], policy: SensitivePolicy) -> list[P
 
 
 def guard_payloads(policy_path: Path = POLICY_PATH) -> dict[Path, bytes]:
-    """Files of the guard plugin directory, relative to that directory."""
+    """Files of the guard plugin directory, relative to that directory.
+
+    The guard template must declare exactly the GUARDED_SEARCH_TOOLS mapping,
+    because restricted agents are granted only those tool names.
+    """
     load_policy(policy_path)
+    template = GUARD_TEMPLATE_PATH.read_bytes()
+    declared = re.search(r"^const GUARDED_SEARCH = (\{.*\});$", template.decode("utf-8"), re.MULTILINE)
+    mapping = json.loads(re.sub(r"(\w+):", r'"\1":', declared.group(1))) if declared else None
+    if mapping != GUARDED_SEARCH_TOOLS:
+        raise ValueError(f"{GUARD_TEMPLATE_PATH}: GUARDED_SEARCH must equal {GUARDED_SEARCH_TOOLS}; got {mapping}")
     manifest = {
         "name": GUARD_DIRNAME,
         "private": True,
@@ -147,7 +165,7 @@ def guard_payloads(policy_path: Path = POLICY_PATH) -> dict[Path, bytes]:
         "description": "ycc sensitive-file guard for restricted OpenCode V2 specialists.",
     }
     return {
-        Path("index.js"): GUARD_TEMPLATE_PATH.read_bytes(),
+        Path("index.js"): template,
         Path("policy.json"): policy_path.read_bytes(),
         Path("package.json"): (json.dumps(manifest, indent=2) + "\n").encode("utf-8"),
     }

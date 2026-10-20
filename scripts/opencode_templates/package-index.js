@@ -30,8 +30,32 @@
 //     { type: "text", text } SystemPart (packages/plugin/src/promise/session.ts).
 //   - The sensitive-file guard (ycc-sensitive-guard/, the same module
 //     the file-copy install loads as its own plugin) registers
-//     tool.hook("execute.before"/"execute.after") for the restricted
-//     specialists named in its policy.json (verified on v2.0.32 sources).
+//     tool.hook("execute.before"/"execute.after"), the guarded ycc_grep/
+//     ycc_glob tools, and their context hook for the restricted specialists
+//     named in its policy.json (verified on v2.0.32 sources).
+//   - Permission floor for those restricted specialists. Agent state is built
+//     as built-ins (`pre`) -> package transforms -> opencode.config.agent
+//     (`post`; plugin/supervisor.ts, plugin/internal.ts), and config.agent
+//     appends the config documents' top-level permissions to every agent
+//     already registered (config/plugin/agent.ts). Evaluation is last match
+//     wins (permission.ts evaluate), so a host-wide allow would otherwise
+//     override a package agent's own denies. Three hooks re-apply the
+//     restricted agent's packaged ruleset with the same wildcard and
+//     last-match semantics; none of them loosens anything:
+//       * ctx.permission.hook("evaluate") runs after the merged rules produce
+//         an allow/ask effect (permission.ts evaluateInput; a deny
+//         short-circuits before hooks) and its mutated effect/message is
+//         final (plugin/src/promise/permission.ts). It turns the effect into
+//         deny when the packaged rules deny any resource. The event's agent is
+//         optional; without it the session's agent is used, as the host does.
+//       * ctx.tool.hook("execute.before") rejects a call to a tool whose
+//         permission action the packaged rules wholly deny, which also covers
+//         tools that never request a permission.
+//       * ctx.session.hook("context") removes those tools from the model's
+//         view (the host offers what the merged rules allow; tool.ts
+//         snapshot/whollyDisabled).
+//     registerAgents assigns each record its own copy of the packaged rules
+//     and request settings, because config.agent mutates them in place.
 //
 // Coexistence with the primary file-copy install (install.sh --target
 // opencode): config agents/skills/commands apply in the `post` plugin group,
@@ -59,6 +83,16 @@ import { registerSensitiveGuard } from "./ycc-sensitive-guard/index.js";
 
 const PACKAGE_ROOT = dirname(fileURLToPath(import.meta.url));
 const REGISTRATION = JSON.parse(readFileSync(join(PACKAGE_ROOT, "registration.json"), "utf8"));
+// Restricted specialists come from the guard policy the package ships (one
+// source of truth with the file-copy guard). Their packaged rules are
+// snapshotted at load, before any host transform can touch them.
+const GUARD_POLICY = JSON.parse(readFileSync(join(PACKAGE_ROOT, "ycc-sensitive-guard", "policy.json"), "utf8"));
+const RESTRICTED_RULES = new Map(
+  (REGISTRATION.agents ?? [])
+    .filter((agent) => GUARD_POLICY.restricted_agents.includes(agent.id) && Array.isArray(agent.permissions))
+    .map((agent) => [agent.id, structuredClone(agent.permissions)]),
+);
+const FLOOR_DENIED = "Permission denied by ycc restricted-agent rules: ";
 
 // Token the generator writes where a package asset path is needed; it points
 // at the *rendered* tree created below, which sits beside the package root.
@@ -179,11 +213,12 @@ async function registerAgents(ctx, renderedRoot) {
         record.description = agent.description;
         record.mode = agent.mode;
         record.system = prompt;
-        if (agent.permissions !== undefined) record.permissions = agent.permissions;
+        // A copy: the host appends its own rules to this array in place.
+        if (agent.permissions) record.permissions = structuredClone(agent.permissions);
         if (agent.color !== undefined) record.color = agent.color;
         if (agent.steps !== undefined) record.steps = agent.steps;
         if (agent.hidden !== undefined) record.hidden = agent.hidden;
-        if (agent.request !== undefined) record.request = agent.request;
+        if (agent.request !== undefined) record.request = structuredClone(agent.request);
         if (agent.model !== undefined) record.model = parseModelRef(agent.model);
       });
     }
@@ -249,6 +284,111 @@ async function registerInstructions(ctx) {
   });
 }
 
+// Exact port of opencode v2.0.32 core/src/util/wildcard.ts match().
+function wildcardMatch(input, pattern) {
+  let escaped = pattern
+    .replaceAll("\\", "/")
+    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+    .replace(/\*/g, ".*")
+    .replace(/\?/g, ".");
+  if (escaped.endsWith(" .*")) escaped = escaped.slice(0, -3) + "( .*)?";
+  return new RegExp("^" + escaped + "$", process.platform === "win32" ? "si" : "s").test(
+    String(input).replaceAll("\\", "/"),
+  );
+}
+
+// Last matching rule wins (core/src/permission.ts evaluate).
+function packagedEffect(rules, action, resource) {
+  return rules.findLast((rule) => wildcardMatch(action, rule.action) && wildcardMatch(resource, rule.resource))
+    ?.effect;
+}
+
+// core/src/tool.ts whollyDisabled: the last rule for the action denies `*`.
+function whollyDenied(rules, action) {
+  const rule = rules.findLast((item) => wildcardMatch(action, item.action));
+  return rule?.resource === "*" && rule.effect === "deny";
+}
+
+// Registered tool id -> the permission action that gates it (`options.permission`,
+// e.g. write/patch -> edit; otherwise the id, namespaced like
+// core/src/tool/runtime.ts effectiveName). Unknown tools are gated by their own
+// name, which every restricted ruleset's `* * deny` covers.
+async function toolPermissions(ctx) {
+  const permissions = new Map();
+  try {
+    for (const tool of (await ctx.tool.list?.()) ?? []) {
+      const name = String(tool.name).replace(/[^a-zA-Z0-9_-]/g, "_");
+      const namespace = tool.options?.namespace;
+      const id = namespace === undefined ? name : `${namespace.replaceAll(".", "_")}_${name}`;
+      permissions.set(id, tool.options?.permission ?? id);
+    }
+  } catch {
+    // Fall back to tool names.
+  }
+  return permissions;
+}
+
+// The guard shows ycc_grep/ycc_glob to restricted agents as grep/glob. A call
+// under the built-in name is judged as the guarded tool by execute.before; a
+// call that reaches the unguarded built-in still asks for `grep`/`glob`, which
+// the evaluate hook denies. In the context hook a `grep`/`glob` key is the
+// guarded tool only once the guard has renamed it (a guard loaded before this
+// package), i.e. when the guarded key itself is no longer offered.
+const GUARDED_ALIASES = { grep: "ycc_grep", glob: "ycc_glob" };
+
+async function sessionAgent(ctx, sessionID) {
+  const session = await ctx.session.get({ sessionID });
+  return (session?.data ?? session)?.agent;
+}
+
+// Only a packaged deny is enforced on top of the host's effect. The packaged
+// rules are never used to raise allow to ask: the only `ask` a restricted
+// agent ships is external_directory, and the host turns a saved "always"
+// approval into an allow before this hook runs, so re-raising it would prompt
+// on every call. Every restricted ruleset starts with `* * deny`, so any
+// action or resource outside the agent's own allowlist is still denied here.
+async function registerPermissionFloor(ctx) {
+  if (RESTRICTED_RULES.size === 0) return;
+  await ctx.permission.hook("evaluate", async (event) => {
+    if (event.effect === "deny") return;
+    let agent = event.agent;
+    if (agent === undefined) {
+      try {
+        agent = await sessionAgent(ctx, event.sessionID);
+      } catch {
+        // The session's agent is unknown, so it may be restricted.
+        event.effect = "deny";
+        event.message = FLOOR_DENIED + event.action;
+        return;
+      }
+    }
+    const rules = RESTRICTED_RULES.get(agent);
+    if (!rules) return;
+    if (event.resources.some((resource) => packagedEffect(rules, event.action, resource) === "deny")) {
+      event.effect = "deny";
+      event.message = FLOOR_DENIED + event.action;
+    }
+  });
+  await ctx.tool.hook("execute.before", async (event) => {
+    const rules = RESTRICTED_RULES.get(event.agent);
+    if (!rules) return;
+    const permissions = await toolPermissions(ctx);
+    const name = GUARDED_ALIASES[event.tool] ?? event.tool;
+    const action = permissions.get(name) ?? name;
+    if (whollyDenied(rules, action)) throw new Error(FLOOR_DENIED + action);
+  });
+  await ctx.session.hook("context", async (event) => {
+    const rules = RESTRICTED_RULES.get(event.agent);
+    if (!rules) return;
+    const permissions = await toolPermissions(ctx);
+    for (const name of Object.keys(event.tools)) {
+      const alias = GUARDED_ALIASES[name];
+      const tool = alias && !(alias in event.tools) ? alias : name;
+      if (whollyDenied(rules, permissions.get(tool) ?? tool)) delete event.tools[name];
+    }
+  });
+}
+
 export default {
   id: "yandy-r.ycc-opencode",
   async setup(ctx) {
@@ -259,6 +399,7 @@ export default {
       await registerCommands(ctx);
       await registerMcp(ctx);
       await registerInstructions(ctx);
+      await registerPermissionFloor(ctx);
       await registerSensitiveGuard(ctx);
     } catch (error) {
       teardown(renderedRoot);
