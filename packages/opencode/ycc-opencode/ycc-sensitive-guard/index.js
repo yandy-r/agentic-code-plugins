@@ -60,8 +60,13 @@
 //   - ctx.permission.assert(input) evaluates the given agent's rules, prompts
 //     on `ask`, and rejects on deny or a declined prompt
 //     (packages/plugin/src/promise/permission.ts). Built-in search asks
-//     `external_directory` for a root outside the session with resource
-//     `<directory>/*` (packages/core/src/file-access.ts resolve/authorizeExternal).
+//     `external_directory` for a root outside both the session directory and
+//     the project worktree (the nearest `.git`/`.hg` ancestor), with resource
+//     `<directory>/*`; grep judges a file root by its parent, glob always
+//     treats the root as a directory (packages/core/src/file-access.ts
+//     resolve/authorizeExternal, project.ts resolve, tool/plugin/grep.ts,
+//     glob.ts). ctx.permission.hook("evaluate") may change an allow/ask
+//     effect; its event carries the request's `source` { messageID, id }.
 //   - ctx.session.get({ sessionID }) resolves { data: Session.Info } whose
 //     `location.directory` is the session's absolute directory
 //     (packages/protocol/src/groups/session.ts "session.get",
@@ -431,20 +436,70 @@ async function sessionRoot(ctx, event) {
   return absoluteDirectory(ctx.location?.directory);
 }
 
-// Directory approval the built-in would request for a search root outside the
-// session directory, made for the calling agent instead of the helper. The
-// resource matches the built-in (`<directory>/*`, the root's parent when the
-// root is not a directory); an "always" reply saves only that directory.
-function externalDirectory(path, root) {
+// Nearest ancestor holding `.git` or `.hg`: the project worktree the host
+// treats as internal (core/src/project.ts resolve). The filesystem root never
+// counts, as in core/src/file-access.ts resolve.
+function projectDirectory(start) {
+  let current = start;
+  while (true) {
+    for (const marker of [".git", ".hg"]) {
+      try {
+        lstatSync(join(current, marker));
+        return dirname(current) === current ? undefined : current;
+      } catch {
+        // Not here; keep walking up.
+      }
+    }
+    const parent = dirname(current);
+    if (parent === current) return undefined;
+    current = parent;
+  }
+}
+
+// The `external_directory` request the built-in makes for this search root
+// (`<directory>/*`), or undefined when the root is inside the session
+// directory or its project. Made for the calling agent instead of the helper;
+// an "always" reply saves only that directory.
+function externalDirectory(base, path, root) {
   const target = resolve(root, expandHome(typeof path === "string" ? path : "."));
   if (!outside(target, root)) return undefined;
-  let directory = dirname(target);
-  try {
-    if (statSync(target).isDirectory()) directory = target;
-  } catch {
-    // A missing root is judged by its parent, as the built-in does.
+  const project = projectDirectory(root);
+  if (project && !outside(target, project)) return undefined;
+  let directory = target;
+  if (base === "grep") {
+    directory = dirname(target);
+    try {
+      if (statSync(target).isDirectory()) directory = target;
+    } catch {
+      // A missing root is judged by its parent, as the built-in does.
+    }
   }
   return join(directory, "*").replaceAll("\\", "/");
+}
+
+// The metadata the built-in attaches to its own search permission request.
+function searchMetadata(base, input) {
+  const args = input && typeof input === "object" ? input : {};
+  if (base === "grep") {
+    return {
+      root: ".",
+      path: args.path,
+      include: args.include,
+      literal: args.literal,
+      caseSensitive: args.caseSensitive,
+      limit: args.limit,
+    };
+  }
+  return { root: args.path ?? ".", path: args.path, hidden: args.hidden, limit: args.limit };
+}
+
+// Guarded calls in flight whose caller approved an external directory:
+// `${sessionID}\0${callID}` -> approved resource. The built-in then asks the
+// helper for the same directory, which would prompt the user a second time.
+const APPROVED = new Map();
+
+function approvalKey(sessionID, id) {
+  return `${sessionID}\u0000${id}`;
 }
 
 // Guarded search for restricted agents: the built-in grep/glob definition and
@@ -485,22 +540,48 @@ async function registerSearchTools(ctx) {
             agent: context.agent,
             source: { type: "tool", messageID: context.messageID, id: context.id },
           };
-          const external = externalDirectory(input?.path, root);
+          const external = externalDirectory(base, input?.path, root);
           if (external) {
             await ctx.permission.assert({ action: "external_directory", resources: [external], save: [external], ...caller });
           }
-          await ctx.permission.assert({ action: name, resources: [String(input?.pattern)], save: ["*"], ...caller });
-          const result = await builtin.execute(input, { ...context, agent: SEARCH_AGENT });
-          filterResult(base, result, root);
-          return result;
+          await ctx.permission.assert({
+            action: name,
+            resources: [String(input?.pattern)],
+            save: ["*"],
+            metadata: searchMetadata(base, input),
+            ...caller,
+          });
+          const key = approvalKey(context.sessionID, context.id);
+          if (external) APPROVED.set(key, external);
+          try {
+            const result = await builtin.execute(input, { ...context, agent: SEARCH_AGENT });
+            filterResult(base, result, root);
+            return result;
+          } finally {
+            APPROVED.delete(key);
+          }
         },
       });
     }
   });
+  // The caller already approved this directory for this call: the helper's
+  // identical request is not asked again. Only an `ask` for exactly that
+  // resource, from the in-flight call, is changed; a deny never is.
+  await ctx.permission.hook("evaluate", (event) => {
+    if (event.agent !== SEARCH_AGENT || event.action !== "external_directory" || event.effect !== "ask") return;
+    const approved = APPROVED.get(approvalKey(event.sessionID, event.source?.id));
+    if (approved && event.resources.length > 0 && event.resources.every((resource) => resource === approved)) {
+      event.effect = "allow";
+    }
+  });
   // Model-facing names stay grep/glob for restricted agents; a built-in the
-  // host still offers under that name is never shadowed.
+  // host still offers under that name is never shadowed. Other agents are
+  // never offered the guarded tools, which reject them anyway.
   await ctx.session.hook("context", (event) => {
-    if (!RESTRICTED.has(event.agent)) return;
+    if (!RESTRICTED.has(event.agent)) {
+      for (const name of Object.values(GUARDED_SEARCH)) delete event.tools[name];
+      return;
+    }
     for (const [base, name] of Object.entries(GUARDED_SEARCH)) {
       const definition = event.tools[name];
       if (!definition || event.tools[base]) continue;

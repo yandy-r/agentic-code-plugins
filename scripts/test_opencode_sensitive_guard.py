@@ -43,16 +43,31 @@ import { readFileSync } from "node:fs";
 const [guardDir, setupDir] = process.argv.slice(2);
 const { sessions, setupLocation, builtins, cases } = JSON.parse(readFileSync(0, "utf8"));
 const plugin = (await import(pathToFileURL(guardDir + "/index.js").href)).default;
-const hooks = {}, sessionHooks = {};
+const hooks = {}, sessionHooks = {}, permissionHooks = {};
 const agents = new Map(), tools = new Map(), calls = [], asserts = [];
 let decisions = {};
 let scripted = null;
+let helperCheck = null;
+async function evaluate(event) {
+  for (const cb of permissionHooks.evaluate ?? []) await cb(event);
+  return event;
+}
+// Fake built-ins: when a case scripts `helperCheck`, the built-in's own
+// external-directory request is evaluated through the permission hooks with
+// the effect the host's rules would give it.
 for (const name of builtins) {
   tools.set(name, {
     name, description: `builtin ${name}`, input: { schema: name }, output: { schema: name },
     options: { codemode: false },
     execute: async (input, context) => {
-      calls.push({ tool: name, agent: context.agent, input });
+      const call = { tool: name, agent: context.agent, input };
+      if (helperCheck) {
+        const event = await evaluate({ sessionID: context.sessionID, agent: context.agent,
+          action: "external_directory", resources: helperCheck.resources, effect: helperCheck.effect,
+          source: { type: "tool", messageID: context.messageID, id: context.id } });
+        call.helperEffect = event.effect;
+      }
+      calls.push(call);
       return structuredClone(scripted);
     },
   });
@@ -77,6 +92,7 @@ const ctx = {
   // Permission checks the guard makes itself: a case's `decisions` maps an
   // action to "deny" (rule deny) or "reject" (the user declines a prompt).
   permission: {
+    hook: async (name, cb) => { (permissionHooks[name] ??= []).push(cb); },
     assert: async (input) => {
       asserts.push(structuredClone(input));
       const decision = decisions[input.action] ?? "allow";
@@ -100,12 +116,17 @@ for (const item of cases) {
   calls.length = 0;
   asserts.length = 0;
   decisions = item.decisions ?? {};
+  helperCheck = item.helperCheck ?? null;
   try {
     if (item.kind === "execute") {
       scripted = item.result ?? { output: [], content: "No matches found", metadata: {} };
-      const context = { sessionID, agent: item.agent, messageID: "msg", id: "call" };
+      const context = { sessionID, agent: item.agent, messageID: "msg", id: item.callID ?? "call" };
       const result = await tools.get(item.tool).execute(item.input, context);
       results.push({ ok: true, result, calls: structuredClone(calls), asserts: structuredClone(asserts) });
+    } else if (item.kind === "evaluate") {
+      const event = await evaluate({ sessionID, agent: item.agent, action: item.action, resources: item.resources,
+        effect: item.effect, source: { type: "tool", messageID: "msg", id: item.callID ?? "call" } });
+      results.push({ ok: true, effect: event.effect });
     } else if (item.kind === "context") {
       const ctxEvent = { sessionID, agent: item.agent, system: [], messages: [], options: {}, tools: item.tools };
       for (const cb of sessionHooks.context ?? []) await cb(ctxEvent);
@@ -546,6 +567,118 @@ class SensitiveGuardTestCase(unittest.TestCase):
         )
         self.assertEqual([check["action"] for check in inside["asserts"]], ["ycc_grep"])
 
+    def outside_project(self) -> tuple[Path, Path, Path]:
+        """A version-controlled project whose session runs in a subdirectory."""
+        project = self.tmp / "project"
+        (project / ".git").mkdir(parents=True)
+        (project / "sub").mkdir()
+        (project / "other").mkdir()
+        outside = self.tmp / "elsewhere"
+        outside.mkdir()
+        (outside / "notes.txt").write_text("x\n", encoding="utf-8")
+        return project, project / "sub", outside
+
+    def test_guarded_search_inside_the_project_is_not_external(self) -> None:
+        project, session, _ = self.outside_project()
+        (inside,) = self.run_cases(
+            [
+                {
+                    "kind": "execute",
+                    "agent": RESTRICTED,
+                    "tool": "ycc_grep",
+                    "input": {"pattern": "x", "path": "../other"},
+                }
+            ],
+            sessions={"ses": str(session)},
+        )
+        self.assertTrue(inside["ok"], inside)
+        self.assertEqual([check["action"] for check in inside["asserts"]], ["ycc_grep"])
+        self.assertEqual(inside["calls"][0]["input"]["path"], "../other")
+
+    def test_guarded_search_directory_approval_matches_the_builtin_target(self) -> None:
+        _, session, outside = self.outside_project()
+        file = str(outside / "notes.txt")
+        grep, glob = self.run_cases(
+            [
+                {"kind": "execute", "agent": RESTRICTED, "tool": "ycc_grep", "input": {"pattern": "x", "path": file}},
+                {"kind": "execute", "agent": RESTRICTED, "tool": "ycc_glob", "input": {"pattern": "*", "path": file}},
+            ],
+            sessions={"ses": str(session)},
+        )
+        # grep judges a file root by its parent; glob always treats the root as a directory.
+        self.assertEqual(grep["asserts"][0]["resources"], [f"{outside}/*"])
+        self.assertEqual(glob["asserts"][0]["resources"], [f"{file}/*"])
+
+    def test_guarded_search_check_carries_the_builtin_metadata(self) -> None:
+        grep, glob = self.run_cases(
+            [
+                {
+                    "kind": "execute",
+                    "agent": RESTRICTED,
+                    "tool": "ycc_grep",
+                    "input": {"pattern": "x", "path": "src", "include": "*.ts", "literal": True, "limit": 5},
+                },
+                {"kind": "execute", "agent": RESTRICTED, "tool": "ycc_glob", "input": {"pattern": "*", "hidden": True}},
+            ]
+        )
+        self.assertEqual(
+            grep["asserts"][-1]["metadata"],
+            {"root": ".", "path": "src", "include": "*.ts", "literal": True, "limit": 5},
+        )
+        self.assertEqual(glob["asserts"][-1]["metadata"], {"root": ".", "hidden": True})
+
+    def test_approved_directory_is_not_asked_again_for_the_internal_search(self) -> None:
+        _, session, outside = self.outside_project()
+        approved = [f"{outside}/*"]
+        cases = [
+            # The host would ask the helper for the directory the caller just approved.
+            {
+                "kind": "execute",
+                "agent": RESTRICTED,
+                "tool": "ycc_grep",
+                "input": {"pattern": "x", "path": str(outside)},
+                "helperCheck": {"resources": approved, "effect": "ask"},
+            },
+            # A different directory is not covered by the caller's approval.
+            {
+                "kind": "execute",
+                "agent": RESTRICTED,
+                "tool": "ycc_grep",
+                "input": {"pattern": "x", "path": str(outside)},
+                "helperCheck": {"resources": [f"{self.tmp}/other/*"], "effect": "ask"},
+            },
+            # A host deny is never changed.
+            {
+                "kind": "execute",
+                "agent": RESTRICTED,
+                "tool": "ycc_grep",
+                "input": {"pattern": "x", "path": str(outside)},
+                "helperCheck": {"resources": approved, "effect": "deny"},
+            },
+            # Outside a guarded call, or for another agent, nothing changes.
+            {
+                "kind": "evaluate",
+                "agent": SEARCH_AGENT,
+                "action": "external_directory",
+                "resources": approved,
+                "effect": "ask",
+                "callID": "unknown",
+            },
+            {
+                "kind": "evaluate",
+                "agent": RESTRICTED,
+                "action": "external_directory",
+                "resources": approved,
+                "effect": "ask",
+            },
+        ]
+        same, other, denied, unknown, caller = self.run_cases(cases, sessions={"ses": str(session)})
+        self.assertEqual(same["calls"][0]["helperEffect"], "allow")
+        self.assertEqual(other["calls"][0]["helperEffect"], "ask")
+        self.assertEqual(denied["calls"][0]["helperEffect"], "deny")
+        self.assertEqual(unknown["effect"], "ask")
+        self.assertEqual(caller["effect"], "ask")
+
     def test_missing_builtin_search_tool_is_not_replaced(self) -> None:
         observed = self.drive([], builtins=("glob",))
         self.assertEqual([tool["name"] for tool in observed["tools"]], ["ycc_glob"])
@@ -637,7 +770,8 @@ class SensitiveGuardTestCase(unittest.TestCase):
         )
         self.assertEqual(restricted["tools"], ["glob", "grep", "read"])
         self.assertEqual(restricted["identity"], {"read": "read", "grep": "ycc_grep", "glob": "ycc_glob"})
-        self.assertEqual(unrestricted["tools"], ["read", "ycc_glob", "ycc_grep"])
+        # Agents outside the restricted set are never offered the guarded tools.
+        self.assertEqual(unrestricted["tools"], ["read"])
         # A built-in the host still offers keeps its own name; nothing is shadowed.
         self.assertEqual(explicit["identity"]["grep"], "grep")
         self.assertEqual(explicit["identity"]["glob"], "ycc_glob")

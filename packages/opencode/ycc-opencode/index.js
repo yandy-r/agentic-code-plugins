@@ -328,10 +328,12 @@ async function toolPermissions(ctx) {
   return permissions;
 }
 
-// The guard shows ycc_grep/ycc_glob to restricted agents as grep/glob, so a
-// call under the built-in name is judged as the guarded tool here. A call that
-// reaches the unguarded built-in still asks for `grep`/`glob`, which the
-// evaluate hook denies.
+// The guard shows ycc_grep/ycc_glob to restricted agents as grep/glob. A call
+// under the built-in name is judged as the guarded tool by execute.before; a
+// call that reaches the unguarded built-in still asks for `grep`/`glob`, which
+// the evaluate hook denies. In the context hook a `grep`/`glob` key is the
+// guarded tool only once the guard has renamed it (a guard loaded before this
+// package), i.e. when the guarded key itself is no longer offered.
 const GUARDED_ALIASES = { grep: "ycc_grep", glob: "ycc_glob" };
 
 async function sessionAgent(ctx, sessionID) {
@@ -380,7 +382,9 @@ async function registerPermissionFloor(ctx) {
     if (!rules) return;
     const permissions = await toolPermissions(ctx);
     for (const name of Object.keys(event.tools)) {
-      if (whollyDenied(rules, permissions.get(name) ?? name)) delete event.tools[name];
+      const alias = GUARDED_ALIASES[name];
+      const tool = alias && !(alias in event.tools) ? alias : name;
+      if (whollyDenied(rules, permissions.get(tool) ?? tool)) delete event.tools[name];
     }
   });
 }

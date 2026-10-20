@@ -266,6 +266,10 @@ def evaluate(probes: list[Probe], canary: str, control: str) -> None:
             # Guarded search reaches the model under the built-in names only.
             offered = offered_tools(probe) & SEARCH_TOOLS
             check(f"{probe.label}: guarded search offered as grep/glob", {"grep", "glob"}, offered)
+        if probe.agent not in RESTRICTED_AGENTS and probe.bodies:
+            # Other agents are never offered the guarded tools.
+            guarded = offered_tools(probe) & {"ycc_grep", "ycc_glob"}
+            check(f"{probe.label}: no guarded search offered to {probe.agent}", set(), guarded)
         if probe.must_ask:
             check(f"{probe.label}: prompted for {probe.must_ask}", True, probe.must_ask in probe.asked)
         if probe.offered_within:
@@ -685,6 +689,20 @@ def main() -> None:
             lambda _work: host_wildcard_probes(),
             canary,
             control,
+        )
+        # Both installs, the file-copy guard loaded first: restricted agents keep
+        # their guarded search under the built-in names.
+        results += scenario(
+            lab,
+            binary,
+            provider,
+            "both-installs",
+            base_config(provider, [*guard_entries, package.as_uri()]),
+            PACKAGE_ID,
+            lambda _work: npm_probes(),
+            canary,
+            control,
+            install=lambda root: install_file_copy(repo, root),
         )
         # File copy without the guard: not configured, or removed by a project config.
         results += scenario(

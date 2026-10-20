@@ -39,14 +39,13 @@ import { spawnSync } from "node:child_process";
 const [root, preSkill, preAgent, preMcp, systemText] = process.argv.slice(2);
 const plugin = (await import(pathToFileURL(root + "/index.js").href)).default;
 const skills = new Map(), agents = new Map(), mcp = new Map(), commands = new Map(), prompts = [], hooks = [];
-const toolHooks = [];
 if (preSkill) skills.set(preSkill, { id: preSkill, preexisting: true });
 if (preAgent) agents.set(preAgent, { id: preAgent, preexisting: true });
 if (preMcp) mcp.set(preMcp, { preexisting: true });
 const ctx = {
   location: { directory: process.cwd(), project: { directory: process.cwd(), canonical: process.cwd() } },
-  tool: { hook: async (name) => { toolHooks.push(name); }, transform: async (cb) => cb({ get: () => undefined }) },
-  permission: { hook: async (name) => { toolHooks.push(`permission.${name}`); } },
+  tool: { hook: async () => {}, transform: async (cb) => cb({ get: () => undefined }) },
+  permission: { hook: async () => {} },
   skill: { transform: async (cb) => cb({ get: (id) => skills.get(id), add: (s) => skills.set(s.id, s) }) },
   agent: { transform: async (cb) => cb({
     get: (id) => agents.get(id),
@@ -63,7 +62,7 @@ const ctx = {
 const cleanup = await plugin.setup(ctx);
 const command = commands.get("ycc:plan");
 await command.execute({ sessionID: "ses_test", prompt: { text: "alpha beta" }, delivery: "immediate" });
-const event = { system: systemText ? [{ type: "text", text: systemText }] : [] };
+const event = { system: systemText ? [{ type: "text", text: systemText }] : [], tools: {} };
 for (const hook of hooks) await hook.cb(event);
 const renderedRoot = dirname(dirname(dirname([...skills.values()].find((s) => !s.preexisting).path)));
 const forgeText = readFileSync(join(renderedRoot, "shared/references/forge-detection.md"), "utf8");
@@ -79,7 +78,6 @@ console.log(JSON.stringify({
   mcp: Object.fromEntries(mcp),
   commandNames: [...commands.keys()],
   hooks: hooks.map((h) => h.name),
-  toolHooks,
   prompts,
   system: event.system,
   renderedRoot, shell: { status: shell.status, stdout: shell.stdout, stderr: shell.stderr },
@@ -141,8 +139,11 @@ for (const item of cases) {
       for (const cb of second.hooks["execute.before"]) await cb(event);
       results.push({ ok: true });
     } else if (item.kind === "context") {
+      // `renamed` replays a guard that already showed ycc_* as grep/glob
+      // (file-copy guard loaded before this package).
+      const tag = (name) => (item.renamed && name in item.renamed ? item.renamed[name] : name);
       const event = { sessionID, agent: item.agent, system: [], messages: [], options: {},
-        tools: Object.fromEntries(item.tools.map((name) => [name, { description: name, input: {}, tag: name }])) };
+        tools: Object.fromEntries(item.tools.map((name) => [name, { description: name, input: {}, tag: tag(name) }])) };
       for (const cb of second.hooks.context) await cb(event);
       results.push({ ok: true, tools: Object.fromEntries(Object.entries(event.tools).map(([k, v]) => [k, v.tag])) });
     } else {
@@ -534,13 +535,25 @@ class OpencodeNpmPackageTests(unittest.TestCase):
                 "glob": "ycc_glob",
             },
         )
-        self.assertEqual(set(open_view["tools"]), set(everything))
+        # Unrestricted agents keep every tool except the guarded search tools.
+        self.assertEqual(set(open_view["tools"]), set(everything) - {"ycc_grep", "ycc_glob"})
         # grep/glob calls are the guarded tools' advertised names; a call that
         # reaches the unguarded built-in is denied by the evaluate hook instead.
         for tool, outcome in zip(everything, calls, strict=True):
             with self.subTest(tool=tool):
                 self.assertEqual(outcome["ok"], tool in packaged | {"grep", "glob"}, outcome)
         self.assertTrue(open_call["ok"], open_call)
+
+    @unittest.skipIf(NODE is None, "node is required")
+    def test_restricted_agent_keeps_search_when_another_guard_renamed_it_first(self) -> None:
+        renamed = {"grep": "ycc_grep", "glob": "ycc_glob"}
+        observed = self.run_floor(
+            "renamed",
+            [{"action": "*", "resource": "*", "effect": "allow"}],
+            [{"kind": "context", "agent": "pr-comment-fixer", "tools": ["read", "grep", "glob"], "renamed": renamed}],
+        )
+        (view,) = observed["results"]
+        self.assertEqual(view["tools"], {"read": "read", "grep": "ycc_grep", "glob": "ycc_glob"})
 
     @unittest.skipIf(NODE is None, "node is required")
     def test_agentless_permission_check_in_an_unresolvable_session_fails_closed(self) -> None:
