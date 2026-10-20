@@ -47,7 +47,7 @@ Follow these rules exactly or the parser will misread cells:
 | ----------------- | --------- | ----------- | ----------- | ----------- | ----------- |
 | SKILLS            | supported | supported   | supported   | supported   | partial     |
 | COMMANDS          | supported | partial     | unsupported | supported   | unsupported |
-| AGENTS            | supported | partial     | supported   | supported   | unsupported |
+| AGENTS            | supported | partial     | supported   | supported   | partial     |
 | HOOKS.PreToolUse  | supported | partial     | unsupported | partial     | unsupported |
 | HOOKS.PostToolUse | supported | partial     | unsupported | partial     | unsupported |
 | HOOKS.Stop        | supported | partial     | unsupported | partial     | unsupported |
@@ -326,10 +326,24 @@ loads plugin `commands/*.md` natively as `/ycc:<cmd>`. Optional thin wrappers ar
 Source: spike §3.
 
 **AGENTS:omp**
-Unsupported today: ycc ships no OMP agents yet. OMP loads plugin `agents/` natively as task agents,
-but keeps agent `model:` only under an `.omp-plugin/plugin.json` root. The translator must map
-Claude models to `@role` aliases and tool names to OMP IDs (`WebSearch` → `web_search`). Owner:
-YAN-1169. Source: ADR 0002.
+Partial: `scripts/generate_omp_agents.py` generates every agent as an OMP task agent under
+`packages/omp/ycc/agents/`, and it loads via `omp --plugin-dir`. `name` and `description` are kept.
+Tools map to OMP IDs (`WebSearch` → `web_search`, `WebFetch` → `read`, `NotebookEdit` → `edit`),
+and Claude tool names in agent bodies are rewritten the same way. `mcp__*` entries are dropped:
+OMP mounts every MCP tool in every agent, including agents that listed none (such as the
+read-only auditors), and cannot restrict MCP tools per agent. Models map to roles: `opus` →
+`@slow`, `sonnet` → `@task`, and `inherit` emits no `model:`. `color` is dropped. Generation fails
+on any other key, tool or model, and on names that would shadow OMP's bundled agents (`task`,
+`sonic`, `scout`, `reviewer`, `security-reviewer`, `seance`). OMP has no command-scoped shell
+permission, so `Bash(<cmd>:*)` becomes `bash` plus a `## Shell scope (OMP)` prompt section.
+Subagents run with `approvalMode: yolo`, so that scope is a prompt rule, not enforced. OMP drops
+agent `model:` only for Claude-dialect roots (a `.claude-plugin/plugin.json` without an
+`.omp-plugin/plugin.json`). The manifest-less `packages/omp/ycc` tree under `--plugin-dir` and an
+`.omp-plugin` root (YAN-1171) both keep it. Delegation: OMP `task` runs agents in the background
+when `async.enabled` is set and inline otherwise; worktree isolation is the per-call `isolated`
+flag (`task.isolation.enabled`). Rewording skill text that uses `isolation: "worktree"` or
+`run_in_background` is YAN-1170.
+Source: ADR 0002.
 
 **HOOKS.PreToolUse:omp**
 Unsupported. OMP never runs shell hooks or `hooks/hooks.json`; hooks load only as TypeScript

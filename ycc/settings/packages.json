@@ -74,7 +74,6 @@
             "docs/internal/spikes/omp-runtime-contract.md"
           ],
           "gates": [
-            "YAN-1169 agent translator under .omp-plugin/plugin.json",
             "YAN-1171 .omp-plugin/marketplace.json and per-package tree generator",
             "YAN-1178 live acceptance matrix passes on the real ycc tree"
           ],
