@@ -154,9 +154,20 @@ Two layers enforce it:
   - A tool whose permission the packaged rules deny outright is not offered to
     the agent, and a call to it is rejected. This also covers tools that never
     request a permission.
-  - The package never loosens a decision, and it does not turn an allow into a
-    prompt. A host-wide `external_directory` allow therefore still applies on
-    npm. Your rules can still make a restricted agent stricter.
+  - A restricted agent still asks before it reaches a directory outside the
+    project, even with a host-wide `external_directory` allow. When you
+    answer such a prompt "always", the package records the approved
+    directories for the project, as OpenCode saves them, and does not ask
+    again for them, also after a restart.
+  - The package never loosens a decision, and it turns an allow into a prompt
+    only for `external_directory`. Your rules can still make a restricted
+    agent stricter.
+
+  The package learns about saved approvals only from the prompts it sees
+  answered. Directories you approved before installing it, or while it was not
+  loaded, prompt once more. Removing a saved approval in OpenCode does not
+  remove the package's record, so with a host-wide `external_directory` allow
+  that directory is not asked again.
 
   The file-copy install needs none of this, because there the agent's own
   rules already come after host-wide rules.

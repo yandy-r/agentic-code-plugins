@@ -88,19 +88,69 @@ await cleanup();
 # Sets the adapter up twice (two state rebuilds), appends host rules to the
 # registered records the way opencode.config.agent does after the package
 # transform, then replays permission.evaluate, tool execute.before, and
-# session context events through the second setup's hooks. The fake tool
+# session context events through the latest setup's hooks. The fake tool
 # inventory carries the built-ins' permission names (write/patch -> edit).
+# `event` cases publish a host bus event to every live subscriber (or only to
+# the setups listed in `targets`, i.e. other locations of the project) and
+# wait `settle` ms (default 30); `rebuild` sets the adapter up again over the
+# same plugin storage; `storage` makes later writes fail (`fail`), wait until a
+# `release` (`hold`), or succeed (`ok`), or sets how many ms a scan takes
+# (`scanDelay`). Storage calls resolve a tick later, as the host's do, and scan
+# pages two entries at a time.
 FLOOR_DRIVER = r"""
 import { pathToFileURL } from "node:url";
 import { readFileSync } from "node:fs";
 const [root] = process.argv.slice(2);
 const { hostRules, inventory, sessions, cases } = JSON.parse(readFileSync(0, "utf8"));
 const plugin = (await import(pathToFileURL(root + "/index.js").href)).default;
+const storage = new Map(), subscribers = new Set(), held = [];
+let writes = "ok", scanDelay = 0;
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+function subscriber(owner) {
+  return (options) => ({ [Symbol.asyncIterator]() {
+    const queue = [];
+    let wake, done = false;
+    const sub = { owner, push(event) { queue.push(event); wake?.(); } };
+    const stop = () => { done = true; subscribers.delete(sub); wake?.(); };
+    subscribers.add(sub);
+    options?.signal?.addEventListener("abort", stop, { once: true });
+    return {
+      async next() {
+        while (!queue.length && !done) await new Promise((resolve) => (wake = resolve));
+        return queue.length ? { done: false, value: queue.shift() } : { done: true, value: undefined };
+      },
+      async return() { stop(); return { done: true, value: undefined }; },
+    };
+  } });
+}
+const pluginStorage = {
+  get: async (key) => { await tick(); return structuredClone(storage.get(key)); },
+  set: async (key, value) => {
+    await tick();
+    if (writes === "fail") throw new Error("kv write failed");
+    if (writes === "hold") await new Promise((resolve) => held.push(resolve));
+    storage.set(key, structuredClone(value));
+  },
+  remove: async (key) => { await tick(); storage.delete(key); },
+  scan: async ({ prefix, after, limit = 2 }) => {
+    // The query reads storage when it starts; a slow scan returns that snapshot.
+    const keys = [...storage.keys()]
+      .filter((key) => key.startsWith(prefix) && (after === undefined || key > after)).sort();
+    const entries = keys.slice(0, limit).map((key) => ({ key, value: structuredClone(storage.get(key)) }));
+    await new Promise((resolve) => setTimeout(resolve, scanDelay));
+    return keys.length > limit ? { entries, next: entries.at(-1).key } : { entries };
+  },
+};
+let setups = 0;
 async function setup() {
+  const owner = setups++;
   const agents = new Map(), hooks = { evaluate: [], "execute.before": [], context: [] };
   const add = (name, cb) => { if (name in hooks) hooks[name].push(cb); };
   const ctx = {
-    location: { directory: process.cwd(), project: { directory: process.cwd(), canonical: process.cwd() } },
+    location: { directory: process.cwd(),
+      project: { id: "prj", directory: process.cwd(), canonical: process.cwd() } },
+    event: { subscribe: subscriber(owner) },
+    storage: pluginStorage,
     tool: {
       hook: async (name, cb) => add(name, cb),
       transform: async (cb) => cb({ get: () => undefined }),
@@ -127,16 +177,41 @@ async function setup() {
   for (const record of agents.values()) record.permissions?.push(...structuredClone(hostRules));
   return { agents, hooks, cleanup };
 }
+const settle = () => new Promise((resolve) => setTimeout(resolve, 30));
 const first = await setup();
 const second = await setup();
+const states = [first, second];
+let current = second;
+await settle();
 const results = [];
 for (const item of cases) {
   const sessionID = item.sessionID ?? "ses";
   try {
-    if (item.kind === "execute") {
+    if (item.kind === "event") {
+      for (const event of item.events ?? [item]) {
+        for (const sub of subscribers) {
+          if (!event.targets || event.targets.includes(sub.owner)) {
+            sub.push({ id: "evt", created: 0, type: event.type, data: event.data });
+          }
+        }
+      }
+      await new Promise((resolve) => setTimeout(resolve, item.settle ?? 30));
+      results.push({ ok: true });
+    } else if (item.kind === "storage") {
+      if (item.scanDelay !== undefined) scanDelay = item.scanDelay;
+      else writes = item.writes;
+      if (item.writes === "release") { writes = "ok"; held.splice(0).forEach((resolve) => resolve()); }
+      await settle();
+      results.push({ ok: true });
+    } else if (item.kind === "rebuild") {
+      current = await setup();
+      states.push(current);
+      await settle();
+      results.push({ ok: true });
+    } else if (item.kind === "execute") {
       const event = { sessionID, messageID: "msg", id: "call", agent: item.agent, tool: item.tool,
         input: item.input ?? {} };
-      for (const cb of second.hooks["execute.before"]) await cb(event);
+      for (const cb of current.hooks["execute.before"]) await cb(event);
       results.push({ ok: true });
     } else if (item.kind === "context") {
       // `renamed` replays a guard that already showed ycc_* as grep/glob
@@ -144,12 +219,12 @@ for (const item of cases) {
       const tag = (name) => (item.renamed && name in item.renamed ? item.renamed[name] : name);
       const event = { sessionID, agent: item.agent, system: [], messages: [], options: {},
         tools: Object.fromEntries(item.tools.map((name) => [name, { description: name, input: {}, tag: tag(name) }])) };
-      for (const cb of second.hooks.context) await cb(event);
+      for (const cb of current.hooks.context) await cb(event);
       results.push({ ok: true, tools: Object.fromEntries(Object.entries(event.tools).map(([k, v]) => [k, v.tag])) });
     } else {
       const event = { sessionID, action: item.action, resources: item.resources, effect: item.effect };
       if (item.agent !== null) event.agent = item.agent;
-      for (const cb of second.hooks.evaluate) await cb(event);
+      for (const cb of current.hooks.evaluate) await cb(event);
       results.push({ ok: true, effect: event.effect, message: event.message ?? null });
     }
   } catch (error) {
@@ -161,8 +236,7 @@ console.log(JSON.stringify({
   counts: { first: count(first, "pr-comment-fixer"), second: count(second, "pr-comment-fixer") },
   results,
 }));
-await first.cleanup();
-await second.cleanup();
+for (const state of states) await state.cleanup();
 """
 
 # Built-in tool names and the permission action each is gated by.
@@ -202,6 +276,47 @@ def run_driver(root: Path, *extra: str, env: dict[str, str] | None = None) -> di
     if result.returncode:
         raise AssertionError(result.stderr or result.stdout)
     return json.loads(result.stdout.strip().splitlines()[-1])
+
+
+FIXER = "pr-comment-fixer"
+
+
+def external_check(agent: str, resources: list[str], session: str = "ses") -> dict[str, Any]:
+    """An external_directory check the host's merged rules allow."""
+    return {
+        "agent": agent,
+        "action": "external_directory",
+        "resources": resources,
+        "effect": "allow",
+        "sessionID": session,
+    }
+
+
+def external_asked(
+    request: str, resources: list[str], save: list[str], session: str = "ses", targets: list[int] | None = None
+) -> dict[str, Any]:
+    """The host's permission.asked event for one external_directory request."""
+    data = {"id": request, "sessionID": session, "action": "external_directory", "resources": resources, "save": save}
+    event: dict[str, Any] = {"kind": "event", "type": "permission.asked", "data": data}
+    if targets is not None:
+        event["targets"] = targets
+    return event
+
+
+def external_replied(
+    request: str, reply: str, session: str = "ses", targets: list[int] | None = None
+) -> dict[str, Any]:
+    """The host's permission.replied event."""
+    data = {"sessionID": session, "requestID": request, "reply": reply}
+    event: dict[str, Any] = {"kind": "event", "type": "permission.replied", "data": data}
+    if targets is not None:
+        event["targets"] = targets
+    return event
+
+
+def external_batch(*events: dict[str, Any]) -> dict[str, Any]:
+    """Events published back to back, without waiting between them."""
+    return {"kind": "event", "events": list(events)}
 
 
 class OpencodeNpmPackageTests(unittest.TestCase):
@@ -489,8 +604,8 @@ class OpencodeNpmPackageTests(unittest.TestCase):
             (case(fixer, "ycc_grep", ["TOKEN"]), "allow"),
             (case(fixer, "shell", ["pytest -q"]), "allow"),
             (case(fixer, "shell", ['python3 -c "print(1)"']), "deny"),
-            # A saved approval of an `ask` rule is not re-raised to a prompt.
-            (case(fixer, "external_directory", ["/elsewhere/*"]), "allow"),
+            # A host allow for a restricted agent's `ask` is raised to a prompt.
+            (case(fixer, "external_directory", ["/elsewhere/*"]), "ask"),
             # A check without an agent is judged by the session's agent.
             (case(None, "read", [".env"], sessionID="ses-fixer"), "deny"),
             (case(None, "read", [".env"], sessionID="ses-finder"), "allow"),
@@ -511,6 +626,165 @@ class OpencodeNpmPackageTests(unittest.TestCase):
         # packaged registration across state rebuilds.
         packaged = next(a for a in self.registration["agents"] if a["id"] == fixer)["permissions"]
         self.assertEqual(observed["counts"], {"first": len(packaged) + len(host), "second": len(packaged) + len(host)})
+
+    def run_external(self, name: str, steps: list[tuple[dict[str, Any], str | None]]) -> None:
+        """Replay external-directory checks and events under a host-wide allow."""
+        host = [{"action": "external_directory", "resource": "*", "effect": "allow"}]
+        observed = self.run_floor(name, host, [step for step, _ in steps])
+        for index, ((step, effect), outcome) in enumerate(zip(steps, observed["results"], strict=True)):
+            with self.subTest(index=index, step=json.dumps(step)):
+                self.assertTrue(outcome["ok"], outcome)
+                if effect is not None:
+                    self.assertEqual(outcome["effect"], effect)
+                    self.assertIsNone(outcome["message"])
+
+    @unittest.skipIf(NODE is None, "node is required")
+    def test_host_external_directory_allow_prompts_restricted_agents_until_saved(self) -> None:
+        self.run_external(
+            "external",
+            [
+                # A config-level allow does not reach a restricted agent's own `ask`.
+                (external_check(FIXER, ["/elsewhere/a/*"]), "ask"),
+                (external_check("code-finder", ["/elsewhere/a/*"]), "allow"),
+                # The user answers that prompt "always"; the host saves the project root.
+                (external_asked("per_1", ["/elsewhere/a/*"], ["/elsewhere/*"]), None),
+                (external_replied("per_1", "always"), None),
+                (external_check(FIXER, ["/elsewhere/a/*"]), "allow"),
+                (external_check(FIXER, ["/elsewhere/b/*"]), "allow"),
+                (external_check(FIXER, ["/elsewhere/b/*", "/other/*"]), "ask"),
+                # "once" saves nothing, so the next call prompts again.
+                (external_asked("per_2", ["/other/*"], ["/other/*"]), None),
+                (external_replied("per_2", "once"), None),
+                (external_check(FIXER, ["/other/*"]), "ask"),
+                # A reply to a request never seen asked records nothing; "reject" neither.
+                (external_replied("per_unknown", "always"), None),
+                (external_asked("per_3", ["/third/*"], ["/third/*"]), None),
+                (external_replied("per_3", "reject"), None),
+                (external_check(FIXER, ["/third/*"]), "ask"),
+                # Saved approvals are per project, for every agent and session, as the host saves them.
+                (external_asked("per_4", ["/fourth/*"], ["/fourth/*"], "ses-finder"), None),
+                (external_replied("per_4", "always", "ses-finder"), None),
+                (external_check(FIXER, ["/fourth/x/*"]), "allow"),
+                # The approval outlives a state rebuild.
+                ({"kind": "rebuild"}, None),
+                (external_check(FIXER, ["/elsewhere/a/*"]), "allow"),
+                (external_check(FIXER, ["/other/*"]), "ask"),
+            ],
+        )
+
+    @unittest.skipIf(NODE is None, "node is required")
+    def test_host_auto_resolved_external_requests_record_nothing(self) -> None:
+        # Two prompts pend; the user answers the narrow one "always". The host
+        # saves /repo/d/* only, then auto-resolves the covered /repo/d/sub/*
+        # request with an "always" reply whose wider `save` it never stores.
+        self.run_external(
+            "auto-resolve",
+            [
+                (external_asked("per_a", ["/repo/d/*"], ["/repo/d/*"]), None),
+                (external_asked("per_b", ["/repo/d/sub/*"], ["/repo/*"]), None),
+                (external_batch(external_replied("per_a", "always"), external_replied("per_b", "always")), None),
+                (external_check(FIXER, ["/repo/d/sub/*"]), "allow"),
+                (external_check(FIXER, ["/repo/e/*"]), "ask"),
+                ({"kind": "rebuild"}, None),
+                (external_check(FIXER, ["/repo/e/*"]), "ask"),
+            ],
+        )
+
+    @unittest.skipIf(NODE is None, "node is required")
+    def test_auto_resolved_request_partly_allowed_by_config_records_nothing(self) -> None:
+        # One batched request: /home/u/p2/sub/* is allowed by the user's config,
+        # /r/d/sub/* asks. The user answers another request for /r/d/* "always";
+        # the host saves only /r/d/* and auto-resolves the batched request.
+        self.run_external(
+            "auto-resolve-partial",
+            [
+                (external_asked("per_a", ["/r/d/*"], ["/r/d/*"]), None),
+                (external_asked("per_b", ["/home/u/p2/sub/*", "/r/d/sub/*"], ["/home/u/p2/*", "/r/*"]), None),
+                (external_batch(external_replied("per_a", "always"), external_replied("per_b", "always")), None),
+                (external_check(FIXER, ["/r/d/sub/*"]), "allow"),
+                (external_check(FIXER, ["/r/e/*"]), "ask"),
+                (external_check(FIXER, ["/home/u/p2/x/*"]), "ask"),
+                ({"kind": "rebuild"}, None),
+                (external_check(FIXER, ["/r/e/*"]), "ask"),
+                (external_check(FIXER, ["/home/u/p2/x/*"]), "ask"),
+            ],
+        )
+
+    @unittest.skipIf(NODE is None, "node is required")
+    def test_failed_approval_write_does_not_stop_recording(self) -> None:
+        self.run_external(
+            "write-failure",
+            [
+                ({"kind": "storage", "writes": "fail"}, None),
+                (external_asked("per_1", ["/one/*"], ["/one/*"]), None),
+                (external_replied("per_1", "always"), None),
+                ({"kind": "storage", "writes": "ok"}, None),
+                (external_asked("per_2", ["/two/*"], ["/two/*"]), None),
+                (external_replied("per_2", "always"), None),
+                ({"kind": "rebuild"}, None),
+                (external_check(FIXER, ["/two/*"]), "allow"),
+                # The write that failed is not stored: it prompts once more after a rebuild.
+                (external_check(FIXER, ["/one/*"]), "ask"),
+            ],
+        )
+
+    @unittest.skipIf(NODE is None, "node is required")
+    def test_approval_applies_before_its_storage_write_lands(self) -> None:
+        self.run_external(
+            "pending-write",
+            [
+                ({"kind": "storage", "writes": "hold"}, None),
+                (external_asked("per_1", ["/one/*"], ["/one/*"]), None),
+                (external_replied("per_1", "always"), None),
+                # The host re-evaluates a parallel request right after the reply.
+                (external_check(FIXER, ["/one/sub/*"]), "allow"),
+                ({"kind": "storage", "writes": "release"}, None),
+                ({"kind": "rebuild"}, None),
+                (external_check(FIXER, ["/one/sub/*"]), "allow"),
+            ],
+        )
+
+    @unittest.skipIf(NODE is None, "node is required")
+    def test_approval_applies_before_a_slow_storage_scan_finishes(self) -> None:
+        # The host's re-evaluation of pending requests runs right after it
+        # publishes the reply, long before a slow storage scan returns.
+        self.run_external(
+            "slow-scan",
+            [
+                ({"kind": "storage", "scanDelay": 300}, None),
+                (external_asked("per_1", ["/one/*"], ["/one/*"]), None),
+                ({**external_replied("per_1", "always"), "settle": 5}, None),
+                (external_check(FIXER, ["/one/sub/*"]), "allow"),
+                # A request asked alongside it and answered "always" is still recorded.
+                (external_asked("per_2", ["/two/*"], ["/two/*"]), None),
+                ({**external_replied("per_2", "always"), "settle": 5}, None),
+                (external_check(FIXER, ["/two/sub/*"]), "allow"),
+            ],
+        )
+
+    @unittest.skipIf(NODE is None, "node is required")
+    def test_concurrent_approvals_from_two_locations_are_both_kept(self) -> None:
+        # Setups 0 and 1 stand for two directories (worktrees) of one project,
+        # each streaming its own location's events into the shared storage.
+        self.run_external(
+            "two-locations",
+            [
+                ({"kind": "storage", "writes": "hold"}, None),
+                (
+                    external_batch(
+                        external_asked("per_a", ["/a/*"], ["/a/*"], targets=[0]),
+                        external_asked("per_b", ["/b/*"], ["/b/*"], targets=[1]),
+                        external_replied("per_a", "always", targets=[0]),
+                        external_replied("per_b", "always", targets=[1]),
+                    ),
+                    None,
+                ),
+                ({"kind": "storage", "writes": "release"}, None),
+                ({"kind": "rebuild"}, None),
+                (external_check(FIXER, ["/a/*"]), "allow"),
+                (external_check(FIXER, ["/b/*"]), "allow"),
+            ],
+        )
 
     @unittest.skipIf(NODE is None, "node is required")
     def test_host_wildcard_allow_cannot_widen_a_restricted_agents_tools(self) -> None:

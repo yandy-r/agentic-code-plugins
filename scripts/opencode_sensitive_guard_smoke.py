@@ -9,9 +9,11 @@ must never appear in one for a restricted specialist, while ordinary work and
 an unrestricted agent keep working. Further scenarios load the generated npm
 package directory instead of the file copy, load a package copy without the
 guard under host-wide allow rules (the packaged agent rules must still hold),
-and run the file copy with the guard absent or removed by project config
-(restricted specialists must have no search tool). Run through
-scripts/test-opencode-sensitive-guard.sh, never directly against a real home.
+ask restricted npm agents before external directories despite a host-wide
+allow until the user answers "always", and run the file copy with the guard
+absent or removed by project config (restricted specialists must have no
+search tool). Run through scripts/test-opencode-sensitive-guard.sh, never
+directly against a real home.
 """
 
 from __future__ import annotations
@@ -63,6 +65,8 @@ class Probe:
     # feedback so the turn continues); the prompted actions land in `asked`.
     reply: str = ""
     must_ask: str = ""
+    # The probe must not be prompted for this action.
+    must_not_ask: str = ""
     # When set, the model may be offered only these tool names.
     offered_within: frozenset[str] = frozenset()
     # When set, classify() must report exactly this layer.
@@ -274,6 +278,8 @@ def evaluate(probes: list[Probe], canary: str, control: str) -> None:
             check(f"{probe.label}: no guarded search offered to {probe.agent}", set(), guarded)
         if probe.must_ask:
             check(f"{probe.label}: prompted for {probe.must_ask}", True, probe.must_ask in probe.asked)
+        if probe.must_not_ask:
+            check(f"{probe.label}: not prompted for {probe.must_not_ask}", False, probe.must_not_ask in probe.asked)
         if probe.layer_expected:
             check(f"{probe.label}: decided by {probe.layer_expected}", probe.layer_expected, probe.layer)
         if probe.offered_within:
@@ -394,6 +400,45 @@ def external_search_probes(work: Path, canary: str) -> list[Probe]:
             reply="reject",
             must_ask="external_directory",
             must_not_contain=("secret.txt",),
+        ),
+    ]
+
+
+def npm_external_allow_probes(work: Path, control: str) -> list[Probe]:
+    """On npm a host-wide external-directory allow still asks a restricted
+    agent; once answered "always" the same directory is not asked again."""
+    outside = work.parent / f"{work.name}-outside"
+    outside.mkdir(exist_ok=True)
+    (outside / "notes.txt").write_text(f"OUTSIDE {control}\n", encoding="utf-8")
+    search = {"pattern": "OUTSIDE", "path": str(outside)}
+    return [
+        Probe(
+            "npm external allow: restricted agent asks",
+            "pr-comment-fixer",
+            "grep",
+            search,
+            "control",
+            reply="always",
+            must_ask="external_directory",
+        ),
+        # Any prompt here is declined, which would drop the control result.
+        Probe(
+            "npm external allow: saved approval is not asked again",
+            "review-fixer",
+            "grep",
+            search,
+            "control",
+            reply="reject",
+            must_not_ask="external_directory",
+        ),
+        Probe(
+            "npm external allow: unrestricted agent keeps the host allow",
+            "code-finder",
+            "grep",
+            {"pattern": "OUTSIDE", "path": str(outside)},
+            "control",
+            reply="reject",
+            must_not_ask="external_directory",
         ),
     ]
 
@@ -660,8 +705,7 @@ def main() -> None:
         )
         # Host-wide external-directory approval on the file copy: guarded search
         # still asks as the restricted agent, whose own `ask` comes last there.
-        # (On npm a host-wide allow is the user's choice; the floor only
-        # enforces packaged denies.)
+        # The npm floor re-raises it (npm-external-allow below).
         external_allow = {"permissions": [{"action": "external_directory", "resource": "*", "effect": "allow"}]}
         results += scenario(
             lab,
@@ -684,6 +728,17 @@ def main() -> None:
             base_config(provider, [package.as_uri()]),
             PACKAGE_ID,
             lambda _work: npm_probes(),
+            canary,
+            control,
+        )
+        results += scenario(
+            lab,
+            binary,
+            provider,
+            "npm-external-allow",
+            base_config(provider, [package.as_uri()]) | external_allow,
+            PACKAGE_ID,
+            lambda work: npm_external_allow_probes(work, control),
             canary,
             control,
         )
