@@ -98,6 +98,8 @@ run_ycc_target() {
             "${REPO_ROOT}/scripts/generate-omp-skills.sh"
             echo "== sync: omp agents =="
             "${REPO_ROOT}/scripts/generate-omp-agents.sh"
+            echo "== sync: omp commands =="
+            "${REPO_ROOT}/scripts/generate-omp-commands.sh"
             ;;
         agents)
             echo "== sync: agents skills =="

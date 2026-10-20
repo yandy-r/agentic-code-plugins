@@ -32,6 +32,8 @@ files = [
   "scripts/test_generate_omp_skills.py",
   "scripts/generate_omp_agents.py",
   "scripts/test_generate_omp_agents.py",
+  "scripts/generate_omp_commands.py",
+  "scripts/test_generate_omp_commands.py",
   "scripts/claude_agents_split.py",
   "scripts/claude_agents_split_smoke.py",
   "scripts/test_claude_agents_split.py",

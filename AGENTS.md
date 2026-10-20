@@ -71,8 +71,8 @@ this table records install ownership, not a claim of runtime feature parity:
 | `./scripts/sync.sh --only cursor`                             | Regenerate native Cursor packages and file-copy inputs           |
 | `./scripts/validate.sh --only cursor,cursor-native,packages`  | Cursor content, generator, native policy fixtures, parity        |
 | `./scripts/validate.sh --only codex,codex-native,packages`    | Codex content, native export, policy fixtures, parity            |
-| `./scripts/sync.sh --only omp`                                | Regenerate OMP skills and agents (`packages/omp/ycc`)            |
-| `./scripts/validate.sh --only omp`                            | OMP skill/agent drift, content policy, golden tests              |
+| `./scripts/sync.sh --only omp`                                | Regenerate OMP skills, agents, commands (`packages/omp`)         |
+| `./scripts/validate.sh --only omp`                            | OMP skill/agent/command drift, policy, golden tests              |
 | `./scripts/validate.sh --only practices`                      | Authoring ratchet, including `.claude/rules` `paths` frontmatter |
 | `./scripts/validate.sh --only types`                          | `mypy --strict` over pyproject.toml `[tool.mypy]` files          |
 | `python3 scripts/test_validate_practices.py`                  | Authoring-validator regression tests                             |

@@ -46,7 +46,7 @@ Follow these rules exactly or the parser will misread cells:
 | capability        | claude    | cursor      | codex       | opencode    | omp         |
 | ----------------- | --------- | ----------- | ----------- | ----------- | ----------- |
 | SKILLS            | supported | supported   | supported   | supported   | partial     |
-| COMMANDS          | supported | partial     | unsupported | supported   | unsupported |
+| COMMANDS          | supported | partial     | unsupported | supported   | partial     |
 | AGENTS            | supported | partial     | supported   | supported   | partial     |
 | HOOKS.PreToolUse  | supported | partial     | unsupported | partial     | unsupported |
 | HOOKS.PostToolUse | supported | partial     | unsupported | partial     | unsupported |
@@ -321,8 +321,20 @@ not installable until YAN-1171 and YAN-1172. Workflow semantics (worktree roots,
 questions in non-interactive modes) stay with YAN-1170. Source: ADR 0002; spike §3.
 
 **COMMANDS:omp**
-Unsupported today: ycc ships no OMP command wrappers yet. Skills run as `/skill:<name>`, and OMP
-loads plugin `commands/*.md` natively as `/ycc:<cmd>`. Optional thin wrappers are YAN-1168.
+Partial: `scripts/generate_omp_commands.py` writes one thin command per public skill to
+`packages/omp/ycc/commands/<skill>.md`. Public means the directory is not `_`-prefixed and
+`user-invocable` is not `false`; manual-only skills (`disable-model-invocation: true`) still get
+one. Each command keeps the skill's `description` and `argument-hint`, reads `skill://<skill>`,
+and passes `$ARGUMENTS`. OMP registers plugin commands as `<plugin>:<stem>`; the prefix is the catalog plugin name
+for marketplace installs, else the `name` in `.claude-plugin/plugin.json` (or root
+`plugin.json`), else the `--plugin-dir` basename. `.omp-plugin/plugin.json` does not set it, but
+OMP keeps agent `model:` only with it, so the YAN-1171 root needs both manifests, named `ycc`,
+for `/ycc:<skill>` (verified live on omp 18.12.3).
+`omp plugin link` registers bare names, and OMP's built-ins (such as `/plan`) and bundled file
+commands (such as `/init`) shadow them. Generation fails on names OMP cannot dispatch, duplicate
+names, a `ycc:<name>` equal to an OMP built-in name or alias (the set is pinned from omp 18.12.3),
+empty descriptions and non-string hints. `/skill:<name>` is an alternative when
+`skills.enableSkillCommands` is on (the default). The package is not installable until YAN-1171.
 Source: spike §3.
 
 **AGENTS:omp**
