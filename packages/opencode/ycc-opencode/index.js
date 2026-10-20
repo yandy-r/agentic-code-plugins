@@ -28,6 +28,10 @@
 //   - Instructions have no config entry on v2.0.29; the only plugin-side
 //     mechanism is session.hook("context") pushing a typed
 //     { type: "text", text } SystemPart (packages/plugin/src/promise/session.ts).
+//   - The sensitive-file guard (ycc-sensitive-guard/, the same module
+//     the file-copy install loads as its own plugin) registers
+//     tool.hook("execute.before"/"execute.after") for the restricted
+//     specialists named in its policy.json (verified on v2.0.32 sources).
 //
 // Coexistence with the primary file-copy install (install.sh --target
 // opencode): config agents/skills/commands apply in the `post` plugin group,
@@ -42,12 +46,16 @@
 // Commands never collide: every package command is `ycc:<skill>` while the
 // file-copy commands stay bare, so both remain available side by side. The
 // context hook does not push instructions already present on the event, so
-// an installed file-copy AGENTS.md is not duplicated.
+// an installed file-copy AGENTS.md is not duplicated. When both channels load
+// the sensitive-file guard, both hook sets apply the same policy; a call one
+// rejects is rejected, and filtering grep/glob results twice is idempotent.
 
 import { fileURLToPath } from "node:url";
 import { dirname, isAbsolute, join, relative as relativePath } from "node:path";
 import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+
+import { registerSensitiveGuard } from "./ycc-sensitive-guard/index.js";
 
 const PACKAGE_ROOT = dirname(fileURLToPath(import.meta.url));
 const REGISTRATION = JSON.parse(readFileSync(join(PACKAGE_ROOT, "registration.json"), "utf8"));
@@ -251,6 +259,7 @@ export default {
       await registerCommands(ctx);
       await registerMcp(ctx);
       await registerInstructions(ctx);
+      await registerSensitiveGuard(ctx);
     } catch (error) {
       teardown(renderedRoot);
       throw error;

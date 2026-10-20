@@ -10,6 +10,7 @@
   "files": [
     "index.js",
     "registration.json",
+    "ycc-sensitive-guard/",
     "skills/",
     "shared/",
     "agents/",

@@ -62,6 +62,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from opencode_sensitive_policy import GUARD_DIRNAME, guard_payloads  # noqa: E402
 from package_model import Package, PackageModel, RuntimePackage, load_package_model  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -505,7 +506,8 @@ def package_manifest(package: Package, model: PackageModel) -> dict[str, Any]:
     runtime = opencode_runtime(package)
     assert runtime is not None
     components = frozenset(runtime.components)
-    files = ["index.js", "registration.json"]
+    # The adapter always imports the sensitive-file guard from its own directory.
+    files = ["index.js", "registration.json", f"{GUARD_DIRNAME}/"]
     if components & {"skills", "shared"}:
         files.extend(["skills/", "shared/"])
     if "agents" in components:
@@ -753,6 +755,7 @@ def build_output() -> tuple[dict[Path, Payload], tuple[Path, ...]]:
         if "instructions" in components:
             output.update(context_payload(root))
         output.update(adapter_payload(root))
+        output.update({root / GUARD_DIRNAME / rel: Payload(content) for rel, content in guard_payloads().items()})
         output.update(license_payload(root))
         output[root / "README.md"] = readme_payload(package, model)
         output[root / "registration.json"] = json_payload(registration_data(package, root, output))

@@ -281,6 +281,9 @@ run_target() {
             echo "== validate: opencode V2 agent permission generation =="
             (cd "${REPO_ROOT}/scripts" && python3 test_generate_opencode_agents.py) \
                 || fail "test_generate_opencode_agents.py"
+            echo "== validate: opencode sensitive-file guard plugin =="
+            python3 "${REPO_ROOT}/scripts/test_opencode_sensitive_guard.py" \
+                || fail "test_opencode_sensitive_guard.py"
             echo "== validate: experimental opencode npm package =="
             python3 "${REPO_ROOT}/scripts/generate_opencode_package.py" --check \
                 || fail "generate_opencode_package.py --check"

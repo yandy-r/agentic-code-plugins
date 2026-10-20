@@ -14,6 +14,11 @@ This generator performs:
 1. Strips `name` / `title` / unknown Claude-specific fields.
 2. Drops `model` entirely (see below).
 3. Converts Claude tool allowlists to ordered OpenCode V2 `permissions` rules.
+   Agents listed in ycc/settings/sensitive-files.json additionally get native
+   `read`/`edit` denies for sensitive paths, appended last. The guard plugin
+   that enforces the same policy on every tool call is written beside the
+   agents as .opencode-plugin/ycc-sensitive-guard, so the two always ship
+   together.
 4. Rewrites body text with opencode-native phrasing via
    apply_opencode_text_transforms.
 5. Normalizes Claude color names to opencode-valid hex colors.
@@ -53,6 +58,14 @@ from generate_opencode_common import (
 from generate_opencode_dispatch import (
     project_opencode_dispatch,
     project_opencode_dispatch_description,
+)
+from opencode_sensitive_policy import (
+    GUARD_DIR,
+    SensitivePolicy,
+    guard_drift,
+    load_policy,
+    native_sensitive_rules,
+    write_guard,
 )
 
 PermissionRule = dict[str, str]
@@ -103,7 +116,8 @@ EXTERNAL_DIRECTORY_ASK: PermissionRule = {
 }
 FILESYSTEM_ACTIONS: frozenset[str] = frozenset({"read", "edit", "glob", "grep", "shell"})
 # These restore OpenCode's sensitive-file defaults for the `read` action only.
-# Other discovery actions retain their native V2 semantics and are emitted only
+# Agents in the sensitive-file registry replace them with path denies; other
+# discovery actions retain their native V2 semantics and are emitted only
 # when the canonical source agent explicitly requests them.
 SENSITIVE_READ_GUARDS: tuple[PermissionRule, ...] = (
     {"action": "read", "resource": "*.env", "effect": "ask"},
@@ -233,8 +247,18 @@ def _apply_agent_specific_text_transforms(stem: str, body: str) -> str:
     return body.replace("git -C <WORKTREE>", "git")
 
 
-def convert_tools_to_permissions(value: object, *, skill_ids: Iterable[str] = ()) -> list[PermissionRule]:
-    """Translate a Claude tool allowlist to ordered OpenCode V2 rules."""
+def convert_tools_to_permissions(
+    value: object,
+    *,
+    skill_ids: Iterable[str] = (),
+    sensitive_policy: SensitivePolicy | None = None,
+) -> list[PermissionRule]:
+    """Translate a Claude tool allowlist to ordered OpenCode V2 rules.
+
+    With ``sensitive_policy`` the agent is restricted: its sensitive-path
+    denies for `read`/`edit` are appended last so no earlier allow (and no
+    host default) can override them.
+    """
     permissions: list[PermissionRule] = [DENY_ALL.copy()]
     seen: set[tuple[str, str, str]] = {("*", "*", "deny")}
     for spec in _enabled_tool_specs(value):
@@ -254,12 +278,14 @@ def convert_tools_to_permissions(value: object, *, skill_ids: Iterable[str] = ()
     allowed_actions = {rule["action"] for rule in permissions if rule["effect"] == "allow"}
     if allowed_actions & FILESYSTEM_ACTIONS:
         permissions.append(EXTERNAL_DIRECTORY_ASK.copy())
-    if "read" in allowed_actions:
+    if sensitive_policy is not None:
+        permissions.extend(native_sensitive_rules(allowed_actions, sensitive_policy))
+    elif "read" in allowed_actions:
         permissions.extend(rule.copy() for rule in SENSITIVE_READ_GUARDS)
     return permissions
 
 
-def transform_agent(stem: str, raw: str, aliases: dict[str, str]) -> str:
+def transform_agent(stem: str, raw: str, aliases: dict[str, str], policy: SensitivePolicy | None = None) -> str:
     """Translate one canonical Claude agent into OpenCode Markdown."""
     frontmatter, body = parse_frontmatter(raw)
 
@@ -287,8 +313,11 @@ def transform_agent(stem: str, raw: str, aliases: dict[str, str]) -> str:
     # block, which merges with these definitions by agent ID.
 
     if "tools" in frontmatter:
+        policy = load_policy() if policy is None else policy
         payload["permissions"] = convert_tools_to_permissions(
-            frontmatter["tools"], skill_ids=_referenced_skill_ids(body)
+            frontmatter["tools"],
+            skill_ids=_referenced_skill_ids(body),
+            sensitive_policy=policy if stem in policy.restricted_agents else None,
         )
 
     raw_color = frontmatter.get("color")
@@ -317,11 +346,12 @@ def transform_agent(stem: str, raw: str, aliases: dict[str, str]) -> str:
 def write_all(dest: Path, dry_run: bool) -> set[Path]:
     """Generate every canonical agent under ``dest`` and return its paths."""
     aliases = load_agent_aliases()
+    policy = load_policy()
     written: set[Path] = set()
 
     for src in sorted(SRC_AGENTS_DIR.glob("*.md")):
         stem = src.stem
-        output = transform_agent(stem, src.read_text(encoding="utf-8"), aliases)
+        output = transform_agent(stem, src.read_text(encoding="utf-8"), aliases, policy)
         target = dest / f"{stem}.md"
         written.add(target.relative_to(dest))
         if dry_run:
@@ -361,7 +391,7 @@ def run_check() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         temp_root = Path(tmp)
         write_all(temp_root, dry_run=False)
-        diffs = compare_trees(temp_root, OPENCODE_AGENTS_DIR)
+        diffs = compare_trees(temp_root, OPENCODE_AGENTS_DIR) + guard_drift()
         if diffs:
             print(
                 "opencode agents are out of date. Run: ./scripts/generate-opencode-agents.sh",
@@ -391,12 +421,14 @@ def main() -> None:
 
     if args.dry_run:
         write_all(OPENCODE_AGENTS_DIR, dry_run=True)
+        write_guard(GUARD_DIR, dry_run=True)
         return
 
     OPENCODE_AGENTS_DIR.mkdir(parents=True, exist_ok=True)
     write_all(OPENCODE_AGENTS_DIR, dry_run=False)
+    write_guard(GUARD_DIR, dry_run=False)
     count = sum(1 for _ in OPENCODE_AGENTS_DIR.glob("*.md"))
-    print(f"Wrote {count} files under {OPENCODE_AGENTS_DIR}")
+    print(f"Wrote {count} files under {OPENCODE_AGENTS_DIR} and the guard plugin under {GUARD_DIR}")
 
 
 if __name__ == "__main__":

@@ -38,10 +38,13 @@ import { spawnSync } from "node:child_process";
 const [root, preSkill, preAgent, preMcp, systemText] = process.argv.slice(2);
 const plugin = (await import(pathToFileURL(root + "/index.js").href)).default;
 const skills = new Map(), agents = new Map(), mcp = new Map(), commands = new Map(), prompts = [], hooks = [];
+const toolHooks = [];
 if (preSkill) skills.set(preSkill, { id: preSkill, preexisting: true });
 if (preAgent) agents.set(preAgent, { id: preAgent, preexisting: true });
 if (preMcp) mcp.set(preMcp, { preexisting: true });
 const ctx = {
+  location: { directory: process.cwd(), project: { directory: process.cwd(), canonical: process.cwd() } },
+  tool: { hook: async (name) => { toolHooks.push(name); } },
   skill: { transform: async (cb) => cb({ get: (id) => skills.get(id), add: (s) => skills.set(s.id, s) }) },
   agent: { transform: async (cb) => cb({
     get: (id) => agents.get(id),
@@ -74,6 +77,7 @@ console.log(JSON.stringify({
   mcp: Object.fromEntries(mcp),
   commandNames: [...commands.keys()],
   hooks: hooks.map((h) => h.name),
+  toolHooks,
   prompts,
   system: event.system,
   renderedRoot, shell: { status: shell.status, stdout: shell.stdout, stderr: shell.stderr },
@@ -257,6 +261,14 @@ class OpencodeNpmPackageTests(unittest.TestCase):
         self.assertEqual(len(observed["commandNames"]), len(self.registration["commands"]))
         self.assertEqual(set(observed["mcp"]), set(self.registration["mcp"]))
         self.assertEqual(observed["hooks"], ["context"])
+        # The package carries the same sensitive-file guard as the file-copy install.
+        self.assertEqual(observed["toolHooks"], ["execute.before", "execute.after"])
+        for rel in ("index.js", "policy.json", "package.json"):
+            with self.subTest(guard_file=rel):
+                self.assertEqual(
+                    (moved / "ycc-sensitive-guard" / rel).read_bytes(),
+                    (REPO_ROOT / ".opencode-plugin" / "ycc-sensitive-guard" / rel).read_bytes(),
+                )
         for skill in observed["skills"]:
             self.assertEqual(Path(skill["path"]), Path(observed["renderedRoot"]) / "skills" / skill["id"] / "SKILL.md")
             self.assertNotIn("{{package-root}}", skill["content"])

@@ -1,0 +1,7 @@
+{
+  "name": "ycc-sensitive-guard",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "description": "ycc sensitive-file guard for restricted OpenCode V2 specialists."
+}

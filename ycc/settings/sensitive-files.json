@@ -1,0 +1,40 @@
+{
+  "restricted_agents": [
+    "backport-conflict-resolver",
+    "db-modifier",
+    "pr-comment-fixer",
+    "release-fix-applier",
+    "review-fixer"
+  ],
+  "patterns": [
+    ".env",
+    ".env.*",
+    ".env-*",
+    ".env_*",
+    ".envrc",
+    "*.env",
+    "*.env.*",
+    "*.pem",
+    "*.key",
+    "*.p12",
+    "*.pfx",
+    "id_rsa*",
+    "id_dsa*",
+    "id_ecdsa*",
+    "id_ed25519*",
+    "credentials.json",
+    "secrets.json",
+    "service-account*.json",
+    ".netrc",
+    ".git-credentials",
+    ".npmrc",
+    ".pypirc",
+    ".pgpass",
+    ".kube/config",
+    ".docker/config.json",
+    ".ssh/",
+    ".aws/",
+    ".gnupg/"
+  ],
+  "allow": ["*.env.example", "*.env.*.example"]
+}

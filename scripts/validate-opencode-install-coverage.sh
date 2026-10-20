@@ -28,6 +28,7 @@ fi
 
 echo "== Install-coverage check (~/.config/opencode/... references) =="
 python3 - "${BUNDLE_ROOT}" "${INSTALL_SCRIPT}" <<'PY'
+import json
 import re
 import sys
 from pathlib import Path
@@ -38,7 +39,7 @@ install_script = Path(sys.argv[2])
 # Single source of truth: OPENCODE_BUNDLE_UNITS in the opencode target lib
 # (the full list is what 'base' rsyncs; sync and remove both read it).
 text = install_script.read_text(encoding="utf-8")
-match = re.search(r"^OPENCODE_BUNDLE_UNITS=\(([a-z_ ]+)\)$", text, re.M)
+match = re.search(r"^OPENCODE_BUNDLE_UNITS=\(([a-z_ -]+)\)$", text, re.M)
 if not match:
     print(
         f"FAIL: could not find OPENCODE_BUNDLE_UNITS=(...) in {install_script} — "
@@ -147,6 +148,33 @@ if missing_targets:
         "actually ships.",
         file=sys.stderr,
     )
+
+# Every bundle directory must be a unit 'base' mirrors, and every local
+# `./<dir>` plugins entry in opencode.json must name one (OpenCode resolves it
+# from ~/.config/opencode and only logs a warning when it is missing).
+unshipped_dirs = sorted(
+    path.name for path in bundle_root.iterdir() if path.is_dir() and path.name not in MANAGED_UNITS
+)
+if unshipped_dirs:
+    failed = True
+    print(
+        "FAIL: .opencode-plugin/ directories missing from OPENCODE_BUNDLE_UNITS: " + ", ".join(unshipped_dirs),
+        file=sys.stderr,
+    )
+
+config = json.loads((bundle_root / "opencode.json").read_text(encoding="utf-8"))
+for entry in config.get("plugins", []):
+    spec = entry if isinstance(entry, str) else entry.get("package") if isinstance(entry, dict) else None
+    if not isinstance(spec, str) or not spec.startswith("./"):
+        continue
+    name = spec[2:].rstrip("/")
+    if "/" in name or name not in MANAGED_UNITS or not (bundle_root / name).is_dir():
+        failed = True
+        print(
+            f"FAIL: opencode.json plugins entry {spec!r} must name a top-level bundle unit "
+            "listed in OPENCODE_BUNDLE_UNITS with a backing .opencode-plugin/ directory",
+            file=sys.stderr,
+        )
 
 if failed:
     sys.exit(1)
