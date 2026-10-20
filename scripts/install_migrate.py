@@ -220,6 +220,8 @@ class Migration:
     def __init__(self, apply: bool) -> None:
         self.apply = apply
         self.home = Path.home()
+        # omp_install.MigratePlan, set by main's preflight (omp_install is imported lazily).
+        self.omp_plan: Any = None
 
     @functools.cached_property
     def released_trees(self) -> ReleasedTrees | None:
@@ -497,7 +499,7 @@ class Migration:
     def omp(self) -> None:
         import omp_install
 
-        omp_install.migrate(self.apply)
+        omp_install.apply_migrate(self.omp_plan, self.apply)
 
     def codex_skills(self, legacy: Path | None = None) -> None:
         """Retire exact standalone ~/.codex/skills copies; never ~/.codex/agents.
@@ -730,6 +732,8 @@ def main() -> int:
     parser.add_argument("--targets", required=True)
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--marketplace-source", type=Path, default=ROOT)
+    # The installer's project root (git toplevel, else cwd): omp project installs are recorded there.
+    parser.add_argument("--project-root", type=Path, default=Path.cwd())
     args = parser.parse_args()
     targets = args.targets.split(",")
     if not targets or any(target not in {"claude", "codex", "cursor", "omp"} for target in targets):
@@ -757,6 +761,9 @@ def main() -> int:
                 omp_install.available()
             except (OSError, ValueError) as error:
                 raise ValueError(f"omp unavailable: {error}") from error
+            # Every omp refusal (foreign link, unrecorded export, disabled or non-native legacy install,
+            # export build) happens here, before any target mutates.
+            migration.omp_plan = omp_install.plan_migrate(args.project_root, apply=args.apply)
         print(f"Migration {'apply' if args.apply else 'dry-run (pass --apply to change files)'}")
         for target in targets:
             if target == "codex":

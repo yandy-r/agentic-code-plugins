@@ -42,7 +42,7 @@ explicitly; any other package is rejected with the package model's reason.
 
 ## Update
 
-Re-run the same command after pulling or regenerating:
+Re-run the same command after pulling a new release:
 
 ```bash
 ./install.sh install --target omp
@@ -53,6 +53,11 @@ A re-run refreshes the export and runs `omp plugin marketplace update ycc`,
 then `omp plugin upgrade --scope <scope> ycc@ycc` only when the exported
 version differs from the installed one. When nothing changed, omp is not
 touched and the installer prints `ycc@ycc <version> up to date`.
+
+omp upgrades by version only. After you regenerate or edit the packages
+without a version bump, the installer prints
+`the export changed but its version did not … rerun with --force` instead;
+run `./install.sh install --target omp --force` to reinstall the new content.
 
 The `plugins` intent maps to the same `base` step
 (`./install.sh sync --target omp --intent plugins`). Every other intent is
@@ -123,7 +128,10 @@ It never takes over an install ycc did not create.
 
 `remove` uninstalls only the installs ycc recorded for that scope. The `ycc`
 marketplace and the export are removed only when nothing else still uses
-them; otherwise the installer prints `kept marketplace ycc: <reason>`.
+them; otherwise the installer prints `kept marketplace ycc: <reason>`. When the
+`ycc` marketplace now points somewhere ycc did not register (a fork with the
+same name), recorded installs are dropped from the ycc record but never
+uninstalled (`kept ycc@ycc (<scope>): marketplace ycc now points at …`).
 
 ## Migrate From Older Installs
 
@@ -136,16 +144,30 @@ Migration retires two older setups without leaving duplicates:
 
 - `omp plugin link` installs that point at this checkout's `packages/omp/`
   tree (foreign links are kept and reported);
-- a `ycc` marketplace registered at the checkout root, where OMP falls back to
-  the Claude catalog. Its installs are uninstalled, the marketplace is removed,
-  and the native package is installed in the same scopes.
+- a `ycc` marketplace registered at the checkout root, which OMP falls back
+  to the Claude catalog for. Its installs are uninstalled, the marketplace is
+  removed, and the native package is installed in the same scopes.
+
+Before anything is uninstalled, migration builds and validates the export.
+It refuses (and changes nothing) while a legacy install is disabled, because
+the native reinstall would come back enabled and ycc never toggles plugins
+for you, or while a legacy install has no native OMP package yet
+(`ycc-mcp`, `ycc-hooks`, `ycc-all`). The message names the exact `omp`
+commands to run first. Project scope means the project root `install
+--project` uses (the git toplevel, else the current directory).
+
+If `--apply` stops partway (say, an omp install fails), the scopes still owed
+a native install are recorded. Re-run `./install.sh migrate --target omp
+--apply` to finish them, or run the printed
+`./install.sh install --target omp [--project]` commands.
 
 ycc skills in `~/.agents/skills` are also loaded by OMP. Migration and install
 report them but never delete them; remove them with
 `./install.sh remove --target agents --only base` (YAN-1176).
 
 `migrate --target all` does not include OMP; run `migrate --target omp`
-separately.
+separately. Combined with other targets (`--target claude,omp`), every omp
+refusal happens in the shared preflight, before any target changes.
 
 ## Profiles And XDG
 

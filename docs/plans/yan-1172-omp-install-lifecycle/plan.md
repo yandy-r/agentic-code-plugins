@@ -787,3 +787,24 @@ was diffed against the real binary (identical normalized stdout, stderr and rc o
 - **Live harness (2.4):** the upgrade step bumps a sandbox copy of the checkout (`ycc/.claude-plugin/plugin.json`)
   and runs that copy's `install.sh`, because the helper rebuilds the export each run and refuses an edited
   export. The migration link also targets that copy, so omp never touches the real checkout.
+- **Pre-PR review fixes:**
+  - Test isolation: `scripts/tests/install/lib.sh` unsets every `git rev-parse --local-env-vars` variable,
+    so a sandbox `git init` under the lefthook pre-push hook cannot write into this repository; the
+    `migrate.sh` omp fixture helpers drop `OMP_PROFILE`, `OMP_BIN` and `FAKE_OMP_LOG`.
+  - Same-version content changes: when the export changed but a package version did not, install prints
+    a `rerun with --force` hint instead of `up to date` (omp upgrades by version only); docs say so.
+  - `migrate` is split into `plan_migrate` (read-only; every refusal, plus an export build and validation
+    under `--apply`) and `apply_migrate`. `install_migrate.py` runs the plan in its shared preflight, so
+    `--target claude,omp --apply` refuses before claude mutates.
+  - `migrate` refuses (no mutation) while a legacy checkout-root install is disabled (a native reinstall
+    would be enabled and ycc never toggles plugins) or has no native OMP package (`ycc-mcp` and friends);
+    the message names the omp commands to run first.
+  - `migrate --apply` records the owed native-install scopes in the state file (`migrate_pending`, keyed
+    by profile) before the first uninstall; `install` clears its entry on success, a re-run finishes the
+    rest, and a failure prints each `./install.sh install --target omp [--project]` still needed.
+  - `migrate` uses the installer's project root (`project_root`: git toplevel, else cwd) through
+    `--project-root`, not omp's `.omp`-first lookup, so migrated project installs stay removable.
+  - `remove` checks the `ycc` marketplace source before uninstalling: a foreign source (not the recorded
+    marketplace, export or repository) drops the records without uninstalling.
+  - Install rollback restores the previous export whenever it was moved aside, even if the new export
+    never landed (`moved_out`).

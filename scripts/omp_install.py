@@ -329,26 +329,13 @@ def linked_names(listing: dict[str, Any]) -> set[str]:
     return {item["name"] for item in listing["npm"] if isinstance(item.get("name"), str)}
 
 
-def find_project_root(cwd: Path) -> Path | None:
-    """omp's project root: the nearest ancestor with ``.omp/``, else with ``.git``; never $HOME."""
-    home = Path.home().resolve()
-    start = cwd.resolve()
-    for marker in (".omp", ".git"):
-        for directory in (start, *start.parents):
-            if directory == home:
-                break
-            if (directory / marker).exists():
-                return directory
-    return None
-
-
 # ---------------------------------------------------------------------------
 # State
 # ---------------------------------------------------------------------------
 
 
 def fresh_state() -> dict[str, Any]:
-    return {"version": 1, "export": None, "export_inventory": {}, "profiles": {}}
+    return {"version": 1, "export": None, "export_inventory": {}, "profiles": {}, "migrate_pending": {}}
 
 
 def load_state() -> dict[str, Any]:
@@ -363,8 +350,14 @@ def load_state() -> dict[str, Any]:
     state.setdefault("export", None)
     state.setdefault("export_inventory", {})
     profiles = state.setdefault("profiles", {})
+    pending = state.setdefault("migrate_pending", {})
     if not isinstance(profiles, dict) or not isinstance(state["export_inventory"], dict):
         raise ValueError(f"{path}: malformed profiles or export_inventory")
+    if not isinstance(pending, dict) or not all(
+        isinstance(entries, list) and all(isinstance(entry, dict) and entry.get("scope") in SCOPES for entry in entries)
+        for entries in pending.values()
+    ):
+        raise ValueError(f"{path}: malformed migrate_pending")
     for key, profile in profiles.items():
         if not isinstance(profile, dict):
             raise ValueError(f"{path}: profile {key!r} must be an object")
@@ -394,7 +387,7 @@ def save_state(state: dict[str, Any]) -> None:
 
 
 def write_or_delete_state(state: dict[str, Any]) -> None:
-    if state["profiles"] or state.get("export"):
+    if state["profiles"] or state.get("export") or state.get("migrate_pending"):
         save_state(state)
     else:
         guarded(state_path())
@@ -421,6 +414,21 @@ def prune_profiles(state: dict[str, Any]) -> None:
     state["profiles"] = {
         key: profile for key, profile in state["profiles"].items() if profile["marketplace"] or profile["installs"]
     }
+
+
+def drop_pending(state: dict[str, Any], profile_key: str, scope: str, root: str | None) -> bool:
+    """Forget a native install ``migrate --apply`` still owed (scope, project root); True if one was owed."""
+    entries = state["migrate_pending"].get(profile_key)
+    if not entries:
+        return False
+    kept = [entry for entry in entries if not (entry["scope"] == scope and entry.get("project_root") == root)]
+    if len(kept) == len(entries):
+        return False
+    if kept:
+        state["migrate_pending"][profile_key] = kept
+    else:
+        del state["migrate_pending"][profile_key]
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -590,13 +598,16 @@ def install(
         else:
             marketplace_action = ""
 
+        # A same-version export change is not reinstalled (omp upgrades by version only).
+        stale = mode == "local" and export_changed
         if dry_run:
-            dry_run_install(steps, scope, cwd, source, exported, export_changed, marketplace_action, registered)
+            dry_run_install(steps, scope, cwd, source, exported, export_changed, marketplace_action, registered, stale)
             warn_agents_overlap(packages)
             return
 
         # Mutations, ownership recorded before each create.
         created_marketplace = False
+        moved_out = False
         swapped = False
         succeeded: list[dict[str, Any]] = []
         try:
@@ -605,6 +616,7 @@ def install(
                     if exported.exists():
                         backup = Path(tempfile.mkdtemp(dir=exported.parent, prefix=f".{exported.name}.previous."))
                         os.replace(exported, backup)
+                        moved_out = True
                     os.replace(staging, exported)
                     staging = None
                     swapped = True
@@ -622,13 +634,14 @@ def install(
             elif marketplace_action == "update":
                 run("plugin", "marketplace", "update", MARKETPLACE, cwd=home)
             for step in steps:
-                apply_step(cli, state, live, step, scope, cwd, record_root, succeeded)
+                apply_step(cli, state, live, step, scope, cwd, record_root, succeeded, stale)
         except BaseException:
             rollback(
                 state_snapshot=snapshot,
                 profile_key=profile_key,
                 succeeded=succeeded,
                 created_marketplace=created_marketplace,
+                moved_out=moved_out,
                 swapped=swapped,
                 backup=backup,
                 exported=exported,
@@ -637,6 +650,8 @@ def install(
             backup = None
             raise
 
+        if drop_pending(state, profile_key, scope, record_root):
+            save_state(state)
         for step in steps:
             if step.disabled and step.action != "unowned":
                 print(f"[ok] {selector(step.package)} disabled at {scope} scope: kept")
@@ -670,6 +685,7 @@ def dry_run_install(
     export_changed: bool,
     marketplace_action: str,
     registered: str | None,
+    stale: bool,
 ) -> None:
     if export_changed:
         print(f"[dry-run] would export OMP packages → {exported}")
@@ -692,11 +708,20 @@ def dry_run_install(
             if registered is not None:
                 preview("plugin", "install", "--force", "--dry-run", "--scope", scope, name, cwd=cwd)
         elif step.action == "current":
-            print(f"[ok] {name} {step.installed} up to date ({scope})")
+            print(current_line(name, step.installed, scope, stale))
         else:
             print(f"[!!] {name} is already installed ({scope}) and not recorded as ycc-owned; left untouched")
         if step.disabled and step.action != "unowned":
             print(f"[ok] {name} disabled at {scope} scope: kept")
+
+
+def current_line(name: str, installed: str | None, scope: str, stale: bool) -> str:
+    if stale:
+        return (
+            f"[!!] {name} {installed} ({scope}): the export changed but its version did not, so omp keeps the "
+            "installed copy; rerun with --force to reinstall it"
+        )
+    return f"[ok] {name} {installed} up to date ({scope})"
 
 
 def apply_step(
@@ -708,10 +733,11 @@ def apply_step(
     cwd: Path,
     record_root: str | None,
     succeeded: list[dict[str, Any]],
+    stale: bool,
 ) -> None:
     name = selector(step.package)
     if step.action == "current":
-        print(f"[ok] {name} {step.installed} up to date ({scope})")
+        print(current_line(name, step.installed, scope, stale))
         return
     if step.action == "unowned":
         print(f"[!!] {name} is already installed ({scope}) and not recorded as ycc-owned; left untouched")
@@ -757,6 +783,7 @@ def rollback(
     profile_key: str,
     succeeded: list[dict[str, Any]],
     created_marketplace: bool,
+    moved_out: bool,
     swapped: bool,
     backup: Path | None,
     exported: Path,
@@ -770,9 +797,10 @@ def rollback(
             print(f"[!!] rollback could not remove marketplace ycc: {error}", file=sys.stderr)
     if swapped:
         shutil.rmtree(exported, ignore_errors=True)
-        if backup is not None:
-            os.replace(backup, exported)
-            print(f"[!!] restored the previous export {exported}", file=sys.stderr)
+    if moved_out and backup is not None:
+        # The previous export was moved aside; put it back whether or not the new one landed.
+        os.replace(backup, exported)
+        print(f"[!!] restored the previous export {exported}", file=sys.stderr)
     elif backup is not None and backup.exists():
         shutil.rmtree(backup)
     restored = copy.deepcopy(state_snapshot)
@@ -818,10 +846,27 @@ def remove(scope: str, project_root: Path, *, dry_run: bool = False) -> None:
 
     if profile is not None:
         listing = cli.installed(cwd) if cwd.is_dir() else None
+        # A `ycc` marketplace now pointing elsewhere serves someone else's ycc@ycc: never uninstall that.
+        current = cli.marketplaces().get(MARKETPLACE)
+        owned_sources = [
+            source
+            for source in (
+                (profile["marketplace"] or {}).get("source"),
+                state.get("export") if isinstance(state.get("export"), str) else None,
+                REPOSITORY,
+            )
+            if source
+        ]
+        foreign = current is not None and not any(same_source(current, source) for source in owned_sources)
         for record in [r for r in profile["installs"] if r["scope"] == scope and r.get("project_root") == record_root]:
             acted = True
             name = selector(record["package"])
-            if listing is not None and scope_entry(listing, record["package"], scope) is not None:
+            if foreign:
+                print(
+                    f"[!!] kept {name} ({scope}): marketplace ycc now points at {current}, not ycc's export; "
+                    "dropped from the ycc record"
+                )
+            elif listing is not None and scope_entry(listing, record["package"], scope) is not None:
                 if dry_run:
                     run("plugin", "uninstall", "--scope", scope, name, cwd=cwd, dry_run=True)
                     preview("plugin", "uninstall", "--dry-run", "--scope", scope, name, cwd=cwd)
@@ -836,7 +881,6 @@ def remove(scope: str, project_root: Path, *, dry_run: bool = False) -> None:
 
         marketplace = profile["marketplace"]
         if marketplace is not None:
-            current = cli.marketplaces().get(MARKETPLACE)
             if current is None:
                 profile["marketplace"] = None
             elif not same_source(current, marketplace["source"]):
@@ -921,18 +965,43 @@ class LegacyLink:
     cwd: Path
 
 
-def migrate(apply: bool) -> None:
-    """Retire proven-ycc legacy omp state (dry-run unless ``apply``); foreign state is kept."""
+@dataclass
+class MigratePlan:
+    """What ``migrate`` changes, decided read-only before any mutation."""
+
+    profile_key: str
+    packages: tuple[str, ...]
+    links: list[LegacyLink]
+    retire_marketplace: bool
+    retire_scopes: list[tuple[str, Path, list[str]]]
+    # Native installs owed: this run's retired scopes plus any an interrupted migrate left behind.
+    owed: list[tuple[str, Path]]
+
+
+def install_hint(scope: str, cwd: Path) -> str:
+    if scope == "user":
+        return "./install.sh install --target omp"
+    return f"cd {cwd} && ./install.sh install --target omp --project"
+
+
+def plan_migrate(project_root: Path, *, apply: bool) -> MigratePlan | None:
+    """Find proven-ycc legacy omp state; every refusal happens here. None when omp is absent.
+
+    ``project_root`` is the installer's project root (git toplevel, else the working directory),
+    the same root ``install``/``remove --project`` record, so a migrated project install stays removable.
+    """
     if shutil.which(omp_bin()) is None:
-        print("[ok] omp: nothing to migrate (omp not found on PATH)")
-        return
+        return None
     available()
     cli = OmpCli()
     home = Path.home()
     state = load_state()
+    profile_key = cli.profile_key()
     recorded_export = state.get("export") if isinstance(state.get("export"), str) else None
     keys = omp_package_keys()
-    project = find_project_root(Path.cwd())
+    packages = select_packages("")
+    root = project_root.resolve()
+    project = root if root.is_dir() and root != home.resolve() else None
     user_listing = cli.installed(home)
     project_listing = cli.installed(project) if project is not None else None
 
@@ -964,6 +1033,9 @@ def migrate(apply: bool) -> None:
     # A `ycc` marketplace at this checkout root falls back to the Claude catalog while unlisted.
     retire_scopes: list[tuple[str, Path, list[str]]] = []
     retire_marketplace = False
+    # Legacy installs migrate cannot carry over as-is: disabled ones (a fresh install is enabled, and
+    # ycc never calls enable/disable) and ones with no native OMP package (they would just vanish).
+    keep: list[str] = []
     source = cli.marketplaces().get(MARKETPLACE)
     if source is not None and same_source(source, str(ROOT)):
         found: list[tuple[str, Path, list[str]]] = []
@@ -973,24 +1045,48 @@ def migrate(apply: bool) -> None:
                 continue
             ids: list[str] = []
             for item in ycc_items(listing, scope):
-                entry = scope_entry(listing, str(item["id"]).rsplit("@", 1)[0], scope)
+                plugin_id = str(item["id"])
+                package = plugin_id.rsplit("@", 1)[0]
+                entry = scope_entry(listing, package, scope)
                 path = entry_path(entry) if entry is not None else None
                 if path is not None and (Path(path) / ".omp-plugin/plugin.json").is_file():
                     native = True
-                ids.append(str(item["id"]))
+                where = f"--scope {scope} {plugin_id}"
+                if package not in packages:
+                    keep.append(
+                        f"{plugin_id} ({scope}) has no native OMP package yet; "
+                        f"uninstall it yourself (omp plugin uninstall {where}) to let migrate retire the marketplace"
+                    )
+                elif entry is not None and entry.get("enabled") is False:
+                    keep.append(
+                        f"{plugin_id} is disabled ({scope}) and migrate would reinstall it enabled; "
+                        f"uninstall it yourself (omp plugin uninstall {where}), re-run, "
+                        f"then omp plugin disable {where}"
+                    )
+                ids.append(plugin_id)
             if ids:
                 found.append((scope, cwd, ids))
         if native or (ROOT / ".omp-plugin/marketplace.json").is_file():
             print(f"[!!] kept marketplace ycc at {ROOT}: it serves native OMP packages")
+        elif keep:
+            raise ValueError(f"kept marketplace ycc at {ROOT} and its installs: " + "; ".join(keep))
         else:
             retire_marketplace = True
             retire_scopes = found
     elif source is not None and not (recorded_export is not None and same_source(source, recorded_export)):
         print(f"[!!] kept marketplace ycc ({source}): foreign")
 
-    if retire_scopes:
+    owed: list[tuple[str, Path]] = [(scope, cwd) for scope, cwd, _ in retire_scopes]
+    for entry in state["migrate_pending"].get(profile_key, []):
+        scope, pending_root = entry["scope"], entry.get("project_root")
+        cwd = home if scope == "user" else Path(str(pending_root))
+        if scope == "project" and not cwd.is_dir():
+            print(f"[!!] dropped the pending native install at {cwd}: the directory is gone")
+        elif (scope, cwd) not in owed:
+            owed.append((scope, cwd))
+
+    if owed:
         # Preflight the native reinstall before any mutation.
-        packages = select_packages("")
         blocked = sorted(foreign_links & set(packages))
         if blocked:
             raise ValueError(
@@ -1005,30 +1101,85 @@ def migrate(apply: bool) -> None:
                 raise ValueError(
                     f"{exported} exists but is not the recorded ycc export; rerun with --force to replace it"
                 )
+        if apply:
+            # Build and validate the export the native install needs before anything is uninstalled.
+            staging = Path(tempfile.mkdtemp(prefix="ycc-omp-migrate."))
+            try:
+                build_export(staging)
+                for package in packages:
+                    package_version(staging, package)
+            finally:
+                shutil.rmtree(staging, ignore_errors=True)
 
-    warn_agents_overlap(select_packages(""))
-    if not links and not retire_marketplace:
+    return MigratePlan(profile_key, packages, links, retire_marketplace, retire_scopes, owed)
+
+
+def apply_migrate(plan: MigratePlan | None, apply: bool) -> None:
+    """Carry out ``plan`` (dry-run unless ``apply``); foreign state is never touched."""
+    if plan is None:
+        print("[ok] omp: nothing to migrate (omp not found on PATH)")
+        return
+    home = Path.home()
+    if apply:
+        # Record the native installs owed before the first uninstall, so a re-run can finish them.
+        state = load_state()
+        pending = [
+            {"scope": scope, "project_root": str(cwd) if scope == "project" else None} for scope, cwd in plan.owed
+        ]
+        if state["migrate_pending"].get(plan.profile_key, []) != pending:
+            if pending:
+                state["migrate_pending"][plan.profile_key] = pending
+            else:
+                del state["migrate_pending"][plan.profile_key]
+            write_or_delete_state(state)
+
+    warn_agents_overlap(plan.packages)
+    if not plan.links and not plan.retire_marketplace and not plan.owed:
         print("[ok] omp: nothing to migrate")
         return
 
-    for link in links:
+    for link in plan.links:
         run("plugin", "uninstall", link.name, cwd=link.cwd, dry_run=not apply)
         if not apply:
             preview("plugin", "uninstall", "--dry-run", link.name, cwd=link.cwd)
         print("[ok] run ./install.sh install --target omp to reinstall natively")
-    if retire_marketplace:
-        for scope, cwd, ids in retire_scopes:
+    if not apply:
+        for scope, cwd, ids in plan.retire_scopes:
             for plugin_id in ids:
-                run("plugin", "uninstall", "--scope", scope, plugin_id, cwd=cwd, dry_run=not apply)
-                if not apply:
-                    preview("plugin", "uninstall", "--dry-run", "--scope", scope, plugin_id, cwd=cwd)
-        run("plugin", "marketplace", "remove", MARKETPLACE, cwd=home, dry_run=not apply)
-        for scope, cwd, _ in retire_scopes:
-            if apply:
-                install("", scope, cwd)
-            else:
-                where = "" if scope == "user" else f" at {cwd}"
-                print(f"[ok] would install the native OMP packages ({scope} scope{where})")
+                run("plugin", "uninstall", "--scope", scope, plugin_id, cwd=cwd, dry_run=True)
+                preview("plugin", "uninstall", "--dry-run", "--scope", scope, plugin_id, cwd=cwd)
+        if plan.retire_marketplace:
+            run("plugin", "marketplace", "remove", MARKETPLACE, cwd=home, dry_run=True)
+        for scope, cwd in plan.owed:
+            where = "" if scope == "user" else f" at {cwd}"
+            print(f"[ok] would install the native OMP packages ({scope} scope{where})")
+        return
+
+    finished = 0
+    try:
+        for scope, cwd, ids in plan.retire_scopes:
+            for plugin_id in ids:
+                run("plugin", "uninstall", "--scope", scope, plugin_id, cwd=cwd)
+        if plan.retire_marketplace:
+            run("plugin", "marketplace", "remove", MARKETPLACE, cwd=home)
+        for scope, cwd in plan.owed:
+            install("", scope, cwd)  # Clears its migrate_pending entry on success.
+            finished += 1
+    except BaseException:
+        left = plan.owed[finished:]
+        print(
+            "[!!] migrate stopped before the native install finished; "
+            "re-run ./install.sh migrate --target omp --apply, or install directly:",
+            file=sys.stderr,
+        )
+        for scope, cwd in left:
+            print(f"[!!]   {install_hint(scope, cwd)}", file=sys.stderr)
+        raise
+
+
+def migrate(apply: bool, project_root: Path) -> None:
+    """Retire proven-ycc legacy omp state (dry-run unless ``apply``); foreign state is kept."""
+    apply_migrate(plan_migrate(project_root, apply=apply), apply)
 
 
 # ---------------------------------------------------------------------------
@@ -1052,6 +1203,7 @@ def main(argv: list[str] | None = None) -> int:
         sub.add_argument("--dry-run", action="store_true")
     migrate_parser = commands.add_parser("migrate", help="retire legacy omp links and checkout-root marketplaces")
     migrate_parser.add_argument("--apply", action="store_true")
+    migrate_parser.add_argument("--project-root", type=Path, default=Path.cwd())
     args = parser.parse_args(argv)
 
     if args.command == "available":
@@ -1063,7 +1215,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "migrate":
         try:
-            migrate(args.apply)
+            migrate(args.apply, args.project_root)
         except (OSError, ValueError, subprocess.CalledProcessError) as error:
             print(f"[err] native OMP migration stopped: {error}", file=sys.stderr)
             return 2

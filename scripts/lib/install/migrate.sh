@@ -51,6 +51,8 @@ run_migrate_command() {
     local -a command=(python3 "${SCRIPT_DIR}/scripts/install_migrate.py" --targets "$(IFS=,; printf '%s' "${targets[*]}")")
     [[ "${apply}" == 1 ]] && command+=(--apply)
     [[ -n "${marketplace_source}" ]] && command+=(--marketplace-source "${marketplace_source}")
+    # omp records project installs at the installer's project root; migrate must use the same one.
+    [[ " ${targets[*]} " == *" omp "* ]] && command+=(--project-root "$(project_root)")
     "${command[@]}"
 }
 

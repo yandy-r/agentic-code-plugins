@@ -470,13 +470,15 @@ echo "== install.sh migrate: omp link fixture =="
 # migrate_omp_link <home> — a legacy 'omp plugin link' of this checkout's
 # packages/omp/ycc, made through the fake omp so the helper can prove ownership.
 migrate_omp_link() {
-    (cd "$1" && HOME="$1" FAKE_OMP_HOME="$1/.fake-omp" CLAUDE_STUB_LOG="$1/claude-calls.log" \
+    (cd "$1" && env -u OMP_PROFILE -u OMP_BIN -u FAKE_OMP_LOG \
+        HOME="$1" FAKE_OMP_HOME="$1/.fake-omp" CLAUDE_STUB_LOG="$1/claude-calls.log" \
         "${STUB_BIN}/omp" plugin link "${REPO_ROOT}/packages/omp/ycc" >/dev/null)
 }
 # omp_installed <home> — the fake omp's user-scope 'plugin list --json' as
 # 'npm=<names> marketplace=<ids>' (space-separated, one entry per install).
 omp_installed() {
-    (cd "$1" && HOME="$1" FAKE_OMP_HOME="$1/.fake-omp" "${STUB_BIN}/omp" plugin list --json) | python3 -c '
+    (cd "$1" && env -u OMP_PROFILE -u OMP_BIN -u FAKE_OMP_LOG HOME="$1" FAKE_OMP_HOME="$1/.fake-omp" \
+        "${STUB_BIN}/omp" plugin list --json) | python3 -c '
 import json, sys
 data = json.load(sys.stdin)
 npm = " ".join(item["name"] for item in data["npm"])

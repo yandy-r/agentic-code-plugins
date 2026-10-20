@@ -212,7 +212,7 @@ class OmpInstallTests(unittest.TestCase):
     def refused(self, *argv: str) -> Result:
         result = self.omp(*argv)
         self.assertEqual(result.code, 2, f"{argv}: {result.out}{result.err}")
-        self.assertTrue(result.err.startswith("[err] native OMP "), result.err)
+        self.assertTrue(result.err.splitlines()[-1].startswith("[err] native OMP "), result.err)
         return result
 
     def root_of(self, scope: str) -> Path:
@@ -717,6 +717,121 @@ class OmpInstallTests(unittest.TestCase):
             self.assertIn("[ok] omp: nothing to migrate", result.out)
         self.assertEqual(self.mutating(), [])
         self.assertEqual(self.snapshot(), before)
+
+    def legacy_checkout_marketplace(self, *packages: str) -> None:
+        self.fake("plugin", "marketplace", "add", str(omp_install.ROOT))
+        for package in packages:
+            self.fake("plugin", "install", "--scope", "user", f"{package}@ycc")
+
+    def test_migrate_refuses_a_disabled_legacy_install_and_never_toggles_it(self) -> None:
+        self.legacy_checkout_marketplace("ycc")
+        self.fake("plugin", "disable", "--scope", "user", "ycc@ycc")
+        before = self.snapshot()
+        self.clear_log()
+        for argv in (("migrate",), ("migrate", "--apply")):
+            result = self.refused(*argv)
+            self.assertIn("ycc@ycc is disabled (user) and migrate would reinstall it enabled", result.err)
+            self.assertIn("omp plugin uninstall --scope user ycc@ycc", result.err)
+            self.assertIn("omp plugin disable --scope user ycc@ycc", result.err)
+        self.assertEqual(self.mutating(), [])
+        self.assertEqual(self.snapshot(), before)
+
+    def test_migrate_refuses_a_legacy_install_with_no_native_package(self) -> None:
+        self.legacy_checkout_marketplace("ycc", "ycc-mcp")
+        before = self.snapshot()
+        self.clear_log()
+        result = self.refused("migrate", "--apply")
+        self.assertIn("ycc-mcp@ycc (user) has no native OMP package yet", result.err)
+        self.assertEqual(self.mutating(), [])
+        self.assertEqual(self.snapshot(), before)
+
+    def test_migrate_failure_records_pending_scopes_and_rerun_finishes_them(self) -> None:
+        self.legacy_checkout_marketplace("ycc")
+        with patch.dict(os.environ, {"FAKE_OMP_FAIL": "install:ycc@ycc"}):
+            result = self.refused("migrate", "--apply")
+        self.assertIn("'omp plugin install --scope user ycc@ycc' failed (exit 1)", result.err)
+        self.assertIn("re-run ./install.sh migrate --target omp --apply, or install directly:", result.err)
+        self.assertIn("[!!]   ./install.sh install --target omp\n", result.err)
+        # The legacy install and the checkout-root marketplace are gone; the owed scope is recorded.
+        self.assertEqual(omp_install.ycc_items(self.listing(self.home), "user"), [])
+        self.assertEqual(self.marketplaces(), {})
+        self.assertEqual(
+            self.state()["migrate_pending"], {self.profile_key(): [{"scope": "user", "project_root": None}]}
+        )
+
+        self.clear_log()
+        self.ok("migrate", "--apply")
+        self.assertIn("omp plugin install --scope user ycc@ycc", self.calls())
+        self.assert_installed(("ycc",), "user", self.model_version)
+        self.assertEqual(self.marketplaces(), {"ycc": str(omp_install.export_dir())})
+        self.assertEqual(self.state()["migrate_pending"], {})
+
+        self.clear_log()
+        self.assertIn("[ok] omp: nothing to migrate", self.ok("migrate", "--apply").out)
+        self.assertEqual(self.mutating(), [])
+
+    def test_migrate_export_build_failure_stops_before_any_uninstall(self) -> None:
+        self.legacy_checkout_marketplace("ycc")
+        before = self.snapshot()
+        self.clear_log()
+        with patch.object(omp_install, "build_export", side_effect=ValueError("export broke")):
+            result = self.refused("migrate", "--apply")
+        self.assertIn("export broke", result.err)
+        self.assertEqual(self.mutating(), [])
+        self.assertEqual(self.snapshot(), before)
+
+    def test_remove_keeps_a_ycc_install_now_served_by_a_foreign_marketplace(self) -> None:
+        self.install("user")
+        foreign = make_fixture(self.tmp / "foreign", ("ycc",), "0.1.0")
+        self.fake("plugin", "marketplace", "remove", "ycc")
+        self.fake("plugin", "marketplace", "add", str(foreign))
+        self.fake("plugin", "install", "--force", "--scope", "user", "ycc@ycc")
+
+        self.clear_log()
+        result = self.remove("user")
+        self.assertEqual(self.mutating(), [])
+        self.assertIn(f"[!!] kept ycc@ycc (user): marketplace ycc now points at {foreign}", result.out)
+        entry = self.entry("ycc", "user")
+        assert entry is not None
+        self.assertEqual(entry["version"], "0.1.0")
+        self.assertEqual(self.marketplaces(), {"ycc": str(foreign)})
+        self.assertFalse(omp_install.state_path().exists())
+
+    def test_same_version_export_change_prints_the_force_hint(self) -> None:
+        self.install("user")
+        changed = Path(tempfile.mkdtemp(dir=self.tmp, prefix="source-edit."))
+        shutil.copytree(self.source, changed, dirs_exist_ok=True)
+        skill = next((changed / "packages/omp/ycc/skills").iterdir()) / "SKILL.md"
+        skill.write_text(skill.read_text(encoding="utf-8") + "\nedited\n", encoding="utf-8")
+        self.source = changed
+
+        self.clear_log()
+        result = self.install("user")
+        self.assertIn("omp plugin marketplace update ycc", self.calls())
+        self.assertIn("rerun with --force to reinstall it", result.out)
+        self.assertNotIn("up to date", result.out)
+
+        self.clear_log()
+        self.install("user", "--force")
+        self.assertIn("omp plugin install --force --scope user ycc@ycc", self.calls())
+
+    def test_failed_export_swap_restores_the_previous_export(self) -> None:
+        self.install("user")
+        exported = omp_install.export_dir()
+        previous = inventory(exported)
+        self.bump(("ycc",))
+        real_replace = os.replace
+
+        def replace(src: Any, dst: Any) -> None:
+            if ".staging." in str(src):
+                raise OSError("swap interrupted")
+            real_replace(src, dst)
+
+        with patch.object(os, "replace", side_effect=replace):
+            result = self.refused("install", "--scope", "user", "--project-root", str(self.home))
+        self.assertIn("swap interrupted", result.err)
+        self.assertEqual(inventory(exported), previous)
+        self.assertEqual(self.state()["export_inventory"], previous)
 
     # -- rejection -----------------------------------------------------------------------------
 
