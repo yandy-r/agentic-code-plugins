@@ -46,9 +46,10 @@ LAB_MARKET = "ycc-split-lab"
 MANIFEST = Path(".claude-plugin/plugin.json")
 MARKETPLACE = Path(".claude-plugin/marketplace.json")
 MODEL = Path("settings/packages.json")
-# Shell reach-ins to the plugin's own agents/ directory (via a *PLUGIN_ROOT variable, or three
-# levels up from skills/<skill>/scripts/); the split ycc has none.
-AGENTS_DIR_REACH = re.compile(r"(?:PLUGIN_ROOT(?::-[^}]*)?(?:%/)?\}?\"?/|(?:\.\./){3})agents(?![\w-])")
+# Shell reach-ins to the plugin's own agents/ directory; the split ycc has none. Absolute forms
+# go through a *PLUGIN_ROOT variable; relative forms climb exactly the file's depth below the root.
+AGENTS_DIR_REACH = re.compile(r"PLUGIN_ROOT(?::-[^}]*)?(?:%/)?\}?\"?/agents(?![\w.-])")
+RELATIVE_AGENTS_REACH = re.compile(r"(?<![\w.])((?:\.\./)+)agents(?![\w.-])")
 QUALIFIED_SKILL = re.compile(r"^ycc:([a-z][a-z0-9-]*)$")
 # Bare agent names that are NOT agent references and must stay bare, keyed by path under
 # skills/ (prefix match); None means every agent name. Everything else bare is rewritten.
@@ -350,6 +351,13 @@ def _preload_errors(path: Path, text: str, skills: frozenset[str]) -> list[str]:
     return errors
 
 
+def _reads_own_agents_dir(text: str, depth: int) -> bool:
+    """True when text reaches <plugin-root>/agents from a file `depth` directories below the root."""
+    if AGENTS_DIR_REACH.search(text):
+        return True
+    return any(len(match[1]) // 3 == depth for match in RELATIVE_AGENTS_REACH.finditer(text))
+
+
 def _reference_errors(out_dir: Path) -> list[str]:
     """Scan split skills and agents with the shared detector."""
     skills_dir, agents_dir = out_dir / SKILLS_PACKAGE / "skills", out_dir / AGENTS_PACKAGE / "agents"
@@ -370,7 +378,7 @@ def _reference_errors(out_dir: Path) -> list[str]:
                 errors.append(f"{where}:{ref.line}: {error}")
         if path.is_relative_to(agents_dir):
             errors += _preload_errors(Path(where), text, skills)
-        elif AGENTS_DIR_REACH.search(text):
+        elif _reads_own_agents_dir(text, len(path.relative_to(out_dir / SKILLS_PACKAGE).parts) - 1):
             errors.append(f"{where}: reads the plugin's own agents/ directory, which split ycc does not ship")
     return errors
 
