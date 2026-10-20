@@ -560,7 +560,7 @@ class OmpInstallTests(unittest.TestCase):
         self.bump(("ycc",))
         result = self.install("user")
         root = self.project.resolve()
-        self.assertIn(f"repair: cd {root} && ./install.sh install --target omp --project", result.out)
+        self.assertIn(f"repair: cd {root} && {omp_install.ROOT}/install.sh install --target omp --project", result.out)
         entry = self.entry("ycc", "project")
         assert entry is not None
         self.assertFalse(Path(entry["installPath"]).exists())
@@ -751,7 +751,7 @@ class OmpInstallTests(unittest.TestCase):
             result = self.refused("migrate", "--apply")
         self.assertIn("'omp plugin install --scope user ycc@ycc' failed (exit 1)", result.err)
         self.assertIn("re-run ./install.sh migrate --target omp --apply, or install directly:", result.err)
-        self.assertIn("[!!]   ./install.sh install --target omp\n", result.err)
+        self.assertIn(f"[!!]   {omp_install.ROOT}/install.sh install --target omp\n", result.err)
         # The legacy install and the checkout-root marketplace are gone; the owed scope is recorded.
         self.assertEqual(omp_install.ycc_items(self.listing(self.home), "user"), [])
         self.assertEqual(self.marketplaces(), {})
@@ -769,6 +769,24 @@ class OmpInstallTests(unittest.TestCase):
         self.clear_log()
         self.assertIn("[ok] omp: nothing to migrate", self.ok("migrate", "--apply").out)
         self.assertEqual(self.mutating(), [])
+
+    def test_migrate_pending_refuses_a_foreign_ycc_marketplace_before_any_change(self) -> None:
+        self.legacy_checkout_marketplace("ycc")
+        with patch.dict(os.environ, {"FAKE_OMP_FAIL": "install:ycc@ycc"}):
+            self.refused("migrate", "--apply")
+        pending = self.state()["migrate_pending"]
+        self.assertEqual(pending, {self.profile_key(): [{"scope": "user", "project_root": None}]})
+        foreign = make_fixture(self.tmp / "foreign", ("ycc",), "0.1.0")
+        self.fake("plugin", "marketplace", "add", str(foreign))
+        self.fake("plugin", "link", str(omp_install.ROOT / "packages/omp/ycc"))
+        before = self.snapshot()
+        self.clear_log()
+        for argv in (("migrate",), ("migrate", "--apply")):
+            result = self.refused(*argv)
+            self.assertIn(f"marketplace ycc has a different source ({foreign})", result.err)
+        self.assertEqual(self.mutating(), [])
+        self.assertEqual(self.snapshot(), before)
+        self.assertEqual(self.state()["migrate_pending"], pending)
 
     def test_migrate_export_build_failure_stops_before_any_uninstall(self) -> None:
         self.legacy_checkout_marketplace("ycc")

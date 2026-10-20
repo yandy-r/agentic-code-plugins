@@ -79,8 +79,9 @@ expect_targets "OMP golden tests select omp and types (mypy files)" "omp types" 
     scripts/test_generate_omp_skills.py scripts/test_generate_omp_agents.py scripts/test_generate_omp_commands.py
 expect_targets "generated OMP manifests and catalog select omp" "omp" \
     packages/omp/ycc/.omp-plugin/plugin.json packages/omp/ycc/package.json .omp-plugin/marketplace.json
-expect_targets "OMP package generator, policy and smoke driver select omp and types" "omp types" \
-    scripts/generate_omp_packages.py scripts/validate_omp_native.py scripts/omp_native_smoke.py
+expect_targets "OMP package generator and policy select omp, config and types" "omp config types" \
+    scripts/generate_omp_packages.py scripts/validate_omp_native.py
+expect_targets "OMP smoke driver selects omp and types" "omp types" scripts/omp_native_smoke.py
 expect_targets "OMP package wrappers, validator and live harness select omp" "omp" \
     scripts/generate-omp-packages.sh scripts/validate-omp-packages.sh scripts/test-omp-native-packages.sh
 expect_targets "OMP package tests select omp and types (mypy files)" "omp types" scripts/test_generate_omp_packages.py

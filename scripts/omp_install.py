@@ -503,7 +503,7 @@ def check_dangling_projects(cli: OmpCli, profile: dict[str, Any]) -> None:
         if entry is not None and (path is None or not Path(path).exists()):
             print(
                 f"[!!] {selector(record['package'])} project install at {root} lost its cache (omp GC); "
-                f"repair: cd {root} && ./install.sh install --target omp --project"
+                f"repair: cd {root} && {ROOT}/install.sh install --target omp --project"
             )
 
 
@@ -980,8 +980,8 @@ class MigratePlan:
 
 def install_hint(scope: str, cwd: Path) -> str:
     if scope == "user":
-        return "./install.sh install --target omp"
-    return f"cd {cwd} && ./install.sh install --target omp --project"
+        return f"{ROOT}/install.sh install --target omp"
+    return f"cd {cwd} && {ROOT}/install.sh install --target omp --project"
 
 
 def plan_migrate(project_root: Path, *, apply: bool) -> MigratePlan | None:
@@ -1094,12 +1094,19 @@ def plan_migrate(project_root: Path, *, apply: bool) -> MigratePlan | None:
                 "unlink it before migrating the checkout-root marketplace"
             )
         exported = export_dir()
+        # install() refuses a `ycc` marketplace at any other source; this run removes only the checkout root's.
+        if source is not None and not retire_marketplace and not same_source(source, str(exported)):
+            raise ValueError(
+                f"marketplace ycc has a different source ({source}); retained "
+                "(remove it before migrating: omp plugin marketplace remove ycc)"
+            )
         guarded(exported)
         if exported.exists():
             recorded = state["export_inventory"] if recorded_export == str(exported) else None
             if inventory(exported) != recorded:
                 raise ValueError(
-                    f"{exported} exists but is not the recorded ycc export; rerun with --force to replace it"
+                    f"{exported} exists but is not the recorded ycc export; move it aside, "
+                    f"run {ROOT}/install.sh install --target omp --force, then re-run migrate"
                 )
         if apply:
             # Build and validate the export the native install needs before anything is uninstalled.

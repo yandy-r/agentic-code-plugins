@@ -75,9 +75,11 @@ validate_scope_owned_targets() {
         scripts/generate_omp_agents.py | scripts/generate-omp-agents.sh | scripts/validate-omp-agents.sh) echo "omp" ;;
         scripts/generate_omp_commands.py | scripts/generate-omp-commands.sh | scripts/validate-omp-commands.sh) echo "omp" ;;
         scripts/test_generate_omp_skills.py | scripts/test_generate_omp_agents.py | scripts/test_generate_omp_commands.py) echo "omp types" ;;
-        # OMP native packages: generator and policy (typed, so they also select `types`),
-        # wrappers, golden tests, and the opt-in live harness with its smoke driver.
-        scripts/generate_omp_packages.py | scripts/validate_omp_native.py | scripts/omp_native_smoke.py) echo "omp" ;;
+        # OMP native packages: generator and policy (typed, so they also select `types`; the
+        # install helper imports both, so they also select `config` for its tests), wrappers,
+        # golden tests, and the opt-in live harness with its smoke driver.
+        scripts/generate_omp_packages.py | scripts/validate_omp_native.py) echo "omp config" ;;
+        scripts/omp_native_smoke.py) echo "omp" ;;
         scripts/generate-omp-packages.sh | scripts/validate-omp-packages.sh | scripts/test-omp-native-packages.sh) echo "omp" ;;
         scripts/test_generate_omp_packages.py) echo "omp types" ;;
         # OMP install lifecycle (install.sh --target omp): the helper and its unit

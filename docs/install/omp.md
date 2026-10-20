@@ -90,10 +90,11 @@ ycc never enables or disables plugins: a disabled install stays disabled
 across updates and reinstalls.
 
 A user-scope upgrade can make omp garbage-collect the cache a project install
-still points at. The installer detects this and prints the repair command:
+still points at. The installer detects this and prints the repair command,
+using the absolute path of the checkout's `install.sh`:
 
 ```bash
-cd <project-root> && ./install.sh install --target omp --project
+cd <project-root> && <checkout>/install.sh install --target omp --project
 ```
 
 ## Preview With `--dry-run`
@@ -159,7 +160,10 @@ commands to run first. Project scope means the project root `install
 If `--apply` stops partway (say, an omp install fails), the scopes still owed
 a native install are recorded. Re-run `./install.sh migrate --target omp
 --apply` to finish them, or run the printed
-`./install.sh install --target omp [--project]` commands.
+`<checkout>/install.sh install --target omp [--project]` commands.
+A `ycc` marketplace registered at another source (a fork with the same name)
+blocks the owed native install; migrate refuses before changing anything until
+you remove it.
 
 ycc skills in `~/.agents/skills` are also loaded by OMP. Migration and install
 report them but never delete them; remove them with
