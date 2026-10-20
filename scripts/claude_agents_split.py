@@ -46,8 +46,10 @@ LAB_MARKET = "ycc-split-lab"
 MANIFEST = Path(".claude-plugin/plugin.json")
 MARKETPLACE = Path(".claude-plugin/marketplace.json")
 MODEL = Path("settings/packages.json")
-# Shell reach-ins to the plugin's own agents/ directory; the split ycc has none.
-AGENTS_DIR_REACH = re.compile(r"PLUGIN_ROOT(?:%/)?\}?/agents\b")
+# Shell reach-ins to the plugin's own agents/ directory; the split ycc has none. Absolute forms
+# go through a *PLUGIN_ROOT variable; relative forms climb exactly the file's depth below the root.
+AGENTS_DIR_REACH = re.compile(r"PLUGIN_ROOT(?::-[^}]*)?(?:%/)?\}?\"?/agents(?![\w.-])")
+RELATIVE_AGENTS_REACH = re.compile(r"(?<![\w.])((?:\.\./)+)agents(?![\w.-])")
 QUALIFIED_SKILL = re.compile(r"^ycc:([a-z][a-z0-9-]*)$")
 # Bare agent names that are NOT agent references and must stay bare, keyed by path under
 # skills/ (prefix match); None means every agent name. Everything else bare is rewritten.
@@ -58,8 +60,6 @@ ROLE_NAMES: dict[str, frozenset[str] | None] = {
     "feature-research/": frozenset({"practices-researcher"}),
     "prp-plan/SKILL.md": frozenset({"practices-researcher"}),
     "prp-plan/references/": frozenset({"practices-researcher"}),
-    # Agent file stems checked under ${PLUGIN_ROOT}/agents (reported as an agents-dir warning).
-    "prp-plan/scripts/preflight-enhanced-agents.sh": frozenset({"prp-researcher", "research-specialist"}),
     # Category keys are Cursor agent file stems scanned from ~/.cursor/agents, not dispatch values.
     "init/scripts/generate-agent-catalog.sh": None,
 }
@@ -97,11 +97,10 @@ class SplitReport:
     rewritten_handoffs: int = 0
     builtin_dispatches: int = 0
     dispatching_skills: dict[str, tuple[str, ...]] = field(default_factory=dict)
-    warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
     def summary(self) -> str:
-        """One stable line per count, then warnings and errors."""
+        """One stable line per count, then errors."""
         lines = [
             f"version: {self.version}",
             f"skills (split ycc): {self.skills}",
@@ -112,7 +111,6 @@ class SplitReport:
             f"builtin dispatches kept bare: {self.builtin_dispatches}",
             f"dispatching skills: {len(self.dispatching_skills)}",
         ]
-        lines += [f"WARNING: {warning}" for warning in self.warnings]
         lines += [f"ERROR: {error}" for error in self.errors]
         return "\n".join(lines)
 
@@ -353,13 +351,19 @@ def _preload_errors(path: Path, text: str, skills: frozenset[str]) -> list[str]:
     return errors
 
 
-def _reference_errors(out_dir: Path) -> tuple[list[str], list[str]]:
-    """Scan split skills and agents with the shared detector; returns (errors, warnings)."""
+def _reads_own_agents_dir(text: str, depth: int) -> bool:
+    """True when text reaches <plugin-root>/agents from a file `depth` directories below the root."""
+    if AGENTS_DIR_REACH.search(text):
+        return True
+    return any(len(match[1]) // 3 == depth for match in RELATIVE_AGENTS_REACH.finditer(text))
+
+
+def _reference_errors(out_dir: Path) -> list[str]:
+    """Scan split skills and agents with the shared detector."""
     skills_dir, agents_dir = out_dir / SKILLS_PACKAGE / "skills", out_dir / AGENTS_PACKAGE / "agents"
     skills = frozenset(p.parent.name for p in skills_dir.glob("*/SKILL.md") if p.parent.name != "_shared")
     agents = frozenset(agent_frontmatter(p.read_text(encoding="utf-8"))[0] for p in agents_dir.glob("*.md"))
     errors: list[str] = []
-    warnings: list[str] = []
     for path in [*source_files(skills_dir), *sorted(agents_dir.glob("*.md"))]:
         try:
             text = path.read_text(encoding="utf-8")
@@ -374,9 +378,9 @@ def _reference_errors(out_dir: Path) -> tuple[list[str], list[str]]:
                 errors.append(f"{where}:{ref.line}: {error}")
         if path.is_relative_to(agents_dir):
             errors += _preload_errors(Path(where), text, skills)
-        elif AGENTS_DIR_REACH.search(text):
-            warnings.append(f"{where}: reads the plugin's own agents/ directory, which split ycc does not ship")
-    return errors, warnings
+        elif _reads_own_agents_dir(text, len(path.relative_to(out_dir / SKILLS_PACKAGE).parts) - 1):
+            errors.append(f"{where}: reads the plugin's own agents/ directory, which split ycc does not ship")
+    return errors
 
 
 def _reach_errors(out_dir: Path, expected: dict[str, tuple[str, ...]]) -> list[str]:
@@ -398,18 +402,17 @@ def _reach_errors(out_dir: Path, expected: dict[str, tuple[str, ...]]) -> list[s
     return errors
 
 
-def validate_split(out_dir: Path, expected: dict[str, tuple[str, ...]]) -> tuple[list[str], list[str]]:
+def validate_split(out_dir: Path, expected: dict[str, tuple[str, ...]]) -> list[str]:
     """Validate a built split tree; `expected` maps dispatching skills from the source graph."""
     errors = _layout_errors(out_dir)
     if errors:
-        return errors, []
-    reference_errors, warnings = _reference_errors(out_dir)
-    return [*errors, *reference_errors, *_reach_errors(out_dir, expected)], warnings
+        return errors
+    return [*_reference_errors(out_dir), *_reach_errors(out_dir, expected)]
 
 
 def build_and_validate(source_root: Path, out_dir: Path) -> SplitReport:
     report = build_split(source_root, out_dir)
-    report.errors, report.warnings = validate_split(out_dir, report.dispatching_skills)
+    report.errors = validate_split(out_dir, report.dispatching_skills)
     return report
 
 
