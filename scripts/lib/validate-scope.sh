@@ -68,10 +68,11 @@ validate_scope_owned_targets() {
         scripts/generate_cursor_packages.py | scripts/cursor_native_resources.py | scripts/generate-cursor-packages.sh | scripts/validate-cursor-packages.sh | scripts/validate_cursor_native.py | scripts/test_validate_cursor_native.py | scripts/test_generate_cursor_packages.py | scripts/vendor/cursor/*) echo "cursor cursor-native config" ;;
         scripts/cursor_live_smoke.py | scripts/test_cursor_live_smoke.py) echo "cursor-native" ;;
 
-        # OMP skill generator, validator and golden tests. The golden tests are
-        # in pyproject.toml [tool.mypy] files, so they also select `types`.
+        # OMP skill and agent generators, validators and golden tests. The golden
+        # tests are in pyproject.toml [tool.mypy] files, so they also select `types`.
         scripts/generate_omp_skills.py | scripts/generate-omp-skills.sh | scripts/validate-omp-skills.sh) echo "omp" ;;
-        scripts/test_generate_omp_skills.py) echo "omp types" ;;
+        scripts/generate_omp_agents.py | scripts/generate-omp-agents.sh | scripts/validate-omp-agents.sh) echo "omp" ;;
+        scripts/test_generate_omp_skills.py | scripts/test_generate_omp_agents.py) echo "omp types" ;;
 
         # Install docs contain model-validated public package identifiers.
         docs/install/*) echo "packages" ;;

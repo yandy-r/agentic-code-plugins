@@ -155,7 +155,7 @@ edited and foreign catalog entries remain preserved.
 - Cursor generated packages: `packages/cursor/{ycc,ycc-rules,ycc-mcp,ycc-hooks}/` (all listed in the root `.cursor-plugin/marketplace.json`)
 - Cursor file-copy settings input: `packages/cursor/installer-fallback/config/cli-config.json`, generated from `ycc/settings/cursor/cli-config.json`
 - opencode generated bundle: `.opencode-plugin/` (skills, agents, commands, AGENTS.md, opencode.json)
-- OMP generated skills: `packages/omp/ycc/skills/` (not installable until YAN-1171 and YAN-1172)
+- OMP generated skills and task agents: `packages/omp/ycc/{skills,agents}/` (not installable until YAN-1171 and YAN-1172)
 - Skills go in `ycc/skills/<skill-name>/SKILL.md`
 - Scripts must be executable (`chmod +x`) and use `set -euo pipefail`
 - Reference templates go in `ycc/skills/<skill-name>/references/`
@@ -225,6 +225,11 @@ When adding, renaming, or removing an agent:
 
 The generator (`scripts/generate_opencode_plugin.py`) fails fast if any agent is missing or stale.
 
+The OMP agent generator (`scripts/generate_omp_agents.py`) also fails fast: agent frontmatter may
+use only `name`, `description`, `tools`, `model` and `color`. Every tool needs an OMP mapping in
+its `TOOL_MAP` (or `Bash(<cmd>:*)`, or an `mcp__<server>__*` server from `mcp-configs/mcp.json`),
+and `model` must be `opus`, `sonnet` or `inherit`.
+
 #### OpenCode Capability Tiers (Sample Policy)
 
 These values are sample placeholders (`placeholder: true` in `models.json`); users map them to models available on their configured providers by capability and cost.
@@ -264,6 +269,7 @@ need to target a single surface:
 
 # OMP (oh-my-pi)
 ./scripts/generate-omp-skills.sh && ./scripts/validate-omp-skills.sh
+./scripts/generate-omp-agents.sh && ./scripts/validate-omp-agents.sh
 ```
 
 ## Plugin evals
