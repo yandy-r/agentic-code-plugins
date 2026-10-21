@@ -396,7 +396,8 @@ the byte-for-byte copy of `mcp-configs/mcp.json`, after a secret-literal audit (
 must hold only `${VAR}` placeholders). `install.sh install --target omp` installs it as
 `ycc-mcp@ycc` with `ycc@ycc` (see INSTALL_PATH:omp). OMP's plugin MCP loader reads it natively,
 names servers `ycc-mcp:<server>`, and expands `${VAR}` in `env`, `url` and `headers` at load
-(unset variables arrive literally). Gaps: unlisted until YAN-1180; `ycc-mcp:playwright` is
+(unset variables arrive literally). Gaps: live acceptance on the real tree is YAN-1178 and the
+catalog listing is YAN-1180, so it stays unlisted until both pass; `ycc-mcp:playwright` is
 dropped while `browser.enabled` is on; `ycc-mcp:linear-personal` shares `linear`'s URL and is
 shadowed as an equivalent connection; plugin timeouts below 1000 ms are ignored; per-server
 disable is the user `disabledServers` list, and `plugin-overrides.json` does not hide plugin MCP.

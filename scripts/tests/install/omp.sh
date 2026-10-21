@@ -76,6 +76,9 @@ assert_contains "${log}" "omp plugin install --scope project ycc@ycc" "omp --pro
 assert_not_contains "${log}" "omp plugin install --scope user" "omp --project leaves user scope alone"
 assert_contains "${INSTALL_OUT}" "a project install shadows your user install here" "omp --project explains the shadowing"
 assert_contains "${log}" "omp plugin install --scope project ycc-mcp@ycc" "omp --project installs ycc-mcp at project scope"
+registry="$(cat "${home}/project/.omp/plugins/installed_plugins.json" 2>/dev/null)"
+assert_contains "${registry}" "ycc@ycc" "omp --project writes ycc to the fake project registry"
+assert_contains "${registry}" "ycc-mcp@ycc" "omp --project writes ycc-mcp to the fake project registry"
 assert_contains "$(cat "$(omp_state "${home}")" 2>/dev/null)" '"scope": "project"' "omp --project records the project install"
 
 install_must_succeed "${home}" remove --target omp --only base --project

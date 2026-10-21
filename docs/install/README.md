@@ -321,6 +321,9 @@ ycc remove --target cursor --intent mcp --mcps stripe
   `[mcp_servers.*]` in `.codex-plugin/config/config.toml` replaces its
   translation (Codex-only extras such as `bearer_token_env_var` and per-tool
   `approval_mode`).
+- omp ships the whole list as the `ycc-mcp@ycc` package through the `base`
+  step, so `--mcps` does not apply there; disable a single server with
+  `disabledServers` (see [omp.md](omp.md#mcp-servers)).
 - `--mcps` requires the `mcp` step (`--intent mcp`, `--mcp`, or `--only mcp`).
 - Shell completion offers the managed server names after `--mcps`, narrowed to
   the `--target` already on the command line (via `ycc list-mcps`).

@@ -140,7 +140,7 @@ plugins, mods):
     agents    base→skills  skills→skills  everything else → no-op
               (~/.agents/skills + ycc-shared/ is the whole target)
     omp       base→base  plugins→base  everything else → no-op
-              (one native package carries skills, agents and commands)
+              (the native packages ycc and ycc-mcp carry skills, agents, commands and MCP servers)
 
 Remove ('remove' subcommand):
   Undoes what the selected steps installed, for every target and intent (same
