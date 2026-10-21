@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# install.sh tests — generic item selection (scripts/lib/install/select.sh):
+# --<kind> parsing, preflight, 'list [<kind>]', and the extension contract
+# (a new kind is a registry row plus a <kind>_names adapter).
+#
+# Runs alone (bash scripts/tests/install/select.sh) or from scripts/test-install-sync.sh.
+# shellcheck disable=SC2016  # widgets_run snippets expand in the child bash.
+# shellcheck source=scripts/tests/install/lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+echo "== install.sh list =="
+
+home="$(new_home)"
+install_must_succeed "${home}" list
+if [[ "${INSTALL_OUT}" == "mcps" ]]; then ok "bare list prints the selectable kinds"; else ko "bare list prints the selectable kinds" "${INSTALL_OUT}"; fi
+install_must_succeed "${home}" list mcps --target opencode
+list_out="${INSTALL_OUT}"
+install_must_succeed "${home}" list-mcps --target opencode
+if [[ -n "${list_out}" && "${list_out}" == "${INSTALL_OUT}" ]]; then ok "list-mcps is an alias of list mcps"; else ko "list-mcps is an alias of list mcps" "${INSTALL_OUT}"; fi
+# Union across targets, first-seen order.
+install_must_succeed "${home}" list mcps
+all_out="${INSTALL_OUT}"
+expected="$(for t in claude cursor codex opencode; do HOME="${home}" bash "${INSTALL}" list mcps --target "${t}"; done | awk '!seen[$0]++')"
+if [[ -n "${all_out}" && "${all_out}" == "${expected}" ]]; then ok "list mcps is the first-seen union across targets"; else ko "list mcps is the first-seen union across targets"; fi
+out="$(run_install "${home}" list widgets)"
+assert_contains "${out}" "unknown kind 'widgets' (valid: mcps)" "list rejects an unknown kind"
+out="$(run_install "${home}" list mcps --bogus)"
+assert_contains "${out}" "Unknown option for list: --bogus" "list rejects unknown options"
+out="$(run_install "${home}" list-mcps --bogus)"
+assert_contains "${out}" "Unknown option for list-mcps: --bogus" "list-mcps keeps its unknown-option error"
+out="$(run_install "${home}" list-mcps extra)"
+assert_contains "${out}" "Unknown option for list-mcps: extra" "list-mcps rejects a positional argument"
+
+echo
+echo "== install.sh --<kind>: parsing =="
+
+home="$(new_home)"
+install_must_succeed "${home}" sync --target claude --intent mcp --mcps ' github , github,linear-personal'
+assert_contains "${INSTALL_OUT}" "MCP servers: github, linear-personal" "selection drops spaces and duplicates, keeps order"
+merged="$(cat "${home}/project/.mcp.json")"
+assert_contains "${merged}" '"linear-personal"' "deduped selection writes every named server"
+assert_not_contains "${merged}" '"stripe"' "deduped selection writes nothing else"
+
+home="$(new_home)"
+out="$(run_install "${home}" sync --target claude --intent mcp --mcps ",")"
+assert_contains "${out}" "--mcps contains an empty value" "empty item rejected"
+out="$(run_install "${home}" sync --target claude --intent mcp --mcps)"
+assert_contains "${out}" "--mcps requires a comma-separated list of MCP servers" "missing value rejected"
+out="$(run_install "${home}" sync --target claude --intent mcp --widgets x)"
+assert_contains "${out}" "Unknown option: --widgets" "unregistered kind is an unknown option"
+
+home="$(new_home)"
+out="$(run_install "${home}" sync --target claude --intent mcp --mcps bogus)"
+assert_contains "${out}" "unknown MCP server 'bogus'" "unknown name rejected"
+assert_contains "${out}" "list them with: ycc list mcps --target <targets>" "unknown name points at ycc list mcps"
+if [[ ! -e "${home}/project/.mcp.json" ]]; then ok "unknown name writes nothing"; else ko "unknown name writes nothing"; fi
+
+home="$(new_home)"
+out="$(run_install "${home}" remove --target claude --intent settings --mcps github)"
+assert_contains "${out}" "--mcps needs the mcp step (sync/remove --intent mcp, install --mcp or --only mcp)" "selector without its step rejected"
+
+echo
+echo "== select.sh: extension contract (fake kind) =="
+
+widgets_run() {
+    bash -c '
+        set -euo pipefail
+        err()  { printf "[err] %s\n" "$1"; }
+        warn() { printf "[!!] %s\n" "$1"; }
+        info() { printf "[ok] %s\n" "$1"; }
+        usage() { :; }
+        CLI_NAME=ycc PACKAGE="" INTENTS=() TARGETS=()
+        resolve_targets() { IFS=, read -r -a TARGETS <<< "${1/all/alpha,beta,gamma}"; }
+        valid_steps_for_target() { case "$1" in gamma) echo base ;; *) echo base,widget ;; esac; }
+        step_enabled() { [[ "$1" == widget ]]; }
+        source "$1/scripts/lib/install/select.sh"
+        SELECTABLE_KINDS+=(widgets)
+        SELECTION_STEP[widgets]=widget
+        SELECTION_NOUN[widgets]=widget
+        SELECTION_NOUNS[widgets]=widgets
+        SELECTION_STEP_HINT[widgets]="--only widget"
+        widgets_names() { case "$1" in alpha) printf "%s\n" a1 shared ;; beta) printf "%s\n" shared b1 ;; gamma) echo g1 ;; esac; }
+        eval "$2"
+    ' _ "${REPO_ROOT}" "$1" 2>&1
+}
+
+out="$(widgets_run 'run_list_command; echo ---; run_list_command widgets; echo ---; run_list_command widgets --target beta')"
+expected="$(printf '%s\n' mcps widgets --- a1 shared b1 --- shared b1)"
+if [[ "${out}" == "${expected}" ]]; then ok "list covers a registered kind (union, first-seen, skips targets without the step)"; else ko "list covers a registered kind" "${out}"; fi
+
+out="$(widgets_run 'parse_selection widgets " b1 , shared,b1"; selection_for widgets; has_selection widgets && echo has; has_selection mcps || echo none')"
+if [[ "${out}" == $'b1,shared\nhas\nnone' ]]; then ok "parse_selection handles a registered kind"; else ko "parse_selection handles a registered kind" "${out}"; fi
+
+out="$(widgets_run 'parse_selection widgets "a1,b1"; TARGETS=(alpha beta); preflight_selections; echo "alpha=$(selection_for_target widgets alpha) beta=$(selection_for_target widgets beta)"')"
+assert_contains "${out}" "[!!] alpha does not ship widgets b1 — skipping them there" "name missing on one target warns"
+assert_contains "${out}" "[!!] beta does not ship widgets a1 — skipping them there" "warns per target"
+assert_contains "${out}" "alpha=a1 beta=b1" "each target gets only the names it ships"
+
+out="$(widgets_run 'parse_selection widgets "a1"; TARGETS=(alpha beta); preflight_selections; echo "beta=[$(selection_for_target widgets beta)]"')"
+assert_not_contains "${out}" "[!!]" "a target shipping none of the names skips its step without a preflight warning"
+assert_contains "${out}" "beta=[]" "empty selection for a target that ships none"
+
+out="$(widgets_run 'parse_selection widgets "zz"; TARGETS=(alpha); preflight_selections')"
+assert_contains "${out}" "unknown widget 'zz' (managed for alpha: a1 shared)" "unknown name rejected for a registered kind"
+assert_contains "${out}" "ycc list widgets --target <targets>" "hint names the kind"
+
+out="$(widgets_run 'parse_selection widgets "g1"; TARGETS=(gamma); preflight_selections')"
+assert_contains "${out}" "--widgets needs the widget step (--only widget) on a target that has one" "kind without its step rejected"
+
+out="$(widgets_run 'parse_selection widgets ","')"
+assert_contains "${out}" "--widgets contains an empty value" "empty item message names the kind"
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then install_tests_finish; fi

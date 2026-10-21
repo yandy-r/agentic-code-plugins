@@ -211,7 +211,7 @@ source_install_libs() {
     SCRIPT_DIR="${REPO_ROOT}"
     eval "$(sed -n 's/^ALL_TARGETS=(\(.*\))$/ALL_TARGETS=(\1)/p' "${INSTALL}")"
     local f
-    for f in core steps bundle cli; do source "${REPO_ROOT}/scripts/lib/install/${f}.sh"; done
+    for f in core steps select bundle cli; do source "${REPO_ROOT}/scripts/lib/install/${f}.sh"; done
     for f in "${ALL_TARGETS[@]}"; do source "${REPO_ROOT}/scripts/lib/install/targets/${f}.sh"; done
 }
 

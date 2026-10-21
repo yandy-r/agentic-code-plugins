@@ -302,8 +302,8 @@ just those servers, for every MCP-capable target (claude, cursor, codex,
 opencode):
 
 ```bash
-ycc list-mcps                                   # every managed server
-ycc list-mcps --target codex                    # just codex's
+ycc list mcps                                   # every managed server
+ycc list mcps --target codex                    # just codex's
 ycc sync --target opencode --intent mcp --mcps github,linear
 ycc sync --target all --intent mcp --mcps playwright --global
 ycc install --target claude --only mcp --mcps github
@@ -323,7 +323,9 @@ ycc remove --target cursor --intent mcp --mcps stripe
   `approval_mode`).
 - `--mcps` requires the `mcp` step (`--intent mcp`, `--mcp`, or `--only mcp`).
 - Shell completion offers the managed server names after `--mcps`, narrowed to
-  the `--target` already on the command line (via `ycc list-mcps`).
+  the `--target` already on the command line (via `ycc list mcps`). `ycc list`
+  prints the selectable kinds; `ycc list-mcps` remains an alias of
+  `ycc list mcps`.
 
 > **Behavior change:** the `mcp` step used to write only user-global files.
 > Pass `--global` to keep that. Cursor MCP is now merged instead of symlinked,

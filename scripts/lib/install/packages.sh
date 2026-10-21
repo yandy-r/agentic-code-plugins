@@ -3,8 +3,8 @@
 # model closure into per-target installer steps and drives the existing
 # per-target sync functions through the exclusive-steps machinery.
 #
-# Sourced by install.sh (never run directly); reads PACKAGE, TARGETS, MODE,
-# MCP_SERVERS and ALL_TARGETS at call time. Python owns package semantics and
+# Sourced by install.sh (never run directly); reads PACKAGE, TARGETS, MODE
+# and ALL_TARGETS at call time. Python owns package semantics and
 # rejection reasons (scripts/package_install_plan.py); this file only parses
 # the plan, validates it against each target's contract, and dispatches.
 

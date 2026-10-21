@@ -8,17 +8,17 @@ function __ycc_csv --argument-names values
     end
 end
 
-# __ycc_mcps — managed MCP servers, from 'ycc list-mcps' for the --target on the line.
-function __ycc_mcps
+# __ycc_list_names <kind> — a kind's names, from 'ycc list <kind>' for the --target on the line.
+function __ycc_list_names --argument-names kind
     set -l words (commandline -opc)
     set -l targets all
     set -l i (contains -i -- --target $words)
     and set -q words[(math $i + 1)]
     and set targets $words[(math $i + 1)]
-    __ycc_csv (string join ' ' -- ($words[1] list-mcps --target $targets 2>/dev/null))
+    __ycc_csv (string join ' ' -- ($words[1] list $kind --target $targets 2>/dev/null))
 end
 
-set -l subs install sync remove migrate cli completion list-mcps
+set -l subs install sync remove migrate cli completion list list-mcps
 set -l none "not __fish_seen_subcommand_from $subs"
 set -l isr "__fish_seen_subcommand_from install sync remove"
 set -l is "__fish_seen_subcommand_from install sync"
@@ -33,13 +33,19 @@ complete -c ycc -n $none -a remove -d 'Remove installer-managed config'
 complete -c ycc -n $none -a migrate -d 'Preview or apply native package migration'
 complete -c ycc -n $none -a cli -d 'Link install.sh onto PATH as ycc'
 complete -c ycc -n $none -a completion -d 'Print or install shell completion'
-complete -c ycc -n $none -a list-mcps -d 'List the managed MCP servers'
+complete -c ycc -n $none -a list -d 'List selectable kinds or a kind\'s names'
+complete -c ycc -n $none -a list-mcps -d 'Alias of list mcps'
 
 complete -c ycc -n $isr -l target -x -a '(__ycc_csv "claude cursor codex opencode agents omp all")' -d Targets
 complete -c ycc -n $isr -l skills-home -x -a 'agents native' -d 'Duplicate-skills choice'
 complete -c ycc -n $sr -l intent -x -a '(__ycc_csv "base skills agents commands settings rules mcp hooks plugins mods")' -d Intents
-complete -c ycc -n $isr -l mcps -x -a '(__ycc_mcps)' -d 'Only these managed MCP servers'
-complete -c ycc -n '__fish_seen_subcommand_from list-mcps' -l target -x -a '(__ycc_csv "claude cursor codex opencode agents omp all")' -d Targets
+# --<kind> selectors: one per kind from 'ycc list', names from 'ycc list <kind>'.
+set -l kinds (ycc list 2>/dev/null)
+for kind in $kinds
+    complete -c ycc -n $isr -l $kind -x -a "(__ycc_list_names $kind)" -d "Only these $kind"
+end
+complete -c ycc -n "__fish_seen_subcommand_from list; and not __fish_seen_subcommand_from $kinds" -a "$kinds" -d 'Selectable kind'
+complete -c ycc -n '__fish_seen_subcommand_from list list-mcps' -l target -x -a '(__ycc_csv "claude cursor codex opencode agents omp all")' -d Targets
 complete -c ycc -n $ir -l only -x -a '(__ycc_csv "base skills agents commands settings rules mcp hooks mods")' -d Steps
 complete -c ycc -n $is -l mode -x -a 'local repo' -d 'Marketplace source mode'
 complete -c ycc -n $inst -l package -x -a '(__ycc_csv "ycc ycc-mcp ycc-hooks ycc-rules")' -d 'Install package closures'
@@ -58,5 +64,5 @@ complete -c ycc -n '__fish_seen_subcommand_from cli' -l dir -x -a '(__fish_compl
 complete -c ycc -n '__fish_seen_subcommand_from completion' -l shell -x -a 'bash zsh fish' -d Shell
 complete -c ycc -n '__fish_seen_subcommand_from completion' -l install -d 'Install for the shell'
 
-complete -c ycc -n '__fish_seen_subcommand_from install sync remove cli completion list-mcps' -l force -d 'Replace existing / repo values win'
+complete -c ycc -n '__fish_seen_subcommand_from install sync remove cli completion' -l force -d 'Replace existing / repo values win'
 complete -c ycc -l help -d 'Show help'
