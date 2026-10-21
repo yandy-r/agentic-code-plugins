@@ -627,15 +627,6 @@ def parse_pointer(key: str) -> list[str]:
     return [part.replace("~1", "/").replace("~0", "~") for part in key.lstrip("/").split("/")]
 
 
-def path_is_managed(profile: dict[str, Any], groups: list[str], path: list[str]) -> bool:
-    """True when the leaf falls under one of the selected managed rules."""
-    for group in groups:
-        for rule in profile["groups"].get(group, []):
-            if path[: len(rule["path"])] == rule["path"]:
-                return True
-    return False
-
-
 def delete_nested(data: dict[str, Any], path: list[str]) -> None:
     """Remove a nested key, pruning parent objects that become empty."""
     parents: list[tuple[dict[str, Any], str]] = []
