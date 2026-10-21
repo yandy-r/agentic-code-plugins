@@ -22,11 +22,33 @@ selected_slices() {
     echo "${picked[*]}"
 }
 
+# slice_selection_kinds <target> <slice> — the --<kind> selections that
+# narrow <slice> on <target>, space-separated (empty: the whole slice). Claude
+# skills are its commands: on install/sync its skills slice takes the union of
+# --skills and --commands over whichever of those steps run; a kind without a
+# selection does not widen it. On remove only --skills narrows it: removing
+# claude commands only retires legacy wrappers, never skills.
+slice_selection_kinds() {
+    local -a kinds=()
+    local kind
+    if [[ "$1" == claude && "$2" == skills ]]; then
+        for kind in skills commands; do
+            # shellcheck disable=SC2153  # COMMAND is install.sh's subcommand global.
+            [[ "${kind}" == commands && "${COMMAND}" == remove ]] && continue
+            step_enabled "${kind}" && has_selection "${kind}" && kinds+=("${kind}")
+        done
+    elif is_selectable_kind "$2" && has_selection "$2"; then
+        kinds=("$2")
+    fi
+    echo "${kinds[*]:-}"
+}
+
 # run_slice <target> <slice> [select] — install (or, under 'remove', take
 # back) one standalone slice. Entries ycc did not install are never replaced
 # or removed without --force. With 'select' (passed only where the slice STEP
-# runs, never for 'base'), a --skills / --agents selection narrows the slice
-# to the named entries <target> ships; it ships none of them → skip.
+# runs, never for 'base'), a --skills / --agents / --commands selection
+# narrows the slice to the named entries <target> ships; it ships none of
+# them → skip.
 run_slice() {
     command -v python3 >/dev/null 2>&1 || { err "python3 is required but not found"; exit 1; }
     local target="$1" slice="$2" action="install"
@@ -34,25 +56,59 @@ run_slice() {
     [[ "${COMMAND}" == "remove" ]] && action="remove"
     local -a command=(python3 "${SLICE_HELPER}" "${action}" --target "${target}" --slice "${slice}")
     [[ "${FORCE:-0}" == "1" ]] && command+=(--force)
-    if [[ "${3:-}" == "select" ]] && is_selectable_kind "${slice}" && has_selection "${slice}"; then
-        local names selected
-        names="$(selection_for_target "${slice}" "${target}")"
+    local -a kinds=()
+    [[ "${3:-}" == "select" ]] && read -r -a kinds <<< "$(slice_selection_kinds "${target}" "${slice}")"
+    # Claude remove: --commands names legacy wrappers to retire, not skills;
+    # without --skills the skills slice would go whole, so skip it instead.
+    if [[ "${3:-}" == "select" && "${action}" == remove && "${target}" == claude && "${slice}" == skills \
+        && ${#kinds[@]} -eq 0 ]] && has_selection commands; then
+        info "--commands only retires legacy command wrappers on claude; pass --skills to remove skills — skipping the skills slice"
+        return 0
+    fi
+    if [[ ${#kinds[@]} -gt 0 ]]; then
+        local kind name names="" selected="" nouns="${SELECTION_NOUNS[${kinds[0]}]}"
+        for kind in "${kinds[@]}"; do
+            for name in $(selection_for_target "${kind}" "${target}" | tr ',' ' '); do
+                [[ ",${names}," == *",${name},"* ]] || names+="${names:+,}${name}"
+            done
+            selected+="${selected:+ }$(selection_for "${kind}" | tr ',' ' ')"
+        done
         if [[ -z "${names}" ]]; then
-            selected="$(selection_for "${slice}")"
-            warn "none of the selected ${SELECTION_NOUNS[${slice}]} (${selected//,/ }) ship for ${target} — skipping"
+            warn "none of the selected ${nouns} (${selected}) ship for ${target} — skipping"
             return 0
         fi
-        info "${SELECTION_NOUNS[${slice}]^}: ${names//,/, }"
+        info "${nouns^}: ${names//,/, }"
         command+=(--entries "${names}")
-        # What the other kind's step installs on this target in the same run
+        # What another kind's step installs on this target in the same run
         # counts as available for the dependency warnings ('*': its whole slice).
-        # On claude the 'commands' intent is an alias for the skills slice.
+        # On claude the 'commands' intent is an alias for the skills slice;
+        # commands only need their paired skills.
         local other pending
         for other in skills agents; do
             [[ "${other}" != "${slice}" ]] || continue
-            step_enabled "${other}" || { [[ "${other}" == skills && "${target}" == claude ]] && step_enabled commands; } || continue
-            pending='*'
-            has_selection "${other}" && pending="$(selection_for_target "${other}" "${target}")"
+            [[ "${slice}" != commands || "${other}" == skills ]] || continue
+            # 'base' ships every skill this run (mirror, plugin, or the
+            # consolidated ~/.agents/skills), so commands' skills are pending.
+            if [[ "${slice}" == commands ]] && step_enabled base; then
+                pending='*'
+            else
+                step_enabled "${other}" || { [[ "${other}" == skills && "${target}" == claude ]] && step_enabled commands; } || continue
+                pending='*'
+                # Claude skills: narrowed by the same --skills/--commands union
+                # its skills slice installs with (empty union: whole slice).
+                local -a union=()
+                if [[ "${other}" == skills && "${target}" == claude ]]; then
+                    read -r -a union <<< "$(slice_selection_kinds claude skills)"
+                elif has_selection "${other}"; then
+                    union=("${other}")
+                fi
+                if [[ ${#union[@]} -gt 0 ]]; then
+                    pending=""
+                    for kind in "${union[@]}"; do
+                        pending+="${pending:+,}$(selection_for_target "${kind}" "${target}")"
+                    done
+                fi
+            fi
             command=(env "YCC_PENDING_${other^^}=${pending}" "${command[@]}")
         done
     fi
@@ -138,7 +194,7 @@ remove_mirrored_entries() {
 }
 
 # remove_slices <target> <slice...> — take back each enabled standalone slice
-# (narrowed by a --skills / --agents selection).
+# (narrowed by a --skills / --agents / --commands selection).
 remove_slices() {
     local target="$1" slice
     shift

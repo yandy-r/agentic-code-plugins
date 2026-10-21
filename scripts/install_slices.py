@@ -28,7 +28,7 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from slice_selection import plan_run, print_dependency_warnings, print_selectable
+from slice_selection import legacy_wrapper_pick, plan_run, print_dependency_warnings, print_selectable
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SLICES = ("skills", "agents", "commands", "hooks")
@@ -266,8 +266,12 @@ def entry_hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes() + str(path.stat().st_mode & 0o111).encode()).hexdigest()
 
 
-def strict_unit(unit: Unit, ctx: Context, install: bool) -> int:
-    """Plan all ownership decisions before mutating a Cursor carrier directory."""
+def strict_unit(unit: Unit, ctx: Context, install: bool, pick: frozenset[str] | None = None) -> int:
+    """Plan all ownership decisions before mutating a Cursor carrier directory.
+
+    With pick, only those entries are checked and changed: install merges state
+    and hashes (never prunes), remove takes back only picked owned entries.
+    """
     dest = ctx.home / unit.dest
     key = str(dest)
     for parent in (dest, *dest.parents):
@@ -276,8 +280,9 @@ def strict_unit(unit: Unit, ctx: Context, install: bool) -> int:
             return 1
         if parent == ctx.home:
             break
-    entries = shipped_entries(unit)
+    entries = {name: src for name, src in shipped_entries(unit).items() if pick is None or name in pick}
     owned = set(ctx.state.get(key, []))
+    scope = owned if pick is None else owned & pick
     with tempfile.TemporaryDirectory() as tmp:
         staging = Path(tmp)
         skills_dir = ctx.skills_dir or ctx.home / ".cursor/skills"
@@ -293,7 +298,7 @@ def strict_unit(unit: Unit, ctx: Context, install: bool) -> int:
                 return 1
         staged = {name: stage(name, src, staging, rewrites, None) for name, src in entries.items()}
         actions: list[str] = []
-        for name in sorted((set(entries) | owned) if install else owned):
+        for name in sorted((set(entries) | scope) if install else scope):
             if not name or Path(name).name != name or name in {".", ".."}:
                 print("[err] invalid Cursor carrier ownership state", file=sys.stderr)
                 return 1
@@ -326,12 +331,13 @@ def strict_unit(unit: Unit, ctx: Context, install: bool) -> int:
             if install and name in staged:
                 shutil.move(str(staged[name]), str(target))
                 ctx.hashes[str(target)] = entry_hash(target)
-        if install:
-            ctx.state[key] = sorted(entries)
+        left = sorted((owned - scope) | set(entries)) if install else sorted(owned - scope)
+        if left:
+            ctx.state[key] = left
         else:
             ctx.state.pop(key, None)
-            if dest.is_dir() and not any(dest.iterdir()):
-                dest.rmdir()
+        if not install and dest.is_dir() and not any(dest.iterdir()):
+            dest.rmdir()
     print(f"[ok] Cursor {unit.dest} {'installed' if install else 'removed'}")
     return 0
 
@@ -339,7 +345,7 @@ def strict_unit(unit: Unit, ctx: Context, install: bool) -> int:
 def install_unit(unit: Unit, ctx: Context, pick: frozenset[str] | None = None) -> int:
     """Install the unit's entries; with pick, only those names, merging state and pruning nothing."""
     if unit.strict:
-        return strict_unit(unit, ctx, True)
+        return strict_unit(unit, ctx, True, pick)
     dest = ctx.home / unit.dest
     key = str(dest)
     owned = set(ctx.state.get(key, []))
@@ -380,7 +386,7 @@ def install_unit(unit: Unit, ctx: Context, pick: frozenset[str] | None = None) -
 def remove_unit(unit: Unit, ctx: Context, pick: frozenset[str] | None = None) -> int:
     """Remove the unit's entries; with pick, only those names (state drops only them)."""
     if unit.strict:
-        return strict_unit(unit, ctx, False)
+        return strict_unit(unit, ctx, False, pick)
     dest = ctx.home / unit.dest
     key = str(dest)
     owned = set(ctx.state.get(key, []))
@@ -420,12 +426,12 @@ def remove_unit(unit: Unit, ctx: Context, pick: frozenset[str] | None = None) ->
     return 0
 
 
-def retire_legacy_commands(ctx: Context) -> None:
+def retire_legacy_commands(ctx: Context, pick: frozenset[str] | None = None) -> None:
     """Delete the command wrappers ycc recorded under ~/.claude/commands.
 
-    Only names recorded in installed-units.json go; foreign or unrecorded
-    entries (even with --force) stay, and the directory goes only when this
-    leaves it empty.
+    Only names recorded in installed-units.json go (with pick, only those of
+    them); foreign or unrecorded entries (even with --force) stay, and the
+    directory goes only when this leaves it empty.
     """
     dest = ctx.home / LEGACY_COMMANDS_DEST
     key = str(dest)
@@ -434,6 +440,9 @@ def retire_legacy_commands(ctx: Context) -> None:
     for name in ctx.state.get(key, []):
         if name in ("", ".", "..") or Path(name).name != name:
             continue  # state is user-editable; a recorded name is a plain entry
+        if pick is not None and name not in pick:
+            left.append(name)
+            continue
         target = dest / name
         if not exists(target):
             continue
@@ -512,6 +521,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     if (plan := plan_run(args, units, shipped_entries, home, ctx.state, parser.error)) is None:
         return 1
+    wrappers: frozenset[str] | None = None
+    if claude_commands and not install and args.entries is not None:
+        wrappers = legacy_wrapper_pick(args, SPECS[("claude", "skills")][0], shipped_entries)
+        if wrappers is None:
+            return 1
     run = install_unit if install else remove_unit
     conflicts = 0
     try:
@@ -520,7 +534,7 @@ def main(argv: list[str] | None = None) -> int:
         # Wrappers are redundant only once the skills are in place (all of them: a selection keeps them).
         retire = claude_commands or (install and slice_name == "skills" and args.entries is None)
         if args.target == "claude" and not conflicts and retire:
-            retire_legacy_commands(ctx)
+            retire_legacy_commands(ctx, wrappers)
     finally:
         if not args.dry_run and (not conflicts or not any(unit.strict for unit in units)):
             save_state(path, ctx.state, ctx.hashes)

@@ -318,7 +318,8 @@ sync_claude_target() {
     fi
     local slice skills_ran=0
     for slice in $(selected_slices skills agents commands); do
-        # Skills are Claude's slash commands; install once for either alias.
+        # Skills are Claude's slash commands; install once for either alias
+        # (run_slice narrows it to the union of --skills and --commands).
         if [[ "${slice}" == "commands" ]]; then
             [[ ${skills_ran} -eq 1 ]] && continue
             slice="skills"

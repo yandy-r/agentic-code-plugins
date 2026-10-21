@@ -8,7 +8,8 @@ ship with any selection and leave only with the last owned entry.
 
 After a selective install, the canonical sources of the selected entries are
 scanned for ``ycc:<name>`` references so missing skills and agents can be
-reported per target (warn only).
+reported per target (warn only). Selected commands that load a same-named
+skill warn when that skill is not available on the target.
 """
 
 from __future__ import annotations
@@ -86,6 +87,20 @@ def parse_entries(raw: str) -> list[str]:
     return names
 
 
+def pick_entries(
+    entries: Mapping[str, Path], extra: Iterable[str], raw: str, where: tuple[str, str]
+) -> frozenset[str] | str:
+    """Entry names ``raw`` selects among a unit's selectable entries, or an error line for unknown names."""
+    names = selectable(entries, extra)
+    wanted = parse_entries(raw)
+    unknown = [name for name in wanted if name not in names] or ([] if wanted else ["(none)"])
+    if unknown:
+        noun = "entry" if len(unknown) == 1 else "entries"
+        valid = ", ".join(sorted(names))
+        return f"[err] unknown {where[0]} {noun} for {where[1]}: {', '.join(unknown)} (valid: {valid})"
+    return frozenset(names[name] for name in wanted)
+
+
 def plan_selection(
     units_entries: Sequence[Mapping[str, Path]],
     extra: Iterable[str],
@@ -103,14 +118,9 @@ def plan_selection(
     records nothing). ``where`` is (slice, target) for the message.
     """
     hidden = HELPER_NAMES | set(extra)
-    names = selectable(units_entries[0], extra)
-    wanted = parse_entries(raw)
-    unknown = [name for name in wanted if name not in names] or ([] if wanted else ["(none)"])
-    if unknown:
-        noun = "entry" if len(unknown) == 1 else "entries"
-        valid = ", ".join(sorted(names))
-        return f"[err] unknown {where[0]} {noun} for {where[1]}: {', '.join(unknown)} (valid: {valid})"
-    chosen = frozenset(names[name] for name in wanted)
+    chosen = pick_entries(units_entries[0], extra, raw, where)
+    if isinstance(chosen, str):
+        return chosen
     helpers = frozenset(n for n in units_entries[0] if n in hidden)
     rest = len(units_entries) - 1
     if install:
@@ -148,13 +158,14 @@ def plan_run(
 ) -> list[tuple[U, frozenset[str] | None]] | None:
     """(unit, pick) pairs one install_slices run acts on (pick None = the whole unit); None after an error.
 
-    Without ``--entries`` every unit runs whole. ``fail`` rejects ``--entries`` on
-    slices that cannot narrow (strict carriers, claude commands remove).
+    Without ``--entries`` (or without units: claude commands remove, see
+    legacy_wrapper_pick) every unit runs whole. ``fail`` rejects ``--entries``
+    on the hooks slice, which ships one fixed entry.
     """
-    if args.entries is None:
+    if args.entries is None or not units:
         return [(unit, None) for unit in units]
-    if not units or any(unit.strict for unit in units):
-        fail("--entries is not supported for this slice (strict carriers, claude commands remove)")
+    if args.slice == "hooks":
+        fail("--entries is not supported for the hooks slice")
     entries = [entries_of(unit) for unit in units]
     first = home / units[0].dest
     present = [n for n in entries[0] if (first / n).exists() or (first / n).is_symlink()]
@@ -167,6 +178,20 @@ def plan_run(
     return [(unit, pick) for unit, pick in zip(units, plan, strict=True) if pick is None or pick]
 
 
+def legacy_wrapper_pick(
+    args: argparse.Namespace, skills: U, entries_of: Callable[[U], Mapping[str, Path]]
+) -> frozenset[str] | None:
+    """Claude ``remove --slice commands --entries``: the legacy wrapper names (``<name>.md``) to retire.
+
+    Names are claude skills (its commands); None after printing an unknown-name error.
+    """
+    chosen = pick_entries(entries_of(skills), skills.extra, args.entries, ("commands", args.target))
+    if isinstance(chosen, str):
+        print(chosen, file=sys.stderr)
+        return None
+    return frozenset(f"{name}.md" for name in chosen)
+
+
 def print_dependency_warnings(
     args: argparse.Namespace,
     kind: str,
@@ -175,12 +200,23 @@ def print_dependency_warnings(
     specs: Mapping[tuple[str, str], Sequence[U]],
     ctx: ContextLike,
 ) -> None:
-    """After a clean selective install of ``kind`` on ``args.target``, print its dependency warnings."""
+    """After a clean selective install of ``kind`` on ``args.target``, print its dependency warnings.
+
+    Plain (non-strict) commands get paired-skill warnings instead; a strict
+    carrier (cursor) already failed closed on a missing skill.
+    """
     if conflicts or args.action != "install" or args.entries is None:
         return
     dests = {k: specs[(args.target, k)][0].dest for k in KINDS if (args.target, k) in specs}
     selected = parse_entries(args.entries)
-    for line in dependency_warnings(repo_root, ctx.home, args.target, kind, selected, ctx.state, dests):
+    if kind == "commands":
+        if "skills" in dests and not any(unit.strict for unit in specs.get((args.target, kind), ())):
+            lines = paired_skill_warnings(ctx.home, args.target, selected, ctx.state, dests)
+        else:
+            lines = []
+    else:
+        lines = dependency_warnings(repo_root, ctx.home, args.target, kind, selected, ctx.state, dests)
+    for line in lines:
         print(line)
 
 
@@ -301,3 +337,19 @@ def dependency_warnings(
             f" but not installed — add it: ycc sync --target {target} --intent {ref_kind} --{ref_kind} {ref_name}"
         )
     return lines
+
+
+def paired_skill_warnings(
+    home: Path, target: str, selected: Iterable[str], state: Mapping[str, list[str]], dests: Mapping[str, str]
+) -> list[str]:
+    """Warn lines for selected commands whose same-named skill is not available on the target.
+
+    Every command loads the skill of its own name. Never installs it, never fails the run.
+    """
+    avail = Availability(home, target, state, dests)
+    return [
+        f"[!!]  {target}: command '{name}' needs skill '{name}', not installed"
+        f" — add it: ycc sync --target {target} --intent skills --skills {name}"
+        for name in sorted(set(selected))
+        if not avail.has("skills", name)
+    ]

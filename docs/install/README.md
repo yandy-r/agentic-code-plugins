@@ -227,11 +227,11 @@ invocations there, so there is nothing separate to copy:
 - `--only` / `--intent` skip a slice a target has no home for (e.g.
   `commands` on codex), so `--target all --only agents` just works.
 
-### Selecting Skills And Agents
+### Selecting Skills, Agents And Commands
 
-By default the `skills` and `agents` steps install every entry a target ships.
-`--skills <names>` and `--agents <names>` (comma-separated) narrow `install`,
-`sync`, and `remove` to just those entries:
+By default the `skills`, `agents` and `commands` steps install every entry a
+target ships. `--skills <names>`, `--agents <names>` and `--commands <names>`
+(comma-separated) narrow `install`, `sync`, and `remove` to just those entries:
 
 ```bash
 ycc list skills --target cursor                 # what --skills accepts there
@@ -240,6 +240,9 @@ ycc sync --target claude,opencode --intent skills --skills code-review,git-workf
 ycc sync --target agents --intent skills --skills prp-plan
 ycc sync --target claude,codex --intent agents --agents implementor,code-reviewer
 ycc remove --target codex --intent skills --skills visual-recap
+ycc list commands --target opencode             # what --commands accepts there
+ycc sync --target opencode --intent skills,commands --skills clean --commands clean
+ycc sync --target cursor --intent skills,commands --skills clean,plan --commands clean
 ```
 
 - Selection narrows, it never prunes: skills or agents ycc installed earlier
@@ -274,18 +277,35 @@ ycc remove --target codex --intent skills --skills visual-recap
   `--target all --intent agents --agents implementor` reports a no-op there
   and installs `implementor` on claude, cursor, codex and opencode; on its
   own, `--target agents --agents ...` is rejected.
-- Cursor commands reference every skill, so they need the full skills slice:
-  an install or sync that runs cursor's `commands` step rejects `--skills`
-  before any target writes. Drop `--skills` and install the full skills slice
-  with the commands (`ycc sync --target cursor --intent skills,commands`).
+- `--commands` narrows the `commands` step. On claude the commands are the
+  skills, so on `install` / `sync` it narrows the skills slice; with
+  `--skills` as well, the union of both selections installs once. On claude
+  `remove`, `--commands a` only retires the recorded legacy wrapper `a.md` and
+  never removes skills: only `--skills` narrows a skills removal, and
+  `remove --intent skills,commands --commands a` without `--skills` skips the
+  skills slice instead of removing all of it. codex, agents and omp have no
+  commands step and skip `--commands`; it is an error only when no selected
+  target has one (`ycc list commands --target codex` prints nothing).
+- Every command loads the skill of its own name. After a selective opencode
+  commands install, the installer warns (never fails, never installs it) for
+  each command whose skill is not available: a skill ycc installed, a `base`
+  mirror, `~/.agents/skills/<name>`, or a skill the same run installs counts.
+- Cursor commands reference their skills and fail closed when one is missing
+  (checked for the selected commands only; other installed commands are left
+  alone). An install or sync that runs cursor's `commands` and `skills` steps
+  with `--skills` needs `--commands`, and every selected command must be in
+  the `--skills` selection; otherwise it is rejected before any target
+  writes. Without `--skills` it installs the full skills slice with the
+  commands (`ycc sync --target cursor --intent skills,commands`).
 - With `--skills-home agents`, an install or sync's skills selection follows
   the skills into `~/.agents/skills`. `remove` does not follow it: remove
   consolidated skills with `--target agents` (or `all`).
 - opencode per-agent model pins live in the `agents` block of the managed
   `opencode.json` (settings step), keyed by agent ID; pins for agents you did
   not select are harmless, so selection needs no config change.
-- Shell completion offers the names after `--skills` / `--agents`, narrowed
-  to the `--target` already on the command line (via `ycc list <kind>`).
+- Shell completion offers the names after `--skills` / `--agents` /
+  `--commands`, narrowed to the `--target` already on the command line (via
+  `ycc list <kind>`).
 
 ### Merge Semantics
 
