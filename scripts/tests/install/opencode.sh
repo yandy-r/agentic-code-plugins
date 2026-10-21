@@ -75,6 +75,17 @@ install_must_succeed "${home}" remove --target opencode --intent plugins --plugi
 assert_not_contains "$(cat "${home}/.config/opencode/opencode.json")" "./ycc-sensitive-guard" "opencode remove --plugins ./ycc-sensitive-guard takes the entry"
 if [[ ! -e "${home}/.config/opencode/ycc-sensitive-guard" ]]; then ok "selecting the guard entry removes its dir"; else ko "selecting the guard entry removes its dir"; fi
 
+# A guard entry the user wrote survives remove as a local conflict and still
+# loads the directory, so the directory stays with it.
+home="$(new_home)"
+cat > "${home}/.config/opencode/opencode.json" <<'JSON'
+{"plugins":[{"package":"./ycc-sensitive-guard","options":{"mine":true}}]}
+JSON
+install_must_succeed "${home}" sync --target opencode --intent plugins --plugins ./ycc-sensitive-guard
+install_must_succeed "${home}" remove --target opencode --intent plugins --plugins ./ycc-sensitive-guard
+assert_contains "$(cat "${home}/.config/opencode/opencode.json")" '"mine"' "opencode remove keeps a user-written guard entry"
+if [[ -f "${home}/.config/opencode/ycc-sensitive-guard/index.js" ]]; then ok "opencode remove keeps the guard dir a kept entry loads"; else ko "opencode remove keeps the guard dir a kept entry loads"; fi
+
 echo
 
 echo "== install.sh remove: opencode base =="

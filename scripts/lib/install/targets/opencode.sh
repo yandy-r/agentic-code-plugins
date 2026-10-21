@@ -207,8 +207,10 @@ remove_opencode_target() {
         plugins_selection opencode "$(config_groups_for_target opencode)"
         remove_settings "opencode-config" "${OPENCODE_PLUGIN_DIR}/opencode.json" \
             "${opencode_dir}/opencode.json" "${PLUGINS_GROUPS}" "${PLUGINS_SELECT[@]}"
-        # The guard plugin goes with the `plugins` entry that loads it.
-        if opencode_guard_selected && ! step_enabled base; then
+        # The guard plugin goes with the `plugins` entry that loads it; an
+        # entry kept as a local edit still loads it, so the directory stays.
+        if opencode_guard_selected && ! step_enabled base \
+            && ! opencode_config_loads_guard "${opencode_dir}/opencode.json"; then
             remove_mirrored_entries "${OPENCODE_PLUGIN_DIR}/ycc-sensitive-guard" "${opencode_dir}/ycc-sensitive-guard"
         fi
     fi

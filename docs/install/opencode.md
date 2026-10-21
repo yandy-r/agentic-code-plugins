@@ -108,7 +108,8 @@ ycc remove --target opencode --intent plugins --plugins @prevalentware/opencode-
 ```
 
 Selecting `./ycc-sensitive-guard` also ships (or removes) its guard directory;
-a selection without it leaves the directory alone. When the bundle bumps a
+a selection without it leaves the directory alone, and so does a remove that
+keeps your own edited guard entry. When the bundle bumps a
 plugin's version, the item the installer added is replaced in place instead of
 duplicated; an item with the same package name that you wrote yourself is kept
 with a warning (`--force` replaces it). See
