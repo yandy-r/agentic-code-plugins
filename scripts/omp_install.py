@@ -486,16 +486,21 @@ def plan_step(
 
 
 def restart_line(packages: tuple[str, ...]) -> str:
+    rules = (
+        "; rules apply to new sessions (/new or restart)"
+        if any("rules" in package_components(package) for package in packages)
+        else ""
+    )
     restart = [package for package in packages if RESTART_COMPONENTS & set(package_components(package))]
     if restart:
-        return f"[!!] restart running omp sessions: {', '.join(restart)} ship hooks or extensions"
+        return f"[!!] restart running omp sessions: {', '.join(restart)} ship hooks or extensions{rules}"
     mcp = [package for package in packages if "mcp" in package_components(package)]
     if mcp:
         return (
             "[ok] running omp sessions: run /reload-plugins (skills, commands, agents, MCP) or restart them; "
-            f"MCP servers from {', '.join(mcp)} start only after a reload or restart"
+            f"MCP servers from {', '.join(mcp)} start only after a reload or restart{rules}"
         )
-    return "[ok] running omp sessions: run /reload-plugins (skills, commands, agents, MCP)"
+    return f"[ok] running omp sessions: run /reload-plugins (skills, commands, agents, MCP){rules}"
 
 
 def check_dangling_projects(cli: OmpCli, profile: dict[str, Any]) -> None:
@@ -1204,6 +1209,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("available", help="exit 0 and print the version when a supported omp is on PATH")
+    commands.add_parser("agent-dir", help="print the active profile's agent directory ('omp config path')")
     commands.add_parser("listed", help="exit 0 iff an included native omp row is listed")
     install_parser = commands.add_parser("install", help="install or update the selected packages")
     install_parser.add_argument("--packages", default="")
@@ -1225,6 +1231,14 @@ def main(argv: list[str] | None = None) -> int:
         except (OSError, ValueError) as error:
             print(error, file=sys.stderr)
             return 1
+        return 0
+    if args.command == "agent-dir":
+        try:
+            available()
+            print(OmpCli().profile_key())
+        except (OSError, ValueError) as error:
+            print(f"[err] omp agent directory unavailable: {error}", file=sys.stderr)
+            return 2
         return 0
     if args.command == "migrate":
         try:

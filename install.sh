@@ -145,8 +145,10 @@ plugins, mods):
     agents    base→base  skills→skills  everything else → no-op
               (both install ~/.agents/skills + ycc-shared/, the whole target;
               only the skills step is narrowed by --skills)
-    omp       base→base  plugins→base  everything else → no-op
-              (the native packages ycc and ycc-mcp carry skills, agents, commands and MCP servers)
+    omp       base→base  plugins→base  settings→settings  rules→rules
+              skills, agents, commands, hooks, mcp, mods → no-op
+              (the native packages ycc, ycc-mcp and ycc-rules carry skills, agents,
+              commands, MCP servers and rules; settings and rules are opt-in, user scope only)
 
 Remove ('remove' subcommand):
   Undoes what the selected steps installed, for every target and intent (same
@@ -245,6 +247,8 @@ Options:
                         codex    — config.toml
                         opencode — opencode.json
                         cursor   — cli-config.json (CLI model preference)
+                        omp      — <agentDir>/config.yml (modelRoles,
+                                   tools.approvalMode; user scope)
   --rules             Additive: SYMLINK rules files so edits flow across
                       systems (this is the old --settings behavior for rules).
                       Refuses to replace a real rules file without --force;
@@ -254,6 +258,7 @@ Options:
                         cursor   — manual User Rules in Settings; no file links
                         codex    — default.rules + AGENTS.md at ~/.codex/
                         opencode — AGENTS.md at ~/.config/opencode/
+                        omp      — AGENTS.md → <agentDir>/ (user scope)
   --mcp               Additive: also run the target's 'mcp' step. Mode-agnostic.
                       Scope follows --project (default) / --global.
   --mcps <servers>    Comma-separated MCP servers to merge (or remove) instead
@@ -308,7 +313,8 @@ Options:
                       export directory.
   --dry-run           install / sync / remove, omp target only (every resolved
                       target must be omp). Previews every 'omp plugin' call
-                      (omp's own --dry-run where it has one) without building,
+                      (omp's own --dry-run where it has one) and the planned
+                      --settings merge and --rules link without building,
                       exporting or writing state.
   --only <steps>      Exclusive: run only the comma-separated steps
                       (e.g. --only settings, --only rules,settings).
@@ -330,11 +336,12 @@ Options:
                       above). Cannot be combined with --only or the additive
                       --settings/--rules/--mcp/--hooks flags.
   --package <ids>     'install' only. Comma-separated ids from the package model:
-                      ycc, ycc-mcp, ycc-hooks (Claude and Cursor), ycc-rules (Cursor only);
-                      omp: ycc, ycc-mcp (ycc-rules deferred; ycc-hooks excluded: herdr
+                      ycc, ycc-mcp, ycc-hooks (Claude and Cursor), ycc-rules (Cursor and omp);
+                      omp: ycc, ycc-mcp, ycc-rules (ycc-hooks excluded: herdr
                       reporting is 'herdr integration install omp').
                       Expands dependency and installer-fallback components into
-                      existing installer steps. The 'base' step of the Claude and
+                      existing installer steps (omp: never; its --settings and
+                      --rules stay opt-in). The 'base' step of the Claude and
                       Codex ycc package uses native marketplace registration
                       (Claude ycc@ycc; Codex ycc@ycc + ycc-mcp@ycc); every other
                       component uses file/config delivery, and no catalog entries
@@ -452,16 +459,23 @@ Target steps:
                       install each skill into ~/.agents/skills/ (+ shared
                       helpers in ~/.agents/ycc-shared/). Foreign skills and
                       ~/.agents/plugins/ are never touched.
-  omp       base (needs omp >= 18.12.2 on PATH)
+  omp       base | settings | rules (needs omp >= 18.12.2 on PATH)
             base:     generate + validate packages/omp, export them to
                       \${XDG_DATA_HOME:-~/.local/share}/ycc/omp-marketplace,
                       register that export as the omp marketplace 'ycc', then
                       'omp plugin install|upgrade --scope user|project' for
-                      ycc@ycc and ycc-mcp@ycc (MCP servers ycc-mcp:<server>).
+                      ycc@ycc, ycc-mcp@ycc (MCP servers ycc-mcp:<server>) and
+                      ycc-rules@ycc (rules ycc-<family>-<stem>).
                       Ownership is recorded per omp profile in
                       ~/.config/ycc/omp-native-install.json; remove touches
                       only what ycc installed. Legacy ycc skills in
                       ~/.agents/skills are reported by 'migrate --target omp'.
+            settings: opt-in, user scope only. MERGE the ycc-owned
+                      modelRoles and tools.approvalMode leaves from
+                      ycc/settings/omp/config.yml into <agentDir>/config.yml
+                      (needs PyYAML); local edits are kept unless --force.
+            rules:    opt-in, user scope only. symlink
+                      ycc/settings/rules/AGENTS.md into <agentDir>/.
   all       Run claude then cursor then codex then opencode then agents (then
             omp, once omp >= 18.12.2 is on PATH and an OMP package is listed);
             step flags propagate.
@@ -511,12 +525,13 @@ Examples:
   $(basename "$0") install --target claude --mode repo --settings --rules
 
   # OMP (oh-my-pi >= 18.12.2; native packages through 'omp plugin'):
-  $(basename "$0") install --target omp                            # export + install ycc@ycc, ycc-mcp@ycc (user scope)
+  $(basename "$0") install --target omp                            # export + install ycc@ycc, ycc-mcp@ycc, ycc-rules@ycc (user scope)
   $(basename "$0") install --target omp --dry-run                  # preview every omp call; no writes
   $(basename "$0") install --target omp --package ycc              # skills/agents/commands only, no MCP servers
   $(basename "$0") install --target omp --project                  # omp project scope (not at \$HOME)
   $(basename "$0") install --target omp --force                    # reinstall the ycc-owned packages
   $(basename "$0") remove  --target omp --only base                # uninstall what ycc installed
+  $(basename "$0") install --target omp --settings --rules         # ycc model roles + approvals, AGENTS.md (user scope)
   $(basename "$0") migrate --target omp                            # report legacy ycc skills in ~/.agents/skills
 EOF
 }

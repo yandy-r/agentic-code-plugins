@@ -12,13 +12,15 @@ Each included native OMP row becomes a package root at packages/omp/<key>/ carry
   OMP falls back to `<root>/.mcp.json` when no manifest declares `mcpServers` and names each
   server `<package>:<server>`. The source is audited for secret literals first, and `${VAR}`
   placeholders are never expanded here: OMP expands them when it starts a server.
+- for a rules-only row (ycc-rules), a flat `rules/` tree of `ycc-<family>-<stem>.md` files rendered
+  from ycc/rules by generate_omp_rules.
 
 All manifests and the catalog entry carry the lockstep version from the model's version source.
 
 Selection keys on runtime == "omp" and mechanism == "native". Only included rows are emitted,
-and only the {skills, agents, commands, shared} and {mcp} component sets have emitters here; an
-included or listed row with any other set fails closed. Hooks never get an OMP emitter (herdr's
-own integration; ADR 0002, YAN-1174); rules are YAN-1175.
+and only the {skills, agents, commands, shared}, {mcp} and {rules} component sets have emitters
+here; an included or listed row with any other set fails closed. Hooks never get an OMP emitter
+(herdr's own integration; ADR 0002, YAN-1174); rules ship flat in `ycc-rules` (YAN-1175).
 The root `.omp-plugin/marketplace.json` is written only when a row is listed and holds exactly
 the listed rows with fork-safe relative sources; otherwise it is removed. `--export DIR` writes
 a repository-shaped tree outside the checkout whose catalog also lists unlisted included rows,
@@ -52,6 +54,8 @@ MANIFESTS = (OMP_MANIFEST, CLAUDE_MANIFEST, PACKAGE_JSON)
 SOURCE_PLUGIN_PATH = Path("ycc/.claude-plugin/plugin.json")
 SOURCE_MCP_PATH = Path("mcp-configs/mcp.json")
 MCP_CONFIG = Path(".mcp.json")
+RULES_DIR = Path("rules")
+SOURCE_RULES_PATH = Path("ycc/rules")
 CATALOG_NAME = "ycc"
 MIN_OMP_VERSION = "18.12.2"
 CATALOG_DESCRIPTION = f"ycc development-workflow packages for oh-my-pi (omp >={MIN_OMP_VERSION})."
@@ -60,13 +64,14 @@ CATALOG_DESCRIPTION = f"ycc development-workflow packages for oh-my-pi (omp >={M
 # reason named here.
 WORKFLOW_COMPONENTS = frozenset({"skills", "agents", "commands", "shared"})
 MCP_COMPONENTS = frozenset({"mcp"})
+RULES_COMPONENTS = frozenset({"rules"})
+EMITTED_COMPONENT_SETS = (WORKFLOW_COMPONENTS, MCP_COMPONENTS, RULES_COMPONENTS)
 COMPONENT_REASONS: dict[str, str] = {
     "hooks": (
         "ycc ships no OMP hooks: herdr session reporting is herdr's own OMP integration "
         "(`herdr integration install omp`) and WorktreeCreate has no OMP event (ADR 0002, YAN-1174); "
         "keep the row excluded and unlisted"
     ),
-    "rules": "owned by YAN-1175; keep the row deferred and unlisted until its emitter lands",
 }
 NO_PLANNED_EMITTER = "no planned issue; keep the row deferred and unlisted"
 COMPONENT_DIRS = ("skills", "agents", "commands")
@@ -119,8 +124,8 @@ def native_packages(packages: Iterable[Package]) -> tuple[Package, ...]:
         if runtime.status != "included":
             continue
         components = frozenset(runtime.components)
-        if components not in (WORKFLOW_COMPONENTS, MCP_COMPONENTS):
-            unsupported = components - WORKFLOW_COMPONENTS - MCP_COMPONENTS or components
+        if components not in EMITTED_COMPONENT_SETS:
+            unsupported = components - WORKFLOW_COMPONENTS - MCP_COMPONENTS - RULES_COMPONENTS or components
             reasons = "; ".join(
                 sorted({COMPONENT_REASONS.get(component, NO_PLANNED_EMITTER) for component in unsupported})
             )
@@ -213,6 +218,22 @@ def mcp_payloads(packages: Iterable[Package], repo_root: Path = REPO_ROOT) -> di
     return {root / MCP_CONFIG: Payload(content) for root in roots}
 
 
+def is_rules_package(package: Package) -> bool:
+    runtime = omp_runtime(package)
+    return runtime is not None and frozenset(runtime.components) == RULES_COMPONENTS
+
+
+def rules_payloads(packages: Iterable[Package], repo_root: Path = REPO_ROOT) -> dict[Path, Payload]:
+    """The flat OMP rules for every rules-only row, rendered from ycc/rules."""
+    roots = [package_root(package) for package in packages if is_rules_package(package)]
+    if not roots:
+        return {}
+    import generate_omp_rules
+
+    rules = generate_omp_rules.build_rules(repo_root / SOURCE_RULES_PATH)
+    return {root / RULES_DIR / name: Payload(text.encode("utf-8")) for root in roots for name, text in rules.items()}
+
+
 def component_payloads(root: Path) -> dict[Path, Payload]:
     """Stage the skills, agents and commands through their generators without touching the repo."""
     import generate_omp_agents as agents
@@ -249,6 +270,7 @@ def build_output(
     selected = native_packages(model.packages)
     output = manifest_payloads(selected, version, author)
     output.update(mcp_payloads(selected, repo_root))
+    output.update(rules_payloads(selected, repo_root))
     output.update(components(COMPONENT_ROOT))
     catalog = build_marketplace(model.packages, version, author, include_unlisted=include_unlisted)
     if catalog is not None:

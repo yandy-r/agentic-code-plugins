@@ -8,7 +8,10 @@ import sys
 import tomllib
 from pathlib import Path
 
+import yaml
+from generate_codex_common import SRC_AGENTS_DIR, parse_frontmatter
 from generate_opencode_plugin import expected_agent_ids, validate_agent_models
+from omp_model_policy import omp_model_errors
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MODELS = json.loads((REPO_ROOT / "ycc/settings/models.json").read_text(encoding="utf-8"))["targets"]
@@ -92,6 +95,24 @@ for name in sorted(expected_agent_ids() | set(declared_agents) | set(emitted_age
         errors.append(f"{label}: malformed entry {entry!r}, expected {{'model': 'provider/model'}}")
     else:
         expect(entry["model"], declared_agents[name], f"{label}.model")
+
+# OMP: targets.omp policy plus the managed snippet --settings merges into config.yml.
+# Agent models are collected from source frontmatter; an absent `model:` means inherit.
+used_agent_models: set[str] = set()
+for agent_path in sorted(SRC_AGENTS_DIR.glob("*.md")):
+    agent_frontmatter, _ = parse_frontmatter(agent_path.read_text(encoding="utf-8"))
+    used_agent_models.add(str(agent_frontmatter.get("model", "inherit")))
+omp_target = MODELS.get("omp")
+omp_config = omp_target.get("config") if isinstance(omp_target, dict) else None
+if isinstance(omp_config, str):
+    try:
+        omp_snippet = yaml.safe_load((REPO_ROOT / omp_config).read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as exc:
+        errors.append(f"{omp_config}: cannot load the OMP managed snippet: {exc}")
+    else:
+        errors.extend(omp_model_errors(omp_target, omp_snippet, used_agent_models))
+else:
+    errors.extend(omp_model_errors(omp_target, None, used_agent_models))
 
 if errors:
     for error in errors:
