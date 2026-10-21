@@ -48,7 +48,7 @@ class OpenCodeConfigValidationTestCase(unittest.TestCase):
 
         self.assertEqual(config["experimental"]["subagent_depth"], 2)
 
-    def test_rejects_v1_and_inert_top_level_fields(self) -> None:
+    def test_rejects_v1_and_bundle_forbidden_top_level_fields(self) -> None:
         config: dict[str, Any] = {
             "$schema": "https://opencode.ai/config.json",
             "model": "Frontier",
