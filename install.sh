@@ -272,8 +272,10 @@ Options:
                       only). Names: '$(basename "$0") list skills'
   --agents <names>    Same for the standalone agents step (--intent agents /
                       --only agents); names are file stems (implementor, not
-                      implementor.toml). codex 'base' still syncs every custom
-                      agent into ~/.codex/agents (warns): --agents only narrows
+                      implementor.toml). codex 'base' in local mode (or
+                      consolidated by --skills-home agents) still syncs every
+                      custom agent into ~/.codex/agents (warns); repo-mode
+                      'base' ships no custom agents. --agents only narrows
                       the agents slice. With other targets the agents target
                       skips --agents (it has no agents step); on its own it
                       is rejected. Names: '$(basename "$0") list agents'

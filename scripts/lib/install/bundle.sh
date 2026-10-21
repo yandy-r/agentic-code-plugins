@@ -46,9 +46,11 @@ run_slice() {
         command+=(--entries "${names}")
         # What the other kind's step installs on this target in the same run
         # counts as available for the dependency warnings ('*': its whole slice).
+        # On claude the 'commands' intent is an alias for the skills slice.
         local other pending
         for other in skills agents; do
-            [[ "${other}" != "${slice}" ]] && step_enabled "${other}" || continue
+            [[ "${other}" != "${slice}" ]] || continue
+            step_enabled "${other}" || { [[ "${other}" == skills && "${target}" == claude ]] && step_enabled commands; } || continue
             pending='*'
             has_selection "${other}" && pending="$(selection_for_target "${other}" "${target}")"
             command=(env "YCC_PENDING_${other^^}=${pending}" "${command[@]}")

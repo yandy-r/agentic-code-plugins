@@ -19,6 +19,16 @@ assert_entries() {
     if [[ "${got}" == "$2" ]]; then ok "$3"; else ko "$3" "got: ${got:-<none>}"; fi
 }
 
+# reject <name> <home> <install args...> — an expected rejection: the
+# installer must exit nonzero. Leaves its output in REJECT_OUT.
+REJECT_OUT=""
+reject() {
+    local name="$1" rc=0
+    shift
+    REJECT_OUT="$(run_install "$@")" || rc=$?
+    if [[ ${rc} -ne 0 ]]; then ok "${name} (exit ${rc})"; else ko "${name} (exit 0)" "${REJECT_OUT}"; fi
+}
+
 echo "== install.sh list skills / agents =="
 
 home="$(new_home)"
@@ -83,9 +93,9 @@ echo
 echo "== install.sh --skills / --agents: preflight =="
 
 home="$(new_home)"
-out="$(run_install "${home}" sync --target claude,codex --intent skills --skills go-patterns,no-such-skill --skills-home native)"
-assert_contains "${out}" "unknown skill 'no-such-skill'" "unknown skill rejected"
-assert_contains "${out}" "list them with: ycc list skills --target <targets>" "unknown skill points at ycc list skills"
+reject "unknown skill exits nonzero" "${home}" sync --target claude,codex --intent skills --skills go-patterns,no-such-skill --skills-home native
+assert_contains "${REJECT_OUT}" "unknown skill 'no-such-skill'" "unknown skill rejected"
+assert_contains "${REJECT_OUT}" "list them with: ycc list skills --target <targets>" "unknown skill points at ycc list skills"
 if [[ ! -e "${home}/.claude/skills" && ! -e "${home}/.codex/skills" && ! -e "${home}/.config/ycc/installed-units.json" ]]; then
     ok "unknown skill fails before any target writes"
 else
@@ -93,16 +103,21 @@ else
 fi
 
 home="$(new_home)"
-out="$(run_install "${home}" sync --target codex --intent agents --agents implementor.toml)"
-assert_contains "${out}" "unknown agent 'implementor.toml'" "agents are selected by stem, not file name"
+reject "unknown agent exits nonzero" "${home}" sync --target codex --intent agents --agents implementor.toml
+assert_contains "${REJECT_OUT}" "unknown agent 'implementor.toml'" "agents are selected by stem, not file name"
 
 home="$(new_home)"
-out="$(run_install "${home}" sync --target claude --intent base --skills go-patterns)"
-assert_contains "${out}" "--skills needs the skills step (it narrows the standalone skills slice; use --intent skills or --only skills)" "--skills with base only is rejected"
-out="$(run_install "${home}" sync --target agents --intent base --skills go-patterns)"
-assert_contains "${out}" "--skills needs the skills step" "agents base is never filtered: --skills needs its skills step"
-out="$(run_install "${home}" sync --target agents --intent agents --agents implementor)"
-assert_contains "${out}" "--agents needs the agents step" "--agents on the agents target alone is rejected"
+reject "--skills with base only exits nonzero" "${home}" sync --target claude --intent base --skills go-patterns
+assert_contains "${REJECT_OUT}" "--skills needs the skills step (it narrows the standalone skills slice; use --intent skills or --only skills)" "--skills with base only is rejected"
+reject "agents base + --skills exits nonzero" "${home}" sync --target agents --intent base --skills go-patterns
+assert_contains "${REJECT_OUT}" "--skills needs the skills step" "agents base is never filtered: --skills needs its skills step"
+reject "--agents on the agents target alone exits nonzero" "${home}" sync --target agents --intent agents --agents implementor
+assert_contains "${REJECT_OUT}" "--agents needs the agents step" "--agents on the agents target alone is rejected"
+
+home="$(new_home)"
+install_must_succeed "${home}" sync --target agents --intent base,skills --skills go-patterns
+assert_contains "${INSTALL_OUT}" "agents base installs every skill into ~/.agents/skills; --skills does not narrow this run" "agents base + skills warns that --skills does not narrow"
+if [[ "$(entries "${home}/.agents/skills" | wc -w)" -gt 1 ]]; then ok "agents base still installs every skill under --skills"; else ko "agents base still installs every skill under --skills" "$(entries "${home}/.agents/skills")"; fi
 
 echo
 echo "== install.sh --skills: narrowing, re-sync, remove =="
@@ -129,6 +144,24 @@ install_must_succeed "${home}" remove --target codex,opencode --intent agents --
 assert_entries "${home}/.codex/agents" "code-reviewer.toml" "codex selective agent remove takes only implementor"
 assert_entries "${home}/.config/opencode/agents" "code-reviewer.md" "opencode selective agent remove takes only implementor"
 
+home="$(new_home)"
+install_must_succeed "${home}" sync --target cursor --intent agents --agents implementor,code-reviewer
+install_must_succeed "${home}" remove --target cursor --intent agents --agents implementor
+assert_entries "${home}/.cursor/agents" "code-reviewer.md" "cursor selective agent remove takes only implementor"
+
+home="$(new_home)"
+install_must_succeed "${home}" sync --target cursor --intent skills --skills go-patterns,rust-testing --skills-home native
+install_must_succeed "${home}" remove --target cursor --intent skills --skills go-patterns --skills-home native
+assert_entries "${home}/.cursor/skills" "_shared rust-testing" "cursor selective skill remove takes only the named skill, keeps _shared"
+
+home="$(new_home)"
+install_must_succeed "${home}" sync --target agents --intent skills --skills go-patterns,rust-testing
+install_must_succeed "${home}" remove --target agents --intent skills --skills go-patterns
+assert_entries "${home}/.agents/skills" "rust-testing" "agents target selective remove takes only the named skill"
+if [[ -d "${home}/.agents/ycc-shared" ]]; then ok "agents target keeps ycc-shared while a ycc skill remains"; else ko "agents target keeps ycc-shared while a ycc skill remains"; fi
+install_must_succeed "${home}" remove --target agents --intent skills --skills rust-testing
+if [[ -z "$(entries "${home}/.agents/skills")" && ! -e "${home}/.agents/ycc-shared" ]]; then ok "agents target: removing the last selected skill takes ycc-shared too"; else ko "agents target: removing the last selected skill takes ycc-shared too" "$(entries "${home}/.agents/skills")"; fi
+
 echo
 echo "== install.sh --skills-home agents: selection follows the skills =="
 
@@ -151,17 +184,17 @@ echo
 echo "== install.sh --skills: cursor commands need the full skills slice =="
 
 home="$(new_home)"
-out="$(run_install "${home}" sync --target cursor --intent skills,commands --skills go-patterns --skills-home native)"
-assert_contains "${out}" "Cursor commands need the full skills slice" "--skills with cursor commands is rejected"
-assert_contains "${out}" "sync --target cursor --intent commands" "the error suggests installing commands separately"
+reject "cursor commands + --skills exits nonzero" "${home}" sync --target cursor --intent skills,commands --skills go-patterns --skills-home native
+assert_contains "${REJECT_OUT}" "Cursor commands need the full skills slice" "--skills with cursor commands is rejected"
+assert_contains "${REJECT_OUT}" "sync --target cursor --intent skills,commands" "the error suggests installing the full skills slice with the commands"
 if [[ ! -e "${home}/.cursor/skills" && ! -e "${home}/.cursor/commands" && ! -e "${home}/.config/ycc/installed-units.json" ]]; then
     ok "cursor commands + --skills writes nothing"
 else
     ko "cursor commands + --skills writes nothing"
 fi
 home="$(new_home)"
-out="$(run_install "${home}" sync --target all --intent skills,commands --skills go-patterns --skills-home native)"
-assert_contains "${out}" "Cursor commands need the full skills slice" "--target all: cursor commands + --skills is rejected"
+reject "--target all: cursor commands + --skills exits nonzero" "${home}" sync --target all --intent skills,commands --skills go-patterns --skills-home native
+assert_contains "${REJECT_OUT}" "Cursor commands need the full skills slice" "--target all: cursor commands + --skills is rejected"
 if [[ ! -e "${home}/.claude/skills" && ! -e "${home}/.cursor/skills" && ! -e "${home}/.codex/skills" \
     && ! -e "${home}/.config/opencode/skills" && ! -e "${home}/.agents/skills" && ! -e "${home}/.config/ycc/installed-units.json" ]]; then
     ok "--target all: the rejection precedes every target"
@@ -185,5 +218,9 @@ assert_not_contains "${INSTALL_OUT}" "'planner'" "an agent selected in the same 
 home="$(new_home)"
 install_must_succeed "${home}" sync --target claude --intent skills,agents --skills plan
 assert_not_contains "${INSTALL_OUT}" "'planner'" "the same run's full agents slice counts as installed"
+home="$(new_home)"
+install_must_succeed "${home}" sync --target claude --intent agents,commands --agents review-fixer
+assert_not_contains "${INSTALL_OUT}" "is dispatched only by" "claude commands (the skills alias): no dispatched-only warning"
+assert_not_contains "${INSTALL_OUT}" "but not installed" "claude commands (the skills alias) count as the same run's full skills slice"
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then install_tests_finish; fi

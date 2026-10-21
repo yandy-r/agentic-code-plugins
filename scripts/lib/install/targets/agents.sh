@@ -127,6 +127,13 @@ sync_agents_target() {
 # target's base IS the skills slice, never filtered), else narrowed by --skills.
 agents_skills_slice() {
     if step_enabled base; then
+        if step_enabled skills && has_selection skills; then
+            if [[ "${COMMAND}" == "remove" ]]; then
+                warn "agents base removes every skill from ~/.agents/skills; --skills does not narrow this run"
+            else
+                warn "agents base installs every skill into ~/.agents/skills; --skills does not narrow this run"
+            fi
+        fi
         run_slice agents skills
     else
         run_slice agents skills select

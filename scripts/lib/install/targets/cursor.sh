@@ -66,7 +66,7 @@ cursor_preflight() {
     [[ "${COMMAND}" != "remove" ]] && has_selection skills || return 0
     target_runs_step cursor commands && target_runs_step cursor skills || return 0
     err "Cursor commands need the full skills slice; --skills cannot narrow a run that installs them"
-    err "  drop --skills, or install commands separately: ${CLI_NAME} sync --target cursor --intent commands"
+    err "  drop --skills (commands need the full skills slice installed first): ${CLI_NAME} sync --target cursor --intent skills,commands"
     exit 1
 }
 

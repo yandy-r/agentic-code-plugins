@@ -263,19 +263,24 @@ ycc remove --target codex --intent skills --skills visual-recap
   Warnings never fail the run.
 - `--skills` / `--agents` need the matching step (`--intent skills`,
   `--only agents`, ...). `base` is never filtered: it registers or mirrors the
-  whole bundle, and on codex it still syncs every custom agent into
-  `~/.codex/agents` (the run warns that `--agents` does not narrow it). On the
-  agents target `base` ships the whole skills slice; only `--intent skills`
-  narrows it. The agents target has no agents step: with other targets,
+  whole bundle. On codex, a local-mode `base` still syncs every custom agent
+  into `~/.codex/agents`, and a `base` consolidated by `--skills-home agents`
+  installs the whole agents slice instead of registering the plugin; both
+  warn that `--agents` does not narrow the run. A repo-mode `base` only
+  registers the marketplace and ships no custom agents, so `--agents` narrows
+  the agents step there. On the agents target `base` ships the whole skills
+  slice; `--skills` does not narrow a run that also runs `base` (it warns).
+  The agents target has no agents step: with other targets,
   `--target all --intent agents --agents implementor` reports a no-op there
   and installs `implementor` on claude, cursor, codex and opencode; on its
   own, `--target agents --agents ...` is rejected.
 - Cursor commands reference every skill, so they need the full skills slice:
   an install or sync that runs cursor's `commands` step rejects `--skills`
-  before any target writes. Drop `--skills`, or install commands in a separate
-  run (`ycc sync --target cursor --intent commands`).
-- With `--skills-home agents`, the skills step's selection follows the skills
-  into `~/.agents/skills`.
+  before any target writes. Drop `--skills` and install the full skills slice
+  with the commands (`ycc sync --target cursor --intent skills,commands`).
+- With `--skills-home agents`, an install or sync's skills selection follows
+  the skills into `~/.agents/skills`. `remove` does not follow it: remove
+  consolidated skills with `--target agents` (or `all`).
 - opencode per-agent model pins live in the `agents` block of the managed
   `opencode.json` (settings step), keyed by agent ID; pins for agents you did
   not select are harmless, so selection needs no config change.
