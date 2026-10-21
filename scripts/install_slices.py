@@ -28,6 +28,8 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from slice_selection import plan_run, print_dependency_warnings, print_selectable
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SLICES = ("skills", "agents", "commands", "hooks")
 NATIVE_ROOT_PLACEHOLDER = "<installed ycc plugin root>"
@@ -334,13 +336,14 @@ def strict_unit(unit: Unit, ctx: Context, install: bool) -> int:
     return 0
 
 
-def install_unit(unit: Unit, ctx: Context) -> int:
+def install_unit(unit: Unit, ctx: Context, pick: frozenset[str] | None = None) -> int:
+    """Install the unit's entries; with pick, only those names, merging state and pruning nothing."""
     if unit.strict:
         return strict_unit(unit, ctx, True)
     dest = ctx.home / unit.dest
     key = str(dest)
     owned = set(ctx.state.get(key, []))
-    entries = shipped_entries(unit)
+    entries = {name: src for name, src in shipped_entries(unit).items() if pick is None or name in pick}
     conflicts = 0
     installed: set[str] = set()
     dest.mkdir(parents=True, exist_ok=True)
@@ -364,31 +367,33 @@ def install_unit(unit: Unit, ctx: Context) -> int:
                 delete_entry(target)
             shutil.move(str(staged), str(target))
             installed.add(name)
-    for name in sorted(owned - set(entries)):
+    for name in sorted(owned - set(entries)) if pick is None else ():
         stale = dest / name
         if exists(stale):
             delete_entry(stale)
             print(f"[ok]  removed {stale} (no longer shipped)")
-    ctx.state[key] = sorted(installed)
+    ctx.state[key] = sorted(installed if pick is None else owned | installed)
     print(f"[ok]  {len(installed)} entr{'y' if len(installed) == 1 else 'ies'} up to date in {dest}")
     return conflicts
 
 
-def remove_unit(unit: Unit, ctx: Context) -> int:
+def remove_unit(unit: Unit, ctx: Context, pick: frozenset[str] | None = None) -> int:
+    """Remove the unit's entries; with pick, only those names (state drops only them)."""
     if unit.strict:
         return strict_unit(unit, ctx, False)
     dest = ctx.home / unit.dest
     key = str(dest)
     owned = set(ctx.state.get(key, []))
+    left = sorted(owned - pick) if pick is not None else []
     if not dest.is_dir():
         print(f"[ok]  nothing to remove: {dest}")
-        ctx.state.pop(key, None)
+        ctx.state[key] = left  # save_state drops empty lists
         return 0
     entries = shipped_entries(unit)
     removed = 0
     with tempfile.TemporaryDirectory() as tmp:
         staging = Path(tmp)
-        for name in sorted(owned | set(entries)):
+        for name in sorted(owned | set(entries) if pick is None else pick):
             target = dest / name
             if not exists(target):
                 continue
@@ -407,7 +412,7 @@ def remove_unit(unit: Unit, ctx: Context) -> int:
                 removed += 1
             else:
                 print(f"[!!]  kept {target}: not installed by ycc (re-run with --force to remove it)")
-    ctx.state.pop(key, None)
+    ctx.state[key] = left
     print(f"[ok]  removed {removed} entr{'y' if removed == 1 else 'ies'} from {dest}")
     if dest != ctx.home and not any(dest.iterdir()):
         dest.rmdir()
@@ -456,10 +461,11 @@ def retire_legacy_commands(ctx: Context) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("action", choices=("install", "remove"))
+    parser.add_argument("action", choices=("install", "remove", "list"))
     parser.add_argument("--target", required=True, choices=sorted({t for t, _ in SPECS}))
     parser.add_argument("--slice", required=True, choices=SLICES)
     parser.add_argument("--force", action="store_true")
+    parser.add_argument("--entries", help="Comma-separated names to install or remove (see 'list'); helpers follow")
     parser.add_argument(
         "--dry-run", action="store_true", help="Preflight strict Cursor carrier ownership without writing"
     )
@@ -476,10 +482,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    if args.action == "list":
+        return print_selectable(args, SPECS, shipped_entries)
     install = args.action == "install"
+    claude_commands = args.target == "claude" and args.slice == "commands"
     if args.skills_pending and not args.dry_run:
         parser.error("--skills-pending requires --dry-run")
-    claude_commands = args.target == "claude" and args.slice == "commands"
     slice_name = "skills" if claude_commands and install else args.slice
     # Removing claude 'commands' only retires recorded legacy wrappers.
     units = () if claude_commands and not install else SPECS.get((args.target, slice_name))
@@ -502,17 +510,21 @@ def main(argv: list[str] | None = None) -> int:
         args.skills_dir,
         args.skills_pending,
     )
+    if (plan := plan_run(args, units, shipped_entries, home, ctx.state, parser.error)) is None:
+        return 1
     run = install_unit if install else remove_unit
     conflicts = 0
     try:
-        for unit in units:
-            conflicts += run(unit, ctx)
-        # Wrappers are redundant only once the skills are in place.
-        if args.target == "claude" and not conflicts and (claude_commands or (install and slice_name == "skills")):
+        for unit, pick in plan:
+            conflicts += run(unit, ctx, pick)
+        # Wrappers are redundant only once the skills are in place (all of them: a selection keeps them).
+        retire = claude_commands or (install and slice_name == "skills" and args.entries is None)
+        if args.target == "claude" and not conflicts and retire:
             retire_legacy_commands(ctx)
     finally:
         if not args.dry_run and (not conflicts or not any(unit.strict for unit in units)):
             save_state(path, ctx.state, ctx.hashes)
+    print_dependency_warnings(args, slice_name, conflicts, REPO_ROOT, SPECS, ctx)
     return 1 if conflicts else 0
 
 

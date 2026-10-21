@@ -36,11 +36,11 @@ Usage: $(basename "$0") <command> [options]
 
 Commands:
   install     Initial setup: base step plus opt-in steps (flags below).
-              $(basename "$0") install --target <targets> [--mode <mode>] [--settings] [--rules] [--mcp] [--hooks] [--only <steps>] [--package <ids>] [--mcps <servers>] [--project|--global] [--force] [--dry-run]
+              $(basename "$0") install --target <targets> [--mode <mode>] [--settings] [--rules] [--mcp] [--hooks] [--only <steps>] [--package <ids>] [--mcps <servers>] [--skills <names>] [--agents <names>] [--project|--global] [--force] [--dry-run]
   sync        Sync what you name, nothing else.
-              $(basename "$0") sync --target <targets> --intent <intents> [--mcps <servers>] [--mode <mode>] [--project|--global] [--force] [--dry-run]
+              $(basename "$0") sync --target <targets> --intent <intents> [--mcps <servers>] [--skills <names>] [--agents <names>] [--mode <mode>] [--project|--global] [--force] [--dry-run]
   remove      Strip installer-managed config.
-              $(basename "$0") remove --target <targets> (--only <steps> | --intent <intents>) [--mcps <servers>] [--project|--global] [--force] [--dry-run]
+              $(basename "$0") remove --target <targets> (--only <steps> | --intent <intents>) [--mcps <servers>] [--skills <names>] [--agents <names>] [--project|--global] [--force] [--dry-run]
   migrate     Preview a global native-package migration (no writes by default).
               $(basename "$0") migrate --target claude|codex|cursor|omp|all [--apply] [--marketplace-source <dir>]
               all resolves only claude,codex,cursor (run omp separately; it needs
@@ -51,7 +51,7 @@ Commands:
   completion  Print or install shell completion.
               $(basename "$0") completion [--shell bash|zsh|fish] [--install [--force]]
   list        Print the selectable kinds, or the names a kind takes (for --<kind>).
-              $(basename "$0") list [<kind>] [--target <targets>]   (e.g. list mcps; list-mcps is an alias)
+              $(basename "$0") list [<kind>] [--target <targets>]   (e.g. list mcps, list skills, list agents; list-mcps is an alias)
 
 A command is required; a bare '$(basename "$0") install --target ...' is rejected.
 
@@ -83,6 +83,7 @@ step-flag form used for first-time setup.
   $(basename "$0") sync --target opencode --intent mcp --mcps github,linear
   $(basename "$0") sync --target claude --intent mods
   $(basename "$0") sync --target claude,codex --intent skills,agents
+  $(basename "$0") sync --target claude,codex --intent agents --agents implementor,code-reviewer
 
 Intents (valid: base, skills, agents, commands, settings, rules, mcp, hooks,
 plugins, mods):
@@ -139,8 +140,9 @@ plugins, mods):
     opencode  base→base  skills→skills  agents→agents  commands→commands
               settings→settings  rules→rules  mcp→mcp
               plugins → settings (opencode.json)  hooks, mods → no-op
-    agents    base→skills  skills→skills  everything else → no-op
-              (~/.agents/skills + ycc-shared/ is the whole target)
+    agents    base→base  skills→skills  everything else → no-op
+              (both install ~/.agents/skills + ycc-shared/, the whole target;
+              only the skills step is narrowed by --skills)
     omp       base→base  plugins→base  everything else → no-op
               (the native packages ycc and ycc-mcp carry skills, agents, commands and MCP servers)
 
@@ -258,6 +260,25 @@ Options:
                       them skips its MCP step; a name no selected target
                       manages is an error. Names: '$(basename "$0") list mcps'
                       (shell completion offers them).
+  --skills <names>    Comma-separated skills: the standalone skills step installs
+                      (or removes) only these instead of every skill; requires
+                      the skills step (--intent skills / --only skills). Other
+                      installed skills are left in place (narrowing, never
+                      pruning); shared helpers (_shared, shared/, ycc-shared/)
+                      always ship with them. 'base' is never filtered. Cursor
+                      commands need every skill: --skills with cursor's
+                      commands step is an error. After a selective install,
+                      missing ycc:<name> dependencies are reported (warn
+                      only). Names: '$(basename "$0") list skills'
+  --agents <names>    Same for the standalone agents step (--intent agents /
+                      --only agents); names are file stems (implementor, not
+                      implementor.toml). codex 'base' in local mode (or
+                      consolidated by --skills-home agents) still syncs every
+                      custom agent into ~/.codex/agents (warns); repo-mode
+                      'base' ships no custom agents. --agents only narrows
+                      the agents slice. With other targets the agents target
+                      skips --agents (it has no agents step); on its own it
+                      is rejected. Names: '$(basename "$0") list agents'
   --project           Scope-capable steps (today: mcp) write into the current
                       project. Default when neither flag is given. omp base
                       installs at omp's project scope only with an explicit

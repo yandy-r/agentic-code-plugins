@@ -120,7 +120,7 @@ validate_scope_owned_targets() {
         # agents and opencode targets parse the per-target install libs.
         scripts/lib/install/*) echo "opencode agents config" ;;
         install.sh | scripts/tests/install/* | scripts/test-install-sync.sh | scripts/completions/*) echo "config" ;;
-        scripts/install_slices.py | scripts/test_install_slices_legacy.py) echo "config" ;;
+        scripts/install_slices.py | scripts/slice_selection.py | scripts/test_install_slices_legacy.py | scripts/test_install_slices_select.py) echo "config" ;;
         scripts/install_migrate.py | scripts/package_install_plan.py | scripts/test_package_install_plan.py) echo "config" ;;
         scripts/merge_managed_config.py | scripts/managed_config_*.py) echo "config" ;;
         scripts/test_merge_managed_config.py | scripts/test_managed_config_entries.py) echo "config" ;;

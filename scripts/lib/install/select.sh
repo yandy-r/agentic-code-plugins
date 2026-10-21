@@ -1,6 +1,7 @@
 # shellcheck shell=bash
 # select.sh — item selection: --<kind> <names> narrows a step to the named
-# items (today: --mcps for the mcp step), and 'list [<kind>]' prints them.
+# items (--mcps for the mcp step, --skills / --agents for the standalone
+# skills / agents slices), and 'list [<kind>]' prints them.
 #
 # Adding a kind: append it to SELECTABLE_KINDS, add its registry rows below
 # and define a '<kind>_names <target>' adapter (names the repo ships for
@@ -11,11 +12,15 @@
 # TARGETS / resolve_targets / valid_steps_for_target / step_enabled from
 # steps.sh, and PACKAGE / INTENTS / CLI_NAME at call time.
 
-SELECTABLE_KINDS=(mcps)
-declare -gA SELECTION_STEP=([mcps]=mcp)
-declare -gA SELECTION_NOUN=([mcps]="MCP server")
-declare -gA SELECTION_NOUNS=([mcps]="MCP servers")
-declare -gA SELECTION_STEP_HINT=([mcps]="sync/remove --intent mcp, install --mcp or --only mcp")
+SELECTABLE_KINDS=(mcps skills agents)
+declare -gA SELECTION_STEP=([mcps]=mcp [skills]=skills [agents]=agents)
+declare -gA SELECTION_NOUN=([mcps]="MCP server" [skills]=skill [agents]=agent)
+declare -gA SELECTION_NOUNS=([mcps]="MCP servers" [skills]=skills [agents]=agents)
+declare -gA SELECTION_STEP_HINT=(
+    [mcps]="sync/remove --intent mcp, install --mcp or --only mcp"
+    [skills]="it narrows the standalone skills slice; use --intent skills or --only skills"
+    [agents]="it narrows the standalone agents slice; use --intent agents or --only agents"
+)
 # SELECTION[<kind>] — the names given with --<kind>, comma-separated.
 declare -gA SELECTION=()
 
@@ -25,6 +30,17 @@ mcps_names() {
     read -r profile src <<< "$(mcp_source "$1")"
     python3 "${CONFIG_MERGE_HELPER}" --profile "${profile}" --source "${src}" \
         --destination /dev/null --groups mcp --list-entries
+}
+
+# skills_names <target> / agents_names <target> — the selectable entries of
+# <target>'s standalone skills / agents slice (helper entries such as _shared
+# are never listed; file entries by stem). Empty when <target> has no slice.
+skills_names() {
+    python3 "${SLICE_HELPER}" list --target "$1" --slice skills
+}
+
+agents_names() {
+    python3 "${SLICE_HELPER}" list --target "$1" --slice agents
 }
 
 # is_selectable_kind <name> — true when --<name> selects items.
@@ -74,15 +90,21 @@ selection_for_target() {
 }
 
 # kind_step_selected <kind> <target> — true when the run executes <target>'s
-# step for <kind>. Subshell: intent mapping rewrites ONLY_STEPS.
+# step for <kind>.
 kind_step_selected() {
-    local step="${SELECTION_STEP[$1]}"
-    [[ ",$(valid_steps_for_target "$2")," == *",${step},"* ]] || return 1
+    target_runs_step "$2" "${SELECTION_STEP[$1]}"
+}
+
+# target_runs_step <target> <step> — true when the run executes <step> on
+# <target>. Subshell: intent mapping rewrites ONLY_STEPS.
+target_runs_step() {
+    local step="$2"
+    [[ ",$(valid_steps_for_target "$1")," == *",${step},"* ]] || return 1
     (
         if [[ -n "${PACKAGE:-}" ]]; then
-            package_configure_steps "$(package_steps_csv "$2")"
+            package_configure_steps "$(package_steps_csv "$1")"
         elif [[ ${#INTENTS[@]} -gt 0 ]]; then
-            configure_intents_for_target "$2" >/dev/null
+            configure_intents_for_target "$1" >/dev/null
         fi
         step_enabled "${step}"
     )

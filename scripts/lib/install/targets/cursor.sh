@@ -59,6 +59,17 @@ cursor_skills_home() {
     fi
 }
 
+# cursor_preflight — before any target runs: Cursor commands reference every
+# skill, so an install/sync that runs cursor's commands step needs its full
+# skills slice; a --skills selection narrowing cursor's skills step is refused.
+cursor_preflight() {
+    [[ "${COMMAND}" != "remove" ]] && has_selection skills || return 0
+    target_runs_step cursor commands && target_runs_step cursor skills || return 0
+    err "Cursor commands need the full skills slice; --skills cannot narrow a run that installs them"
+    err "  drop --skills (commands need the full skills slice installed first): ${CLI_NAME} sync --target cursor --intent skills,commands"
+    exit 1
+}
+
 # Preflight both carriers before any user file is changed. The helpers reject
 # unsafe ownership, local edits, malformed hooks, and symlink destinations.
 cursor_carrier_preflight() {
@@ -205,7 +216,7 @@ PY
         fi
         local slice
         for slice in $(skills_filter cursor "$(selected_slices skills agents)"); do
-            run_slice cursor "${slice}"
+            run_slice cursor "${slice}" select
         done
     fi
 
