@@ -59,15 +59,44 @@ cursor_skills_home() {
     fi
 }
 
-# cursor_preflight — before any target runs: Cursor commands reference every
-# skill, so an install/sync that runs cursor's commands step needs its full
-# skills slice; a --skills selection narrowing cursor's skills step is refused.
+# cursor_preflight — before any target runs: each Cursor command references
+# its skill, so an install/sync that runs cursor's commands and skills steps
+# with --skills needs --commands, every selected command cursor ships among
+# cursor's --skills (none shipped: the commands step skips); anything else is
+# refused before any target writes.
 cursor_preflight() {
     [[ "${COMMAND}" != "remove" ]] && has_selection skills || return 0
     target_runs_step cursor commands && target_runs_step cursor skills || return 0
-    err "Cursor commands need the full skills slice; --skills cannot narrow a run that installs them"
-    err "  drop --skills (commands need the full skills slice installed first): ${CLI_NAME} sync --target cursor --intent skills,commands"
+    local name skills commands="" missing=""
+    skills="$(selection_for_target skills cursor)"
+    if has_selection commands; then
+        commands="$(selection_for_target commands cursor)"
+        [[ -n "${commands}" ]] || return 0
+    fi
+    for name in ${commands//,/ }; do
+        [[ ",${skills}," == *",${name},"* ]] || missing+="${missing:+,}${name}"
+    done
+    [[ -n "${commands}" && -z "${missing}" ]] && return 0
+    if [[ -z "${commands}" ]]; then
+        err "Cursor commands reference their skills; --skills narrows a run that installs every Cursor command"
+        err "  select the commands too (each needs its skill): ${CLI_NAME} sync --target cursor --intent skills,commands --skills ${skills} --commands ${skills}"
+    else
+        err "Cursor commands need their skills; --skills misses the selected commands ${missing//,/, }"
+        err "  add them to --skills: ${CLI_NAME} sync --target cursor --intent skills,commands --skills ${skills},${missing} --commands ${commands}"
+    fi
     exit 1
+}
+
+# cursor_commands_entries — set CURSOR_COMMANDS_ENTRIES to the --entries flag
+# the commands step passes (empty: the whole slice); false when --commands
+# names none cursor ships (the step skips, so there is nothing to preflight).
+cursor_commands_entries() {
+    CURSOR_COMMANDS_ENTRIES=()
+    has_selection commands || return 0
+    local names
+    names="$(selection_for_target commands cursor)"
+    [[ -n "${names}" ]] || return 1
+    CURSOR_COMMANDS_ENTRIES=(--entries "${names}")
 }
 
 # Preflight both carriers before any user file is changed. The helpers reject
@@ -84,11 +113,16 @@ cursor_carrier_preflight() {
         if step_enabled base || step_enabled skills; then
             skills_flags+=(--skills-pending)
         fi
-        python3 "${SLICE_HELPER}" install --target cursor --slice commands --dry-run \
-            "${skills_flags[@]}" "${flags[@]}" || return 1
+        if cursor_commands_entries; then
+            python3 "${SLICE_HELPER}" install --target cursor --slice commands --dry-run \
+                "${skills_flags[@]}" "${flags[@]}" "${CURSOR_COMMANDS_ENTRIES[@]}" || return 1
+        fi
     fi
     if [[ "${action}" == "remove" ]] && step_enabled commands; then
-        python3 "${SLICE_HELPER}" remove --target cursor --slice commands --dry-run "${flags[@]}" || return 1
+        if cursor_commands_entries; then
+            python3 "${SLICE_HELPER}" remove --target cursor --slice commands --dry-run \
+                "${flags[@]}" "${CURSOR_COMMANDS_ENTRIES[@]}" || return 1
+        fi
     fi
     if step_enabled hooks; then
         python3 "${SLICE_HELPER}" "${action}" --target cursor --slice hooks --dry-run "${flags[@]}" || return 1
@@ -226,9 +260,9 @@ PY
         if skills_consolidated cursor; then
             # The agents target normally runs later; commands cannot land with
             # dangling references, so materialize its scheduled skills first.
-            run_slice agents skills
+            run_slice agents skills select
         fi
-        YCC_CURSOR_SKILLS_HOME="$(cursor_skills_home)" run_slice cursor commands
+        YCC_CURSOR_SKILLS_HOME="$(cursor_skills_home)" run_slice cursor commands select
     fi
     if [[ $do_hooks -eq 1 ]]; then
         step=$((step + 1))

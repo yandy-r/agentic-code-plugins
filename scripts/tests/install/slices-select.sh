@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# install.sh tests — --skills / --agents selection of the standalone skills
-# and agents slices on every target: narrowing (never pruning), helpers ride
-# along, 'base' stays whole, preflight errors, --skills-home agents, remove.
+# install.sh tests — --skills / --agents / --commands selection of the
+# standalone skills, agents and commands slices on every target: narrowing
+# (never pruning), helpers ride along, 'base' stays whole, preflight errors,
+# --skills-home agents, paired-skill warnings, remove.
 #
 # Runs alone (bash scripts/tests/install/slices-select.sh) or from scripts/test-install-sync.sh.
 # shellcheck source=scripts/tests/install/lib.sh
@@ -181,26 +182,103 @@ if [[ "${got}" -eq "${shipped}" ]]; then ok "codex base still syncs every custom
 assert_contains "${INSTALL_OUT}" "codex base syncs every custom agent into ~/.codex/agents; --agents does not narrow this run" "codex warns that base ignores --agents"
 
 echo
-echo "== install.sh --skills: cursor commands need the full skills slice =="
+echo "== install.sh --skills: cursor commands need their skills =="
 
 home="$(new_home)"
-reject "cursor commands + --skills exits nonzero" "${home}" sync --target cursor --intent skills,commands --skills go-patterns --skills-home native
-assert_contains "${REJECT_OUT}" "Cursor commands need the full skills slice" "--skills with cursor commands is rejected"
-assert_contains "${REJECT_OUT}" "sync --target cursor --intent skills,commands" "the error suggests installing the full skills slice with the commands"
+reject "cursor commands + --skills without --commands exits nonzero" "${home}" sync --target cursor --intent skills,commands --skills go-patterns --skills-home native
+assert_contains "${REJECT_OUT}" "--skills narrows a run that installs every Cursor command" "--skills with all cursor commands is rejected"
+assert_contains "${REJECT_OUT}" "--skills go-patterns --commands go-patterns" "the error suggests selecting the commands too"
 if [[ ! -e "${home}/.cursor/skills" && ! -e "${home}/.cursor/commands" && ! -e "${home}/.config/ycc/installed-units.json" ]]; then
     ok "cursor commands + --skills writes nothing"
 else
     ko "cursor commands + --skills writes nothing"
 fi
 home="$(new_home)"
+reject "cursor --commands outside --skills exits nonzero" "${home}" sync --target cursor --intent skills,commands --skills go-patterns --commands go-patterns,clean --skills-home native
+assert_contains "${REJECT_OUT}" "--skills misses the selected commands clean" "a selected command without its skill is rejected"
+assert_contains "${REJECT_OUT}" "--skills go-patterns,clean --commands go-patterns,clean" "the error suggests adding the skill"
+if [[ -z "$(entries "${home}/.cursor")" && ! -e "${home}/.config/ycc/installed-units.json" ]]; then ok "cursor subset rejection writes nothing"; else ko "cursor subset rejection writes nothing"; fi
+home="$(new_home)"
 reject "--target all: cursor commands + --skills exits nonzero" "${home}" sync --target all --intent skills,commands --skills go-patterns --skills-home native
-assert_contains "${REJECT_OUT}" "Cursor commands need the full skills slice" "--target all: cursor commands + --skills is rejected"
+assert_contains "${REJECT_OUT}" "--skills narrows a run that installs every Cursor command" "--target all: cursor commands + --skills is rejected"
 if [[ ! -e "${home}/.claude/skills" && ! -e "${home}/.cursor/skills" && ! -e "${home}/.codex/skills" \
     && ! -e "${home}/.config/opencode/skills" && ! -e "${home}/.agents/skills" && ! -e "${home}/.config/ycc/installed-units.json" ]]; then
     ok "--target all: the rejection precedes every target"
 else
     ko "--target all: the rejection precedes every target"
 fi
+
+echo
+echo "== install.sh --commands =="
+
+home="$(new_home)"
+install_must_succeed "${home}" list commands --target codex
+if [[ -z "${INSTALL_OUT}" ]]; then ok "codex lists no commands"; else ko "codex lists no commands" "${INSTALL_OUT}"; fi
+install_must_succeed "${home}" list commands --target opencode
+assert_contains "${INSTALL_OUT}" $'\nclean\n' "list commands prints opencode command stems"
+assert_not_contains "${INSTALL_OUT}" ".md" "list commands drops the .md suffix"
+opencode_list="${INSTALL_OUT}"
+install_must_succeed "${home}" list commands --target cursor
+if [[ "${INSTALL_OUT}" == "${opencode_list}" ]]; then ok "cursor and opencode list the same commands"; else ko "cursor and opencode list the same commands"; fi
+install_must_succeed "${home}" list commands --target claude
+assert_contains "${INSTALL_OUT}" "go-patterns" "claude lists its skills as commands"
+
+home="$(new_home)"
+reject "--commands on codex alone exits nonzero" "${home}" sync --target codex --intent commands --commands clean
+assert_contains "${REJECT_OUT}" "--commands needs the commands step" "codex has no commands step"
+if [[ -z "$(entries "${home}/.codex")" ]]; then ok "codex --commands rejection writes nothing"; else ko "codex --commands rejection writes nothing" "$(entries "${home}/.codex")"; fi
+reject "unknown command exits nonzero" "${home}" sync --target opencode --intent commands --commands clean,no-such-command
+assert_contains "${REJECT_OUT}" "unknown command 'no-such-command'" "unknown command rejected"
+
+home="$(new_home)"
+install_must_succeed "${home}" sync --target claude,codex --intent commands --commands clean
+assert_entries "${home}/.claude/skills" "_shared clean" "claude --commands narrows its skills slice"
+if [[ -z "$(entries "${home}/.codex")" ]]; then ok "codex skips --commands"; else ko "codex skips --commands" "$(entries "${home}/.codex")"; fi
+
+home="$(new_home)"
+install_must_succeed "${home}" sync --target claude --intent skills,commands --skills go-patterns --commands clean
+assert_entries "${home}/.claude/skills" "_shared clean go-patterns" "claude --skills + --commands installs the union once"
+home="$(new_home)"
+install_must_succeed "${home}" sync --target claude --intent skills,commands --skills go-patterns
+assert_entries "${home}/.claude/skills" "_shared go-patterns" "claude commands without a selection does not widen --skills"
+
+home="$(new_home)"
+install_must_succeed "${home}" sync --target opencode --intent commands --commands clean,plan
+assert_entries "${home}/.config/opencode/commands" "clean.md plan.md" "opencode --commands installs only the selected commands"
+assert_contains "${INSTALL_OUT}" "opencode: command 'clean' needs skill 'clean', not installed" "opencode warns about the missing paired skill"
+if [[ ! -e "${home}/.config/opencode/skills" ]]; then ok "the paired-skill warning installs nothing"; else ko "the paired-skill warning installs nothing"; fi
+install_must_succeed "${home}" sync --target opencode --intent commands --commands go-patterns
+assert_entries "${home}/.config/opencode/commands" "clean.md go-patterns.md plan.md" "a second --commands selection keeps the earlier ones"
+install_must_succeed "${home}" remove --target opencode --intent commands --commands plan
+assert_entries "${home}/.config/opencode/commands" "clean.md go-patterns.md" "opencode selective command remove takes only plan"
+
+home="$(new_home)"
+install_must_succeed "${home}" sync --target opencode --intent skills,commands --skills clean --commands clean --skills-home native
+assert_not_contains "${INSTALL_OUT}" "needs skill" "a skill the same run installs counts as installed"
+home="$(new_home)"
+install_must_succeed "${home}" sync --target opencode --intent skills --skills clean --skills-home native
+install_must_succeed "${home}" sync --target opencode --intent commands --commands clean
+assert_not_contains "${INSTALL_OUT}" "needs skill" "a standalone skill counts as installed"
+
+home="$(new_home)"
+install_must_succeed "${home}" sync --target cursor --intent skills,commands --skills clean,go-patterns --commands clean --skills-home native
+assert_entries "${home}/.cursor/commands" "clean.md" "cursor --commands installs only the selected command"
+assert_entries "${home}/.cursor/skills" "_shared clean go-patterns" "cursor installs the selected skills"
+install_must_succeed "${home}" sync --target cursor --intent commands --commands go-patterns
+assert_entries "${home}/.cursor/commands" "clean.md go-patterns.md" "cursor merges a second command selection"
+reject "cursor command without its skill fails closed" "${home}" sync --target cursor --intent commands --commands plan
+assert_contains "${REJECT_OUT}" "Cursor commands require installed skills" "cursor refuses a command whose skill is missing"
+assert_entries "${home}/.cursor/commands" "clean.md go-patterns.md" "the fail-closed preflight writes nothing"
+install_must_succeed "${home}" remove --target cursor --intent commands --commands clean
+assert_entries "${home}/.cursor/commands" "go-patterns.md" "cursor selective command remove takes only clean"
+
+home="$(new_home)"
+mkdir -p "${home}/.claude/commands" "${home}/.config/ycc"
+echo wrapper > "${home}/.claude/commands/clean.md"
+echo wrapper > "${home}/.claude/commands/plan.md"
+printf '{"version": 1, "units": {"%s/.claude/commands": ["clean.md", "plan.md"]}}\n' "${home}" > "${home}/.config/ycc/installed-units.json"
+install_must_succeed "${home}" remove --target claude --intent commands --commands clean
+assert_entries "${home}/.claude/commands" "plan.md" "claude --commands remove retires only the named legacy wrapper"
 
 echo
 echo "== install.sh --skills: dependency warning =="

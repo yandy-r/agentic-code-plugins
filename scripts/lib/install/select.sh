@@ -1,7 +1,7 @@
 # shellcheck shell=bash
 # select.sh — item selection: --<kind> <names> narrows a step to the named
-# items (--mcps for the mcp step, --skills / --agents for the standalone
-# skills / agents slices), and 'list [<kind>]' prints them.
+# items (--mcps for the mcp step, --skills / --agents / --commands for the
+# standalone skills / agents / commands slices), and 'list [<kind>]' prints them.
 #
 # Adding a kind: append it to SELECTABLE_KINDS, add its registry rows below
 # and define a '<kind>_names <target>' adapter (names the repo ships for
@@ -12,14 +12,15 @@
 # TARGETS / resolve_targets / valid_steps_for_target / step_enabled from
 # steps.sh, and PACKAGE / INTENTS / CLI_NAME at call time.
 
-SELECTABLE_KINDS=(mcps skills agents)
-declare -gA SELECTION_STEP=([mcps]=mcp [skills]=skills [agents]=agents)
-declare -gA SELECTION_NOUN=([mcps]="MCP server" [skills]=skill [agents]=agent)
-declare -gA SELECTION_NOUNS=([mcps]="MCP servers" [skills]=skills [agents]=agents)
+SELECTABLE_KINDS=(mcps skills agents commands)
+declare -gA SELECTION_STEP=([mcps]=mcp [skills]=skills [agents]=agents [commands]=commands)
+declare -gA SELECTION_NOUN=([mcps]="MCP server" [skills]=skill [agents]=agent [commands]=command)
+declare -gA SELECTION_NOUNS=([mcps]="MCP servers" [skills]=skills [agents]=agents [commands]=commands)
 declare -gA SELECTION_STEP_HINT=(
     [mcps]="sync/remove --intent mcp, install --mcp or --only mcp"
     [skills]="it narrows the standalone skills slice; use --intent skills or --only skills"
     [agents]="it narrows the standalone agents slice; use --intent agents or --only agents"
+    [commands]="it narrows the standalone commands slice; use --intent commands or --only commands"
 )
 # SELECTION[<kind>] — the names given with --<kind>, comma-separated.
 declare -gA SELECTION=()
@@ -41,6 +42,12 @@ skills_names() {
 
 agents_names() {
     python3 "${SLICE_HELPER}" list --target "$1" --slice agents
+}
+
+# commands_names <target> — the commands <target>'s commands step installs
+# (claude: its skills, which are its slash commands).
+commands_names() {
+    python3 "${SLICE_HELPER}" list --target "$1" --slice commands
 }
 
 # is_selectable_kind <name> — true when --<name> selects items.

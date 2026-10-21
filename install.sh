@@ -36,11 +36,11 @@ Usage: $(basename "$0") <command> [options]
 
 Commands:
   install     Initial setup: base step plus opt-in steps (flags below).
-              $(basename "$0") install --target <targets> [--mode <mode>] [--settings] [--rules] [--mcp] [--hooks] [--only <steps>] [--package <ids>] [--mcps <servers>] [--skills <names>] [--agents <names>] [--project|--global] [--force] [--dry-run]
+              $(basename "$0") install --target <targets> [--mode <mode>] [--settings] [--rules] [--mcp] [--hooks] [--only <steps>] [--package <ids>] [--mcps <servers>] [--skills <names>] [--agents <names>] [--commands <names>] [--project|--global] [--force] [--dry-run]
   sync        Sync what you name, nothing else.
-              $(basename "$0") sync --target <targets> --intent <intents> [--mcps <servers>] [--skills <names>] [--agents <names>] [--mode <mode>] [--project|--global] [--force] [--dry-run]
+              $(basename "$0") sync --target <targets> --intent <intents> [--mcps <servers>] [--skills <names>] [--agents <names>] [--commands <names>] [--mode <mode>] [--project|--global] [--force] [--dry-run]
   remove      Strip installer-managed config.
-              $(basename "$0") remove --target <targets> (--only <steps> | --intent <intents>) [--mcps <servers>] [--skills <names>] [--agents <names>] [--project|--global] [--force] [--dry-run]
+              $(basename "$0") remove --target <targets> (--only <steps> | --intent <intents>) [--mcps <servers>] [--skills <names>] [--agents <names>] [--commands <names>] [--project|--global] [--force] [--dry-run]
   migrate     Preview a global native-package migration (no writes by default).
               $(basename "$0") migrate --target claude|codex|cursor|omp|all [--apply] [--marketplace-source <dir>]
               all resolves only claude,codex,cursor (run omp separately; it needs
@@ -51,7 +51,7 @@ Commands:
   completion  Print or install shell completion.
               $(basename "$0") completion [--shell bash|zsh|fish] [--install [--force]]
   list        Print the selectable kinds, or the names a kind takes (for --<kind>).
-              $(basename "$0") list [<kind>] [--target <targets>]   (e.g. list mcps, list skills, list agents; list-mcps is an alias)
+              $(basename "$0") list [<kind>] [--target <targets>]   (e.g. list mcps, list skills, list agents, list commands; list-mcps is an alias)
 
 A command is required; a bare '$(basename "$0") install --target ...' is rejected.
 
@@ -84,6 +84,7 @@ step-flag form used for first-time setup.
   $(basename "$0") sync --target claude --intent mods
   $(basename "$0") sync --target claude,codex --intent skills,agents
   $(basename "$0") sync --target claude,codex --intent agents --agents implementor,code-reviewer
+  $(basename "$0") sync --target opencode --intent skills,commands --skills clean --commands clean
 
 Intents (valid: base, skills, agents, commands, settings, rules, mcp, hooks,
 plugins, mods):
@@ -266,8 +267,9 @@ Options:
                       installed skills are left in place (narrowing, never
                       pruning); shared helpers (_shared, shared/, ycc-shared/)
                       always ship with them. 'base' is never filtered. Cursor
-                      commands need every skill: --skills with cursor's
-                      commands step is an error. After a selective install,
+                      commands need their skills: --skills with cursor's
+                      commands step needs --commands, every selected command
+                      also in --skills. After a selective install,
                       missing ycc:<name> dependencies are reported (warn
                       only). Names: '$(basename "$0") list skills'
   --agents <names>    Same for the standalone agents step (--intent agents /
@@ -279,6 +281,15 @@ Options:
                       the agents slice. With other targets the agents target
                       skips --agents (it has no agents step); on its own it
                       is rejected. Names: '$(basename "$0") list agents'
+  --commands <names>  Same for the standalone commands step (--intent commands /
+                      --only commands): claude narrows its skills (they are
+                      its commands; with --skills too, the union installs) and
+                      remove retires only the named legacy wrappers; cursor
+                      and opencode install (or remove) only the named command
+                      files, never pruning. Targets without a commands step
+                      (codex, agents, omp) skip it. Each command loads its
+                      skill: opencode warns when that skill is missing, cursor
+                      refuses. Names: '$(basename "$0") list commands'
   --project           Scope-capable steps (today: mcp) write into the current
                       project. Default when neither flag is given. omp base
                       installs at omp's project scope only with an explicit

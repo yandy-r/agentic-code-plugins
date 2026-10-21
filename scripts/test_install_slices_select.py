@@ -154,14 +154,101 @@ class SelectionTest(unittest.TestCase):
         self.assertFalse((self.home / ".claude").exists())
         self.assertFalse(self.state_file.exists())
 
-    def test_entries_rejected_for_strict_and_claude_commands_remove(self) -> None:
-        for args in (
-            ("install", "--target", "cursor", "--slice", "commands", "--entries", "plan"),
-            ("remove", "--target", "claude", "--slice", "commands", "--entries", "plan"),
-        ):
-            with self.assertRaises(SystemExit) as caught:
-                self.run_cli(*args)
-            self.assertEqual(caught.exception.code, 2)
+    def test_entries_rejected_for_hooks(self) -> None:
+        with self.assertRaises(SystemExit) as caught:
+            self.run_cli("install", "--target", "cursor", "--slice", "hooks", "--entries", "herdr-session-start")
+        self.assertEqual(caught.exception.code, 2)
+
+    def test_list_commands_per_target(self) -> None:
+        opencode = self.listed("opencode", "commands")
+        self.assertIn("clean", opencode)
+        self.assertFalse(any(name.endswith(".md") for name in opencode))
+        self.assertEqual(self.listed("cursor", "commands"), opencode)
+        self.assertEqual(self.listed("codex", "commands"), [])
+
+    def test_cursor_strict_pick_install_and_remove(self) -> None:
+        skills = ("--target", "cursor", "--slice", "skills", "--entries", "clean,plan")
+        self.assertEqual(self.run_cli("install", *skills)[0], 0)
+        cmd = ("--target", "cursor", "--slice", "commands", "--entries")
+        commands = self.home / ".cursor/commands"
+        self.assertEqual(self.run_cli("install", *cmd, "clean")[0], 0)
+        self.assertEqual(sorted(p.name for p in commands.iterdir()), ["clean.md"])
+        self.assertEqual(self.units()[str(commands)], ["clean.md"])
+        self.assertEqual(self.run_cli("install", *cmd, "plan")[0], 0)
+        self.assertEqual(self.units()[str(commands)], ["clean.md", "plan.md"])
+        hashes = json.loads(self.state_file.read_text(encoding="utf-8"))["sha256"]
+        self.assertEqual(sorted(Path(k).name for k in hashes if k.startswith(str(commands))), ["clean.md", "plan.md"])
+        # A local edit to an unpicked entry does not block a picked one.
+        (commands / "plan.md").write_text("mine\n", encoding="utf-8")
+        self.assertEqual(self.run_cli("install", *cmd, "clean")[0], 0)
+        self.assertEqual((commands / "plan.md").read_text(encoding="utf-8"), "mine\n")
+        # Fail closed on the picked command's missing skill only.
+        rc, out, err = self.run_cli("install", *cmd, "go-patterns")
+        self.assertEqual(rc, 1)
+        self.assertIn("require installed skills", err)
+        self.assertIn(": go-patterns.md;", err)
+        self.assertNotIn("go-patterns.md", [p.name for p in commands.iterdir()])
+        self.assertEqual(self.run_cli("remove", *cmd, "clean")[0], 0)
+        self.assertEqual([p.name for p in commands.iterdir()], ["plan.md"])
+        self.assertEqual(self.units()[str(commands)], ["plan.md"])
+        rc, _, err = self.run_cli("remove", *cmd, "plan")
+        self.assertEqual(rc, 1, "an edited picked entry still needs --force")
+        self.assertIn("ownership collision", err)
+
+    def test_cursor_strict_pick_dry_run_checks_picked_skills(self) -> None:
+        base = ("install", "--target", "cursor", "--slice", "commands", "--dry-run", "--entries", "clean")
+        rc, _, err = self.run_cli(*base)
+        self.assertEqual(rc, 1)
+        self.assertIn(": clean.md;", err)
+        self.assertEqual(self.run_cli(*base, "--skills-pending")[0], 0)
+        self.assertFalse((self.home / ".cursor").exists())
+
+    def test_claude_commands_remove_retires_named_wrappers(self) -> None:
+        legacy = self.home / ".claude/commands"
+        legacy.mkdir(parents=True)
+        for name in ("clean.md", "plan.md", "go-patterns.md"):
+            (legacy / name).write_text("wrapper\n", encoding="utf-8")
+        self.state_file.parent.mkdir(parents=True)
+        units = {"units": {str(legacy): ["clean.md", "plan.md"]}}
+        self.state_file.write_text(json.dumps(units), encoding="utf-8")
+        args = ("remove", "--target", "claude", "--slice", "commands", "--entries")
+        rc, out, err = self.run_cli(*args, "clean,nope")
+        self.assertEqual(rc, 1)
+        self.assertIn("unknown commands entry for claude: nope", err)
+        self.assertEqual(sorted(p.name for p in legacy.iterdir()), ["clean.md", "go-patterns.md", "plan.md"])
+        # go-patterns.md is not recorded: it stays even when named.
+        rc, out, _ = self.run_cli(*args, "clean,go-patterns")
+        self.assertEqual(rc, 0)
+        self.assertIn("retired 1 legacy command wrapper", out)
+        self.assertEqual(sorted(p.name for p in legacy.iterdir()), ["go-patterns.md", "plan.md"])
+        self.assertEqual(self.units()[str(legacy)], ["plan.md"])
+
+    def test_paired_skill_warning(self) -> None:
+        args = ("install", "--target", "opencode", "--slice", "commands", "--entries", "clean")
+        warning = (
+            "[!!]  opencode: command 'clean' needs skill 'clean', not installed"
+            " — add it: ycc sync --target opencode --intent skills --skills clean"
+        )
+        rc, out, _ = self.run_cli(*args)
+        self.assertEqual(rc, 0)
+        self.assertIn(warning, out)
+        self.assertEqual([p.name for p in (self.home / ".config/opencode/commands").iterdir()], ["clean.md"])
+        with patch.dict(os.environ, {"YCC_PENDING_SKILLS": "clean"}):
+            self.assertNotIn("needs skill", self.run_cli(*args)[1], "same-run skills count")
+        with patch.dict(os.environ, {"YCC_PENDING_SKILLS": "*"}):
+            self.assertNotIn("needs skill", self.run_cli(*args)[1], "same-run full skills slice counts")
+        shared = self.home / ".agents/skills/clean"
+        shared.mkdir(parents=True)
+        self.assertNotIn("needs skill", self.run_cli(*args)[1], "~/.agents/skills counts")
+        shutil.rmtree(shared)
+        mirror = self.home / ".config/opencode/skills/clean"
+        shutil.copytree(install_slices.REPO_ROOT / ".opencode-plugin/skills/clean", mirror)
+        self.assertNotIn("needs skill", self.run_cli(*args)[1], "a base mirror counts")
+        shutil.rmtree(mirror)
+        self.assertIn(warning, self.run_cli(*args)[1])
+        skills = ("install", "--target", "opencode", "--slice", "skills", "--entries", "clean")
+        self.assertEqual(self.run_cli(*skills)[0], 0)
+        self.assertNotIn("needs skill", self.run_cli(*args)[1], "a standalone skill counts")
 
     def test_dependency_warning_fires_and_clears(self) -> None:
         args = ("install", "--target", "claude", "--slice", "skills", "--entries", "code-review")
