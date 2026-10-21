@@ -65,7 +65,7 @@ class OpenCodeConfigValidationTestCase(unittest.TestCase):
 
         errors = validate_config(config)
 
-        self.assert_has_error(errors, "instructions has no effect in V2")
+        self.assert_has_error(errors, "instructions must not be set in the bundle")
         self.assert_has_error(errors, "auto_approve is not a documented V2 config field")
         self.assert_has_error(errors, "provider is V1 config; use providers")
         self.assert_has_error(errors, "model='Frontier' is not a 'provider/model' reference")

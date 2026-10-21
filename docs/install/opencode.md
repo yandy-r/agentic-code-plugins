@@ -232,11 +232,12 @@ config directories, so use the default local mode.
 | MCP      | `<project>/opencode.json` or `~/.config/opencode/opencode.json` |
 | Rules    | `~/.config/opencode/AGENTS.md`                                  |
 
-Rules reach the model through `~/.config/opencode/AGENTS.md`, which V2 loads as
-the global instructions file. The config's `instructions` array is deliberately
-unused: V2 parses the field but does not resolve its files, globs, or URLs. The
-opt-in npm plugin delivers its instructions through the verified context hook
-instead.
+Rules reach the model through `~/.config/opencode/AGENTS.md`, which V2 loads
+first as the global instructions file. V2 also resolves the config's
+`instructions` array, but the bundle deliberately leaves it out. A relative
+entry such as `AGENTS.md` would resolve from the workspace and load the
+project's AGENTS.md a second time. The opt-in npm plugin delivers its
+instructions through the verified context hook instead.
 
 Invoke skills with the built-in `skill` tool, agents with `@agent-name` mentions
 or the native v2 `subagent(agent, description, prompt, sessionID?, background?)`
