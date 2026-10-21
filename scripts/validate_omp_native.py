@@ -16,7 +16,16 @@ output and need no omp binary. They mirror omp 18.12.x's own catalog parser
   agent and the shared stub ship; every command has its skill; every skill:// reference resolves;
 - MCP closure: an MCP-only root (ycc-mcp) holds only its manifests and `.mcp.json`, which is
   byte-identical to mcp-configs/mcp.json, parses with an `mcpServers` object, and carries no
-  secret literal (credential keys hold only `${VAR}` placeholders).
+  secret literal (credential keys hold only `${VAR}` placeholders);
+- code surfaces (YAN-1174): no OMP root ships hooks, extensions or tools. ycc ships no OMP
+  hooks: herdr session reporting is herdr's own integration (`herdr integration install omp`)
+  and WorktreeCreate has no OMP event (ADR 0002). A package.json `extensions`/`hooks`/`tools`
+  key (top level or under `omp`/`pi`), the same keys in a plugin manifest, a top-level
+  hooks/, extensions/ or tools/ directory, any hooks.json, and any JS/TS module outside
+  skills/ are rejected;
+- hook verdicts (YAN-1174, checkout only): every ycc lifecycle-hook source and registration
+  has an entry in HOOK_VERDICTS and no entry is stale; the spike dossier's §3 matrix row for
+  each entry holds its verdict token; no OMP contract doc promises a ycc herdr shim.
 """
 
 from __future__ import annotations
@@ -41,6 +50,48 @@ MCP_ROOT_ENTRIES = frozenset({".omp-plugin", ".claude-plugin", "package.json", g
 SKILL_REF = re.compile(r"skill://([A-Za-z0-9][A-Za-z0-9-]*)(/[^\s`'\"()\[\]|,;<>]*)?")
 PATTERN_CHARS = frozenset("*?[]{}$<>")
 SKILL_NAME = re.compile(r"^name:\s*(\S+)\s*$", re.MULTILINE)
+
+# Keys in package.json (top level, and under "omp"/"pi") and plugin manifests that load code in OMP.
+CODE_SURFACE_KEYS = frozenset({"extensions", "hooks", "tools"})
+CODE_SURFACE_DIRS = frozenset({"hooks", "extensions", "tools"})
+CODE_SUFFIXES = (".ts", ".js", ".mjs", ".cjs")
+CODE_SURFACE_MESSAGE = (
+    "ycc OMP packages ship no hooks or extensions (herdr reporting is herdr's own integration; ADR 0002)"
+)
+PLUGIN_MANIFESTS = (Path(".omp-plugin/plugin.json"), Path(".claude-plugin/plugin.json"))
+
+# Every ycc lifecycle-hook registration -> (OMP verdict token, row anchor in the spike §3 matrix).
+# Keys are "<source file>" or "<registration file>#<event>"; hook_verdict_errors derives the live
+# set from HOOK_SOURCE_DIR, HOOK_SOURCE_FILES and the HOOK_REGISTRATIONS events, and requires equality.
+HOOK_VERDICTS: dict[str, tuple[str, str]] = {
+    "ycc/settings/hooks/worktree-create.sh": ("**unsupported**", "`worktree-create.sh` (`WorktreeCreate`)"),
+    "ycc/settings/hooks/herdr-agent-state.sh": ("**n/a**", "`ycc/settings/hooks/herdr-agent-state.sh`"),
+    "ycc/settings/cursor/herdr-session-start.sh": ("**native**", "herdr session reporting"),
+    "ycc/settings/cursor/hooks.json#sessionStart": ("**native**", "`ycc/settings/cursor/hooks.json`"),
+    "ycc/settings/settings.json#WorktreeCreate": ("**unsupported**", "`worktree-create.sh` (`WorktreeCreate`)"),
+    "packages/claude/ycc-hooks/hooks/hooks.json#WorktreeCreate": ("**unsupported**", "Package `ycc-hooks`"),
+}
+HOOK_SOURCE_DIR = Path("ycc/settings/hooks")
+HOOK_SOURCE_FILES = (Path("ycc/settings/cursor/herdr-session-start.sh"),)
+HOOK_REGISTRATIONS = (
+    Path("ycc/settings/cursor/hooks.json"),
+    Path("ycc/settings/settings.json"),
+    Path("packages/claude/ycc-hooks/hooks/hooks.json"),
+)
+SPIKE_DOSSIER = Path("docs/internal/spikes/omp-runtime-contract.md")
+HOOK_DOCS = (
+    Path("docs/internal/adr/0002-omp-runtime-contract.md"),
+    Path("docs/install/omp.md"),
+    Path("ycc/skills/_shared/references/target-capability-matrix.md"),
+)
+# Phrases that promise the ycc OMP herdr reporter YAN-1174 ruled out.
+SHIM_PHRASES = (
+    "session_start shim",
+    "herdr extension shim",
+    "session_start` extension shim",
+    "herdr `session_start` shim",
+)
+TABLE_CELL_SPLIT = re.compile(r"(?<!\\)\|")
 
 
 def load_object(path: Path) -> dict[str, Any]:
@@ -151,6 +202,128 @@ def inactive_root_errors(root: Path, model: PackageModel, packages: tuple[Packag
     return errors
 
 
+def code_key_errors(rel: Path, payload: dict[str, Any], *, nested: bool) -> list[str]:
+    keys = [key for key in sorted(CODE_SURFACE_KEYS) if key in payload]
+    if nested:
+        for scope in ("omp", "pi"):
+            section = payload.get(scope)
+            if isinstance(section, dict):
+                keys.extend(f"{scope}.{key}" for key in sorted(CODE_SURFACE_KEYS) if key in section)
+    return [f"{rel}#{key}: {CODE_SURFACE_MESSAGE}" for key in keys]
+
+
+def hook_surface_errors(root: Path, model: PackageModel) -> list[str]:
+    """No OMP package root may carry anything OMP loads as code (extensions, hooks, tools)."""
+    errors: list[str] = []
+    roots = dict.fromkeys((*generator.native_package_roots(model.packages), generator.COMPONENT_ROOT))
+    for package_root in roots:
+        base = root / package_root
+        if not base.is_dir():
+            continue
+        manifests = ((generator.PACKAGE_JSON, True), *((manifest, False) for manifest in PLUGIN_MANIFESTS))
+        for manifest, nested in manifests:
+            if not (base / manifest).is_file():
+                continue
+            try:
+                payload = load_object(base / manifest)
+            except ValueError as exc:
+                errors.append(f"{package_root / manifest}: {exc}")
+                continue
+            errors.extend(code_key_errors(package_root / manifest, payload, nested=nested))
+        for entry in sorted(base.iterdir()):
+            if entry.is_dir() and entry.name in CODE_SURFACE_DIRS:
+                errors.append(f"{package_root / entry.name}: {CODE_SURFACE_MESSAGE}")
+        for path in sorted(base.rglob("*")):
+            if not path.is_file():
+                continue
+            rel = path.relative_to(base)
+            if rel.parts[0] in CODE_SURFACE_DIRS:
+                continue  # reported once as a directory above
+            if path.name == "hooks.json" or (path.suffix in CODE_SUFFIXES and rel.parts[0] != "skills"):
+                errors.append(f"{package_root / rel}: {CODE_SURFACE_MESSAGE}")
+    return errors
+
+
+def registered_events(source_root: Path, registration: Path) -> tuple[list[str], list[str]]:
+    """``(events, errors)`` for the ``hooks`` object of one JSON hook registration file."""
+    path = source_root / registration
+    if not path.is_file():
+        return [], []
+    try:
+        hooks = load_object(path).get("hooks", {})
+    except ValueError as exc:
+        return [], [str(exc)]
+    if not isinstance(hooks, dict):
+        return [], [f"{registration}: hooks must be an object"]
+    return [f"{registration}#{event}" for event in hooks], []
+
+
+def live_hook_keys(source_root: Path) -> tuple[set[str], list[str]]:
+    keys: set[str] = set()
+    errors: list[str] = []
+    hook_dir = source_root / HOOK_SOURCE_DIR
+    if hook_dir.is_dir():
+        keys.update(str(HOOK_SOURCE_DIR / path.name) for path in hook_dir.iterdir() if path.is_file())
+    keys.update(str(path) for path in HOOK_SOURCE_FILES if (source_root / path).is_file())
+    for registration in HOOK_REGISTRATIONS:
+        events, problems = registered_events(source_root, registration)
+        keys.update(events)
+        errors.extend(problems)
+    return keys, errors
+
+
+def dossier_verdict_errors(source_root: Path) -> list[str]:
+    try:
+        lines = (source_root / SPIKE_DOSSIER).read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError) as exc:
+        return [f"{SPIKE_DOSSIER}: unreadable: {exc}"]
+    # A §3 matrix row: | component | Claude form | OMP surface | verdict | ...
+    rows = [cells for line in lines if line.startswith("|") and len(cells := TABLE_CELL_SPLIT.split(line)) > 4]
+    errors: list[str] = []
+    for key, (token, anchor) in sorted(HOOK_VERDICTS.items()):
+        matches = [cells for cells in rows if anchor in cells[1]]
+        if not matches:
+            errors.append(f"{SPIKE_DOSSIER}: no §3 matrix row for {key} (anchor {anchor!r})")
+        elif not any(token in cells[4] for cells in matches):
+            errors.append(f"{SPIKE_DOSSIER}: §3 row {anchor!r} verdict must hold {token} for {key}")
+    return errors
+
+
+def shim_phrase_errors(source_root: Path) -> list[str]:
+    errors: list[str] = []
+    for doc in (*HOOK_DOCS, SPIKE_DOSSIER):
+        try:
+            text = (source_root / doc).read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        except OSError as exc:
+            errors.append(f"{doc}: unreadable: {exc}")
+            continue
+        lowered = text.lower()
+        errors.extend(
+            f"{doc}: promises a ycc OMP herdr reporter ({phrase!r}); ycc ships no OMP hooks (YAN-1174)"
+            for phrase in SHIM_PHRASES
+            if phrase.lower() in lowered
+        )
+    return errors
+
+
+def hook_verdict_errors(source_root: Path) -> list[str]:
+    """Every ycc hook has exactly one OMP verdict that the spike matrix states, and no doc promises a shim."""
+    live, errors = live_hook_keys(source_root)
+    errors.extend(
+        f"{key}: ycc hook has no OMP verdict; add it to HOOK_VERDICTS and the spike §3 matrix"
+        for key in sorted(live - HOOK_VERDICTS.keys())
+    )
+    errors.extend(
+        f"{key}: stale HOOK_VERDICTS entry; the hook source or registration no longer exists"
+        for key in sorted(HOOK_VERDICTS.keys() - live)
+    )
+    errors.extend(dossier_verdict_errors(source_root))
+    errors.extend(shim_phrase_errors(source_root))
+    return errors
+
+
 def skill_names(skills_dir: Path) -> dict[str, Path]:
     names: dict[str, Path] = {}
     for skill_file in sorted(skills_dir.glob("*/SKILL.md")):
@@ -232,6 +405,7 @@ def validate(root: Path, model: PackageModel, *, source_root: Path | None = None
     errors = catalog_errors(root, model, version, export=export)
     errors.extend(manifest_errors(root, packages, version))
     errors.extend(inactive_root_errors(root, model, packages))
+    errors.extend(hook_surface_errors(root, model))
     has_manifests = generator.WORKFLOW_PACKAGE in {package.key for package in packages}
     errors.extend(closure_errors(root, source, has_manifests=has_manifests))
     for package in packages:
@@ -251,6 +425,7 @@ def main(argv: list[str] | None = None) -> int:
             errors = validate(args.export.resolve(), model, source_root=root, export=True)
         else:
             errors = validate(root, model)
+            errors.extend(hook_verdict_errors(root))
     except (OSError, UnicodeError, ValueError) as exc:
         print(f"validate_omp_native: {exc}", file=sys.stderr)
         return 1

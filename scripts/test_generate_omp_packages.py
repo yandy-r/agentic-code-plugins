@@ -191,15 +191,23 @@ class GenerateOmpPackagesTests(unittest.TestCase):
     # --- fail closed ----------------------------------------------------------------
 
     def test_included_rows_without_an_emitter_fail_closed(self) -> None:
-        for key, owner in (("ycc-hooks", "YAN-1174"), ("ycc-rules", "YAN-1175")):
+        for key, reason in (
+            ("ycc-hooks", r"herdr integration install omp.*WorktreeCreate"),
+            ("ycc-rules", "YAN-1175"),
+        ):
             with self.subTest(key=key):
-                with self.assertRaisesRegex(ValueError, rf"packages\.{key}\.runtimes\.omp: no OMP emitter.*{owner}"):
+                with self.assertRaisesRegex(ValueError, rf"packages\.{key}\.runtimes\.omp: no OMP emitter.*{reason}"):
                     self.output(with_omp(self.model, key, status="included"))
+        with self.assertRaises(ValueError) as caught:
+            self.output(with_omp(self.model, "ycc-hooks", status="included"))
+        self.assertNotIn("YAN-1174 extension", str(caught.exception))
         self.assertFalse((self.root / "packages").exists())
 
     def test_listed_deferred_row_fails_closed(self) -> None:
-        with self.assertRaisesRegex(ValueError, r"packages\.ycc-hooks\.runtimes\.omp: listed=true requires"):
-            self.output(with_omp(self.model, "ycc-hooks", listed=True))
+        for status in ("deferred", "excluded"):
+            with self.subTest(status=status):
+                with self.assertRaisesRegex(ValueError, r"packages\.ycc-hooks\.runtimes\.omp: listed=true requires"):
+                    self.output(with_omp(self.model, "ycc-hooks", status=status, listed=True))
 
     def test_deferred_and_excluded_rows_emit_nothing(self) -> None:
         output, roots = self.output()
@@ -207,6 +215,17 @@ class GenerateOmpPackagesTests(unittest.TestCase):
         self.assertIn(Path("packages/omp/ycc-hooks"), roots)
         self.assertNotIn(Path("packages/omp/ycc-all"), {rel.parent for rel in output})
         self.assertEqual(omp_rows(self.model)["ycc-all"], "excluded")
+
+    def test_excluded_hooks_row_emits_nothing_and_prunes_its_root(self) -> None:
+        model = with_omp(self.model, "ycc-hooks", status="excluded")
+        stale = self.root / "packages/omp/ycc-hooks/package.json"
+        stale.parent.mkdir(parents=True)
+        stale.write_text(json.dumps({"omp": {"extensions": ["./x.ts"]}}), encoding="utf-8")
+        output, roots = self.output(model)
+        self.assertIn(Path("packages/omp/ycc-hooks"), roots)
+        self.assertFalse(any(rel.parts[:3] == ("packages", "omp", "ycc-hooks") for rel in output))
+        gen.write_payloads(self.root, output, roots, dry_run=False)
+        self.assertFalse((self.root / "packages/omp/ycc-hooks").exists())
 
     # --- MCP package (YAN-1173) -------------------------------------------------------
 

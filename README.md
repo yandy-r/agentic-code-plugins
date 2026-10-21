@@ -364,7 +364,8 @@ ystack/
 │   ├── generate-omp-packages.sh       # wrapper → generate_omp_packages.py
 │   ├── generate_omp_packages.py       # packages.json → packages/omp/<pkg> manifests + .omp-plugin catalog
 │   ├── validate-omp-packages.sh       # sync check + catalog/manifest/lockstep/closure policy
-│   └── test-omp-native-packages.sh    # opt-in live omp install from a pinned fixture (not CI)
+│   ├── test-omp-native-packages.sh    # opt-in live omp install from a pinned fixture (not CI)
+│   └── test-omp-herdr-hooks.sh        # opt-in herdr proof: herdr's OMP integration, no ycc reporter (not CI)
 ├── ycc/                       # the consolidated Claude Code plugin
 │   ├── .claude-plugin/
 │   │   └── plugin.json        # name: "ycc", current version in plugin.json

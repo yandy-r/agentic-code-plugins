@@ -272,6 +272,8 @@ run_target() {
             "${REPO_ROOT}/scripts/validate-omp-packages.sh" || fail "validate-omp-packages.sh"
             echo "== test: omp packages generator and policy =="
             python3 "${REPO_ROOT}/scripts/test_generate_omp_packages.py" || fail "test_generate_omp_packages.py"
+            echo "== test: omp hook verdicts and code-surface guard =="
+            python3 "${REPO_ROOT}/scripts/test_validate_omp_hooks.py" || fail "test_validate_omp_hooks.py"
             ;;
         opencode)
             echo "== validate: opencode skills =="

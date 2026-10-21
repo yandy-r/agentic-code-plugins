@@ -39,10 +39,11 @@ install or marketplace you created yourself is reported and left untouched.
 `ycc@ycc` carries the skills, agents and commands (`/ycc:<skill>`) plus the
 shared helpers. `ycc-mcp@ycc` carries the MCP servers (see
 [MCP Servers](#mcp-servers)). Without `--package` both are installed;
-`--package ycc` or `--package ycc-mcp` selects one. `ycc-hooks` and
-`ycc-rules` are deferred (YAN-1174, YAN-1175), and `ycc-all` is excluded
-because OMP does not read plugin dependencies; any other package is rejected
-with the package model's reason.
+`--package ycc` or `--package ycc-mcp` selects one. `ycc-rules` is deferred
+(YAN-1175); `ycc-hooks` and `ycc-all` are excluded. ycc ships no OMP hooks
+(herdr reporting comes from herdr itself, see [herdr](#herdr)), and OMP does
+not read plugin dependencies; any other package is rejected with the package
+model's reason.
 
 ## Update
 
@@ -134,6 +135,26 @@ package's `.mcp.json`. omp loads them at session start and names each one
 omp has no `omp mcp` command; use `/mcp list` in a session to see what
 loaded.
 
+## herdr
+
+herdr session reporting on OMP is herdr's own integration, not a ycc
+package. ycc ships no OMP hook or extension for it.
+
+1. Run `herdr integration install omp` once. It writes
+   `~/.omp/agent/extensions/herdr-omp-agent-state.ts`.
+2. For a named OMP profile, copy that file to
+   `~/.omp/profiles/<name>/agent/extensions/`; herdr writes only the default
+   profile path.
+3. Restart your omp sessions; omp loads new extensions at session start.
+4. Verify with `herdr integration status` and
+   `herdr pane get "$HERDR_PANE_ID"` from an omp pane.
+
+Install it once: a project copy under `.omp/extensions` loads twice, because
+OMP dedupes extensions only by path. Do not add a hand-made reporter or port
+`herdr-session-start.sh`: herdr records session identity only from `herdr:`
+sources, and a `herdr:omp` reporter with the Cursor script's nanosecond `seq`
+stalls herdr's own state reports.
+
 ## Project Scope
 
 ```bash
@@ -218,8 +239,8 @@ Migration retires two older setups without leaving duplicates:
 Before anything is uninstalled, migration builds and validates the export.
 It refuses (and changes nothing) while a legacy install is disabled, because
 the native reinstall would come back enabled and ycc never toggles plugins
-for you, or while a legacy install has no native OMP package yet
-(`ycc-hooks`, `ycc-all`). The message names the exact `omp`
+for you, or while a legacy install has no native OMP package
+(`ycc-hooks`, `ycc-all` are excluded). The message names the exact `omp`
 commands to run first. Project scope means the project root `install
 --project` uses (the git toplevel, else the current directory).
 
@@ -259,7 +280,8 @@ OMP package and is refused until YAN-1180.
 
 - Skills run as `/skill:<name>` and commands as `/ycc:<skill>`; agents are
   OMP task agents with `@role` models.
-- OMP never runs shell hooks or `WorktreeCreate`. Rules, settings and
-  `modelRoles` have no OMP plugin channel yet (YAN-1175).
+- OMP never runs shell hooks; `WorktreeCreate` has no OMP event; herdr
+  reporting comes from herdr's integration (see [herdr](#herdr)). Rules,
+  settings and `modelRoles` have no OMP plugin channel yet (YAN-1175).
 - Details: [ADR 0002](../internal/adr/0002-omp-runtime-contract.md) and the
   [capability matrix](../../ycc/skills/_shared/references/target-capability-matrix.md).

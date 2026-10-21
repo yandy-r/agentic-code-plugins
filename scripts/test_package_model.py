@@ -67,6 +67,13 @@ class CheckedInModelTests(unittest.TestCase):
         self.assertEqual(entry.status, "excluded")
         self.assertFalse(entry.listed)
 
+    def test_omp_ycc_hooks_excluded(self) -> None:
+        entry = load_package_model().lookup("ycc-hooks", "omp")
+        assert entry is not None
+        self.assertEqual(entry.status, "excluded")
+        self.assertFalse(entry.listed)
+        self.assertEqual(entry.gates, ())
+
     def test_claude_ycc_agents_deferred_to_v7(self) -> None:
         entry = load_package_model().lookup("ycc-agents", "claude")
         assert entry is not None

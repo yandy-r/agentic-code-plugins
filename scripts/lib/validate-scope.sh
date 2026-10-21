@@ -85,6 +85,10 @@ validate_scope_owned_targets() {
         scripts/omp_native_smoke.py) echo "omp" ;;
         scripts/generate-omp-packages.sh | scripts/validate-omp-packages.sh | scripts/test-omp-native-packages.sh) echo "omp" ;;
         scripts/test_generate_omp_packages.py) echo "omp types" ;;
+        # OMP hook verdicts and code-surface guard (YAN-1174): golden tests (mypy files) and the
+        # opt-in herdr harness with its typed smoke driver.
+        scripts/test_validate_omp_hooks.py) echo "omp types" ;;
+        scripts/omp_herdr_smoke.py | scripts/test-omp-herdr-hooks.sh) echo "omp" ;;
         # OMP install lifecycle (install.sh --target omp): the helper and its unit
         # tests (both in [tool.mypy] files, so they select `types`) and the opt-in
         # live harness.
@@ -92,8 +96,10 @@ validate_scope_owned_targets() {
         scripts/test_omp_install.py) echo "omp config types" ;;
         scripts/test-omp-install-lifecycle.sh) echo "omp" ;;
 
-        # Install docs contain model-validated public package identifiers.
-        docs/install/*) echo "packages" ;;
+        # Install docs contain model-validated public package identifiers; the OMP hook-verdict
+        # check (validate_omp_native.py) also reads the OMP install doc, the ADR and the spike.
+        docs/install/*) echo "packages omp" ;;
+        docs/internal/spikes/omp-runtime-contract.md | docs/internal/adr/0002-omp-runtime-contract.md) echo "omp" ;;
         # Experimental OpenCode npm package source and boundary tests.
         scripts/generate_opencode_package.py | scripts/generate-opencode-package.sh | scripts/opencode_package* | scripts/test_generate_opencode_package.py | scripts/test-opencode-npm-package.sh | scripts/opencode_npm_release.py | scripts/test_opencode_npm_release.py) echo "opencode release" ;;
 

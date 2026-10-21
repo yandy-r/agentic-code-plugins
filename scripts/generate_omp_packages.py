@@ -17,7 +17,8 @@ All manifests and the catalog entry carry the lockstep version from the model's 
 
 Selection keys on runtime == "omp" and mechanism == "native". Only included rows are emitted,
 and only the {skills, agents, commands, shared} and {mcp} component sets have emitters here; an
-included or listed row with any other set fails closed (hooks and rules are YAN-1174/1175).
+included or listed row with any other set fails closed. Hooks never get an OMP emitter (herdr's
+own integration; ADR 0002, YAN-1174); rules are YAN-1175.
 The root `.omp-plugin/marketplace.json` is written only when a row is listed and holds exactly
 the listed rows with fork-safe relative sources; otherwise it is removed. `--export DIR` writes
 a repository-shaped tree outside the checkout whose catalog also lists unlisted included rows,
@@ -55,11 +56,19 @@ CATALOG_NAME = "ycc"
 MIN_OMP_VERSION = "18.12.2"
 CATALOG_DESCRIPTION = f"ycc development-workflow packages for oh-my-pi (omp >={MIN_OMP_VERSION})."
 
-# The component sets with an emitter in this generator. Other sets are owned by the
-# issues named here and fail closed until their emitters land.
+# The component sets with an emitter in this generator. Any other set fails closed with the
+# reason named here.
 WORKFLOW_COMPONENTS = frozenset({"skills", "agents", "commands", "shared"})
 MCP_COMPONENTS = frozenset({"mcp"})
-COMPONENT_OWNERS = {"hooks": "YAN-1174", "rules": "YAN-1175"}
+COMPONENT_REASONS: dict[str, str] = {
+    "hooks": (
+        "ycc ships no OMP hooks: herdr session reporting is herdr's own OMP integration "
+        "(`herdr integration install omp`) and WorktreeCreate has no OMP event (ADR 0002, YAN-1174); "
+        "keep the row excluded and unlisted"
+    ),
+    "rules": "owned by YAN-1175; keep the row deferred and unlisted until its emitter lands",
+}
+NO_PLANNED_EMITTER = "no planned issue; keep the row deferred and unlisted"
 COMPONENT_DIRS = ("skills", "agents", "commands")
 # generate_omp_{skills,agents,commands} write one tree, always under this package root.
 WORKFLOW_PACKAGE = "ycc"
@@ -112,11 +121,10 @@ def native_packages(packages: Iterable[Package]) -> tuple[Package, ...]:
         components = frozenset(runtime.components)
         if components not in (WORKFLOW_COMPONENTS, MCP_COMPONENTS):
             unsupported = components - WORKFLOW_COMPONENTS - MCP_COMPONENTS or components
-            owners = sorted({COMPONENT_OWNERS.get(component, "no planned issue") for component in unsupported})
-            raise ValueError(
-                f"{where}: no OMP emitter for components {sorted(components)} (owned by {', '.join(owners)}); "
-                "keep the row deferred and unlisted until its emitter lands"
+            reasons = "; ".join(
+                sorted({COMPONENT_REASONS.get(component, NO_PLANNED_EMITTER) for component in unsupported})
             )
+            raise ValueError(f"{where}: no OMP emitter for components {sorted(components)}: {reasons}")
         if components == WORKFLOW_COMPONENTS and package.key != WORKFLOW_PACKAGE:
             raise ValueError(f"{where}: the skills/agents/commands trees ship only in the {WORKFLOW_PACKAGE} package")
         package_root(package)
