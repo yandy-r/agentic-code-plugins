@@ -62,6 +62,17 @@ codex_repository_native_enabled() {
     python3 "${SCRIPT_DIR}/scripts/codex_install.py" enabled
 }
 
+# codex_native_settings [--remove] — merge (or strip) the native config.toml
+# groups in PLUGINS_GROUPS through codex_install.py; a --plugins selection
+# (PLUGINS_SELECT) passes on as --entries (codex_install.py scopes it to the
+# plugins group itself).
+codex_native_settings() {
+    local -a command=(python3 "${SCRIPT_DIR}/scripts/codex_install.py" settings --groups "${PLUGINS_GROUPS}" "$@")
+    [[ ${#PLUGINS_SELECT[@]} -gt 0 ]] && command+=(--entries "${PLUGINS_SELECT[-1]}")
+    [[ "${FORCE:-0}" == 1 ]] && command+=(--force)
+    "${command[@]}"
+}
+
 run_native_codex_install() {
     local -a command=(python3 "${SCRIPT_DIR}/scripts/codex_install.py" "$1" --mode "${MODE:-local}")
     codex_plugin_cli_supported && command+=(--cli)
@@ -419,19 +430,16 @@ sync_codex_target() {
         printf '\n%s[%d/%d] Merge Codex config (config.toml)%s\n' "${BOLD}" "$step" "$total" "${NC}"
         # Merge managed keys only: trusted-project entries, MCP tokens,
         # connector IDs and comments in the user's config.toml are preserved.
-        local codex_groups
-        codex_groups="$(config_groups_for_target codex)"
-        if [[ -n "${codex_groups}" ]]; then
+        plugins_selection codex "$(config_groups_for_target codex)"
+        if [[ -n "${PLUGINS_GROUPS}" ]]; then
             if [[ $native_codex -eq 1 ]]; then
-                local -a native_settings=(python3 "${SCRIPT_DIR}/scripts/codex_install.py" settings --groups "${codex_groups}")
-                [[ "${FORCE:-0}" == 1 ]] && native_settings+=(--force)
-                "${native_settings[@]}"
+                codex_native_settings
             else
                 merge_settings_config \
                     "codex-config" \
                     "${SCRIPT_DIR}/.codex-plugin/config/config.toml" \
                     "${HOME}/.codex/config.toml" \
-                    "${codex_groups}"
+                    "${PLUGINS_GROUPS}" "${PLUGINS_SELECT[@]}"
             fi
         fi
     fi
@@ -505,16 +513,14 @@ remove_codex_target() {
     fi
     if step_enabled settings; then
         printf '\n%sCodex: remove managed config (config.toml)%s\n' "${BOLD}" "${NC}"
+        plugins_selection codex "$(config_groups_for_target codex)"
         if codex_repository_native_enabled; then
-            local -a native_settings=(
-                python3 "${SCRIPT_DIR}/scripts/codex_install.py"
-                settings --groups "$(config_groups_for_target codex)" --remove
-            )
-            [[ "${FORCE:-0}" == 1 ]] && native_settings+=(--force)
-            "${native_settings[@]}"
+            if [[ -n "${PLUGINS_GROUPS}" ]]; then
+                codex_native_settings --remove
+            fi
         else
             remove_settings "codex-config" "${SCRIPT_DIR}/.codex-plugin/config/config.toml" \
-                "${codex_dir}/config.toml" "$(config_groups_for_target codex)"
+                "${codex_dir}/config.toml" "${PLUGINS_GROUPS}" "${PLUGINS_SELECT[@]}"
         fi
     fi
     remove_slices codex skills agents

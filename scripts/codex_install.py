@@ -143,7 +143,8 @@ def merge_config(groups: str, source_text: str, entries: list[str] | None, *, re
             groups,
         ]
         if entries is not None:
-            command += ["--entries", ",".join(entries)]
+            # Only the plugins group is entry-selected; settings stay whole.
+            command += ["--entry-groups", "plugins", "--entries", ",".join(entries)]
         if remove:
             command.append("--remove")
         if force:
@@ -369,14 +370,38 @@ def remove(use_cli: bool) -> None:
         state_path().unlink()
 
 
-def settings(groups: str, *, remove: bool, force: bool) -> None:
-    """Merge shipped settings, swapping the legacy plugin selector for the native pair."""
-    if not groups:
-        return
+def native_plugin_keys() -> tuple[str, list[str]]:
+    """Shipped settings text with the native pair swapped in, and its plugin keys."""
     shipped = (ROOT / ".codex-plugin/config/config.toml").read_text(encoding="utf-8")
     text = delete_toml_entries(shipped, [["plugins", LEGACY_SELECTOR]]) + "\n" + enablement_text()
-    entries = list(tomllib.loads(text).get("plugins", {})) if "plugins" in groups.split(",") else None
-    merge_config(groups, text, entries, remove=remove, force=force)
+    return text, [str(key) for key in tomllib.loads(text).get("plugins", {})]
+
+
+def settings(
+    groups: str, *, remove: bool, force: bool, entries: list[str] | None = None, list_only: bool = False
+) -> None:
+    """Merge shipped settings, swapping the legacy plugin selector for the native pair.
+
+    ``entries`` narrows the plugins group to those plugin keys; ``list_only``
+    prints the plugin keys the native settings manage and changes nothing.
+    """
+    text, keys = native_plugin_keys()
+    if list_only:
+        for key in keys:
+            print(key)
+        return
+    if not groups:
+        return
+    with_plugins = "plugins" in groups.split(",")
+    if entries is not None:
+        unknown = [name for name in entries if name not in keys]
+        if not with_plugins or not entries or unknown:
+            raise ValueError(
+                f"unknown plugins {', '.join(unknown) or '(none given)'} for --groups {groups} "
+                f"(managed: {', '.join(keys) or 'none'})"
+            )
+    selected = (entries if entries is not None else keys) if with_plugins else None
+    merge_config(groups, text, selected, remove=remove, force=force)
 
 
 def main() -> int:
@@ -387,7 +412,10 @@ def main() -> int:
     parser.add_argument("--groups", default="settings,plugins")
     parser.add_argument("--remove", action="store_true")
     parser.add_argument("--force", action="store_true")
+    parser.add_argument("--entries", help="Comma-separated plugin keys to restrict the plugins group to")
+    parser.add_argument("--list-entries", action="store_true", help="Print the managed plugin keys and exit")
     args = parser.parse_args()
+    entries = None if args.entries is None else [name.strip() for name in args.entries.split(",") if name.strip()]
     try:
         if args.command == "enabled":
             return 0 if repository_native_enabled(load_package_model().packages) else 1
@@ -396,7 +424,7 @@ def main() -> int:
         elif args.command == "remove":
             remove(args.cli)
         else:
-            settings(args.groups, remove=args.remove, force=args.force)
+            settings(args.groups, remove=args.remove, force=args.force, entries=entries, list_only=args.list_entries)
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         print(f"[err] native Codex install stopped: {error}", file=sys.stderr)
         return 2

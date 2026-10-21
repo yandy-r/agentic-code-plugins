@@ -36,11 +36,11 @@ Usage: $(basename "$0") <command> [options]
 
 Commands:
   install     Initial setup: base step plus opt-in steps (flags below).
-              $(basename "$0") install --target <targets> [--mode <mode>] [--settings] [--rules] [--mcp] [--hooks] [--only <steps>] [--package <ids>] [--mcps <servers>] [--skills <names>] [--agents <names>] [--commands <names>] [--project|--global] [--force] [--dry-run]
+              $(basename "$0") install --target <targets> [--mode <mode>] [--settings] [--rules] [--mcp] [--hooks] [--only <steps>] [--package <ids>] [--mcps <servers>] [--skills <names>] [--agents <names>] [--commands <names>] [--plugins <names>] [--project|--global] [--force] [--dry-run]
   sync        Sync what you name, nothing else.
-              $(basename "$0") sync --target <targets> --intent <intents> [--mcps <servers>] [--skills <names>] [--agents <names>] [--commands <names>] [--mode <mode>] [--project|--global] [--force] [--dry-run]
+              $(basename "$0") sync --target <targets> --intent <intents> [--mcps <servers>] [--skills <names>] [--agents <names>] [--commands <names>] [--plugins <names>] [--mode <mode>] [--project|--global] [--force] [--dry-run]
   remove      Strip installer-managed config.
-              $(basename "$0") remove --target <targets> (--only <steps> | --intent <intents>) [--mcps <servers>] [--skills <names>] [--agents <names>] [--commands <names>] [--project|--global] [--force] [--dry-run]
+              $(basename "$0") remove --target <targets> (--only <steps> | --intent <intents>) [--mcps <servers>] [--skills <names>] [--agents <names>] [--commands <names>] [--plugins <names>] [--project|--global] [--force] [--dry-run]
   migrate     Preview a global native-package migration (no writes by default).
               $(basename "$0") migrate --target claude|codex|cursor|omp|all [--apply] [--marketplace-source <dir>]
               all resolves only claude,codex,cursor (run omp separately; it needs
@@ -51,7 +51,7 @@ Commands:
   completion  Print or install shell completion.
               $(basename "$0") completion [--shell bash|zsh|fish] [--install [--force]]
   list        Print the selectable kinds, or the names a kind takes (for --<kind>).
-              $(basename "$0") list [<kind>] [--target <targets>]   (e.g. list mcps, list skills, list agents, list commands; list-mcps is an alias)
+              $(basename "$0") list [<kind>] [--target <targets>]   (e.g. list mcps, list skills, list agents, list commands, list plugins; list-mcps is an alias)
 
 A command is required; a bare '$(basename "$0") install --target ...' is rejected.
 
@@ -297,6 +297,18 @@ Options:
                       a commands step (codex, agents, omp) skip it. Each
                       command loads its skill: opencode warns when that skill
                       is missing, cursor refuses. Names: '$(basename "$0") list commands'
+  --plugins <names>   Comma-separated plugin entries: the settings step merges
+                      (or removes) only these in the plugins config group —
+                      claude enabledPlugins 'name@marketplace' keys plus the
+                      marketplaces they use, codex [plugins."name@mkt"]
+                      tables, opencode plugins items by package name (no
+                      version). settings/hooks keys in the same run stay
+                      whole. Requires the plugins group (--intent plugins, or
+                      install --only settings); not with --package.
+                      Marketplaces follow their plugins; remove keeps one
+                      while an enabled plugin still uses it. A target that
+                      manages none of them skips its plugins group.
+                      Names: '$(basename "$0") list plugins'
   --project           Scope-capable steps (today: mcp) write into the current
                       project. Default when neither flag is given. omp base
                       installs at omp's project scope only with an explicit

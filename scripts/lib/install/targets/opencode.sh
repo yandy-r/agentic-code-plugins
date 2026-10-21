@@ -149,19 +149,18 @@ sync_opencode_target() {
         mkdir -p "${opencode_dir}"
         # Merge managed keys only: per-machine model overrides, provider
         # credentials and unknown keys in the user's opencode.json are kept.
-        local opencode_groups
-        opencode_groups="$(config_groups_for_target opencode)"
-        if [[ -n "${opencode_groups}" ]]; then
+        plugins_selection opencode "$(config_groups_for_target opencode)"
+        if [[ -n "${PLUGINS_GROUPS}" ]]; then
             merge_settings_config \
                 "opencode-config" \
                 "${OPENCODE_PLUGIN_DIR}/opencode.json" \
                 "${opencode_dir}/opencode.json" \
-                "${opencode_groups}"
+                "${PLUGINS_GROUPS}" "${PLUGINS_SELECT[@]}"
         fi
         # The managed `plugins` group loads "./ycc-sensitive-guard"; ship that
         # directory with it (unless 'base' mirrored it above) so the entry
         # never points at a missing plugin.
-        if [[ ",${opencode_groups}," == *",plugins,"* && " ${units[*]:-} " != *" ycc-sensitive-guard "* ]]; then
+        if opencode_guard_selected && [[ " ${units[*]:-} " != *" ycc-sensitive-guard "* ]]; then
             command -v rsync >/dev/null 2>&1 || { err "rsync is required but not found"; exit 1; }
             sync_bundle_units "${OPENCODE_PLUGIN_DIR}" "${opencode_dir}" ycc-sensitive-guard
         fi
@@ -205,12 +204,13 @@ remove_opencode_target() {
     fi
     if step_enabled settings; then
         printf '\n%sopencode: remove managed config (opencode.json)%s\n' "${BOLD}" "${NC}"
-        local groups
-        groups="$(config_groups_for_target opencode)"
+        plugins_selection opencode "$(config_groups_for_target opencode)"
         remove_settings "opencode-config" "${OPENCODE_PLUGIN_DIR}/opencode.json" \
-            "${opencode_dir}/opencode.json" "${groups}"
-        # The guard plugin goes with the `plugins` entry that loads it.
-        if [[ ",${groups}," == *",plugins,"* ]] && ! step_enabled base; then
+            "${opencode_dir}/opencode.json" "${PLUGINS_GROUPS}" "${PLUGINS_SELECT[@]}"
+        # The guard plugin goes with the `plugins` entry that loads it; an
+        # entry kept as a local edit still loads it, so the directory stays.
+        if opencode_guard_selected && ! step_enabled base \
+            && ! opencode_config_loads_guard "${opencode_dir}/opencode.json"; then
             remove_mirrored_entries "${OPENCODE_PLUGIN_DIR}/ycc-sensitive-guard" "${opencode_dir}/ycc-sensitive-guard"
         fi
     fi
@@ -228,6 +228,14 @@ remove_opencode_target() {
         done
     fi
     printf '\n%sopencode remove complete.%s\n' "${BOLD}" "${NC}"
+}
+
+# opencode_guard_selected — true when this settings run merges (or removes)
+# the bundle's "./ycc-sensitive-guard" plugins entry: the plugins group runs
+# (PLUGINS_GROUPS, set by plugins_selection) and --plugins, if given, names it.
+opencode_guard_selected() {
+    [[ ",${PLUGINS_GROUPS}," == *",plugins,"* ]] || return 1
+    [[ ${#PLUGINS_SELECT[@]} -eq 0 || ",${PLUGINS_SELECT[-1]}," == *",./ycc-sensitive-guard,"* ]]
 }
 
 # opencode_config_loads_guard <opencode.json> — true when its `plugins` list

@@ -3,15 +3,26 @@
 
 from __future__ import annotations
 
+import io
 import json
 import shutil
+import sys
 import tempfile
 import tomllib
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
 import codex_install as installer
+
+MERGE_CONFIG = installer.merge_config
+SHIPPED = (
+    'model = "m"\n\n'
+    '[plugins."github@openai-curated"]\nenabled = true\n\n'
+    '[plugins."ycc@local-ycc-plugins"]\nenabled = true\n\n'
+    '[plugins."cloudflare@openai-curated"]\nenabled = true\n'
+)
 
 
 class NativeInstallSafetyTests(unittest.TestCase):
@@ -173,6 +184,73 @@ class NativeInstallSafetyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "cannot update"):
             installer.write_verified_toml(config, "[broken")
         self.assertEqual(config.read_text(), "model = 'mine'\n")
+
+
+class NativeSettingsSelectionTests(unittest.TestCase):
+    def setUp(self) -> None:
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        (self.root / ".codex-plugin/config").mkdir(parents=True)
+        (self.root / ".codex-plugin/config/config.toml").write_text(SHIPPED, encoding="utf-8")
+        patcher = patch.object(installer, "ROOT", self.root)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def run_main(self, *argv: str) -> tuple[int, str, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with (
+            patch.object(sys, "argv", ["codex_install.py", *argv]),
+            redirect_stdout(out),
+            redirect_stderr(err),
+        ):
+            code = installer.main()
+        return code, out.getvalue(), err.getvalue()
+
+    def test_list_entries_prints_native_plugin_keys(self) -> None:
+        with patch.object(installer, "merge_config") as merge:
+            code, out, _ = self.run_main("settings", "--groups", "plugins", "--list-entries")
+        self.assertEqual(code, 0)
+        self.assertEqual(out.split(), ["github@openai-curated", "cloudflare@openai-curated", "ycc@ycc", "ycc-mcp@ycc"])
+        merge.assert_not_called()
+
+    def test_entries_narrow_only_the_plugins_group(self) -> None:
+        with patch.object(installer.subprocess, "run") as run:
+            with patch.object(installer, "merge_config", MERGE_CONFIG):
+                code, _, err = self.run_main(
+                    "settings", "--groups", "settings,plugins", "--remove", "--entries", "cloudflare@openai-curated"
+                )
+        self.assertEqual(code, 0, err)
+        command = run.call_args.args[0]
+        self.assertEqual(command[command.index("--groups") + 1], "settings,plugins")
+        self.assertEqual(command[command.index("--entry-groups") + 1], "plugins")
+        self.assertEqual(command[command.index("--entries") + 1], "cloudflare@openai-curated")
+        self.assertIn("--remove", command)
+
+    def test_without_entries_all_native_keys_are_selected(self) -> None:
+        with patch.object(installer, "merge_config") as merge:
+            installer.settings("settings,plugins", remove=False, force=False)
+        groups, text, entries = merge.call_args.args
+        self.assertEqual(entries, ["github@openai-curated", "cloudflare@openai-curated", "ycc@ycc", "ycc-mcp@ycc"])
+        self.assertNotIn("local-ycc-plugins", text)
+
+    def test_settings_group_alone_passes_no_entries(self) -> None:
+        with patch.object(installer, "merge_config") as merge:
+            installer.settings("settings", remove=False, force=False)
+        self.assertIsNone(merge.call_args.args[2])
+
+    def test_unknown_or_unselectable_plugins_exit_2_without_merging(self) -> None:
+        cases = (
+            ("--groups", "plugins", "--entries", "ycc@local-ycc-plugins"),
+            ("--groups", "settings", "--entries", "ycc@ycc"),
+            ("--groups", "plugins", "--entries", ","),
+        )
+        for args in cases:
+            with self.subTest(args=args), patch.object(installer, "merge_config") as merge:
+                code, _, err = self.run_main("settings", *args)
+                self.assertEqual(code, 2)
+                self.assertIn("unknown plugins", err)
+                merge.assert_not_called()
 
 
 if __name__ == "__main__":

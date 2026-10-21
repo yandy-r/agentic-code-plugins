@@ -127,5 +127,24 @@ out="$(PATH="${REPO_ROOT}:${PATH}" bash -c 'source "$1"
     COMP_WORDS=(install.sh sync --target codex --intent mcp --mcps github,li); COMP_CWORD=7; _ycc; echo "${COMPREPLY[*]}"' \
     _ "${REPO_ROOT}/scripts/completions/ycc.bash")"
 assert_contains "${out}" "github,linear-personal" "bash completes --mcps for the line's --target"
+# Readline splits 'name@mkt' at '@' (default COMP_WORDBREAKS): feed the words
+# and COMP_LINE the way a real shell does. It then replaces the current word
+# together with a '@' right before it (a bash special prefix), so replies
+# start at that '@'.
+# complete_split <line> <words...> — COMPREPLY for <line> with the cursor at its end.
+complete_split() {
+    PATH="${REPO_ROOT}:${PATH}" bash -c 'source "$1"; COMP_LINE="$2"; COMP_POINT=${#COMP_LINE}
+        COMP_WORDS=("${@:3}"); COMP_CWORD=$((${#COMP_WORDS[@]} - 1)); _ycc; printf "%s\n" "${COMPREPLY[@]}"' \
+        _ "${REPO_ROOT}/scripts/completions/ycc.bash" "$@"
+}
+out="$(complete_split "install.sh sync --target opencode --intent plugins --plugins @prev" \
+    install.sh sync --target opencode --intent plugins --plugins @ prev)"
+if [[ "${out}" == "@prevalentware/opencode-goal-plugin" ]]; then ok "bash completes a '@'-split --plugins name"; else ko "bash completes a '@'-split --plugins name" "${out}"; fi
+out="$(complete_split "install.sh sync --target codex --intent plugins --plugins github@openai-curated,clo" \
+    install.sh sync --target codex --intent plugins --plugins github @ openai-curated,clo)"
+if [[ "${out}" == "@openai-curated,cloudflare@openai-curated" ]]; then ok "bash completes a --plugins comma list after a name@mkt item"; else ko "bash completes a --plugins comma list after a name@mkt item" "${out}"; fi
+out="$(complete_split "install.sh sync --target codex --intent plugins --plugins github@openai-curated,cloudflare@" \
+    install.sh sync --target codex --intent plugins --plugins github @ openai-curated,cloudflare @)"
+if [[ "${out}" == "@openai-curated" ]]; then ok "bash completes after a trailing '@'"; else ko "bash completes after a trailing '@'" "${out}"; fi
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then install_tests_finish; fi

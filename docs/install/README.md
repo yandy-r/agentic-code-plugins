@@ -321,6 +321,11 @@ Structured config files (`~/.claude/settings.json`, `~/.claude.json`,
   the repo value instead.
 - Ownership is tracked by hash in `~/.config/ycc/managed-config-state.json`
   (hashes only, never values, so tokens never leak into state).
+- Plugin list items (opencode `plugins`, claude `pluginMarketplaces`) are
+  keyed by package name (version stripped) or `name`. When the repo bumps a
+  version (`pkg@1.0.0` → `pkg@1.1.0`), the item the installer added is
+  replaced in place, never duplicated. A same-name item you wrote yourself is
+  kept with a warning; `--force` replaces it.
 
 This is what makes new-machine setup reliable: run the same `sync` command on
 any machine and repo-managed settings land without clobbering machine-local
@@ -415,6 +420,42 @@ ycc remove --target cursor --intent mcp --mcps stripe
 > and Codex/opencode MCP servers moved from the `settings` step to the `mcp`
 > step.
 
+### Selecting Plugins
+
+By default the `plugins` intent merges every plugin entry the repo manages for
+a target. `--plugins <names>` (comma-separated) narrows `install`, `sync`, and
+`remove` to just those entries:
+
+```bash
+ycc sync   --target claude   --intent plugins --plugins superpowers@claude-plugins-official,context7@claude-plugins-official
+ycc remove --target codex    --intent plugins --plugins cloudflare@openai-curated
+ycc sync   --target opencode --intent plugins --plugins @prevalentware/opencode-goal-plugin
+ycc list plugins --target claude
+```
+
+| Target   | Names                                     | What a name selects                                                                                       |
+| -------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| claude   | `enabledPlugins` keys (`name@mkt`)        | the `enabledPlugins` key plus its marketplace (`extraKnownMarketplaces` entry, `pluginMarketplaces` item) |
+| codex    | `[plugins."name@mkt"]` table names        | that table in `~/.codex/config.toml`                                                                      |
+| opencode | `plugins` package names (version dropped) | that `plugins` item (`./ycc-sensitive-guard` also ships or removes its guard directory)                   |
+
+- Entries not named are left alone, along with their state. `settings` and
+  `hooks` keys in the same run stay whole:
+  `--intent settings,plugins --plugins x` still merges every managed setting.
+- Marketplaces follow their plugins and are never listed or selected on their
+  own (`--plugins claude-plugins-official` is an unknown name). `remove`
+  (selective or full) keeps a marketplace while an enabled plugin in your
+  `settings.json` still uses it, and says so.
+- `--plugins` requires the `plugins` config group: `--intent plugins` on
+  `sync`/`remove`, or `install --only settings`.
+  `--intent settings --plugins x` and `install --package … --plugins x` are
+  rejected before anything is written.
+- Each name must be managed for a selected target, else the run stops before
+  writing anything. A target that manages none of the named entries skips its
+  plugins group with a warning; cursor, agents and omp have no plugins group.
+- Shell completion offers the names after `--plugins`, narrowed to the
+  `--target` already on the command line (via `ycc list plugins`).
+
 ### Removing Installed Config
 
 ```bash
@@ -433,7 +474,7 @@ taken back:
 
 | Step / intent                  | What `remove` does                                                                                                                                                                                                                                                                                                                               |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `settings`, `plugins`, `hooks` | Strips repo-managed keys from the structured config (`settings.json`, `cli-config.json`, `config.toml`, `opencode.json`). List entries (plugin lists, Cursor permissions) lose only the items the installer appended.                                                                                                                            |
+| `settings`, `plugins`, `hooks` | Strips repo-managed keys from the structured config (`settings.json`, `cli-config.json`, `config.toml`, `opencode.json`). List entries (plugin lists, Cursor permissions) lose only the items the installer appended. A claude marketplace stays while an enabled plugin still uses it.                                                          |
 | `mcp`                          | Strips managed MCP servers, including ones the repo has since dropped. Servers you added are never touched.                                                                                                                                                                                                                                      |
 | `rules`, claude `hooks` dir    | Removes the symlinks, only while they still point at this checkout. A real file you put there is never deleted.                                                                                                                                                                                                                                  |
 | claude statusline script       | Removed while identical to the repo copy; an edited copy needs `--force`.                                                                                                                                                                                                                                                                        |

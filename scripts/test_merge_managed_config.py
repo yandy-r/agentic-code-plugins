@@ -21,6 +21,7 @@ from typing import Any
 from unittest.mock import patch
 
 import yaml
+from merge_managed_config import ADDED_ITEMS_KEY, value_hash
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 HELPER = REPO_ROOT / "scripts" / "merge_managed_config.py"
@@ -1759,6 +1760,262 @@ class GithubMcpMigrationTestCase(MergeBase):
         dest.write_text(custom, encoding="utf-8")
         self.sync("codex-config", source, dest)
         self.assertEqual(dest.read_text(), custom)
+
+
+class KeyedPluginListTestCase(MergeBase):
+    """opencode ``plugins`` items keyed by package name (YAN-923)."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.source = self.tmp / "src.json"
+        self.dest = self.tmp / "opencode.json"
+
+    def sync(self, plugins: list, *extra: str, force: bool = False) -> subprocess.CompletedProcess[str]:
+        self.write_json(self.source, {"plugins": plugins})
+        return self.run_merge("opencode-config", self.source, self.dest, "plugins", force=force, extra=extra)
+
+    def remove(self, plugins: list, *extra: str, force: bool = False) -> subprocess.CompletedProcess[str]:
+        self.write_json(self.source, {"plugins": plugins})
+        return self.run_merge(
+            "opencode-config", self.source, self.dest, "plugins", force=force, extra=("--remove", *extra)
+        )
+
+    def plugins(self) -> list:
+        return json.loads(self.dest.read_text())["plugins"]
+
+    def owned(self) -> list[str]:
+        return json.loads(self.state.read_text())[f"opencode-config:{self.dest}"]["/plugins"][ADDED_ITEMS_KEY]
+
+    def test_selective_sync_adds_only_the_selected_item(self) -> None:
+        self.write_json(self.dest, {"plugins": ["mine"]})
+
+        self.sync(["@s/a@1", "b@1"], "--entries", "@s/a")
+
+        self.assertEqual(self.plugins(), ["mine", "@s/a@1"])
+        self.assertEqual(self.owned(), [value_hash("@s/a@1")])
+
+    def test_selective_sync_keeps_ownership_of_unselected_items(self) -> None:
+        self.sync(["a@1", "b@1"])
+
+        self.sync(["a@2", "b@1"], "--entries", "a")
+
+        self.assertEqual(self.plugins(), ["a@2", "b@1"])
+        self.assertEqual(self.owned(), sorted([value_hash("a@2"), value_hash("b@1")]))
+
+    def test_selective_remove_takes_one_item_and_its_hash_only(self) -> None:
+        self.write_json(self.dest, {"plugins": ["mine"], "x": 1})
+        self.sync(["a@1", "b@1"])
+
+        result = self.remove(["a@1", "b@1"], "--entries", "a")
+
+        self.assertNotIn("kept your local value", result.stdout)
+        self.assertEqual(json.loads(self.dest.read_text()), {"plugins": ["mine", "b@1"], "x": 1})
+        self.assertEqual(self.owned(), [value_hash("b@1")])
+
+        self.remove(["a@1", "b@1"], "--entries", "b")
+
+        self.assertEqual(json.loads(self.dest.read_text()), {"plugins": ["mine"], "x": 1})
+        self.assertNotIn(f"opencode-config:{self.dest}", json.loads(self.state.read_text()))
+
+    def test_version_bump_replaces_owned_item_in_place(self) -> None:
+        self.write_json(self.dest, {"plugins": ["first", "last"]})
+        self.sync(["pkg@1"])
+        self.write_json(self.dest, {"plugins": ["first", "pkg@1", "last"]})
+
+        result = self.sync(["pkg@2"])
+
+        self.assertNotIn("kept your local value", result.stdout)
+        self.assertEqual(self.plugins(), ["first", "pkg@2", "last"])
+        self.assertEqual(self.owned(), [value_hash("pkg@2")])
+
+    def test_owned_duplicates_from_old_unions_collapse(self) -> None:
+        self.write_json(self.dest, {"plugins": ["pkg@1", "mine", "pkg@1.5"]})
+        self.state.write_text(
+            json.dumps(
+                {
+                    f"opencode-config:{self.dest}": {
+                        "/plugins": {
+                            "last_applied_sha256": "stale",
+                            ADDED_ITEMS_KEY: [value_hash("pkg@1"), value_hash("pkg@1.5")],
+                        }
+                    }
+                }
+            )
+        )
+
+        self.sync(["pkg@2"])
+
+        self.assertEqual(self.plugins(), ["pkg@2", "mine"])
+        self.assertEqual(self.owned(), [value_hash("pkg@2")])
+
+    def test_user_written_same_key_item_is_kept_with_warning(self) -> None:
+        self.write_json(self.dest, {"plugins": ["pkg@0"]})
+
+        result = self.sync(["pkg@1"])
+
+        self.assertEqual(self.plugins(), ["pkg@0"])
+        self.assertIn("kept your local value at /plugins[pkg] (re-run with --force", result.stdout)
+
+    def test_force_takes_user_written_same_key_item(self) -> None:
+        self.write_json(self.dest, {"plugins": ["mine", "pkg@0"]})
+
+        self.sync(["pkg@1"], force=True)
+
+        self.assertEqual(self.plugins(), ["mine", "pkg@1"])
+        self.assertEqual(self.owned(), [value_hash("pkg@1")])
+
+    def test_force_takes_every_user_written_same_key_item(self) -> None:
+        self.write_json(self.dest, {"plugins": ["pkg@0", "mine", {"package": "pkg@0.5"}]})
+
+        self.sync(["pkg@1"], force=True)
+
+        self.assertEqual(self.plugins(), ["pkg@1", "mine"])
+        self.assertEqual(self.owned(), [value_hash("pkg@1")])
+
+    def test_npm_alias_version_bump_replaces_owned_item(self) -> None:
+        self.sync(["npm:@s/x@1"])
+
+        self.sync(["npm:@s/x@2"])
+
+        self.assertEqual(self.plugins(), ["npm:@s/x@2"])
+        self.assertEqual(self.owned(), [value_hash("npm:@s/x@2")])
+
+    def test_git_ref_bump_replaces_owned_item(self) -> None:
+        self.sync(["git+https://example.com/x.git#v1"])
+
+        self.sync(["git+https://example.com/x.git#v2"])
+
+        self.assertEqual(self.plugins(), ["git+https://example.com/x.git#v2"])
+
+    def test_object_items_are_keyed_by_package(self) -> None:
+        self.sync(["@s/p@1"])
+        item = {"package": "@s/p@2", "options": {"level": 1}}
+
+        self.sync([item])
+
+        self.assertEqual(self.plugins(), [item])
+        self.assertEqual(self.owned(), [value_hash(item)])
+
+    def test_remove_keeps_user_same_key_item_unless_forced(self) -> None:
+        self.write_json(self.dest, {"plugins": ["pkg@0"], "x": 1})
+
+        result = self.remove(["pkg@1"])
+
+        self.assertEqual(self.plugins(), ["pkg@0"])
+        self.assertIn("kept your local value at /plugins[pkg] (re-run with --force to remove it)", result.stdout)
+
+        self.remove(["pkg@1"], force=True)
+
+        self.assertEqual(json.loads(self.dest.read_text()), {"x": 1})
+
+    def test_selective_remove_never_reports_unselected_items(self) -> None:
+        self.write_json(self.dest, {"plugins": ["b@0"], "x": 1})
+        self.sync(["a@1", "b@1"], "--entries", "a")
+
+        result = self.remove(["a@1", "b@1"], "--entries", "a")
+
+        self.assertNotIn("kept your local value", result.stdout)
+        self.assertEqual(self.plugins(), ["b@0"])
+
+
+class MarketplaceRetentionTestCase(MergeBase):
+    """Claude marketplaces follow their plugins and stay while still used (YAN-923)."""
+
+    OFFICIAL = {"source": {"source": "github", "repo": "anthropics/claude-plugins-official"}}
+    YCC = {"source": {"source": "github", "repo": "yandy-r/ystack"}}
+    LIST_ITEM = {"name": "claude-plugins-official", "url": "https://official"}
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.source = self.write_json(
+            self.tmp / "settings-src.json",
+            {
+                "enabledPlugins": {
+                    "ycc@ycc": True,
+                    "superpowers@claude-plugins-official": True,
+                    "context7@claude-plugins-official": True,
+                },
+                "extraKnownMarketplaces": {"ycc": self.YCC, "claude-plugins-official": self.OFFICIAL},
+                "pluginMarketplaces": [self.LIST_ITEM],
+            },
+        )
+        self.dest = self.write_json(self.tmp / "settings.json", {"keep": True})
+        self.run_merge("claude-settings", self.source, self.dest, "plugins")
+
+    def remove(self, *extra: str) -> subprocess.CompletedProcess[str]:
+        return self.run_merge("claude-settings", self.source, self.dest, "plugins", extra=("--remove", *extra))
+
+    def state_entry(self) -> dict:
+        return json.loads(self.state.read_text()).get(f"claude-settings:{self.dest}", {})
+
+    def test_removing_one_of_two_plugins_keeps_their_marketplace(self) -> None:
+        result = self.remove("--entries", "superpowers@claude-plugins-official")
+
+        self.assertIn(
+            "[ok] kept /extraKnownMarketplaces/claude-plugins-official "
+            "(still used by context7@claude-plugins-official)",
+            result.stdout,
+        )
+        self.assertIn("[ok] kept /pluginMarketplaces[claude-plugins-official]", result.stdout)
+        settings = json.loads(self.dest.read_text())
+        self.assertEqual(list(settings["enabledPlugins"]), ["ycc@ycc", "context7@claude-plugins-official"])
+        self.assertEqual(
+            settings["extraKnownMarketplaces"], {"ycc": self.YCC, "claude-plugins-official": self.OFFICIAL}
+        )
+        self.assertEqual(settings["pluginMarketplaces"], [self.LIST_ITEM])
+        state = self.state_entry()
+        self.assertIn("/extraKnownMarketplaces/claude-plugins-official", state)
+        self.assertEqual(state["/pluginMarketplaces"][ADDED_ITEMS_KEY], [value_hash(self.LIST_ITEM)])
+        self.assertNotIn("/enabledPlugins/superpowers@claude-plugins-official", state)
+
+    def test_removing_the_last_user_removes_marketplace_and_list_item(self) -> None:
+        self.remove("--entries", "superpowers@claude-plugins-official")
+
+        result = self.remove("--entries", "context7@claude-plugins-official")
+
+        self.assertNotIn("[ok] kept", result.stdout)
+        settings = json.loads(self.dest.read_text())
+        self.assertEqual(
+            settings,
+            {"keep": True, "enabledPlugins": {"ycc@ycc": True}, "extraKnownMarketplaces": {"ycc": self.YCC}},
+        )
+        state = self.state_entry()
+        self.assertNotIn("/pluginMarketplaces", state)
+        self.assertNotIn("/extraKnownMarketplaces/claude-plugins-official", state)
+        self.assertIn("/extraKnownMarketplaces/ycc", state)
+
+    def test_user_added_plugin_keeps_marketplace_on_full_remove(self) -> None:
+        settings = json.loads(self.dest.read_text())
+        settings["enabledPlugins"]["mine@claude-plugins-official"] = True
+        self.write_json(self.dest, settings)
+
+        result = self.remove()
+
+        self.assertIn("(still used by mine@claude-plugins-official)", result.stdout)
+        self.assertEqual(
+            json.loads(self.dest.read_text()),
+            {
+                "keep": True,
+                "enabledPlugins": {"mine@claude-plugins-official": True},
+                "extraKnownMarketplaces": {"claude-plugins-official": self.OFFICIAL},
+                "pluginMarketplaces": [self.LIST_ITEM],
+            },
+        )
+        # Ownership survives, so a later remove can still take them back.
+        self.assertEqual(
+            set(self.state_entry()), {"/extraKnownMarketplaces/claude-plugins-official", "/pluginMarketplaces"}
+        )
+
+    def test_selected_plugin_kept_as_conflict_keeps_its_marketplace(self) -> None:
+        settings = json.loads(self.dest.read_text())
+        settings["enabledPlugins"]["context7@claude-plugins-official"] = False
+        self.write_json(self.dest, settings)
+
+        result = self.remove("--entries", "superpowers@claude-plugins-official,context7@claude-plugins-official")
+
+        self.assertIn("kept your local value at /enabledPlugins/context7@claude-plugins-official", result.stdout)
+        self.assertIn("(still used by context7@claude-plugins-official)", result.stdout)
+        self.assertIn("claude-plugins-official", json.loads(self.dest.read_text())["extraKnownMarketplaces"])
 
 
 if __name__ == "__main__":

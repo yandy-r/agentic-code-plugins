@@ -98,6 +98,23 @@ generating it. The file-copy install above stays primary, and a native or npm
 plugin installed alongside the file copy would register the same components
 twice. See the [v6 opencode guide](v6/opencode.md) before opting in.
 
+`--plugins` selects `plugins` items by package name without the version
+(`ycc list plugins --target opencode`); only the named items are merged or
+removed, and your own items stay:
+
+```bash
+ycc sync   --target opencode --intent plugins --plugins @prevalentware/opencode-goal-plugin
+ycc remove --target opencode --intent plugins --plugins @prevalentware/opencode-goal-plugin
+```
+
+Selecting `./ycc-sensitive-guard` also ships (or removes) its guard directory;
+a selection without it leaves the directory alone, and so does a remove that
+keeps your own edited guard entry. When the bundle bumps a
+plugin's version, the item the installer added is replaced in place instead of
+duplicated; an item with the same package name that you wrote yourself is kept
+with a warning (`--force` replaces it). See
+[Selecting Plugins](README.md#selecting-plugins).
+
 ### Sensitive-file guard
 
 Some specialists must never handle secret-bearing files: `pr-comment-fixer`,

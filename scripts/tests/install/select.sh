@@ -12,7 +12,7 @@ echo "== install.sh list =="
 
 home="$(new_home)"
 install_must_succeed "${home}" list
-if [[ "${INSTALL_OUT}" == $'mcps\nskills\nagents\ncommands' ]]; then ok "bare list prints the selectable kinds"; else ko "bare list prints the selectable kinds" "${INSTALL_OUT}"; fi
+if [[ "${INSTALL_OUT}" == $'mcps\nskills\nagents\ncommands\nplugins' ]]; then ok "bare list prints the selectable kinds"; else ko "bare list prints the selectable kinds" "${INSTALL_OUT}"; fi
 install_must_succeed "${home}" list mcps --target opencode
 list_out="${INSTALL_OUT}"
 install_must_succeed "${home}" list-mcps --target opencode
@@ -23,7 +23,7 @@ all_out="${INSTALL_OUT}"
 expected="$(for t in claude cursor codex opencode; do HOME="${home}" bash "${INSTALL}" list mcps --target "${t}"; done | awk '!seen[$0]++')"
 if [[ -n "${all_out}" && "${all_out}" == "${expected}" ]]; then ok "list mcps is the first-seen union across targets"; else ko "list mcps is the first-seen union across targets"; fi
 out="$(run_install "${home}" list widgets)"
-assert_contains "${out}" "unknown kind 'widgets' (valid: mcps skills agents commands)" "list rejects an unknown kind"
+assert_contains "${out}" "unknown kind 'widgets' (valid: mcps skills agents commands plugins)" "list rejects an unknown kind"
 out="$(run_install "${home}" list mcps --bogus)"
 assert_contains "${out}" "Unknown option for list: --bogus" "list rejects unknown options"
 out="$(run_install "${home}" list-mcps --bogus)"
@@ -85,7 +85,7 @@ widgets_run() {
 }
 
 out="$(widgets_run 'run_list_command; echo ---; run_list_command widgets; echo ---; run_list_command widgets --target beta')"
-expected="$(printf '%s\n' mcps skills agents commands widgets --- a1 shared b1 --- shared b1)"
+expected="$(printf '%s\n' mcps skills agents commands plugins widgets --- a1 shared b1 --- shared b1)"
 if [[ "${out}" == "${expected}" ]]; then ok "list covers a registered kind (union, first-seen, skips targets without the step)"; else ko "list covers a registered kind" "${out}"; fi
 
 out="$(widgets_run 'parse_selection widgets " b1 , shared,b1"; selection_for widgets; has_selection widgets && echo has; has_selection mcps || echo none')"
@@ -109,5 +109,13 @@ assert_contains "${out}" "--widgets needs the widget step (--only widget) on a t
 
 out="$(widgets_run 'parse_selection widgets ","')"
 assert_contains "${out}" "--widgets contains an empty value" "empty item message names the kind"
+
+# A kind that narrows one config group (SELECTION_GROUP) also needs that group.
+out="$(widgets_run 'SELECTION_GROUP[widgets]=wgroup; config_groups_for_target() { [[ "$1" == beta ]] && echo settings,wgroup; [[ "$1" == alpha ]] && echo settings; return 0; }
+    parse_selection widgets "a1"; TARGETS=(alpha); preflight_selections')"
+assert_contains "${out}" "--widgets needs the widget step (--only widget) on a target that has one" "group kind without its group rejected"
+out="$(widgets_run 'SELECTION_GROUP[widgets]=wgroup; config_groups_for_target() { [[ "$1" == beta ]] && echo settings,wgroup; [[ "$1" == alpha ]] && echo settings; return 0; }
+    parse_selection widgets "b1"; TARGETS=(alpha beta); preflight_selections; echo "beta=$(selection_for_target widgets beta)"')"
+assert_contains "${out}" "beta=b1" "group kind passes preflight where the group runs"
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then install_tests_finish; fi
