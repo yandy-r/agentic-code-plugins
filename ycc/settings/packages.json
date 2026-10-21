@@ -205,7 +205,7 @@
           "notes": "sessionStart only; WorktreeCreate stays on install.sh."
         },
         "omp": {
-          "status": "deferred",
+          "status": "excluded",
           "listed": false,
           "mechanism": "native",
           "components": ["hooks"],
@@ -215,13 +215,11 @@
           "opt_in": false,
           "evidence": [
             "docs/internal/adr/0002-omp-runtime-contract.md",
-            "docs/internal/spikes/omp-runtime-contract.md"
+            "docs/internal/spikes/omp-runtime-contract.md",
+            "docs/research/yan-1174-omp-hooks-extension/feature-spec.md"
           ],
-          "gates": [
-            "YAN-1174 extension package with the herdr session_start shim",
-            "YAN-1178 live acceptance matrix passes on the real ycc tree"
-          ],
-          "notes": "Extension adapter (omp.extensions, omp >=18.12.2) bound to session_start only for herdr reporting; WorktreeCreate is unsupported because OMP has no such event, and a session restart is needed after install."
+          "gates": [],
+          "notes": "Excluded: herdr ships its own OMP integration (herdr integration install omp), which reports the session and agent state; a ycc reporter is ignored by herdr (non-herdr source) or corrupts herdr's ordering (herdr:omp). WorktreeCreate has no OMP event. ycc ships no OMP hooks or extensions (YAN-1174)."
         }
       }
     },
@@ -258,7 +256,7 @@
             "docs/internal/spikes/omp-runtime-contract.md"
           ],
           "gates": [],
-          "notes": "Excluded: the OMP marketplace does not read plugin dependencies, so ycc-all (the union of ycc, ycc-mcp, and ycc-hooks) is omitted from the OMP catalog; install those parts separately."
+          "notes": "Excluded: the OMP marketplace does not read plugin dependencies, so ycc-all (on Claude the union of ycc, ycc-mcp, and ycc-hooks) is omitted from the OMP catalog; install ycc and ycc-mcp separately; herdr reporting comes from `herdr integration install omp`."
         }
       }
     },

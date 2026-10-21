@@ -64,7 +64,7 @@ def test_rejections() -> None:
         ("ycc", "agents", "not available"),
         ("ycc-hooks", "codex", "excluded"),
         ("ycc-mcp", "agents", "not available"),
-        ("ycc-hooks", "omp", "is deferred or opt-in for target 'omp'"),
+        ("ycc-hooks", "omp", "is excluded or opt-in for target 'omp'"),
         ("ycc-rules", "omp", "is deferred or opt-in for target 'omp'"),
         ("ycc-all", "omp", "dependency installation proof"),
         ("installer-fallback", "omp", "internal modeling key"),

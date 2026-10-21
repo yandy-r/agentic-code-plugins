@@ -51,7 +51,8 @@ CARRIERS: dict[str, dict[str, str]] = {
         "mcp": "mcp",
     },
     # Each native OMP package is one `omp plugin install` (ycc-mcp ships its .mcp.json inside
-    # the package); hooks and rules get no carrier until YAN-1174/1175, so those rows fail closed.
+    # the package). Hooks never get an OMP carrier (ycc-hooks is excluded on OMP: herdr ships its
+    # own integration); rules wait for YAN-1175, so those rows fail closed.
     "omp": {
         "skills": "base",
         "agents": "base",

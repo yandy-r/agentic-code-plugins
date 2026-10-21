@@ -66,14 +66,14 @@ from installer-managed artifacts and gated work in `ycc/settings/packages.json`.
 `listed: false` packages are not published catalog entries; generated trees and successful spikes
 alone do not make them shipping user install paths. This does not revise the capability verdicts above.
 
-| target   | native, listed today                                                                                                                          | install.sh fallback today                                                                                             | unlisted or gated native packages                                                                                             |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Claude   | `ycc@ycc`, `ycc-mcp@ycc`, `ycc-hooks@ycc` (2.1.300+), `ycc-all@ycc`; `status-bar@ycc-mods`                                                    | Rules, settings, statusline, hooks link, MCP, standalone skills/agents                                                | `ycc-agents@ycc` in v7.0.0                                                                                                    |
-| Cursor   | `ycc`, `ycc-rules`, `ycc-mcp`, `ycc-hooks` via the root `.cursor-plugin/marketplace.json` (interactive `/plugins`); hooks `sessionStart` only | Skills, agents, commands, rules, settings under `~/.cursor/`; optional hooks                                          | None                                                                                                                          |
-| Codex    | `ycc@ycc`, `ycc-mcp@ycc` via the root `.agents/plugins/marketplace.json`                                                                      | Agent TOMLs, `AGENTS.md`, `config.toml`                                                                               | `ycc-hooks` excluded (YAN-1149)                                                                                               |
-| opencode | None                                                                                                                                          | Skills, agents, commands, shared, `opencode.json`, `AGENTS.md`                                                        | `@yandy-r/ycc-opencode` npm plugin: experimental, opt-in, unpublished                                                         |
-| `agents` | None                                                                                                                                          | Skills and `ycc-shared` copied into `~/.agents/`                                                                      | None planned                                                                                                                  |
-| `omp`    | None                                                                                                                                          | `install.sh --target omp`: local export of `ycc` and `ycc-mcp` installed through `omp plugin` (user or project scope) | `ycc`, `ycc-mcp` generated, unlisted until v6.1.0; `ycc-hooks`, `ycc-rules` deferred to v6.1.0 (ADR 0002); `ycc-all` excluded |
+| target   | native, listed today                                                                                                                          | install.sh fallback today                                                                                             | unlisted or gated native packages                                                                                                                              |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude   | `ycc@ycc`, `ycc-mcp@ycc`, `ycc-hooks@ycc` (2.1.300+), `ycc-all@ycc`; `status-bar@ycc-mods`                                                    | Rules, settings, statusline, hooks link, MCP, standalone skills/agents                                                | `ycc-agents@ycc` in v7.0.0                                                                                                                                     |
+| Cursor   | `ycc`, `ycc-rules`, `ycc-mcp`, `ycc-hooks` via the root `.cursor-plugin/marketplace.json` (interactive `/plugins`); hooks `sessionStart` only | Skills, agents, commands, rules, settings under `~/.cursor/`; optional hooks                                          | None                                                                                                                                                           |
+| Codex    | `ycc@ycc`, `ycc-mcp@ycc` via the root `.agents/plugins/marketplace.json`                                                                      | Agent TOMLs, `AGENTS.md`, `config.toml`                                                                               | `ycc-hooks` excluded (YAN-1149)                                                                                                                                |
+| opencode | None                                                                                                                                          | Skills, agents, commands, shared, `opencode.json`, `AGENTS.md`                                                        | `@yandy-r/ycc-opencode` npm plugin: experimental, opt-in, unpublished                                                                                          |
+| `agents` | None                                                                                                                                          | Skills and `ycc-shared` copied into `~/.agents/`                                                                      | None planned                                                                                                                                                   |
+| `omp`    | None                                                                                                                                          | `install.sh --target omp`: local export of `ycc` and `ycc-mcp` installed through `omp plugin` (user or project scope) | `ycc`, `ycc-mcp` generated, unlisted until v6.1.0; `ycc-rules` deferred to v6.1.0; `ycc-hooks` and `ycc-all` excluded (herdr: `herdr integration install omp`) |
 
 Native dependency resolution is a Claude platform feature, not a cross-runtime guarantee.
 The Claude `ycc-all` meta plugin's automatic dependency install was verified on Claude Code 2.1.301 and in the v6.0.0 maintainer clean-host verification; Cursor and Codex have no
@@ -103,6 +103,7 @@ The recommendation in `docs/research/ystack/recommendation.md` is qualified by
   a local pinned fixture on omp 18.12.3 (YAN-1171). `install.sh install --target omp` installs the
   same export, now `ycc` and `ycc-mcp`, from a checkout through `omp plugin` (YAN-1172,
   YAN-1173); the repository has no published OMP catalog until a row is listed (YAN-1180).
+  YAN-1174: ycc ships no OMP hooks; herdr reporting is herdr's own OMP integration.
 
 ---
 
@@ -381,8 +382,8 @@ Source: ADR 0002.
 **HOOKS.PreToolUse:omp**
 Unsupported. OMP never runs shell hooks or `hooks/hooks.json`; hooks load only as TypeScript
 `ExtensionAPI` factories (`pi.on` events such as `tool_call`, `tool_result`, `session_stop`).
-ycc ships no adapter for these events; the only planned OMP hook is a herdr `session_start`
-extension shim (YAN-1174). Source: ADR 0002; spike §2.4.
+ycc ships no OMP hooks; herdr session reporting is herdr's own integration (`herdr integration install omp`)
+and `WorktreeCreate` has no OMP event (YAN-1174). Source: ADR 0002; spike §2.4.
 
 **HOOKS.PostToolUse:omp**
 Same constraint as HOOKS.PreToolUse:omp. The closest OMP event is `tool_result`.
@@ -417,7 +418,7 @@ version change, and `remove` uninstalls only recorded installs. `--dry-run` prev
 call. Gaps: the root `.omp-plugin/marketplace.json` (relative `./packages/omp/<package>` sources)
 is written only once a package is `listed` in `ycc/settings/packages.json`; none is, so there is
 no published OMP catalog, `--mode repo` is refused, and `--target all` skips omp until YAN-1180.
-`ycc-hooks` and `ycc-rules` are YAN-1174 and YAN-1175. OMP has no trust prompt:
+`ycc-rules` is YAN-1175; `ycc-hooks` is excluded on OMP. OMP has no trust prompt:
 installed plugin code runs in-process with full user privileges. Source: ADR 0002.
 
 **DANGEROUS_MODE:omp**

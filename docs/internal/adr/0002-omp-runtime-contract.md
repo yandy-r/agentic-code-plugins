@@ -2,6 +2,13 @@
 
 - **Status:** Accepted on authorized PR merge. The PR that adds this file is the
   owner's approval once merged; until then it is proposed.
+- **Amendment (2026-10-21, YAN-1174):** herdr session reporting on OMP is **native and
+  herdr-owned**. herdr's own `herdr integration install omp` extension reports the session and
+  agent state, so ycc ships no OMP hook or extension and `ycc-hooks` is **excluded** on OMP.
+  Live probes showed that herdr ignores a ycc-sourced session report (`ycc:omp`) and that a ycc report
+  under `herdr:omp` corrupts herdr's `seq` ordering. Decision 3, the `ycc-hooks` package row,
+  required adapter 5 and the YAN-1174 follow-up row below record this; the evidence is in the
+  [YAN-1174 feature spec](../../research/yan-1174-omp-hooks-extension/feature-spec.md).
 - **Date:** 2026-10-19
 - **Tracking:** Linear YAN-1165; GitHub [#365](https://github.com/yandy-r/ystack/issues/365)
 - **Evidence:** [OMP runtime contract spike](../spikes/omp-runtime-contract.md) and its harness
@@ -34,8 +41,8 @@ OMP has no trust gate: installed plugin code runs in-process with full user priv
 1. **Dedicated OMP tree.** ycc generates `.omp-plugin/marketplace.json` with relative sources to
    generated OMP package directories. Each directory carries:
    - an `.omp-plugin/plugin.json`;
-   - a `package.json` with a unique runtime `name`, the lockstep `version`, and `omp.extensions`
-     where adapters ship.
+   - a `package.json` with a unique runtime `name` and the lockstep `version`. ycc ships no
+     `omp.extensions` (YAN-1174).
 
    ycc does not reuse the Claude tree or the root `.claude-plugin/marketplace.json` for OMP. The
    catalog uses no `npm` sources.
@@ -47,10 +54,11 @@ OMP has no trust gate: installed plugin code runs in-process with full user priv
 3. **Hooks.**
    - `WorktreeCreate` is **unsupported** on OMP. There is no event to bind, and OMP's task
      isolation manages its own worktrees.
-   - herdr session reporting ships as an **extension adapter** bound to `session_start` only. It
-     is based on the ycc-owned `ycc/settings/cursor/herdr-session-start.sh`. The Claude-side
-     `herdr-agent-state.sh` is herdr-managed and is not ported. A shutdown report is not bound
-     ([INFERENCE] about herdr's API).
+   - herdr session reporting is **native and herdr-owned**: herdr's
+     `herdr integration install omp` extension (v8) reports session and state. ycc ships no OMP
+     reporter. herdr records only `herdr:`-sourced session reports, and a ycc copy under
+     `herdr:omp` corrupts its `seq` ordering (verified live, YAN-1174). The Claude-side
+     `herdr-agent-state.sh` is herdr-managed and is not ported.
 4. **`ycc-all` is a fallback.** It is omitted from the OMP catalog, and the docs list the
    individual packages to install.
 5. **Minimum version.** The supported floor is **`>=18.12.2`**, the tested version. Evidence
@@ -62,18 +70,18 @@ OMP has no trust gate: installed plugin code runs in-process with full user priv
 
 ### Package matrix (OMP)
 
-| Package                               | OMP mechanism                                                      | Verdict                                        | Notes                                                                                                                                                                         |
-| ------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ycc`                                 | Generated package: skills, agents, `_shared`, optional `commands/` | adapter                                        | Rewrite `${CLAUDE_PLUGIN_ROOT}`, `/ycc:` and `_shared` references. Translate agent tools and models to `@role` aliases. The 9 `disable-model-invocation` skills map natively. |
-| `ycc-mcp`                             | Generated package with `.mcp.json`                                 | native content, adapter packaging              | Servers become `ycc-mcp:<server>`. `${VAR}` env placeholders expand.                                                                                                          |
-| `ycc-hooks`                           | Generated extension package (`omp.extensions`)                     | adapter                                        | herdr `session_start` shim only. `WorktreeCreate` is unsupported. A session restart is needed after install.                                                                  |
-| `ycc-rules`                           | Generated package with flat `rules/`                               | adapter                                        | Flatten under unique names. `paths` becomes `globs`. Keep `alwaysApply` and `description`.                                                                                    |
-| `ycc-all`                             | none                                                               | fallback                                       | Dependencies are not read. Install the parts separately.                                                                                                                      |
-| `ycc-agents`                          | none                                                               | n/a                                            | Deferred to v7 on Claude (ADR 0001). On OMP, agents ship inside `ycc`.                                                                                                        |
-| `@yandy-r/ycc-opencode`               | none                                                               | n/a                                            | opencode-specific npm plugin. OMP also rejects `npm` marketplace sources.                                                                                                     |
-| `installer-fallback`                  | user and project config layers                                     | fallback                                       | Each payload maps to its component row in the spike matrix: rules and instructions, a settings snippet, a statusline extension.                                               |
-| Settings, model pins, `settings.json` | user `config.yml` (`modelRoles`, `task.agentModelOverrides`)       | fallback                                       | No plugin channel. Documented or opt-in snippet.                                                                                                                              |
-| Status line, status-bar mod           | `ExtensionAPI` UI (`ctx.ui.setStatus`, `setWidget`)                | adapter (status line); unsupported as is (mod) | `setFooter` is a no-op in OMP. The mod stays in `ycc-mods`. Port only on demand.                                                                                              |
+| Package                               | OMP mechanism                                                      | Verdict                                        | Notes                                                                                                                                                                                            |
+| ------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ycc`                                 | Generated package: skills, agents, `_shared`, optional `commands/` | adapter                                        | Rewrite `${CLAUDE_PLUGIN_ROOT}`, `/ycc:` and `_shared` references. Translate agent tools and models to `@role` aliases. The 9 `disable-model-invocation` skills map natively.                    |
+| `ycc-mcp`                             | Generated package with `.mcp.json`                                 | native content, adapter packaging              | Servers become `ycc-mcp:<server>`. `${VAR}` env placeholders expand.                                                                                                                             |
+| `ycc-hooks`                           | none                                                               | excluded                                       | herdr reporting: `herdr integration install omp`; `WorktreeCreate` unsupported. ycc ships no OMP hooks or extensions.                                                                            |
+| `ycc-rules`                           | Generated package with flat `rules/`                               | adapter                                        | Flatten under unique names. `paths` becomes `globs`. Keep `alwaysApply` and `description`.                                                                                                       |
+| `ycc-all`                             | none                                                               | fallback                                       | Dependencies are not read. Install the parts separately.                                                                                                                                         |
+| `ycc-agents`                          | none                                                               | n/a                                            | Deferred to v7 on Claude (ADR 0001). On OMP, agents ship inside `ycc`.                                                                                                                           |
+| `@yandy-r/ycc-opencode`               | none                                                               | n/a                                            | opencode-specific npm plugin. OMP also rejects `npm` marketplace sources.                                                                                                                        |
+| `installer-fallback`                  | user and project config layers                                     | fallback                                       | Each payload maps to its component row in the spike matrix: rules and instructions, a settings snippet, a statusline extension (blocked until the YAN-1174 code-surface guard is lifted for it). |
+| Settings, model pins, `settings.json` | user `config.yml` (`modelRoles`, `task.agentModelOverrides`)       | fallback                                       | No plugin channel. Documented or opt-in snippet.                                                                                                                                                 |
+| Status line, status-bar mod           | `ExtensionAPI` UI (`ctx.ui.setStatus`, `setWidget`)                | adapter (status line); unsupported as is (mod) | `setFooter` is a no-op in OMP. The mod stays in `ycc-mods`. Port only on demand.                                                                                                                 |
 
 The full per-component matrix, including every skill class, agents, and rules families, is in
 the [spike, section 3](../spikes/omp-runtime-contract.md#3-component--verdict-matrix).
@@ -92,10 +100,10 @@ the [spike, section 3](../spikes/omp-runtime-contract.md#3-component--verdict-ma
    mapped or dropped), Claude `model` to OMP `@role` aliases, and MCP tool names for
    `ycc-mcp:<server>`.
 4. Rules flattener: the nested Cursor tree becomes unique flat names, and `paths` becomes `globs`.
-5. herdr extension shim: `session_start` only, run through `pi.exec`. It synthesizes the stdin
-   payload that `herdr-session-start.sh` reads.
+5. ~~herdr session reporter.~~ Dropped (YAN-1174): herdr ships the integration
+   (`herdr integration install omp`), so ycc generates no OMP reporter.
 6. Optional: `commands/` wrappers for `/ycc:<name>`, and a status-line extension that renders
-   through `ctx.ui.setStatus` or `setWidget`.
+   through `ctx.ui.setStatus` or `setWidget`. Note: the YAN-1174 code-surface guard in `scripts/validate_omp_native.py` rejects every OMP extension, so shipping it first means lifting that guard for this extension only.
 
 ## Consequences
 
@@ -115,20 +123,20 @@ the [spike, section 3](../spikes/omp-runtime-contract.md#3-component--verdict-ma
 
 ## Follow-up mapping
 
-| Issue    | Scope from this ADR                                                                                                     |
-| -------- | ----------------------------------------------------------------------------------------------------------------------- |
-| YAN-1166 | Add the `omp` target, capability matrix, and package schema and inventory entries; floor `>=18.12.2`                    |
-| YAN-1167 | Skill and `_shared` generation, body rewriter, invocation policy (`disable-model-invocation`)                           |
-| YAN-1168 | Optional `commands/` wrappers or a documented `/skill:<name>` entrypoint                                                |
-| YAN-1169 | Agent translator (tools, `@role` models, MCP names) under `.omp-plugin/plugin.json`                                     |
-| YAN-1170 | Delivered: `.omp/worktrees` root (`OMPCODE`), `task` batch + `wait` dispatch, `question-policy.md`; never `isolated`    |
-| YAN-1171 | `.omp-plugin/marketplace.json` and per-package tree generator; `ycc-all` omitted                                        |
-| YAN-1172 | Delivered: `install.sh --target omp` lifecycle using `omp plugin` (`--dry-run`, scopes, profile and XDG-aware paths)    |
-| YAN-1173 | Delivered: `ycc-mcp` OMP package (native `.mcp.json`, secret-literal audit), installed by `install.sh --target omp`     |
-| YAN-1174 | `ycc-hooks` extension package: herdr `session_start` shim; `WorktreeCreate` documented unsupported                      |
-| YAN-1175 | `ycc-rules` flattener; `modelRoles` and settings fallback snippets; permission defaults                                 |
-| YAN-1176 | Coexistence and dedupe with `~/.agents` and Claude opt-in, profiles, and the trust-model docs                           |
-| YAN-1177 | Validators, generator tests, and CI for the OMP tree                                                                    |
-| YAN-1178 | Live acceptance matrix extending the spike harness (real ycc tree, network installs, older versions to lower the floor) |
-| YAN-1179 | Install, fallback, and migration docs, including the restart-after-install note                                         |
-| YAN-1180 | Release gate: list the OMP packages in a maintainer release                                                             |
+| Issue    | Scope from this ADR                                                                                                                                                |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| YAN-1166 | Add the `omp` target, capability matrix, and package schema and inventory entries; floor `>=18.12.2`                                                               |
+| YAN-1167 | Skill and `_shared` generation, body rewriter, invocation policy (`disable-model-invocation`)                                                                      |
+| YAN-1168 | Optional `commands/` wrappers or a documented `/skill:<name>` entrypoint                                                                                           |
+| YAN-1169 | Agent translator (tools, `@role` models, MCP names) under `.omp-plugin/plugin.json`                                                                                |
+| YAN-1170 | Delivered: `.omp/worktrees` root (`OMPCODE`), `task` batch + `wait` dispatch, `question-policy.md`; never `isolated`                                               |
+| YAN-1171 | `.omp-plugin/marketplace.json` and per-package tree generator; `ycc-all` omitted                                                                                   |
+| YAN-1172 | Delivered: `install.sh --target omp` lifecycle using `omp plugin` (`--dry-run`, scopes, profile and XDG-aware paths)                                               |
+| YAN-1173 | Delivered: `ycc-mcp` OMP package (native `.mcp.json`, secret-literal audit), installed by `install.sh --target omp`                                                |
+| YAN-1174 | Delivered: hook verdicts (herdr native via herdr's integration, `WorktreeCreate` unsupported), `ycc-hooks` excluded on OMP, validator guards, opt-in herdr harness |
+| YAN-1175 | `ycc-rules` flattener; `modelRoles` and settings fallback snippets; permission defaults                                                                            |
+| YAN-1176 | Coexistence and dedupe with `~/.agents` and Claude opt-in, profiles, and the trust-model docs                                                                      |
+| YAN-1177 | Validators, generator tests, and CI for the OMP tree                                                                                                               |
+| YAN-1178 | Live acceptance matrix extending the spike harness (real ycc tree, network installs, older versions to lower the floor)                                            |
+| YAN-1179 | Install, fallback, and migration docs, including the restart-after-install note                                                                                    |
+| YAN-1180 | Release gate: list the OMP packages in a maintainer release                                                                                                        |

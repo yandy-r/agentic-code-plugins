@@ -297,7 +297,8 @@ Options:
                       --settings/--rules/--mcp/--hooks flags.
   --package <ids>     'install' only. Comma-separated ids from the package model:
                       ycc, ycc-mcp, ycc-hooks (Claude and Cursor), ycc-rules (Cursor only);
-                      omp: ycc, ycc-mcp (ycc-hooks, ycc-rules are deferred there).
+                      omp: ycc, ycc-mcp (ycc-rules deferred; ycc-hooks excluded: herdr
+                      reporting is 'herdr integration install omp').
                       Expands dependency and installer-fallback components into
                       existing installer steps. The 'base' step of the Claude and
                       Codex ycc package uses native marketplace registration

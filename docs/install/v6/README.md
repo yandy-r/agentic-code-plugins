@@ -120,8 +120,9 @@ Codex it registers the `ycc` marketplace and installs `ycc@ycc` plus
 `ycc-mcp@ycc`; on OMP (pre-release, see [`../omp.md`](../omp.md)) it exports
 the OMP packages and installs `ycc@ycc` through `omp plugin`, and `ycc-mcp`
 installs `ycc-mcp@ycc` the same way. Accepted ids are `ycc`, `ycc-mcp`,
-`ycc-hooks` (not Codex or OMP), and `ycc-rules` (Cursor only); OMP accepts
-`ycc` and `ycc-mcp` today. `ycc-all` is not accepted — install it
+`ycc-hooks` (not Codex or OMP; on OMP herdr ships its own integration), and
+`ycc-rules` (Cursor only); OMP accepts `ycc` and `ycc-mcp` today. `ycc-all`
+is not accepted — install it
 through the Claude marketplace. `install --target all` includes OMP only once
 an OMP package is listed (YAN-1180) and `omp >= 18.12.2` is on `PATH`; until
 then it prints a skip line. See `./install.sh --help` for the full contract.

@@ -145,11 +145,11 @@ assert_contains "$(omp_log "${home}")" "omp plugin uninstall --scope user ycc-mc
 
 home="$(new_home)"
 if out="$(run_install "${home}" install --target omp --package ycc-hooks)"; then
-    ko "omp --package ycc-hooks rejected as deferred"
+    ko "omp --package ycc-hooks rejected as excluded"
 else
-    assert_contains "${out}" "package 'ycc-hooks' is deferred or opt-in for target 'omp'" "omp --package ycc-hooks rejected as deferred"
+    assert_contains "${out}" "package 'ycc-hooks' is excluded or opt-in for target 'omp'" "omp --package ycc-hooks rejected as excluded"
 fi
-assert_not_contains "$(omp_log "${home}")" "omp plugin install" "deferred package installs nothing"
+assert_not_contains "$(omp_log "${home}")" "omp plugin install" "excluded package installs nothing"
 
 home="$(new_home)"
 if out="$(run_install "${home}" install --target omp --mode repo)"; then

@@ -86,6 +86,11 @@ expect_targets "OMP smoke driver selects omp and types" "omp types" scripts/omp_
 expect_targets "OMP package wrappers, validator and live harness select omp" "omp" \
     scripts/generate-omp-packages.sh scripts/validate-omp-packages.sh scripts/test-omp-native-packages.sh
 expect_targets "OMP package tests select omp and types (mypy files)" "omp types" scripts/test_generate_omp_packages.py
+expect_targets "OMP hook policy tests select omp and types (mypy files)" "omp types" scripts/test_validate_omp_hooks.py
+expect_targets "OMP herdr smoke driver selects omp and types" "omp types" scripts/omp_herdr_smoke.py
+expect_targets "OMP herdr live harness selects omp" "omp" scripts/test-omp-herdr-hooks.sh
+expect_targets "OMP hook-verdict docs (ADR, spike) select omp" "omp" \
+    docs/internal/adr/0002-omp-runtime-contract.md docs/internal/spikes/omp-runtime-contract.md
 expect_targets "OMP install helper selects omp, config and types" "omp config types" scripts/omp_install.py
 expect_targets "OMP install tests select omp, config and types (mypy files)" "omp config types" scripts/test_omp_install.py
 expect_targets "OMP install live harness selects omp" "omp" scripts/test-omp-install-lifecycle.sh
@@ -140,9 +145,9 @@ expect_targets "practices rules module selects practices and types" "practices t
 expect_targets "standalone agent reference test selects practices" "practices" scripts/test_standalone_agent_references.py
 expect_targets "package parity validator selects packages and types" "packages types" scripts/validate_packages.py
 expect_targets "package parity tests select packages" "packages" scripts/test_validate_packages.py
-expect_targets "live install docs select packages" "packages" docs/install/cursor.md
-expect_targets "v6 install drafts select packages before docs catch-all" "packages" docs/install/v6/codex.md
-expect_targets "install doc indexes select packages" "packages" docs/install/README.md docs/install/v6/README.md
+expect_targets "live install docs select packages and omp (hook verdicts)" "omp packages" docs/install/cursor.md docs/install/omp.md
+expect_targets "v6 install drafts select packages and omp before docs catch-all" "omp packages" docs/install/v6/codex.md
+expect_targets "install doc indexes select packages and omp" "omp packages" docs/install/README.md docs/install/v6/README.md
 expect_targets "install ID validator selects packages and types" "packages types" scripts/validate_install_doc_ids.py
 expect_targets "install ID tests select packages" "packages" scripts/test_validate_install_doc_ids.py
 expect_targets "capability matrix validator selects packages and types" "packages types" scripts/validate_capability_matrix.py
