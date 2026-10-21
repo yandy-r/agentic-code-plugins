@@ -325,10 +325,13 @@ Batch file-disjointness:
      `profile.get("strict_hooks") or profile.get("refuse_symlink")`. Message:
      `refusing to write through symlinked <dest>; add these keys yourself:` followed by the source snippet.
      Exit 1 with no write.
-  4. Comment backup (`backup_comments`):
-     - When a write is planned, the destination exists, `<dest>.ycc-backup` is absent, and the text has a `#`
-       comment line: copy the bytes to `<dest>.ycc-backup` with mode `0o600`.
-     - Warn: `comments in <dest> are not preserved; original saved to <dest>.ycc-backup`.
+  4. Backup before a lossy rewrite (`backup_original`):
+     - When a write is planned and the destination is not exactly ycc's own rendering (it holds comments or other
+       formatting the rewrite drops): copy the bytes to `<dest>.ycc-backup` with mode `0o600`, or to the first free
+       `<dest>.ycc-backup.N` when existing backups hold different bytes. Never overwrite a backup.
+     - Warn on every such rewrite: `comments and formatting in <dest> are not preserved; original saved to <backup>`.
+     - When `--remove` deletes an emptied file, delete backups that hold only ycc's own rendering.
+     - Refuse documents with YAML aliases (rc 1, no changes made); a rewrite would expand them.
      - Docstring: add YAML to "Formats".
 - **IMPLEMENT** `OmpYamlMergeTest(MergeBase)` in `scripts/test_merge_managed_config.py`:
   - **M1**: the destination is missing; the file is created with exactly the managed leaves.
@@ -338,7 +341,9 @@ Batch file-disjointness:
   - **M4**: `--remove` deletes only leaves equal to last-applied; a user-edited leaf stays.
   - **M5**: a symlinked destination returns rc 1. The link and its target are unchanged, and no state is written.
   - **M6**: invalid YAML, or a list root, returns rc 1 with bytes unchanged.
-  - **M7**: a commented destination creates `.ycc-backup` (mode 600) once; a second run does not overwrite it.
+  - **M7**: a commented destination creates `.ycc-backup` (mode 600); a later commented file rotates to
+    `.ycc-backup.1` without overwriting; ycc's own rendering is never backed up; removing an emptied file drops
+    ycc-only backups.
 - **MIRROR**: MANAGED_MERGE_PROFILE; `test_toml_preserves_comments_and_unmanaged_tables` (`:215`) for shape.
 - **GOTCHA**:
   - Do not change the JSON/TOML behaviors or the existing `test_symlink_destination_becomes_real_file` (`:173`).
@@ -358,7 +363,8 @@ Batch file-disjointness:
   3. `scripts/omp_model_policy.py` (typed):
      - Constants, citing `src/config/model-roles.ts` `MODEL_ROLES` at v18.12.5:
        - `BUILTIN_ROLES = ("default","smol","slow","vision","plan","commit","tiny","memory","task","advisor","widget")`.
-       - `THINKING = ("off","minimal","low","medium","high","xhigh","max")`.
+       - `THINKING = ("off","minimal","low","medium","high","xhigh","max","auto","inherit")`.
+       - `roles.default` is required and must reference `main`.
        - `SELECTOR = re.compile(r"^[a-z0-9][a-z0-9-]*/[A-Za-z0-9][A-Za-z0-9._-]*$")`.
        - `SNIPPET_KEYS = {("modelRoles",), ("tools","approvalMode")}` and `APPROVAL_MODE = "write"`.
      - `load_omp(models_path) -> dict`.
@@ -724,24 +730,24 @@ Accepted spec decisions:
 
 Plan-level choices:
 
-| #   | Decision                                                               | Rationale                                                                                                                                                                                                               |
-| --- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| P1  | Model policy lives in a new importable `scripts/omp_model_policy.py`   | `validate-model-settings.py` is a hyphenated top-level script that cannot be imported. One module feeds both the validator and the agent generator.                                                                     |
-| P2  | Single merge group named `settings`                                    | `config_groups_for_target` filters groups by intent name (`steps.sh:184-187`).                                                                                                                                          |
-| P3  | No post-write `omp config get` verification (simplified from the spec) | A YAML round-trip plus mapping check prevents `.broken-*`. OMP ignores invalid enum values at load. Avoids extending `fake_omp.py`. The L3 live harness covers the real read-back.                                      |
-| P4  | OMP planner drops inherited fallback components                        | `install_set` adds `installer-fallback` components (`build_package_graph.py:87`). Without the filter, `--package ycc` would run settings and rules, which breaks opt-in. Mirrors the Cursor hooks discard (`:144-145`). |
-| P5  | No separate rules wrapper scripts                                      | The `packages` pass already generates and validates every OMP root.                                                                                                                                                     |
+| #   | Decision                                                                                          | Rationale                                                                                                                                                                                                               |
+| --- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P1  | Model policy lives in a new importable `scripts/omp_model_policy.py`                              | `validate-model-settings.py` is a hyphenated top-level script that cannot be imported. One module feeds both the validator and the agent generator.                                                                     |
+| P2  | Single merge group named `settings`                                                               | `config_groups_for_target` filters groups by intent name (`steps.sh:184-187`).                                                                                                                                          |
+| P3  | No post-write `omp config get` verification (simplified from the spec; the spec now records this) | A YAML round-trip plus mapping check prevents `.broken-*`. OMP ignores invalid enum values at load. Avoids extending `fake_omp.py`. The L3 live harness covers the real read-back.                                      |
+| P4  | OMP planner drops inherited fallback components                                                   | `install_set` adds `installer-fallback` components (`build_package_graph.py:87`). Without the filter, `--package ycc` would run settings and rules, which breaks opt-in. Mirrors the Cursor hooks discard (`:144-145`). |
+| P5  | No separate rules wrapper scripts                                                                 | The `packages` pass already generates and validates every OMP root.                                                                                                                                                     |
 
 ## Risks
 
-| Risk                                                          | Likelihood | Impact | Mitigation                                                                      |
-| ------------------------------------------------------------- | ---------- | ------ | ------------------------------------------------------------------------------- |
-| Release or planner suites assert the old `deferred` rows      | High       | Low    | Enumerated in 3.1; 5.1 runs the full suite                                      |
-| `check_closures` flags rules→skill edges for `ycc-rules@omp`  | Low        | Medium | The Cursor rules-only row passes today; 3.1 gotcha                              |
-| YAML merge drops user comments                                | Medium     | Low    | One-time `.ycc-backup` plus a warning (M7); documented                          |
-| `validate-model-settings.py` test harness patches `read_text` | Medium     | Low    | 1.3 gotcha; run `test_validate_opencode_config.py`                              |
-| Doc edits break the hook-verdict anchors                      | Low        | Medium | 1.4 gotcha; `test_validate_omp_hooks.py` in 5.1                                 |
-| Parallel B1 tasks drift on the snippet shape                  | Low        | Medium | The shape is fixed in the spec; 1.2 tests use their own sources; 2.2 integrates |
+| Risk                                                          | Likelihood | Impact | Mitigation                                                                                         |
+| ------------------------------------------------------------- | ---------- | ------ | -------------------------------------------------------------------------------------------------- |
+| Release or planner suites assert the old `deferred` rows      | High       | Low    | Enumerated in 3.1; 5.1 runs the full suite                                                         |
+| `check_closures` flags rules→skill edges for `ycc-rules@omp`  | Low        | Medium | The Cursor rules-only row passes today; 3.1 gotcha                                                 |
+| YAML merge drops user comments                                | Medium     | Low    | `.ycc-backup` (rotating, never overwritten) plus a warning on every lossy rewrite (M7); documented |
+| `validate-model-settings.py` test harness patches `read_text` | Medium     | Low    | 1.3 gotcha; run `test_validate_opencode_config.py`                                                 |
+| Doc edits break the hook-verdict anchors                      | Low        | Medium | 1.4 gotcha; `test_validate_omp_hooks.py` in 5.1                                                    |
+| Parallel B1 tasks drift on the snippet shape                  | Low        | Medium | The shape is fixed in the spec; 1.2 tests use their own sources; 2.2 integrates                    |
 
 ## Notes
 

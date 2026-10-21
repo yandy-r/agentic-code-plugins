@@ -10,15 +10,17 @@ The Feature Implementation Workflow describes the development pipeline: research
 ## Feature Implementation Workflow
 
 0. **Research & Reuse** _(mandatory before any new implementation)_
-   - **GitHub code search first:** Run `gh search repos` and `gh search code` to find existing implementations, templates, and patterns before writing anything new.
-   - **Library docs second:** Use Context7 or primary vendor docs to confirm API behavior, package usage, and version-specific details before implementing.
-   - **Exa only when the first two are insufficient:** Use Exa for broader web research or discovery after GitHub search and primary docs.
-   - **Check package registries:** Search npm, PyPI, crates.io, and other registries before writing utility code. Prefer battle-tested libraries over hand-rolled solutions.
+   - **Local first:** Search the current repository for existing implementations, helpers, and patterns before writing anything new.
+   - **GitHub code search when available:** If the GitHub CLI is installed and authenticated, run `gh search repos` and `gh search code` for existing implementations and templates.
+   - **Library docs:** Confirm API behavior, package usage, and version-specific details in primary vendor docs (Context7 when available, otherwise the official docs or installed package sources).
+   - **Exa only when the above are insufficient and Exa is available:** Use it for broader web research or discovery.
+   - **Check package registries when reachable:** Search npm, PyPI, crates.io, and other registries before writing utility code. Prefer battle-tested libraries over hand-rolled solutions.
    - **Search for adaptable implementations:** Look for open-source projects that solve 80%+ of the problem and can be forked, ported, or wrapped.
+   - When a tool or network service is unavailable, note which searches were skipped and continue with the local and primary-doc fallbacks.
    - Prefer adopting or porting a proven approach over writing net-new code when it meets the requirement.
 
 1. **Plan First**
-   - Use **planner** agent to create implementation plan
+   - Use the **planner** agent, when registered, to create the implementation plan; otherwise plan in the current session
    - Generate planning docs before coding: PRD, architecture, system_design, tech_doc, task_list
    - Identify dependencies and risks
    - Break down into phases
@@ -30,7 +32,7 @@ The Feature Implementation Workflow describes the development pipeline: research
    - Verify 80%+ coverage
 
 3. **Code Review**
-   - Use **code-reviewer** agent immediately after writing code
+   - Use the **code-reviewer** agent, when registered, immediately after writing code; otherwise review the diff in the current session
    - Address CRITICAL and HIGH issues
    - Fix MEDIUM issues when possible
 

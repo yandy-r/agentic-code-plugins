@@ -94,7 +94,7 @@ expect_targets "OMP hook-verdict docs (ADR, spike) select omp" "omp" \
 expect_targets "OMP install helper selects omp, config and types" "omp config types" scripts/omp_install.py
 expect_targets "OMP install tests select omp, config and types (mypy files)" "omp config types" scripts/test_omp_install.py
 expect_targets "OMP install live harness selects omp" "omp" scripts/test-omp-install-lifecycle.sh
-expect_targets "OMP rules flattener selects omp and types" "omp types" scripts/generate_omp_rules.py
+expect_targets "OMP rules flattener selects omp, config and types" "omp config types" scripts/generate_omp_rules.py
 expect_targets "OMP rules tests select omp and types (mypy files)" "omp types" scripts/test_generate_omp_rules.py
 expect_targets "OMP model policy and tests select omp, config and types" "omp config types" \
     scripts/omp_model_policy.py scripts/test_omp_model_policy.py

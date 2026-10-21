@@ -75,9 +75,15 @@ omp_all_skip_reason() { echo "needs omp >= 18.12.2 on PATH and a listed OMP pack
 # omp_repo_mode_hint — why --mode repo is refused while unlisted.
 omp_repo_mode_hint() { echo "omp needs a listed OMP package (YAN-1180)"; }
 
-# omp_preflight — fail before any target runs when omp cannot be driven.
+# omp_preflight — fail before any target runs when omp cannot be driven. Every
+# omp step runs python helpers that import PyYAML (the package build and
+# omp_install.py through the shared generators, and the config.yml merge).
 omp_preflight() {
     local reason
+    if command -v python3 >/dev/null 2>&1 && ! python3 -c 'import yaml' >/dev/null 2>&1; then
+        err "--target omp needs PyYAML for python3; install it with: python3 -m pip install --user pyyaml"
+        exit 1
+    fi
     reason="$(omp_available_reason)"
     if [[ -n "${reason}" ]]; then
         err "omp >= 18.12.2 is required for --target omp"

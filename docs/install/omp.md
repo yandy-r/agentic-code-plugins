@@ -157,9 +157,10 @@ after its file stem.
 - **On demand.** Every other rule is a rulebook entry: a one-line
   `- <name> (<globs>): <description>` listing, with the body read through
   `rule://<name>` (for example `rule://ycc-python-testing`).
-- **Globs are advisory.** OMP shows a rule's `globs` in the listing but never
-  attaches the rule automatically when a matching file is touched, unlike
-  Cursor. Language-rule parity is partial.
+- **Globs are advisory.** OMP shows a rule's `globs` in the listing but does
+  not select a rule by glob when a matching file is touched, unlike Cursor.
+  The `alwaysApply` rules above are still included. Language-rule parity is
+  partial.
 - **Override a rule.** Copy it under the same name to `<agentDir>/rules/`
   (user) or `<cwd>/.omp/rules/` (project) and edit the copy. Native rules
   outrank plugin rules, so your copy wins and survives ycc updates. OMP
@@ -223,9 +224,12 @@ tools:
   approvalMode: write
 ```
 
-Each role is an ordered fallback list. ycc agents use `@slow` or `@task`, so
-these roles set their models. Other roles (`smol`, `plan`, custom roles) and
-every other key are left alone. ycc never writes `task.agentModelOverrides`.
+Each role is an ordered list: OMP uses the first model that resolves (has a
+provider and credentials). The list covers model resolution only; it is not a
+retry chain when a request to the resolved model fails. ycc agents use `@slow`
+or `@task`, so these roles set their models. Other roles (`smol`, `plan`,
+custom roles) and every other key are left alone. ycc never writes
+`task.agentModelOverrides`.
 
 - **Ownership.** Each leaf is tracked by hash in
   `~/.config/ycc/managed-config-state.json`. A run prints one summary line,
@@ -241,14 +245,20 @@ every other key are left alone. ycc never writes `task.agentModelOverrides`.
   managing settings, remove them (below).
 - **Comments and formatting.** Rewriting the YAML drops comments and
   formatting, as `omp config set` does. Values keep their YAML 1.2 meaning
-  (as OMP reads them), so `off`, `12:30` or `1_000` stay strings. Before the
-  first ycc rewrite of an existing file, the installer saves the original to
-  `config.yml.ycc-backup` (mode 600) and warns. A later run never overwrites
-  that backup.
+  (as OMP reads them), so `off`, `12:30` or `1_000` stay strings. Before any
+  rewrite that would drop something (the file is not exactly ycc's own
+  output), the installer saves the current file to `config.yml.ycc-backup`
+  (mode 600) and warns. Backups are never overwritten: when that backup holds
+  different bytes, the next one goes to `config.yml.ycc-backup.1`, `.2`, and
+  so on. When `remove` deletes an emptied `config.yml`, it also deletes
+  backups that hold only ycc's own output and keeps the rest.
 - **Refusals.** A symlinked `config.yml` (for example from a dotfiles repo) is
   never written through; the installer prints the keys to add yourself and
-  exits non-zero. An invalid YAML file, or one whose root is not a mapping,
-  is left unchanged.
+  exits non-zero. An invalid YAML file, one whose root is not a mapping, or
+  one that uses YAML aliases (`*name`, including `<<: *name` merge keys) is
+  left unchanged, since a rewrite would expand them. `--target omp` needs
+  PyYAML for `python3`; without it the installer stops before any write or
+  `omp` call and prints the install command.
 - **Precedence.** OMP layers defaults < user < project < `--config` overlays
   < runtime flags. A project `.omp/config.yml` beats these user values.
 - **User scope only.** `--project` with `--settings` or `--rules` is rejected;

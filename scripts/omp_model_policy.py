@@ -25,8 +25,9 @@ MODELS_LABEL = "ycc/settings/models.json: targets.omp"
 
 # oh-my-pi v18.12.5 src/config/model-roles.ts MODEL_ROLES.
 BUILTIN_ROLES = ("default", "smol", "slow", "vision", "plan", "commit", "tiny", "memory", "task", "advisor", "widget")
-# Thinking levels a `provider/model:<level>` selector accepts.
-THINKING = ("off", "minimal", "low", "medium", "high", "xhigh", "max")
+# Thinking levels a `provider/model:<level>` selector accepts (`auto` picks per
+# prompt; `inherit` defers to the higher-level selector).
+THINKING = ("off", "minimal", "low", "medium", "high", "xhigh", "max", "auto", "inherit")
 # A full `provider/model` reference; bare ids and empty halves are rejected.
 SELECTOR = re.compile(r"^[a-z0-9][a-z0-9-]*/[A-Za-z0-9][A-Za-z0-9._-]*$")
 # Leaves ycc may own in the user config.yml.
@@ -34,6 +35,8 @@ SNIPPET_KEYS = frozenset({("modelRoles",), ("tools", "approvalMode")})
 APPROVAL_MODE = "write"
 # `roles` values: which declared model a managed role resolves to.
 ROLE_TARGETS = ("main", "subagent")
+# Roles `roles` must declare, with the target each must use.
+REQUIRED_ROLES = {"default": "main"}
 REQUIRED_KEYS = ("config", "main", "subagent", "fallback", "roles", "agentModels")
 
 
@@ -94,6 +97,11 @@ def _roles_errors(roles: object) -> list[str]:
     if not isinstance(roles, dict):
         return [f"{label} must be an object"]
     errors: list[str] = []
+    for role, ref in REQUIRED_ROLES.items():
+        if role not in roles:
+            errors.append(f"{label}.{role}: missing; the managed snippet must set modelRoles.{role} to {ref!r}")
+        elif roles[role] != ref:
+            errors.append(f"{label}.{role}: expected {ref!r}, got {roles[role]!r}")
     for role, ref in roles.items():
         if role not in BUILTIN_ROLES:
             errors.append(f"{label}.{role}: unknown OMP role (built-in roles: {', '.join(BUILTIN_ROLES)})")

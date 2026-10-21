@@ -52,6 +52,15 @@ class OmpModelPolicyTest(unittest.TestCase):
         omp["roles"]["architect"] = "subagent"
         self.assert_error(self.errors(omp), "roles.architect", "unknown OMP role")
 
+    def test_p2_default_role_required_and_targets_main(self) -> None:
+        omp = copy.deepcopy(self.omp)
+        del omp["roles"]["default"]
+        self.assert_error(self.errors(omp), "roles.default", "missing")
+
+        omp = copy.deepcopy(self.omp)
+        omp["roles"]["default"] = "subagent"
+        self.assert_error(self.errors(omp), "roles.default", "expected 'main'", "'subagent'")
+
     def test_p3_bad_selector_or_effort_rejected(self) -> None:
         cases = {
             "bare id": ("subagent", "model", "claude-opus-5", "subagent.model"),
@@ -63,6 +72,14 @@ class OmpModelPolicyTest(unittest.TestCase):
                 omp = copy.deepcopy(self.omp)
                 omp[entry][field] = value
                 self.assert_error(self.errors(omp), needle, repr(value))
+
+    def test_p3_auto_and_inherit_efforts_accepted(self) -> None:
+        for effort in ("auto", "inherit"):
+            with self.subTest(effort):
+                omp = copy.deepcopy(self.omp)
+                omp["fallback"]["effort"] = effort
+                snippet = policy.expected_snippet(omp)
+                self.assertEqual(self.errors(omp, snippet), [])
 
     def test_p4_agent_model_alias_rejected(self) -> None:
         omp = copy.deepcopy(self.omp)

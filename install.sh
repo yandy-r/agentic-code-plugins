@@ -143,8 +143,10 @@ plugins, mods):
     agents    base→base  skills→skills  everything else → no-op
               (both install ~/.agents/skills + ycc-shared/, the whole target;
               only the skills step is narrowed by --skills)
-    omp       base→base  plugins→base  everything else → no-op
-              (the native packages ycc and ycc-mcp carry skills, agents, commands and MCP servers)
+    omp       base→base  plugins→base  settings→settings  rules→rules
+              skills, agents, commands, hooks, mcp, mods → no-op
+              (the native packages ycc, ycc-mcp and ycc-rules carry skills, agents,
+              commands, MCP servers and rules; settings and rules are opt-in, user scope only)
 
 Remove ('remove' subcommand):
   Undoes what the selected steps installed, for every target and intent (same
@@ -442,16 +444,23 @@ Target steps:
                       install each skill into ~/.agents/skills/ (+ shared
                       helpers in ~/.agents/ycc-shared/). Foreign skills and
                       ~/.agents/plugins/ are never touched.
-  omp       base (needs omp >= 18.12.2 on PATH)
+  omp       base | settings | rules (needs omp >= 18.12.2 on PATH)
             base:     generate + validate packages/omp, export them to
                       \${XDG_DATA_HOME:-~/.local/share}/ycc/omp-marketplace,
                       register that export as the omp marketplace 'ycc', then
                       'omp plugin install|upgrade --scope user|project' for
-                      ycc@ycc and ycc-mcp@ycc (MCP servers ycc-mcp:<server>).
+                      ycc@ycc, ycc-mcp@ycc (MCP servers ycc-mcp:<server>) and
+                      ycc-rules@ycc (rules ycc-<family>-<stem>).
                       Ownership is recorded per omp profile in
                       ~/.config/ycc/omp-native-install.json; remove touches
                       only what ycc installed. Legacy ycc skills in
                       ~/.agents/skills are reported by 'migrate --target omp'.
+            settings: opt-in, user scope only. MERGE the ycc-owned
+                      modelRoles and tools.approvalMode leaves from
+                      ycc/settings/omp/config.yml into <agentDir>/config.yml
+                      (needs PyYAML); local edits are kept unless --force.
+            rules:    opt-in, user scope only. symlink
+                      ycc/settings/rules/AGENTS.md into <agentDir>/.
   all       Run claude then cursor then codex then opencode then agents (then
             omp, once omp >= 18.12.2 is on PATH and an OMP package is listed);
             step flags propagate.

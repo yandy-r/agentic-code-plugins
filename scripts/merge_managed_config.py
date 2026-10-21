@@ -29,8 +29,12 @@ patched textually (validated with ``tomllib`` before and after) so comments,
 ordering, quoting and unmanaged tables survive — Python ships no TOML writer.
 YAML destinations (OMP ``config.yml``) are parsed and re-serialized with the
 YAML 1.2 core schema OMP (Bun) uses, then re-parsed before the write.
-Re-serializing drops comments and formatting, so the first rewrite of an
-existing file saves a one-time ``<dest>.ycc-backup`` (mode 0600). PyYAML is imported lazily, only for YAML profiles.
+Re-serializing drops comments and formatting. Before a rewrite that would lose
+any (the file is not already ycc's own rendering), the original is saved to
+``<dest>.ycc-backup`` (mode 0600), or to the first free ``<dest>.ycc-backup.N``
+when an older backup holds different bytes; a backup is never overwritten and
+every such rewrite warns. Documents with aliases are refused, since a rewrite
+would expand them. PyYAML is imported lazily, only for YAML profiles.
 """
 
 from __future__ import annotations
@@ -344,7 +348,12 @@ def _yaml12() -> tuple[Any, type[Any], type[Any]]:
     1.1 resolvers and adds the 1.2 ones, so any string either reader would
     misread (``off``, ``0755``, ``1e3``, ``0o17``) is written quoted.
     """
-    import yaml  # Lazy: JSON and TOML profiles never need PyYAML.
+    try:
+        import yaml  # Lazy: JSON and TOML profiles never need PyYAML.
+    except ImportError as error:
+        raise MergeError(
+            "PyYAML is required to merge OMP config.yml; install it with: python3 -m pip install --user pyyaml"
+        ) from error
 
     dropped = YAML12_TAGS | {"tag:yaml.org,2002:timestamp", "tag:yaml.org,2002:value"}
 
@@ -374,13 +383,26 @@ def _yaml12() -> tuple[Any, type[Any], type[Any]]:
     class Dumper(yaml.SafeDumper):
         yaml_implicit_resolvers = resolvers(yaml.SafeDumper.yaml_implicit_resolvers, keep_tags=True)
 
+        def ignore_aliases(self, data: Any) -> bool:
+            # Never emit anchors/aliases: shared objects are written out in full.
+            return True
+
     return yaml, Loader, Dumper
 
 
 def load_yaml_config(raw: str, label: str | Path) -> dict[str, Any]:
-    """Parse YAML 1.2 into a mapping; empty means ``{}``, anything else is refused."""
+    """Parse YAML 1.2 into a mapping; empty means ``{}``, anything else is refused.
+
+    Aliases (including ``<<: *anchor`` merge keys) are refused: a rewrite would
+    expand them into copies and silently break the sharing.
+    """
     yaml, loader, _ = _yaml12()
     try:
+        if any(isinstance(event, yaml.AliasEvent) for event in yaml.parse(raw, Loader=loader)):
+            raise MergeError(
+                f"{label}: not a valid OMP config for ycc (YAML aliases are not supported); "
+                "replace them with plain values first, no changes made"
+            )
         data = yaml.load(raw, Loader=loader)
     except yaml.YAMLError as error:
         detail = " ".join(str(error).split())
@@ -1487,25 +1509,69 @@ def remove_yaml(
     return render_yaml(pruned, destination_path), changed, conflicts, stale_keys
 
 
-def backup_before_rewrite(profile: dict[str, Any], destination_path: Path) -> None:
-    """Save the original once before the first rewrite drops comments and formatting.
+def yaml_rewrite_is_lossless(raw: bytes) -> bool:
+    """True when re-rendering the file reproduces it byte for byte (ycc's own output).
 
-    An existing backup is never overwritten: it holds the pre-ycc original.
+    Anything else (comments, other formatting, key styles) would be dropped.
+    """
+    try:
+        text = raw.decode("utf-8")
+        return not text.strip() or render_yaml(load_yaml_config(text, "config"), "config") == text
+    except (UnicodeDecodeError, MergeError):
+        return False
+
+
+def ycc_backups(destination_path: Path) -> list[Path]:
+    """``<dest>.ycc-backup`` then ``<dest>.ycc-backup.1``, ``.2``, … up to the first free name.
+
+    The last entry does not exist yet; it is where a new backup goes.
+    """
+    base = destination_path.with_name(f"{destination_path.name}.ycc-backup")
+    names = [base]
+    while names[-1].exists() or names[-1].is_symlink():
+        names.append(base.with_name(f"{base.name}.{len(names)}"))
+    return names
+
+
+def backup_before_rewrite(profile: dict[str, Any], destination_path: Path) -> None:
+    """Save the current file before a rewrite drops its comments or formatting.
+
+    A file that is already ycc's own rendering loses nothing and is not saved.
+    Otherwise the bytes go to ``<dest>.ycc-backup``, or to the first free
+    ``<dest>.ycc-backup.N`` when the existing backups hold different bytes.
+    A backup is never overwritten, and every lossy rewrite warns.
     """
     if not profile.get("backup_original") or not destination_path.is_file():
         return
-    backup = destination_path.with_name(f"{destination_path.name}.ycc-backup")
-    if backup.exists() or backup.is_symlink():
-        return
     original = destination_path.read_bytes()
-    fd = os.open(backup, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    try:
-        os.fchmod(fd, 0o600)
-        os.write(fd, original)
-        os.fsync(fd)
-    finally:
-        os.close(fd)
+    if yaml_rewrite_is_lossless(original):
+        return
+    *existing, free = ycc_backups(destination_path)
+    backup = next((path for path in existing if path.is_file() and path.read_bytes() == original), None)
+    if backup is None:
+        backup = free
+        fd = os.open(backup, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        try:
+            os.fchmod(fd, 0o600)
+            os.write(fd, original)
+            os.fsync(fd)
+        finally:
+            os.close(fd)
     print(f"  [!!] comments and formatting in {destination_path} are not preserved; original saved to {backup}")
+
+
+def drop_ycc_only_backups(profile: dict[str, Any], destination_path: Path) -> None:
+    """After removing an emptied file, delete the backups ycc itself wrote.
+
+    A backup that is only ycc's own rendering holds no user content; backups
+    with comments or other formatting are kept.
+    """
+    if not profile.get("backup_original"):
+        return
+    for backup in ycc_backups(destination_path)[:-1]:
+        if backup.is_file() and not backup.is_symlink() and yaml_rewrite_is_lossless(backup.read_bytes()):
+            backup.unlink()
+            print(f"  [ok] removed ycc backup {backup}")
 
 
 def run_remove(
@@ -1581,6 +1647,7 @@ def run_remove(
     print(f"  [ok] removed {len(removed)} managed {noun} from {destination_path} {label}")
     if empty:
         print(f"  [ok] removed empty file {destination_path}")
+        drop_ycc_only_backups(profile, destination_path)
     return 0
 
 

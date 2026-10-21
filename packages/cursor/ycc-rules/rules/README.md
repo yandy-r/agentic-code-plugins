@@ -75,14 +75,17 @@ flattens this tree into the `ycc-rules` OMP package, because OMP scans plugin
   true (`common/security.md`, `common/git-workflow.md`), and then `globs` is
   dropped; source `paths` become `globs`. No other keys.
 - **Bodies.** Relative rule links become `rule://ycc-<family>-<stem>` URLs.
-  Generation fails on `~/.claude`, `CURSOR_PLUGIN_ROOT` or `/ycc:` tokens.
-- **Advisory globs.** OMP lists `globs` next to each rule but never attaches a
-  rule automatically. Language and web rules are on-demand rulebook entries read
+  Generation fails on `~/.claude` paths, Claude plugin-root variables or
+  `/ycc:` command tokens.
+- **Advisory globs.** OMP lists `globs` next to each rule but does not select
+  rules by glob. Rules marked `alwaysApply: true` (above) are still included
+  automatically; language and web rules are on-demand rulebook entries read
   via `rule://<name>`, so parity with Cursor is partial. Write descriptions
   that say when to read the rule.
 - **Override and disable.** Users override a rule by copying it under the same
   name to `<agentDir>/rules/` or `<cwd>/.omp/rules/`, or disable it with
-  `ttsr.disabledRules`. See [`docs/install/omp.md`](../../docs/install/omp.mdc#rules).
+  `ttsr.disabledRules`. See
+  [`docs/install/omp.md`](https://github.com/yandy-r/ystack/blob/main/docs/install/omp.md#rules).
 
 ## Adding guidance
 

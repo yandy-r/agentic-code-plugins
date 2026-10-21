@@ -1088,15 +1088,94 @@ class OmpYamlMergeTest(MergeBase):
         self.assertIn(f"original saved to {backup}", result.stdout)
         self.assertNotIn("# my machine", destination.read_text(encoding="utf-8"))
 
-        destination.write_text("# second comment\n" + destination.read_text(encoding="utf-8"), encoding="utf-8")
-        self.merge(self.write_source(approval="always-ask"), destination, force=True)
+        commented = "# second comment\n" + destination.read_text(encoding="utf-8")
+        destination.write_text(commented, encoding="utf-8")
+        result = self.merge(self.write_source(approval="always-ask"), destination, force=True)
 
+        rotated = self.tmp / "config.yml.ycc-backup.1"
         self.assertEqual(backup.read_text(encoding="utf-8"), original)
+        self.assertEqual(rotated.read_text(encoding="utf-8"), commented)
+        self.assertEqual(rotated.stat().st_mode & 0o777, 0o600)
+        self.assertIn(f"original saved to {rotated}", result.stdout)
         self.assertEqual(self.load(destination)["tools"]["approvalMode"], "always-ask")
 
-    def test_m7_uncommented_destination_is_backed_up(self) -> None:
+    def test_m7_ycc_rendering_is_not_backed_up_and_later_comments_are(self) -> None:
+        # Reproduces the stale-backup bug: a backup of ycc's own output used to
+        # block every later backup, so user comments were lost silently.
         destination = self.tmp / "config.yml"
-        original = "modelRoles:\n  smol: openai/gpt-5.6-mini\n"
+        source = self.write_source()
+        self.merge(source, destination)
+        result = self.merge(self.write_source(approval="always-ask"), destination)
+        self.assertNotIn("not preserved", result.stdout)
+        self.assertEqual(list(self.tmp.glob("config.yml.ycc-backup*")), [])
+
+        self.merge(source, destination, extra=("--remove",))
+        self.assertFalse(destination.exists())
+
+        commented = "# keep me\nmodelRoles:\n  smol: openai/gpt-5.6-mini\n"
+        destination.write_text(commented, encoding="utf-8")
+        result = self.merge(source, destination)
+
+        backup = self.tmp / "config.yml.ycc-backup"
+        self.assertEqual(backup.read_text(encoding="utf-8"), commented)
+        self.assertIn(f"comments and formatting in {destination} are not preserved", result.stdout)
+
+    def test_m7_remove_of_emptied_file_drops_ycc_only_backup(self) -> None:
+        destination = self.tmp / "config.yml"
+        source = self.write_source()
+        self.merge(source, destination)
+        # A backup left by an older ycc that saved its own rendering.
+        stale = self.tmp / "config.yml.ycc-backup"
+        stale.write_bytes(destination.read_bytes())
+        user = self.tmp / "config.yml.ycc-backup.1"
+        user.write_text("# mine\nmodelRoles: {}\n", encoding="utf-8")
+
+        result = self.merge(source, destination, extra=("--remove",))
+
+        self.assertFalse(destination.exists())
+        self.assertFalse(stale.exists())
+        self.assertIn(f"removed ycc backup {stale}", result.stdout)
+        self.assertEqual(user.read_text(encoding="utf-8"), "# mine\nmodelRoles: {}\n")
+
+    def test_yaml_aliases_refused_without_writes(self) -> None:
+        text = "base: &b\n  smol: openai/gpt-5.6-mini\nmodelRoles:\n  <<: *b\n"
+        destination = self.tmp / "config.yml"
+        destination.write_text(text, encoding="utf-8")
+
+        for extra in ((), ("--remove",)):
+            with self.subTest(extra=extra):
+                result = self.merge(self.write_source(), destination, expect_success=False, extra=extra)
+
+                self.assertEqual(result.returncode, 1)
+                self.assertIn("YAML aliases are not supported", result.stderr)
+                self.assertIn("no changes made", result.stderr)
+                self.assertEqual(destination.read_text(encoding="utf-8"), text)
+                self.assertEqual(list(self.tmp.glob("config.yml.ycc-backup*")), [])
+                self.assertFalse(self.state.exists())
+
+    def test_missing_pyyaml_fails_with_install_hint(self) -> None:
+        shadow = self.tmp / "no-yaml"
+        shadow.mkdir()
+        (shadow / "yaml.py").write_text("raise ImportError('No module named yaml')\n", encoding="utf-8")
+        destination = self.tmp / "config.yml"
+        source = self.write_source()
+        env = {**os.environ, "YCC_MANAGED_CONFIG_STATE": str(self.state), "PYTHONPATH": str(shadow)}
+        argv = [sys.executable, str(HELPER), "--profile", "omp-config", "--source", str(source)]
+        argv += ["--destination", str(destination), "--groups", "settings"]
+
+        result = subprocess.run(argv, capture_output=True, text=True, env=env)
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("PyYAML is required", result.stderr)
+        self.assertIn("pip install --user pyyaml", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+        self.assertFalse(destination.exists())
+        self.assertFalse(self.state.exists())
+
+    def test_m7_uncommented_formatting_is_backed_up(self) -> None:
+        # No comments, but quoting and indentation the rewrite would change.
+        destination = self.tmp / "config.yml"
+        original = 'modelRoles:\n    smol: "openai/gpt-5.6-mini"\n'
         destination.write_text(original, encoding="utf-8")
 
         self.merge(self.write_source(), destination)
@@ -1137,12 +1216,15 @@ class OmpYamlMergeTest(MergeBase):
                     self.assertIn(literal, text)
                 bun = shutil.which("bun")
                 if bun:
-                    script = "console.log(JSON.stringify(Bun.YAML.parse(await Bun.file(process.argv[1]).text())))"
-                    out = subprocess.run(
-                        [bun, "-e", script, str(destination)], capture_output=True, text=True, check=True
-                    ).stdout
-                    parsed = json.loads(out)
-                    self.assertEqual({key: parsed[key] for key in expected}, expected)
+                    script = (
+                        "if (typeof Bun.YAML?.parse !== 'function') process.exit(77);"
+                        "console.log(JSON.stringify(Bun.YAML.parse(await Bun.file(process.argv[1]).text())))"
+                    )
+                    run = subprocess.run([bun, "-e", script, str(destination)], capture_output=True, text=True)
+                    if run.returncode != 77:  # 77: this Bun has no Bun.YAML; the cross-check is optional.
+                        self.assertEqual(run.returncode, 0, run.stderr)
+                        parsed = json.loads(run.stdout)
+                        self.assertEqual({key: parsed[key] for key in expected}, expected)
         self.assertNotIn("modelRoles", self.load(destination))
 
 

@@ -101,8 +101,9 @@ The recommendation in `docs/research/ystack/recommendation.md` is qualified by
   run, and `ycc-all` is omitted because OMP ignores plugin dependencies. See ADR 0002. The
   opt-in harness installs a generated export of `ycc` (its catalog includes unlisted rows) from
   a local pinned fixture on omp 18.12.3 (YAN-1171). `install.sh install --target omp` installs the
-  same export, now `ycc` and `ycc-mcp`, from a checkout through `omp plugin` (YAN-1172,
-  YAN-1173); the repository has no published OMP catalog until a row is listed (YAN-1180).
+  same export, now `ycc`, `ycc-mcp` and `ycc-rules`, from a checkout through `omp plugin`
+  (YAN-1172, YAN-1173, YAN-1175); the repository has no published OMP catalog until a row is
+  listed (YAN-1180).
   YAN-1174: ycc ships no OMP hooks; herdr reporting is herdr's own OMP integration.
 
 ---

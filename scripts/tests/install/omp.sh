@@ -279,6 +279,22 @@ for flag in --settings --rules; do
     fi
 done
 
+# Without PyYAML, the omp preflight fails with an install hint before any write.
+home2="$(new_home)"
+mkdir -p "${home2}/no-yaml"
+printf 'raise ImportError("No module named yaml")\n' > "${home2}/no-yaml/yaml.py"
+if out="$(PYTHONPATH="${home2}/no-yaml" run_install "${home2}" install --target omp --settings)"; then
+    ko "omp without PyYAML fails" "${out}"
+else
+    assert_contains "${out}" "python3 -m pip install --user pyyaml" "omp without PyYAML names the install command"
+    assert_not_contains "${out}" "Traceback" "omp without PyYAML prints no traceback"
+fi
+if [[ ! -e "$(omp_agent "${home2}")/config.yml" && -z "$(omp_log "${home2}")" ]]; then
+    ok "omp without PyYAML writes nothing and makes no omp call"
+else
+    ko "omp without PyYAML writes nothing and makes no omp call"
+fi
+
 # --package never implies the opt-in settings or rules steps.
 home2="$(new_home)"
 install_must_succeed "${home2}" install --target omp --package ycc
