@@ -337,16 +337,17 @@ trusted projects, provider credentials, or CLI-written marketplace entries.
 and `remove`. Without either flag, steps that support project scope use it and
 every other step stays global. The project is the git root of the current
 directory, else the current directory. Today the `mcp` step is
-project-capable, and the omp `base` step accepts an explicit `--project`
-(omp's own default stays user scope):
+project-capable, the omp `base` step accepts an explicit `--project` (omp's own
+default stays user scope), and so does the opencode `settings` step for
+[third-party catalog plugins](opencode.md#third-party-plugins) only:
 
-| Target   | `--project`                                                                   | `--global`                         |
-| -------- | ----------------------------------------------------------------------------- | ---------------------------------- |
-| claude   | `<project>/.mcp.json` (default)                                               | `~/.claude.json`                   |
-| cursor   | `<project>/.cursor/mcp.json` (default)                                        | `~/.cursor/mcp.json`               |
-| codex    | `<project>/.codex/config.toml` (default)                                      | `~/.codex/config.toml`             |
-| opencode | `<project>/opencode.json` (default)                                           | `~/.config/opencode/opencode.json` |
-| omp      | `base`: `omp plugin install --scope project <package>@ycc` (`ycc`, `ycc-mcp`) | `--scope user` (default)           |
+| Target   | `--project`                                                                                                                                         | `--global`                         |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| claude   | `<project>/.mcp.json` (default)                                                                                                                     | `~/.claude.json`                   |
+| cursor   | `<project>/.cursor/mcp.json` (default)                                                                                                              | `~/.cursor/mcp.json`               |
+| codex    | `<project>/.codex/config.toml` (default)                                                                                                            | `~/.codex/config.toml`             |
+| opencode | `<project>/opencode.json` (default); catalog plugins (`--intent plugins --plugins <catalog names> --project`): companions in `<project>/.opencode/` | `~/.config/opencode/opencode.json` |
+| omp      | `base`: `omp plugin install --scope project <package>@ycc` (`ycc`, `ycc-mcp`)                                                                       | `--scope user` (default)           |
 
 Codex loads a project `.codex/config.toml` only for trusted projects; the
 installer warns when it writes one. An OMP project install shadows the user
@@ -354,7 +355,9 @@ install inside that project, and `--project` at `$HOME` is refused (see
 [`omp.md`](omp.md#project-scope)). An explicit `--project` combined with a step
 that has no project scope (for example `--only settings,mcp --project`) is
 rejected before anything runs: the error is about `settings`, not `mcp`. Drop
-`--project` to get project MCP plus global settings in one run.
+`--project` to get project MCP plus global settings in one run. opencode
+project settings likewise reject bundle plugins, the `settings` group and a run
+without catalog `--plugins` (the bundle settings and the guard are global-only).
 
 ### Selecting MCP Servers
 
@@ -430,14 +433,15 @@ a target. `--plugins <names>` (comma-separated) narrows `install`, `sync`, and
 ycc sync   --target claude   --intent plugins --plugins superpowers@claude-plugins-official,context7@claude-plugins-official
 ycc remove --target codex    --intent plugins --plugins cloudflare@openai-curated
 ycc sync   --target opencode --intent plugins --plugins @prevalentware/opencode-goal-plugin
+ycc sync   --target opencode --intent plugins --plugins oh-my-opencode-slim
 ycc list plugins --target claude
 ```
 
-| Target   | Names                                     | What a name selects                                                                                       |
-| -------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| claude   | `enabledPlugins` keys (`name@mkt`)        | the `enabledPlugins` key plus its marketplace (`extraKnownMarketplaces` entry, `pluginMarketplaces` item) |
-| codex    | `[plugins."name@mkt"]` table names        | that table in `~/.codex/config.toml`                                                                      |
-| opencode | `plugins` package names (version dropped) | that `plugins` item (`./ycc-sensitive-guard` also ships or removes its guard directory)                   |
+| Target   | Names                                                         | What a name selects                                                                                                                             |
+| -------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| claude   | `enabledPlugins` keys (`name@mkt`)                            | the `enabledPlugins` key plus its marketplace (`extraKnownMarketplaces` entry, `pluginMarketplaces` item)                                       |
+| codex    | `[plugins."name@mkt"]` table names                            | that table in `~/.codex/config.toml`                                                                                                            |
+| opencode | `plugins` package names (version dropped), then catalog names | that `plugins` item (`./ycc-sensitive-guard` also ships or removes its guard directory); a catalog name installs that opt-in third-party plugin |
 
 - Entries not named are left alone, along with their state. `settings` and
   `hooks` keys in the same run stay whole:
@@ -455,6 +459,11 @@ ycc list plugins --target claude
   plugins group with a warning; cursor, agents and omp have no plugins group.
 - Shell completion offers the names after `--plugins`, narrowed to the
   `--target` already on the command line (via `ycc list plugins`).
+- opencode also lists an opt-in catalog of pinned third-party plugins
+  (`ycc/settings/opencode-plugins.json`, for example `oh-my-opencode-slim`).
+  Only `--plugins` installs one: its pinned `plugins` item, its managed keys
+  and its companion config, plus printed manual follow-ups. See
+  [Third-party plugins](opencode.md#third-party-plugins).
 
 ### Removing Installed Config
 
@@ -464,6 +473,7 @@ ycc list plugins --target claude
 ./install.sh remove --target codex --intent settings,plugins,rules
 ./install.sh remove --target all --intent base,settings,rules,hooks,plugins,mods
 ./install.sh remove --target opencode --intent agents,commands
+./install.sh remove --target opencode --intent plugins --plugins oh-my-opencode-slim --purge-cache
 ```
 
 `remove` undoes any intent on any target, using the same intent → step mapping
@@ -472,18 +482,21 @@ requires `--only` or `--intent`, and rejects `--mode` and the additive
 `--settings`/`--rules`/`--mcp`/`--hooks` flags. Only what the installer owns is
 taken back:
 
-| Step / intent                  | What `remove` does                                                                                                                                                                                                                                                                                                                               |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `settings`, `plugins`, `hooks` | Strips repo-managed keys from the structured config (`settings.json`, `cli-config.json`, `config.toml`, `opencode.json`). List entries (plugin lists, Cursor permissions) lose only the items the installer appended. A claude marketplace stays while an enabled plugin still uses it.                                                          |
-| `mcp`                          | Strips managed MCP servers, including ones the repo has since dropped. Servers you added are never touched.                                                                                                                                                                                                                                      |
-| `rules`, claude `hooks` dir    | Removes the symlinks, only while they still point at this checkout. A real file you put there is never deleted.                                                                                                                                                                                                                                  |
-| claude statusline script       | Removed while identical to the repo copy; an edited copy needs `--force`.                                                                                                                                                                                                                                                                        |
-| `base`                         | claude: `claude plugin uninstall ycc@ycc` + marketplace remove. cursor / opencode: the bundle's entries in the synced dirs (your own skills stay). codex: plugin links, plugin cache, custom agents, marketplace entry. omp: the recorded `ycc@ycc` and `ycc-mcp@ycc` installs for the scope, then the `ycc` marketplace and export once unused. |
-| `skills`, `agents`, `commands` | Removes the standalone entries ycc recorded (or that are still identical to the bundle). Never the plugin, never your own entries without `--force`. On claude, `commands` retires only the recorded legacy `~/.claude/commands/` wrappers.                                                                                                      |
-| `mods` (claude)                | Uninstalls each mod and the `ycc-mods` marketplace.                                                                                                                                                                                                                                                                                              |
+| Step / intent                  | What `remove` does                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `settings`, `plugins`, `hooks` | Strips repo-managed keys from the structured config (`settings.json`, `cli-config.json`, `config.toml`, `opencode.json`). List entries (plugin lists, Cursor permissions) lose only the items the installer appended. A claude marketplace stays while an enabled plugin still uses it. opencode catalog plugins (the selected ones, else every one ycc installed) also lose their companion files when unchanged; `--purge-cache` also deletes their opencode package cache. |
+| `mcp`                          | Strips managed MCP servers, including ones the repo has since dropped. Servers you added are never touched.                                                                                                                                                                                                                                                                                                                                                                   |
+| `rules`, claude `hooks` dir    | Removes the symlinks, only while they still point at this checkout. A real file you put there is never deleted.                                                                                                                                                                                                                                                                                                                                                               |
+| claude statusline script       | Removed while identical to the repo copy; an edited copy needs `--force`.                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `base`                         | claude: `claude plugin uninstall ycc@ycc` + marketplace remove. cursor / opencode: the bundle's entries in the synced dirs (your own skills stay). codex: plugin links, plugin cache, custom agents, marketplace entry. omp: the recorded `ycc@ycc` and `ycc-mcp@ycc` installs for the scope, then the `ycc` marketplace and export once unused.                                                                                                                              |
+| `skills`, `agents`, `commands` | Removes the standalone entries ycc recorded (or that are still identical to the bundle). Never the plugin, never your own entries without `--force`. On claude, `commands` retires only the recorded legacy `~/.claude/commands/` wrappers.                                                                                                                                                                                                                                   |
+| `mods` (claude)                | Uninstalls each mod and the `ycc-mods` marketplace.                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 - Cursor `hooks` removes the owned session script in `~/.cursor/hooks/` and the managed `sessionStart` entries in `~/.cursor/hooks.json`.
 - A managed value you edited is kept with a warning; `--force` removes it.
+- `--purge-cache` is valid only with `remove`. It deletes the
+  `${XDG_CACHE_HOME:-~/.cache}/opencode` `npm/`, `packages/` and `node_modules/`
+  copies of each catalog plugin removed from `opencode.json`.
 - A config file left empty is deleted. Codex TOML removal keeps comments,
   trusted projects and unrelated tables.
 

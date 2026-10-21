@@ -40,7 +40,7 @@ Commands:
   sync        Sync what you name, nothing else.
               $(basename "$0") sync --target <targets> --intent <intents> [--mcps <servers>] [--skills <names>] [--agents <names>] [--commands <names>] [--plugins <names>] [--mode <mode>] [--project|--global] [--force] [--dry-run]
   remove      Strip installer-managed config.
-              $(basename "$0") remove --target <targets> (--only <steps> | --intent <intents>) [--mcps <servers>] [--skills <names>] [--agents <names>] [--commands <names>] [--plugins <names>] [--project|--global] [--force] [--dry-run]
+              $(basename "$0") remove --target <targets> (--only <steps> | --intent <intents>) [--mcps <servers>] [--skills <names>] [--agents <names>] [--commands <names>] [--plugins <names>] [--project|--global] [--force] [--purge-cache] [--dry-run]
   migrate     Preview a global native-package migration (no writes by default).
               $(basename "$0") migrate --target claude|codex|cursor|omp|all [--apply] [--marketplace-source <dir>]
               all resolves only claude,codex,cursor (run omp separately; it needs
@@ -85,6 +85,7 @@ step-flag form used for first-time setup.
   $(basename "$0") sync --target claude,codex --intent skills,agents
   $(basename "$0") sync --target claude,codex --intent agents --agents implementor,code-reviewer
   $(basename "$0") sync --target opencode --intent skills,commands --skills clean --commands clean
+  $(basename "$0") sync --target opencode --intent plugins --plugins oh-my-opencode-slim
 
 Intents (valid: base, skills, agents, commands, settings, rules, mcp, hooks,
 plugins, mods):
@@ -180,14 +181,17 @@ Remove ('remove' subcommand):
   $(basename "$0") remove --target codex --intent settings,rules
   $(basename "$0") remove --target all --intent base,settings,rules,hooks,plugins,mods
   $(basename "$0") remove --target opencode --intent agents,commands
+  $(basename "$0") remove --target opencode --intent plugins --plugins oh-my-opencode-slim --purge-cache
   $(basename "$0") remove --target omp --only base --dry-run    # preview the omp uninstall
 
 Scope (--project | --global, mutually exclusive):
   Without a flag, steps that support project scope use it; all others stay
   global. --project with a step lacking project support is an error. The
   project is the git toplevel of the current directory (else the directory).
-  Project-capable steps today: mcp (default project), and omp base (opt-in:
-  only with an explicit --project; omp installs default to user scope).
+  Project-capable steps today: mcp (default project), omp base (opt-in:
+  only with an explicit --project; omp installs default to user scope), and
+  opencode settings for catalog plugins only (opt-in: <project>/opencode.json
+  plus companions in <project>/.opencode/).
 
     target    mcp --project                   mcp --global
     claude    <project>/.mcp.json             ~/.claude.json
@@ -308,11 +312,21 @@ Options:
                       Marketplaces follow their plugins; remove keeps one
                       while an enabled plugin still uses it. A target that
                       manages none of them skips its plugins group.
+                      opencode also offers an opt-in catalog of pinned
+                      third-party plugins (ycc/settings/opencode-plugins.json,
+                      e.g. oh-my-opencode-slim): only --plugins installs one;
+                      it merges the pinned item plus its managed keys, ships
+                      its companion config, and prints manual follow-ups.
+                      remove without --plugins takes back every catalog
+                      plugin ycc installed.
                       Names: '$(basename "$0") list plugins'
   --project           Scope-capable steps (today: mcp) write into the current
                       project. Default when neither flag is given. omp base
                       installs at omp's project scope only with an explicit
-                      --project (never at \$HOME).
+                      --project (never at \$HOME). opencode settings, opt-in
+                      and for catalog plugins only (--intent plugins
+                      --plugins <catalog names>): <project>/opencode.json and
+                      <project>/.opencode/.
   --global            Scope-capable steps write into user-global config.
   --hooks             Additive: also run the target's 'hooks' step.
                       Currently supported by the claude target only; silently
@@ -323,6 +337,9 @@ Options:
                       omp: reinstall ycc-owned packages
                       ('omp plugin install --force') and replace a stale ycc
                       export directory.
+  --purge-cache       remove only, opencode: also delete the opencode package
+                      cache (~/.cache/opencode npm/, packages/, node_modules/)
+                      of each catalog plugin removed from opencode.json.
   --dry-run           install / sync / remove, omp target only (every resolved
                       target must be omp). Previews every 'omp plugin' call
                       (omp's own --dry-run where it has one) and the planned
@@ -562,6 +579,8 @@ SETTINGS=0
 RULES=0
 HOOKS=0
 FORCE=0
+# Read by targets/opencode-catalog.sh (remove only).
+PURGE_CACHE=0
 EXCLUSIVE_STEPS=0
 ONLY_STEPS=()
 INTENTS=()
@@ -658,6 +677,7 @@ while [[ $# -gt 0 ]]; do
         --rules)    RULES=1; shift ;;
         --hooks)    HOOKS=1; shift ;;
         --dry-run)  DRY_RUN=1; shift ;;
+        --purge-cache) PURGE_CACHE=1; shift ;;
         --project|--global)
             if [[ -n "${SCOPE}" && "${SCOPE}" != "${1#--}" ]]; then
                 err "--project and --global are mutually exclusive"
@@ -709,6 +729,9 @@ if [[ "${COMMAND}" == "remove" ]]; then
         err "remove requires --only <steps> or --intent <intents>"
         exit 1
     fi
+elif [[ "${PURGE_CACHE}" == "1" ]]; then
+    err "--purge-cache is only valid with 'remove'"
+    exit 1
 fi
 
 if [[ -n "${PACKAGE}" ]]; then

@@ -30,8 +30,9 @@ RED=$'\033[0;31m'
 GREEN=$'\033[0;32m'
 NC=$'\033[0m'
 
-# Per-user dir overrides would escape the sandbox HOME.
-unset XDG_BIN_HOME XDG_DATA_HOME XDG_CONFIG_HOME BASH_COMPLETION_USER_DIR
+# Per-user dir overrides would escape the sandbox HOME (XDG_CACHE_HOME: the
+# opencode --purge-cache tests delete under it).
+unset XDG_BIN_HOME XDG_DATA_HOME XDG_CONFIG_HOME XDG_CACHE_HOME XDG_STATE_HOME BASH_COMPLETION_USER_DIR
 # A git hook (lefthook pre-push) exports GIT_DIR and friends; a sandbox 'git init'
 # under them would write into this checkout's repository (even set core.bare).
 while IFS= read -r git_var; do unset "${git_var}"; done < <(git rev-parse --local-env-vars)

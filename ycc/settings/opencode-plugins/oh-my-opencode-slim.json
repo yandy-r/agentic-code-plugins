@@ -1,0 +1,21 @@
+{
+  "$schema": "https://unpkg.com/oh-my-opencode-slim@3.0.5/oh-my-opencode-slim.schema.json",
+  "preset": "openai",
+  "presets": {
+    "openai": {
+      "orchestrator": { "model": "openai/gpt-6-sol", "variant": "high", "skills": ["*"] },
+      "oracle": { "model": "openai/gpt-6-astra", "variant": "high", "skills": ["simplify"] },
+      "explorer": { "model": "openai/gpt-6-luna", "variant": "low", "skills": [] },
+      "designer": { "model": "openai/gpt-6-luna", "variant": "medium", "skills": [] },
+      "fixer": { "model": "openai/gpt-6-luna", "variant": "high", "skills": [] }
+    },
+    "opencode-go": {
+      "orchestrator": { "model": "opencode-go/minimax-m3", "variant": "thinking", "skills": ["*"] },
+      "oracle": { "model": "opencode-go/qwen3.7-max", "variant": "max", "skills": ["simplify"] },
+      "explorer": { "model": "opencode-go/deepseek-v4-flash", "variant": "high", "skills": [] },
+      "designer": { "model": "opencode-go/kimi-k2.7-code", "skills": [] },
+      "fixer": { "model": "opencode-go/deepseek-v4-flash", "variant": "high", "skills": [] },
+      "observer": { "model": "opencode-go/mimo-v2.5", "skills": [] }
+    }
+  }
+}

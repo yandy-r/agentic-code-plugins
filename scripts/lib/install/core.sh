@@ -191,18 +191,35 @@ plugins_source() {
 # Sets PLUGINS_GROUPS to <groups>, minus 'plugins' when <target> manages none
 # of the selected plugins (warns), and PLUGINS_SELECT to the helper arguments
 # narrowing only the plugins group (empty without --plugins or without the
-# group, so settings/hooks in the same run always stay whole).
+# group, so settings/hooks in the same run always stay whole). A target with
+# an opt-in plugin catalog (<t>_catalog_names, opencode) gets its selected
+# catalog names split off into PLUGINS_CATALOG_SELECT; a selection of catalog
+# names only drops the bundle 'plugins' group without a warning.
 plugins_selection() {
     local target="$1"
     PLUGINS_GROUPS="$2"
     PLUGINS_SELECT=()
+    PLUGINS_CATALOG_SELECT=""
     has_selection plugins || return 0
     [[ ",${PLUGINS_GROUPS}," == *",plugins,"* ]] || return 0
     local selection
     selection="$(selection_for_target plugins "${target}")"
+    if [[ -n "${selection}" ]] && declare -F "${target}_catalog_names" >/dev/null; then
+        local -a catalog=() bundle=()
+        local name
+        mapfile -t catalog < <("${target}_catalog_names")
+        for name in ${selection//,/ }; do
+            if [[ " ${catalog[*]} " == *" ${name} "* ]]; then
+                PLUGINS_CATALOG_SELECT+="${PLUGINS_CATALOG_SELECT:+,}${name}"
+            else
+                bundle+=("${name}")
+            fi
+        done
+        selection="$(IFS=','; echo "${bundle[*]:-}")"
+    fi
     if [[ -z "${selection}" ]]; then
-        selection="$(selection_for plugins)"
-        warn "none of the selected plugins (${selection//,/ }) is managed for ${target} — skipping its plugins group"
+        [[ -n "${PLUGINS_CATALOG_SELECT}" ]] \
+            || warn "none of the selected plugins ($(selection_for plugins | tr ',' ' ')) is managed for ${target} — skipping its plugins group"
         local -a kept=()
         local group
         for group in ${PLUGINS_GROUPS//,/ }; do

@@ -84,7 +84,8 @@ _ycc() {
             _arguments "${common[@]}" "${mode}" "${intent}" "${selectors[@]}"
             ;;
         remove)
-            _arguments "${common[@]}" "${only}" "${intent}" "${selectors[@]}"
+            _arguments "${common[@]}" "${only}" "${intent}" "${selectors[@]}" \
+                '--purge-cache[also delete the opencode package cache of removed catalog plugins]'
             ;;
     esac
 }

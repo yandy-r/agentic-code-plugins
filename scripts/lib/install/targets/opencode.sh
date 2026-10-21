@@ -2,10 +2,15 @@
 # opencode.sh — the opencode target: implements the per-target contract that install.sh
 # dispatches through (see scripts/lib/install/steps.sh):
 #   opencode_valid_steps, opencode_intent_steps <intent>, opencode_config_groups,
+#   opencode_project_steps, opencode_preflight, opencode_catalog_names,
 #   opencode_supports_repo_mode, opencode_reads_agents_skills, sync_opencode_target, remove_opencode_target
 #
 # Sourced by install.sh (never run directly); inherits SCRIPT_DIR and the
-# shared helpers from core.sh / steps.sh / bundle.sh.
+# shared helpers from core.sh / steps.sh / bundle.sh. The opt-in third-party
+# plugin catalog lives in opencode-catalog.sh.
+
+# shellcheck source=scripts/lib/install/targets/opencode-catalog.sh
+source "${SCRIPT_DIR}/scripts/lib/install/targets/opencode-catalog.sh"
 
 # shellcheck disable=SC2034  # read by the opencode sync/remove and MCP steps.
 OPENCODE_PLUGIN_DIR="${SCRIPT_DIR}/.opencode-plugin"
@@ -43,6 +48,10 @@ opencode_intent_steps() {
 # opencode_config_groups — default managed config groups for opencode.json.
 # MCP servers are owned by the scope-aware 'mcp' step.
 opencode_config_groups() { echo "settings,plugins"; }
+
+# opencode_project_steps — steps an explicit --project may run: settings, for
+# catalog plugins only (opencode_preflight rejects anything else).
+opencode_project_steps() { echo "settings"; }
 
 # opencode reads bundles from local directories only.
 opencode_supports_repo_mode() { return 1; }
@@ -145,16 +154,18 @@ sync_opencode_target() {
 
     if [[ $do_settings -eq 1 ]]; then
         step=$((step + 1))
-        printf '\n%s[%d/%d] Merge opencode config (opencode.json)%s\n' "${BOLD}" "$step" "$total" "${NC}"
-        mkdir -p "${opencode_dir}"
+        opencode_settings_paths
+        printf '\n%s[%d/%d] Merge opencode config (%s)%s\n' "${BOLD}" "$step" "$total" "${OPENCODE_SETTINGS_FILE}" "${NC}"
+        mkdir -p "$(dirname "${OPENCODE_SETTINGS_FILE}")"
         # Merge managed keys only: per-machine model overrides, provider
         # credentials and unknown keys in the user's opencode.json are kept.
+        # Project scope (opencode_preflight) carries catalog plugins only.
         plugins_selection opencode "$(config_groups_for_target opencode)"
         if [[ -n "${PLUGINS_GROUPS}" ]]; then
             merge_settings_config \
                 "opencode-config" \
                 "${OPENCODE_PLUGIN_DIR}/opencode.json" \
-                "${opencode_dir}/opencode.json" \
+                "${OPENCODE_SETTINGS_FILE}" \
                 "${PLUGINS_GROUPS}" "${PLUGINS_SELECT[@]}"
         fi
         # The managed `plugins` group loads "./ycc-sensitive-guard"; ship that
@@ -164,6 +175,7 @@ sync_opencode_target() {
             command -v rsync >/dev/null 2>&1 || { err "rsync is required but not found"; exit 1; }
             sync_bundle_units "${OPENCODE_PLUGIN_DIR}" "${opencode_dir}" ycc-sensitive-guard
         fi
+        opencode_catalog_sync
     fi
 
     if [[ $do_rules -eq 1 ]]; then
@@ -203,16 +215,18 @@ remove_opencode_target() {
         unlink_owned_link "${OPENCODE_PLUGIN_DIR}/AGENTS.md" "${opencode_dir}/AGENTS.md"
     fi
     if step_enabled settings; then
-        printf '\n%sopencode: remove managed config (opencode.json)%s\n' "${BOLD}" "${NC}"
+        opencode_settings_paths
+        printf '\n%sopencode: remove managed config (%s)%s\n' "${BOLD}" "${OPENCODE_SETTINGS_FILE}" "${NC}"
         plugins_selection opencode "$(config_groups_for_target opencode)"
         remove_settings "opencode-config" "${OPENCODE_PLUGIN_DIR}/opencode.json" \
-            "${opencode_dir}/opencode.json" "${PLUGINS_GROUPS}" "${PLUGINS_SELECT[@]}"
+            "${OPENCODE_SETTINGS_FILE}" "${PLUGINS_GROUPS}" "${PLUGINS_SELECT[@]}"
         # The guard plugin goes with the `plugins` entry that loads it; an
         # entry kept as a local edit still loads it, so the directory stays.
         if opencode_guard_selected && ! step_enabled base \
             && ! opencode_config_loads_guard "${opencode_dir}/opencode.json"; then
             remove_mirrored_entries "${OPENCODE_PLUGIN_DIR}/ycc-sensitive-guard" "${opencode_dir}/ycc-sensitive-guard"
         fi
+        opencode_catalog_remove
     fi
     remove_slices opencode skills agents commands
     if step_enabled base; then
@@ -241,16 +255,35 @@ opencode_guard_selected() {
 # opencode_config_loads_guard <opencode.json> — true when its `plugins` list
 # still names the bundle's "./ycc-sensitive-guard" entry.
 opencode_config_loads_guard() {
+    opencode_config_loads "$1" ./ycc-sensitive-guard
+}
+
+# opencode_config_loads <opencode.json> <name> — true when its `plugins` list
+# has an item keyed <name> (package name without its version, as the merge
+# helper keys list items; a trailing '/' on a local path is ignored). The file
+# is read as JSONC, as opencode reads it.
+opencode_config_loads() {
     [[ -f "$1" ]] || return 1
-    python3 - "$1" <<'PY'
+    python3 - "$1" "$2" "${SCRIPT_DIR}/scripts" <<'PY'
 import json
 import sys
 
+sys.path.insert(0, sys.argv[3])
+from merge_managed_config import strip_jsonc  # noqa: E402
+
 try:
-    plugins = json.load(open(sys.argv[1], encoding="utf-8")).get("plugins", [])
+    with open(sys.argv[1], encoding="utf-8") as handle:
+        plugins = json.loads(strip_jsonc(handle.read())).get("plugins", [])
 except (OSError, ValueError, AttributeError):
     sys.exit(1)
+
+
+def key(spec: str) -> str:
+    cut = spec.find("@", 1)
+    return (spec[:cut] if cut > 0 else spec).rstrip("/")
+
+
 specs = {p if isinstance(p, str) else p.get("package") for p in plugins if isinstance(p, (str, dict))}
-sys.exit(0 if specs & {"./ycc-sensitive-guard", "./ycc-sensitive-guard/"} else 1)
+sys.exit(0 if sys.argv[2].rstrip("/") in {key(s) for s in specs if isinstance(s, str)} else 1)
 PY
 }

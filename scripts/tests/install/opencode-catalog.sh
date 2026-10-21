@@ -1,0 +1,224 @@
+#!/usr/bin/env bash
+# install.sh tests — opencode third-party plugin catalog
+# (ycc/settings/opencode-plugins.json): opt-in sync, idempotence, companion
+# ownership, byte-identical remove, --purge-cache and --project.
+#
+# Runs alone (bash scripts/tests/install/opencode-catalog.sh) or from scripts/test-install-sync.sh.
+# shellcheck source=scripts/tests/install/lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+SLIM=oh-my-opencode-slim
+SLIM_PKG="${SLIM}@3.0.5"
+SLIM_COMPANION_SRC="${REPO_ROOT}/ycc/settings/opencode-plugins/${SLIM}.json"
+
+# catalog_seed <opencode.json> — a user config in the formatting the merge
+# helper writes (json.dumps indent=2 + newline), so remove can be checked
+# byte-for-byte against it.
+catalog_seed() {
+    mkdir -p "$(dirname "$1")"
+    printf '%s\n' '{
+  "model": "9router/Frontier",
+  "plugins": [
+    "@user/local-plugin"
+  ]
+}' > "$1"
+}
+
+# json_query <file> <python expr over `d`> — print the expression's value.
+json_query() {
+    python3 -c 'import json, sys; d = json.load(open(sys.argv[1])); print(eval(sys.argv[2]))' "$1" "$2"
+}
+
+echo "== opencode catalog: list and default =="
+
+home="$(new_home)"
+install_must_succeed "${home}" list plugins --target opencode
+assert_contains $'\n'"${INSTALL_OUT}"$'\n' $'\n'"${SLIM}"$'\n' "list plugins --target opencode lists the catalog name"
+
+home="$(new_home)"
+install_must_succeed "${home}" sync --target opencode --intent plugins
+merged="$(cat "${home}/.config/opencode/opencode.json")"
+assert_contains "${merged}" "./ycc-sensitive-guard" "default --intent plugins merges the bundle plugins"
+assert_not_contains "${merged}" "${SLIM}" "default --intent plugins does not install a catalog plugin"
+if [[ ! -e "${home}/.config/opencode/${SLIM}.json" ]]; then ok "default run ships no catalog companion"; else ko "default run ships no catalog companion"; fi
+
+echo "== opencode catalog: sync --plugins ${SLIM} =="
+
+home="$(new_home)"
+cfg="${home}/.config/opencode/opencode.json"
+companion="${home}/.config/opencode/${SLIM}.json"
+catalog_seed "${cfg}"
+install_must_succeed "${home}" sync --target opencode --intent plugins --plugins "${SLIM}"
+out="${INSTALL_OUT}"
+assert_contains "$(json_query "${cfg}" 'd["plugins"]')" "'${SLIM_PKG}'" "catalog sync adds the pinned plugins item"
+assert_contains "$(json_query "${cfg}" 'd["plugins"]')" "'@user/local-plugin'" "catalog sync keeps the user plugin"
+assert_not_contains "$(json_query "${cfg}" 'd["plugins"]')" "ycc-sensitive-guard" "a catalog-only selection leaves the bundle plugins alone"
+assert_contains "$(json_query "${cfg}" '[d["agents"][a]["disabled"] for a in ("explore", "general")]')" "[True, True]" "catalog sync sets agents.{explore,general}.disabled"
+if cmp -s "${SLIM_COMPANION_SRC}" "${companion}"; then ok "catalog sync ships the companion config"; else ko "catalog sync ships the companion config"; fi
+assert_contains "${out}" "OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true" "catalog sync prints the shell-rc note"
+assert_contains "${out}" '"lsp": true' "catalog sync prints the lsp note"
+assert_not_contains "${out}" "none of the selected plugins" "a catalog-only selection does not warn about the bundle group"
+if [[ ! -e "${home}/.config/opencode/ycc-sensitive-guard" ]]; then ok "a catalog-only selection ships no guard dir"; else ko "a catalog-only selection ships no guard dir"; fi
+
+cp "${cfg}" "${home}/first.json"
+cp "${companion}" "${home}/first-companion.json"
+install_must_succeed "${home}" sync --target opencode --intent plugins --plugins "${SLIM}"
+if cmp -s "${home}/first.json" "${cfg}" && cmp -s "${home}/first-companion.json" "${companion}"; then
+    ok "a second catalog sync is a byte-identical no-op"
+else
+    ko "a second catalog sync is a byte-identical no-op" "$(diff "${home}/first.json" "${cfg}")"
+fi
+
+printf '{"preset": "mine"}\n' > "${companion}"
+install_must_succeed "${home}" sync --target opencode --intent plugins --plugins "${SLIM}"
+assert_contains "${INSTALL_OUT}" "kept ${companion}: local edits" "catalog sync warns about a user-edited companion"
+assert_contains "$(cat "${companion}")" '"mine"' "catalog sync keeps a user-edited companion"
+
+echo "== opencode catalog: mixed bundle + catalog selection =="
+
+home="$(new_home)"
+install_must_succeed "${home}" sync --target opencode --intent plugins --plugins "./ycc-sensitive-guard,${SLIM}"
+merged="$(cat "${home}/.config/opencode/opencode.json")"
+assert_contains "${merged}" "./ycc-sensitive-guard" "a mixed selection merges the bundle item"
+assert_contains "${merged}" "${SLIM_PKG}" "a mixed selection merges the catalog item"
+assert_not_contains "${merged}" "@prevalentware/opencode-goal-plugin" "a mixed selection skips the unselected bundle item"
+if [[ -f "${home}/.config/opencode/ycc-sensitive-guard/index.js" ]]; then ok "a mixed selection ships the guard dir"; else ko "a mixed selection ships the guard dir"; fi
+install_must_succeed "${home}" remove --target opencode --intent plugins --plugins "${SLIM}"
+merged="$(cat "${home}/.config/opencode/opencode.json")"
+assert_not_contains "${merged}" "${SLIM}" "remove --plugins <catalog> takes the catalog item"
+assert_contains "${merged}" "./ycc-sensitive-guard" "remove --plugins <catalog> keeps the bundle item"
+if [[ -d "${home}/.config/opencode/ycc-sensitive-guard" ]]; then ok "remove --plugins <catalog> keeps the guard dir"; else ko "remove --plugins <catalog> keeps the guard dir"; fi
+
+echo "== opencode catalog: remove =="
+
+home="$(new_home)"
+cfg="${home}/.config/opencode/opencode.json"
+companion="${home}/.config/opencode/${SLIM}.json"
+catalog_seed "${cfg}"
+cp "${cfg}" "${home}/seed.json"
+install_must_succeed "${home}" sync --target opencode --intent plugins --plugins "${SLIM}"
+install_must_succeed "${home}" remove --target opencode --intent plugins --plugins "${SLIM}"
+if cmp -s "${home}/seed.json" "${cfg}"; then ok "catalog remove restores opencode.json byte-identical to the seed"; else ko "catalog remove restores opencode.json byte-identical to the seed" "$(diff "${home}/seed.json" "${cfg}")"; fi
+if [[ ! -e "${companion}" ]]; then ok "catalog remove deletes the companion"; else ko "catalog remove deletes the companion"; fi
+assert_contains "${INSTALL_OUT}" "you may delete these lines from your shell rc" "catalog remove prints the rc cleanup note"
+
+# remove --intent plugins without --plugins takes back every catalog plugin
+# ycc installed, and the bundle items; a home without one is a quiet no-op.
+home="$(new_home)"
+cfg="${home}/.config/opencode/opencode.json"
+catalog_seed "${cfg}"
+cp "${cfg}" "${home}/seed.json"
+install_must_succeed "${home}" sync --target opencode --intent plugins
+install_must_succeed "${home}" sync --target opencode --intent plugins --plugins "${SLIM}"
+install_must_succeed "${home}" remove --target opencode --intent plugins
+if cmp -s "${home}/seed.json" "${cfg}"; then ok "remove --intent plugins takes back bundle and catalog items"; else ko "remove --intent plugins takes back bundle and catalog items" "$(diff "${home}/seed.json" "${cfg}")"; fi
+if [[ ! -e "${home}/.config/opencode/${SLIM}.json" ]]; then ok "remove --intent plugins deletes the catalog companion"; else ko "remove --intent plugins deletes the catalog companion"; fi
+
+home="$(new_home)"
+catalog_seed "${home}/.config/opencode/opencode.json"
+install_must_succeed "${home}" sync --target opencode --intent plugins
+install_must_succeed "${home}" remove --target opencode --intent plugins
+assert_not_contains "${INSTALL_OUT}" "you may delete these lines" "remove of a never-installed catalog plugin prints no notes"
+
+# A user-written slim entry is the user's: remove keeps it and its cache.
+home="$(new_home)"
+cfg="${home}/.config/opencode/opencode.json"
+printf '{"plugins": ["%s"]}\n' "${SLIM_PKG}" > "${cfg}"
+mkdir -p "${home}/.cache/opencode/npm/${SLIM_PKG}/1/node_modules/${SLIM}"
+install_must_succeed "${home}" remove --target opencode --intent plugins --plugins "${SLIM}" --purge-cache
+assert_contains "$(cat "${cfg}")" "${SLIM_PKG}" "remove keeps a user-written catalog item"
+if [[ -d "${home}/.cache/opencode/npm/${SLIM_PKG}" ]]; then ok "--purge-cache keeps the cache a kept item still loads"; else ko "--purge-cache keeps the cache a kept item still loads"; fi
+
+# A JSONC opencode.json is read as opencode reads it: the user's item still
+# loads the plugin, so --purge-cache keeps its cache.
+home="$(new_home)"
+cfg="${home}/.config/opencode/opencode.json"
+mkdir -p "$(dirname "${cfg}")"
+printf '{\n  // mine\n  "plugins": ["%s",],\n}\n' "${SLIM_PKG}" > "${cfg}"
+mkdir -p "${home}/.cache/opencode/npm/${SLIM_PKG}/1/node_modules/${SLIM}"
+install_must_succeed "${home}" remove --target opencode --intent plugins --plugins "${SLIM}" --purge-cache
+assert_contains "$(cat "${cfg}")" "${SLIM_PKG}" "remove keeps a user-written catalog item in a JSONC opencode.json"
+if [[ -d "${home}/.cache/opencode/npm/${SLIM_PKG}" ]]; then ok "--purge-cache keeps the cache a JSONC config still loads"; else ko "--purge-cache keeps the cache a JSONC config still loads"; fi
+
+# slim's own installer: a user-written item and a companion identical to ycc's
+# copy, with no ycc state. Remove keeps both.
+home="$(new_home)"
+cfg="${home}/.config/opencode/opencode.json"
+companion="${home}/.config/opencode/${SLIM}.json"
+mkdir -p "$(dirname "${cfg}")"
+printf '{"plugins": ["%s"]}\n' "${SLIM_PKG}" > "${cfg}"
+cp "${SLIM_COMPANION_SRC}" "${companion}"
+install_must_succeed "${home}" remove --target opencode --intent plugins
+if cmp -s "${SLIM_COMPANION_SRC}" "${companion}"; then ok "remove keeps a companion ycc never installed"; else ko "remove keeps a companion ycc never installed"; fi
+assert_contains "$(cat "${cfg}")" "${SLIM_PKG}" "remove keeps the user-written item beside that companion"
+
+echo "== opencode catalog: shared agents entries with the bundle settings =="
+
+home="$(new_home)"
+cfg="${home}/.config/opencode/opencode.json"
+install_must_succeed "${home}" sync --target opencode --intent settings,plugins
+install_must_succeed "${home}" sync --target opencode --intent plugins --plugins "${SLIM}"
+assert_contains "$(json_query "${cfg}" '[sorted(d["agents"][a]) for a in ("explore", "general")]')" "[['disabled', 'model'], ['disabled', 'model']]" "catalog sync adds disabled beside the bundle model"
+install_must_succeed "${home}" remove --target opencode --intent plugins --plugins "${SLIM}"
+assert_not_contains "${INSTALL_OUT}" "kept your local value" "catalog remove owns only its agents leaves"
+assert_contains "$(json_query "${cfg}" '[sorted(d["agents"][a]) for a in ("explore", "general")]')" "[['model'], ['model']]" "catalog remove keeps the bundle model and drops disabled"
+install_must_succeed "${home}" remove --target opencode --intent settings,plugins
+assert_not_contains "${INSTALL_OUT}" "kept your local value" "bundle remove after a catalog remove has no conflicts"
+if [[ ! -e "${cfg}" ]] || ! grep -q '"agents"' "${cfg}"; then ok "bundle remove takes the agents back"; else ko "bundle remove takes the agents back" "$(cat "${cfg}")"; fi
+
+echo "== opencode catalog: --purge-cache =="
+
+home="$(new_home)"
+cache="${home}/.cache/opencode"
+mkdir -p "${cache}/npm/${SLIM_PKG}/1/node_modules/${SLIM}" "${cache}/packages/${SLIM}@3.0.4/node_modules" \
+    "${cache}/node_modules/${SLIM}" "${cache}/npm/other-plugin@1.0.0"
+install_must_succeed "${home}" sync --target opencode --intent plugins --plugins "${SLIM}"
+install_must_succeed "${home}" remove --target opencode --intent plugins --plugins "${SLIM}" --purge-cache
+leftover="$(find "${cache}" -mindepth 2 -maxdepth 2 -printf '%P\n' | sort | tr '\n' ' ')"
+if [[ "${leftover}" == "npm/other-plugin@1.0.0 " ]]; then ok "--purge-cache removes the npm, packages and node_modules layouts only"; else ko "--purge-cache removes the npm, packages and node_modules layouts only" "${leftover}"; fi
+
+home="$(new_home)"
+mkdir -p "${home}/.cache/opencode/npm/${SLIM_PKG}"
+install_must_succeed "${home}" remove --target opencode --intent plugins --plugins "${SLIM}"
+if [[ -d "${home}/.cache/opencode/npm/${SLIM_PKG}" ]]; then ok "remove without --purge-cache keeps the package cache"; else ko "remove without --purge-cache keeps the package cache"; fi
+
+home="$(new_home)"
+rc=0
+out="$(run_install "${home}" sync --target opencode --intent plugins --plugins "${SLIM}" --purge-cache)" || rc=$?
+if [[ ${rc} -ne 0 ]]; then ok "--purge-cache without remove is rejected"; else ko "--purge-cache without remove is rejected"; fi
+assert_contains "${out}" "--purge-cache is only valid with 'remove'" "--purge-cache without remove explains why"
+if [[ ! -e "${home}/.config/opencode/opencode.json" ]]; then ok "a rejected --purge-cache run writes nothing"; else ko "a rejected --purge-cache run writes nothing"; fi
+
+echo "== opencode catalog: --project =="
+
+home="$(new_home)"
+install_must_succeed "${home}" sync --target opencode --intent plugins --plugins "${SLIM}" --project
+assert_contains "$(cat "${home}/project/opencode.json" 2>/dev/null)" "${SLIM_PKG}" "--project merges the catalog item into <project>/opencode.json"
+if cmp -s "${SLIM_COMPANION_SRC}" "${home}/project/.opencode/${SLIM}.json"; then ok "--project ships the companion into <project>/.opencode"; else ko "--project ships the companion into <project>/.opencode"; fi
+if [[ ! -e "${home}/.config/opencode/opencode.json" && ! -e "${home}/.config/opencode/${SLIM}.json" ]]; then
+    ok "--project leaves the global opencode config alone"
+else
+    ko "--project leaves the global opencode config alone"
+fi
+install_must_succeed "${home}" remove --target opencode --intent plugins --plugins "${SLIM}" --project
+if [[ ! -e "${home}/project/opencode.json" && ! -e "${home}/project/.opencode/${SLIM}.json" ]]; then
+    ok "remove --project takes the project files back"
+else
+    ko "remove --project takes the project files back" "$(cat "${home}/project/opencode.json" 2>/dev/null)"
+fi
+
+home="$(new_home)"
+rc=0
+out="$(run_install "${home}" sync --target opencode --intent plugins --plugins "./ycc-sensitive-guard,${SLIM}" --project)" || rc=$?
+if [[ ${rc} -ne 0 ]]; then ok "--project with a bundle plugin is rejected"; else ko "--project with a bundle plugin is rejected"; fi
+assert_contains "${out}" "supports catalog plugins only" "--project with a bundle plugin explains why"
+if [[ ! -e "${home}/project/opencode.json" ]]; then ok "a rejected --project run writes nothing"; else ko "a rejected --project run writes nothing"; fi
+
+rc=0
+out="$(run_install "${home}" sync --target opencode --intent plugins --project)" || rc=$?
+if [[ ${rc} -ne 0 ]]; then ok "--project without --plugins is rejected"; else ko "--project without --plugins is rejected"; fi
+rc=0
+out="$(run_install "${home}" sync --target opencode --intent settings,plugins --plugins "${SLIM}" --project)" || rc=$?
+if [[ ${rc} -ne 0 ]]; then ok "--project with the settings group is rejected"; else ko "--project with the settings group is rejected"; fi
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then install_tests_finish; fi

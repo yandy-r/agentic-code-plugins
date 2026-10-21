@@ -55,6 +55,7 @@ from typing import Any
 
 from managed_config_entries import (
     available_entries,
+    expand_leaf_rules,
     is_derived,
     narrow_profile,
     plan_keyed_list,
@@ -215,6 +216,17 @@ PROFILES: dict[str, dict[str, Any]] = {
             "plugins": [
                 {"path": ["plugins"], "policy": "list-union", "item_key": "package"},
             ],
+        },
+    },
+    # Opt-in third-party catalog plugins (opencode_plugin_catalog.py source),
+    # run once per plugin with --state-scope so each owns its own state.
+    "opencode-catalog": {
+        "format": "json",
+        "jsonc": True,
+        "groups": {
+            "plugins": [{"path": ["plugins"], "policy": "list-union", "item_key": "package"}],
+            # Owned per leaf (expand_leaf_rules): the bundle shares these entries.
+            "agents": [{"path": ["agents"], "policy": "deep", "leaf_rules": True}],
         },
     },
     # OMP's user config.yml. Only these ycc-owned leaves are managed; other
@@ -1780,6 +1792,10 @@ def main() -> int:
         action="store_true",
         help="Print the entry names the source manages for the entry groups, one per line, and exit",
     )
+    parser.add_argument(
+        "--state-scope",
+        help="Keep ownership state under '<profile>[NAME]:<destination>' (one scope per opt-in plugin)",
+    )
     args = parser.parse_args()
 
     profile = PROFILES[args.profile]
@@ -1806,6 +1822,9 @@ def main() -> int:
             "--groups hooks and cannot be combined with --force or --list-entries",
             file=sys.stderr,
         )
+        return 1
+    if args.state_scope is not None and not re.fullmatch(r"[A-Za-z0-9@/._-]+", args.state_scope):
+        print(f"merge_managed_config: invalid --state-scope {args.state_scope!r}", file=sys.stderr)
         return 1
 
     source_path = args.source if args.source.is_absolute() else (REPO_ROOT / args.source)
@@ -1868,10 +1887,12 @@ def main() -> int:
     replaced_symlink = destination_path.is_symlink()
 
     state = load_state()
-    state_key = f"{args.profile}:{destination_path}"
+    scope = f"[{args.state_scope}]" if args.state_scope is not None else ""
+    state_key = f"{args.profile}{scope}:{destination_path}"
     state_entry = state.get(state_key, {})
     if not isinstance(state_entry, dict):
         state_entry = {}
+    profile = expand_leaf_rules(profile, source, [parse_pointer(key) for key in state_entry if key.startswith("/")])
     # Plan against the selected entries only; writes still go to the full entry.
     plan_state = state_entry if entries is None else selected_state(profile, groups, state_entry, parse_pointer)
 
