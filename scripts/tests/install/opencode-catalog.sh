@@ -152,6 +152,17 @@ install_must_succeed "${home}" remove --target opencode --intent plugins
 if cmp -s "${SLIM_COMPANION_SRC}" "${companion}"; then ok "remove keeps a companion ycc never installed"; else ko "remove keeps a companion ycc never installed"; fi
 assert_contains "$(cat "${cfg}")" "${SLIM_PKG}" "remove keeps the user-written item beside that companion"
 
+# The user's own slim setup, with the agents keys slim needs beside the bundle:
+# remove without --plugins never strips values ycc did not record writing.
+home="$(new_home)"
+cfg="${home}/.config/opencode/opencode.json"
+mkdir -p "$(dirname "${cfg}")"
+printf '{"plugins": ["%s"], "agents": {"general": {"disabled": true}, "explore": {"disabled": true}}}\n' "${SLIM_PKG}" > "${cfg}"
+install_must_succeed "${home}" remove --target opencode --intent plugins
+assert_contains "$(json_query "${cfg}" '[d["agents"][a].get("disabled") for a in ("explore", "general")]')" "[True, True]" "remove without --plugins keeps agents keys ycc never wrote"
+install_must_succeed "${home}" remove --target opencode --intent plugins --plugins "${SLIM}"
+assert_contains "$(json_query "${cfg}" '[d["agents"][a].get("disabled") for a in ("explore", "general")]')" "[True, True]" "remove --plugins keeps agents keys ycc never wrote"
+
 echo "== opencode catalog: shared agents entries with the bundle settings =="
 
 home="$(new_home)"
@@ -165,6 +176,15 @@ assert_contains "$(json_query "${cfg}" '[sorted(d["agents"][a]) for a in ("explo
 install_must_succeed "${home}" remove --target opencode --intent settings,plugins
 assert_not_contains "${INSTALL_OUT}" "kept your local value" "bundle remove after a catalog remove has no conflicts"
 if [[ ! -e "${cfg}" ]] || ! grep -q '"agents"' "${cfg}"; then ok "bundle remove takes the agents back"; else ko "bundle remove takes the agents back" "$(cat "${cfg}")"; fi
+
+# One full uninstall with both installed: no conflicts and nothing left behind.
+home="$(new_home)"
+cfg="${home}/.config/opencode/opencode.json"
+install_must_succeed "${home}" sync --target opencode --intent settings,plugins
+install_must_succeed "${home}" sync --target opencode --intent plugins --plugins "${SLIM}"
+install_must_succeed "${home}" remove --target opencode --intent settings,plugins
+assert_not_contains "${INSTALL_OUT}" "kept your local value" "one remove of bundle + catalog has no conflicts"
+if [[ ! -e "${cfg}" ]] || ! grep -q '"agents"' "${cfg}"; then ok "one remove of bundle + catalog takes every agents key back"; else ko "one remove of bundle + catalog takes every agents key back" "$(cat "${cfg}")"; fi
 
 echo "== opencode catalog: --purge-cache =="
 

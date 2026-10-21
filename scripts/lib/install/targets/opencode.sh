@@ -218,6 +218,9 @@ remove_opencode_target() {
         opencode_settings_paths
         printf '\n%sopencode: remove managed config (%s)%s\n' "${BOLD}" "${OPENCODE_SETTINGS_FILE}" "${NC}"
         plugins_selection opencode "$(config_groups_for_target opencode)"
+        # Catalog first: its leaves (agents.<x>.disabled) sit inside bundle-owned
+        # agents entries, which the bundle remove only takes back whole.
+        opencode_catalog_remove
         remove_settings "opencode-config" "${OPENCODE_PLUGIN_DIR}/opencode.json" \
             "${OPENCODE_SETTINGS_FILE}" "${PLUGINS_GROUPS}" "${PLUGINS_SELECT[@]}"
         # The guard plugin goes with the `plugins` entry that loads it; an
@@ -226,7 +229,6 @@ remove_opencode_target() {
             && ! opencode_config_loads_guard "${opencode_dir}/opencode.json"; then
             remove_mirrored_entries "${OPENCODE_PLUGIN_DIR}/ycc-sensitive-guard" "${opencode_dir}/ycc-sensitive-guard"
         fi
-        opencode_catalog_remove
     fi
     remove_slices opencode skills agents commands
     if step_enabled base; then

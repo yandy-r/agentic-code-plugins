@@ -122,7 +122,9 @@ def expand_leaf_rules(profile: dict[str, Any], source: dict[str, Any], owned: li
 
     The leaves are those of the source under the rule path plus the ``owned``
     state paths under it, so a leaf the source no longer sets can still be
-    removed. A rule with neither expands to no rules.
+    removed. A rule with neither expands to no rules. Expanded rules are
+    ``owned_only``: remove takes a leaf back only on a recorded state hash,
+    never because the user's value happens to equal the source.
     """
 
     def expanded(rule: Rule) -> list[Rule]:
@@ -132,7 +134,10 @@ def expand_leaf_rules(profile: dict[str, Any], source: dict[str, Any], owned: li
         value = _value(source, prefix)
         paths = _leaf_paths(prefix, value) if isinstance(value, dict) and value else []
         paths += [path for path in owned if len(path) > len(prefix) and path[: len(prefix)] == prefix]
-        return [{"path": list(path), "policy": "scalar"} for path in dict.fromkeys(tuple(p) for p in paths)]
+        return [
+            {"path": list(path), "policy": "scalar", "owned_only": True}
+            for path in dict.fromkeys(tuple(p) for p in paths)
+        ]
 
     return {
         **profile,

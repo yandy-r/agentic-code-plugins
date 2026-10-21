@@ -126,14 +126,20 @@ opencode_catalog_remove() {
     [[ ${rc} -eq 0 ]] || exit "${rc}"
 }
 
-# opencode_catalog_remove_one <name> <tmp source.json> — the companion, the
-# cache purge and the removal notes are left alone while opencode.json still
-# loads the plugin (a kept local entry still uses them). The purge and notes
-# further apply only to a selected name, or to one this run took out of
-# opencode.json.
+# opencode_catalog_remove_one <name> <tmp source.json> — an unselected name
+# (remove without --plugins) is skipped unless ycc recorded merging it into
+# this opencode.json: matching values alone never prove ownership. The
+# companion, the cache purge and the removal notes are left alone while
+# opencode.json still loads the plugin (a kept local entry still uses them).
+# The purge and notes further apply only to a selected name, or to one this
+# run took out of opencode.json.
 opencode_catalog_remove_one() {
     local name="$1" src="$2" loaded=0
     local -a force=()
+    if [[ ",${PLUGINS_CATALOG_SELECT}," != *",${name},"* ]] \
+        && ! opencode_catalog_has_state "${name}" "${OPENCODE_SETTINGS_FILE}"; then
+        return 0
+    fi
     [[ "${FORCE:-0}" == "1" ]] && force=(--force)
     opencode_config_loads "${OPENCODE_SETTINGS_FILE}" "${name}" && loaded=1
     opencode_catalog source --names "${name}" --out "${src}" || return $?
@@ -151,4 +157,21 @@ opencode_catalog_remove_one() {
         opencode_catalog purge-cache --names "${name}" || return $?
     fi
     opencode_catalog notes --names "${name}" --remove
+}
+
+# opencode_catalog_has_state <name> <opencode.json> — true when the managed
+# config state records a catalog merge of <name> into <opencode.json>.
+opencode_catalog_has_state() {
+    local state="${YCC_MANAGED_CONFIG_STATE:-${XDG_CONFIG_HOME:-${HOME}/.config}/ycc/managed-config-state.json}"
+    [[ -f "${state}" ]] || return 1
+    python3 - "${state}" "opencode-catalog[$1]:$2" <<'PY'
+import json
+import sys
+
+try:
+    state = json.load(open(sys.argv[1], encoding="utf-8"))
+except (OSError, ValueError):
+    sys.exit(1)
+sys.exit(0 if isinstance(state, dict) and state.get(sys.argv[2]) else 1)
+PY
 }

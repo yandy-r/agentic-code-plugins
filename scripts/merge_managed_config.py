@@ -1198,6 +1198,7 @@ def plan_remove(
                 "source_value": value,
                 "policy": rule["policy"],
                 "derived": False,
+                "owned_only": bool(rule.get("owned_only")),
             }
         elif isinstance(value, dict) and value:
             for child_key, child_value in value.items():
@@ -1252,7 +1253,7 @@ def plan_remove(
             notes.append(f"{pointer(entry_path)} (still used by {retained[entry_path[-1]]})")
             continue
         source_value = candidate["source_value"]
-        if source_value is not None and dest_value == source_value:
+        if source_value is not None and dest_value == source_value and not candidate.get("owned_only"):
             owned = True
         else:
             leaves = flatten_leaves(entry_path, dest_value, str(candidate["policy"]))

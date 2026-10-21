@@ -166,9 +166,10 @@ ycc wrote them. It deletes a companion only when ycc recorded writing it and the
 file is unchanged. It prints the rc lines (and `lsp`) you may delete. With
 `--plugins` it acts on the named catalog plugins; without it
 (`remove --intent plugins` or `--only settings`) it acts on every catalog
-plugin. Plugins ycc never installed are left alone: the item you wrote, the
-companion (even one identical to ycc's copy, such as slim's own installer
-output) and the cache all stay. While `opencode.json` still loads the plugin
+plugin ycc recorded installing into that `opencode.json` and skips the rest, so
+a plugin you set up yourself keeps its item, its `agents` keys, its companion
+(even one identical to ycc's copy, such as slim's own installer output) and its
+cache. While `opencode.json` still loads the plugin
 (an item you wrote yourself, read as JSONC like opencode does), remove keeps
 its companion and its cache. `--purge-cache` (remove only) also deletes the
 plugin's opencode package cache under `${XDG_CACHE_HOME:-~/.cache}/opencode`:
