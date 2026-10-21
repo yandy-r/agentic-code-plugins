@@ -198,6 +198,8 @@ run_config_part() {
             python3 "${REPO_ROOT}/scripts/test_package_install_plan.py" || fail "test_package_install_plan.py"
             echo "== test: omp install helper =="
             python3 "${REPO_ROOT}/scripts/test_omp_install.py" || fail "test_omp_install.py"
+            echo "== test: install slice selection =="
+            python3 "${REPO_ROOT}/scripts/test_install_slices_select.py" || fail "test_install_slices_select.py"
             ;;
         install-sync)
             echo "== validate: install sync CLI =="

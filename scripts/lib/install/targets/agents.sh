@@ -30,9 +30,11 @@ AGENTS_BUNDLE_UNITS=(skills ycc-shared)
 agents_valid_steps() { echo "base,skills"; }
 
 # agents_intent_steps <intent> — steps <intent> maps to; empty means no-op.
+# base and skills both install the whole skills slice; they stay distinct
+# steps so --skills narrows only the skills step (base is never filtered).
 agents_intent_steps() {
     case "$1" in
-        skills|base) echo "skills" ;;
+        skills|base) echo "$1" ;;
         *) echo "" ;;
     esac
 }
@@ -114,11 +116,21 @@ sync_agents_target() {
     printf '\n%s[3/3] Sync skills to ~/.agents/skills (+ ycc-shared/)%s\n' "${BOLD}" "${NC}"
     # Per-entry slice installs, never rsync --delete: ~/.agents/skills is
     # shared with other tools and user-authored skills.
-    run_slice agents skills
+    agents_skills_slice
 
     agents_duplicate_hint
 
     printf '\n%sagents %s complete.%s\n' "${BOLD}" "${COMMAND}" "${NC}"
+}
+
+# agents_skills_slice — run the skills slice: whole for 'base' (this
+# target's base IS the skills slice, never filtered), else narrowed by --skills.
+agents_skills_slice() {
+    if step_enabled base; then
+        run_slice agents skills
+    else
+        run_slice agents skills select
+    fi
 }
 
 # ---------------------------------------------------------------------------
@@ -128,7 +140,7 @@ remove_agents_target() {
     validate_only_steps "agents"
     if step_enabled base || step_enabled skills; then
         printf '\n%sagents: remove standalone skills%s\n' "${BOLD}" "${NC}"
-        run_slice agents skills
+        agents_skills_slice
     else
         warn "agents target ran no steps"
     fi

@@ -247,15 +247,23 @@ sync_codex_target() {
     read -r -a slices <<< "$(skills_filter codex "$(selected_slices skills agents)")"
     # Choice 1 (skills → ~/.agents/skills): drop plugin registration; install
     # the agents slice (~/.codex/agents) instead.
+    # base_agents=1: 'base' syncs every custom agent this run, so the agents
+    # slice stays whole even when --agents narrows the agents step.
+    local base_agents=0
     if skills_consolidated codex && [[ $do_plugin -eq 1 ]]; then
         warn "codex skills consolidated into ~/.agents/skills — skipped plugin registration"
         [[ " ${slices[*]} " == *" agents "* ]] || slices+=(agents)
         do_plugin=0
+        base_agents=1
     fi
     # Local base mirrors the custom agents, unless the agents slice already
     # installs them (explicit --only agents, or the consolidated branch above).
-    if [[ $do_plugin -eq 1 && "${MODE:-local}" == "local" && " ${slices[*]} " != *" agents "* ]]; then
-        do_agents=1
+    if [[ $do_plugin -eq 1 && "${MODE:-local}" == "local" ]]; then
+        base_agents=1
+        [[ " ${slices[*]} " != *" agents "* ]] && do_agents=1
+    fi
+    if [[ ${base_agents} -eq 1 ]] && has_selection agents && step_enabled agents; then
+        warn "codex base syncs every custom agent into ~/.codex/agents; --agents does not narrow this run"
     fi
     step_enabled settings && do_settings=1
     step_enabled rules && do_rules=1
@@ -397,7 +405,13 @@ sync_codex_target() {
     for slice in "${slices[@]}"; do
         step=$((step + 1))
         printf '\n%s[%d/%d] Install standalone %s into ~/.codex/%s%s\n' "${BOLD}" "$step" "$total" "${slice}" "${slice}" "${NC}"
-        run_slice codex "${slice}"
+        # Only the slice STEP narrows: when 'base' also runs, the agents
+        # slice ships every agent, like base itself.
+        if step_enabled "${slice}" && [[ "${slice}" != agents || ${base_agents} -eq 0 ]]; then
+            run_slice codex "${slice}" select
+        else
+            run_slice codex "${slice}"
+        fi
     done
 
     if [[ $do_settings -eq 1 ]]; then
@@ -508,7 +522,7 @@ remove_codex_target() {
         if codex_repository_native_enabled || [[ -f "${HOME}/.config/ycc/codex-native-install.json" ]]; then
             printf '\n%sCodex: remove owned native packages + marketplace%s\n' "${BOLD}" "${NC}"
             run_native_codex_install remove
-            step_enabled agents || run_slice codex agents
+            { step_enabled agents && ! has_selection agents; } || run_slice codex agents
             printf '\n%sCodex remove complete.%s\n' "${BOLD}" "${NC}"
             return 0
         fi
@@ -523,9 +537,10 @@ remove_codex_target() {
             info "removed ${CODEX_PLUGIN_CACHE}"
         fi
         rmdir "$(dirname "${CODEX_PLUGIN_CACHE}")" 2>/dev/null || true
-        # The tracked agents first (unless the agents step just removed them),
+        # The tracked agents first (unless the agents step just removed all of
+        # them; base is never narrowed by --agents),
         # then whatever an older untracked mirror left under shipped names.
-        step_enabled agents || run_slice codex agents
+        { step_enabled agents && ! has_selection agents; } || run_slice codex agents
         remove_mirrored_entries "${CODEX_AGENTS_DIR}" "${codex_dir}/agents"
         remove_codex_marketplace_entry
     fi

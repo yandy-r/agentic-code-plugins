@@ -22,16 +22,38 @@ selected_slices() {
     echo "${picked[*]}"
 }
 
-# run_slice <target> <slice> — install (or, under 'remove', take back) one
-# standalone slice. Entries ycc did not install are never replaced or
-# removed without --force.
+# run_slice <target> <slice> [select] — install (or, under 'remove', take
+# back) one standalone slice. Entries ycc did not install are never replaced
+# or removed without --force. With 'select' (passed only where the slice STEP
+# runs, never for 'base'), a --skills / --agents selection narrows the slice
+# to the named entries <target> ships; it ships none of them → skip.
 run_slice() {
     command -v python3 >/dev/null 2>&1 || { err "python3 is required but not found"; exit 1; }
-    local action="install"
+    local target="$1" slice="$2" action="install"
     # shellcheck disable=SC2153  # COMMAND is install.sh's subcommand global.
     [[ "${COMMAND}" == "remove" ]] && action="remove"
-    local -a command=(python3 "${SLICE_HELPER}" "${action}" --target "$1" --slice "$2")
+    local -a command=(python3 "${SLICE_HELPER}" "${action}" --target "${target}" --slice "${slice}")
     [[ "${FORCE:-0}" == "1" ]] && command+=(--force)
+    if [[ "${3:-}" == "select" ]] && is_selectable_kind "${slice}" && has_selection "${slice}"; then
+        local names selected
+        names="$(selection_for_target "${slice}" "${target}")"
+        if [[ -z "${names}" ]]; then
+            selected="$(selection_for "${slice}")"
+            warn "none of the selected ${SELECTION_NOUNS[${slice}]} (${selected//,/ }) ship for ${target} — skipping"
+            return 0
+        fi
+        info "${SELECTION_NOUNS[${slice}]^}: ${names//,/, }"
+        command+=(--entries "${names}")
+        # What the other kind's step installs on this target in the same run
+        # counts as available for the dependency warnings ('*': its whole slice).
+        local other pending
+        for other in skills agents; do
+            [[ "${other}" != "${slice}" ]] && step_enabled "${other}" || continue
+            pending='*'
+            has_selection "${other}" && pending="$(selection_for_target "${other}" "${target}")"
+            command=(env "YCC_PENDING_${other^^}=${pending}" "${command[@]}")
+        done
+    fi
     "${command[@]}"
 }
 
@@ -113,12 +135,13 @@ remove_mirrored_entries() {
     fi
 }
 
-# remove_slices <target> <slice...> — take back each enabled standalone slice.
+# remove_slices <target> <slice...> — take back each enabled standalone slice
+# (narrowed by a --skills / --agents selection).
 remove_slices() {
     local target="$1" slice
     shift
     for slice in $(selected_slices "$@"); do
         printf '\n%s%s: remove standalone %s%s\n' "${BOLD}" "${target}" "${slice}" "${NC}"
-        run_slice "${target}" "${slice}"
+        run_slice "${target}" "${slice}" select
     done
 }

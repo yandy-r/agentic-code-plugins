@@ -135,7 +135,7 @@ sync_opencode_target() {
         fi
         local slice
         for slice in $(skills_filter opencode "$(selected_slices skills agents commands)"); do
-            run_slice opencode "${slice}"
+            run_slice opencode "${slice}" select
         done
 
         # opencode ALSO reads bundles from the Claude-compat path .claude/skills.

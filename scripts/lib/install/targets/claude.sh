@@ -324,7 +324,7 @@ sync_claude_target() {
             slice="skills"
         fi
         printf '\n%sClaude: install standalone %s into ~/.claude/%s%s\n' "${BOLD}" "${slice}" "${slice}" "${NC}"
-        run_slice claude "${slice}"
+        run_slice claude "${slice}" select
         [[ "${slice}" == "skills" ]] && skills_ran=1
         ran=1
         if [[ -n "$(claude_ycc_plugin_installed)" ]]; then

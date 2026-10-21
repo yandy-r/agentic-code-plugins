@@ -227,6 +227,61 @@ invocations there, so there is nothing separate to copy:
 - `--only` / `--intent` skip a slice a target has no home for (e.g.
   `commands` on codex), so `--target all --only agents` just works.
 
+### Selecting Skills And Agents
+
+By default the `skills` and `agents` steps install every entry a target ships.
+`--skills <names>` and `--agents <names>` (comma-separated) narrow `install`,
+`sync`, and `remove` to just those entries:
+
+```bash
+ycc list skills --target cursor                 # what --skills accepts there
+ycc list agents --target codex                  # agent names are file stems
+ycc sync --target claude,opencode --intent skills --skills code-review,git-workflow
+ycc sync --target agents --intent skills --skills prp-plan
+ycc sync --target claude,codex --intent agents --agents implementor,code-reviewer
+ycc remove --target codex --intent skills --skills visual-recap
+```
+
+- Selection narrows, it never prunes: skills or agents ycc installed earlier
+  stay installed and recorded, and a later full sync without `--skills` /
+  `--agents` changes nothing for them. `remove --skills a` takes back only `a`.
+- Agent names are file stems on every target (`implementor` installs
+  `~/.codex/agents/implementor.toml` on codex, `implementor.md` elsewhere).
+- Shared helpers (`_shared`, opencode `shared/`, `~/.agents/ycc-shared/`) always
+  ship with any selected skill. A selective remove keeps them while another
+  ycc skill remains in that directory, whether ycc recorded it or `base`
+  mirrored it there.
+- Unknown names stop the run before any target writes. A name only some
+  targets ship (for example a claude-only skill) is skipped on the others with
+  a warning; a target that ships none of the names skips the step.
+- After a selective install, the installer scans the selected skills and
+  agents for `ycc:<name>` references and warns, per target, about skills or
+  agents they call that are not installed there (with the command that adds
+  them). Skills and agents the same run installs on that target count as
+  installed. Agents meant to be dispatched only by a skill (`review-fixer`,
+  `releaser`, ...) warn when none of their dispatching skills is available.
+  Warnings never fail the run.
+- `--skills` / `--agents` need the matching step (`--intent skills`,
+  `--only agents`, ...). `base` is never filtered: it registers or mirrors the
+  whole bundle, and on codex it still syncs every custom agent into
+  `~/.codex/agents` (the run warns that `--agents` does not narrow it). On the
+  agents target `base` ships the whole skills slice; only `--intent skills`
+  narrows it. The agents target has no agents step: with other targets,
+  `--target all --intent agents --agents implementor` reports a no-op there
+  and installs `implementor` on claude, cursor, codex and opencode; on its
+  own, `--target agents --agents ...` is rejected.
+- Cursor commands reference every skill, so they need the full skills slice:
+  an install or sync that runs cursor's `commands` step rejects `--skills`
+  before any target writes. Drop `--skills`, or install commands in a separate
+  run (`ycc sync --target cursor --intent commands`).
+- With `--skills-home agents`, the skills step's selection follows the skills
+  into `~/.agents/skills`.
+- opencode per-agent model pins live in the `agents` block of the managed
+  `opencode.json` (settings step), keyed by agent ID; pins for agents you did
+  not select are harmless, so selection needs no config change.
+- Shell completion offers the names after `--skills` / `--agents`, narrowed
+  to the `--target` already on the command line (via `ycc list <kind>`).
+
 ### Merge Semantics
 
 Structured config files (`~/.claude/settings.json`, `~/.claude.json`,
