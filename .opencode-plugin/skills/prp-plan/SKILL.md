@@ -64,7 +64,7 @@ ARGUMENTS="${ARGUMENTS//--visual/}"
 - `--visual` is orthogonal — it composes with `--parallel`/`--enhanced`/`--no-worktree` and runs after the plan is written and validated. `--dry-run` short-circuits it (prints intent only).
 
 
-**Questions:** class `clarify` (Ambiguity Gate): without a question tool, print the open questions and stop; a team retry offer prints the `--parallel` rerun and stops. See `~/.config/opencode/shared/references/question-policy.md`.
+**Questions:** class `clarify` (Ambiguity Gate): headless (no question tool or chat turn), print the open questions and stop; a team retry offer prints the `--parallel` rerun and stops. See `~/.config/opencode/shared/references/question-policy.md`.
 
 ### Input Detection
 

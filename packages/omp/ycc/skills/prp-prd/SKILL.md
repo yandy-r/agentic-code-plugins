@@ -13,7 +13,7 @@ argument-hint: '[feature/product idea] (blank = start with questions)'
 
 **Input**: `$ARGUMENTS`
 
-**Questions:** class `clarify` (every interview gate); without a question tool: print the open questions, write nothing, stop. See `skill://ycc-shared/references/question-policy.md`.
+**Questions:** class `clarify` (every interview gate); headless (no question tool or chat turn): print the open questions, write nothing, stop. See `skill://ycc-shared/references/question-policy.md`.
 
 ---
 
@@ -83,7 +83,7 @@ After foundation answers, dispatch the **`prp-researcher`** agent via the **`tas
 - Recent trends or changes
 - If a codebase exists: relevant existing functionality, patterns that could be leveraged, and technical constraints
 
-Instruct the researcher to return file:line references for codebase findings and URL citations for market findings. This is a standalone single-researcher dispatch — see `skill://ycc-shared/references/standalone-dispatch.md` for the `task` spawn/return contract (omit `name` for standalone dispatch).
+Instruct the researcher to return file:line references for codebase findings and URL citations for market findings. This is a standalone single-researcher dispatch — see `skill://ycc-shared/references/standalone-dispatch.md` for the `task` spawn/return contract.
 
 **Summarize findings to user:**
 

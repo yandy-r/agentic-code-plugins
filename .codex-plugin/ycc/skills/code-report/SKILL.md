@@ -46,7 +46,7 @@ Examples:
   /code-report payment-integration --dry-run
 ```
 
-**Questions:** class `clarify` (prerequisite failure "proceed anyway?", changed-file list request): without a question tool, print the error or the missing input and stop; write no report. See `../../shared/references/question-policy.md`.
+**Questions:** class `clarify` (prerequisite failure "proceed anyway?", changed-file list request): headless (no question tool or chat turn), print the error or the missing input and stop; write no report. See `../../shared/references/question-policy.md`.
 
 ---
 

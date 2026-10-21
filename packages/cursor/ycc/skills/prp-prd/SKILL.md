@@ -27,7 +27,7 @@ allowed-tools:
 
 **Input**: `$ARGUMENTS`
 
-**Questions:** class `clarify` (every interview gate); without a question tool: print the open questions, write nothing, stop. See `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/question-policy.md`.
+**Questions:** class `clarify` (every interview gate); headless (no question tool or chat turn): print the open questions, write nothing, stop. See `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/question-policy.md`.
 
 ---
 

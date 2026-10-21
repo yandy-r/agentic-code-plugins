@@ -21,8 +21,10 @@ Rules shared by every skill:
 
 - **Questions.** `_shared/references/question-policy.md` defines six gate classes (`clarify`,
   `confirm-destructive`, `confirm-publish`, `choose-path`, `checkpoint`, `failure-recovery`).
-  Destructive and publishing gates never auto-approve without the skill's explicit flag. A
-  question tool is available only when it is in the current tool list.
+  Destructive and publishing gates never auto-approve without the skill's explicit flag.
+  Surface order: question tool in the tool list → ask; no tool but a chat turn (Codex,
+  Cursor) → text-mode fallback; neither (OMP `-p`, `--mode json`, `--mode rpc`) → the
+  skill's declared headless default. The per-skill headless column below is that default.
 - **Dispatch.** The OMP `standalone-dispatch.md` is generated from
   `scripts/omp_templates/standalone-dispatch.md` (§1-7) plus the canonical §8-10. Fan-out is one
   `task({context, tasks: [...]})` batch with `agent` (not `subagent_type`); with

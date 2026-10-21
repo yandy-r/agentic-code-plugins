@@ -47,7 +47,7 @@ Error: /quick-review takes no positional argument (only flags).
 - More than one of `--yes`, `--save`, `--write-and-apply` present -> abort with: `--yes, --save, and --write-and-apply are mutually exclusive. Pick one.`
 - `--severity` value not one of `CRITICAL|HIGH|MEDIUM|LOW` -> abort with: `Invalid --severity value. Use CRITICAL, HIGH, MEDIUM, or LOW.`
 
-**Questions:** class `choose-path` (Phase 4 review action); without a question tool and without a chat turn: behave as `--save` (Save to file). See `~/.config/opencode/shared/references/question-policy.md`.
+**Questions:** class `choose-path` (Phase 4 review action); headless (no question tool or chat turn): behave as `--save` (Save to file). See `~/.config/opencode/shared/references/question-policy.md`.
 
 ---
 

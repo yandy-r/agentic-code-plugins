@@ -37,7 +37,7 @@ Parse `$ARGUMENTS` for:
 - **--report-only**: Generate report without deletions
 - **--safe-mode**: Extra confirmation per category
 
-**Questions:** class `confirm-destructive` (both deletion prompts); without a question tool: behave as `--report-only`. See `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/question-policy.md`.
+**Questions:** class `confirm-destructive` (both deletion prompts); headless (no question tool or chat turn): behave as `--report-only`. See `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/question-policy.md`.
 
 ### Deprecated: `--include-git`
 

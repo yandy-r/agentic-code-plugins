@@ -69,7 +69,7 @@ Examples:
   /feature-research --team --dry-run payment-system
 ```
 
-**Questions:** class `choose-path` (regenerate or enhance an existing spec); without a question tool: enhance. See `skill://ycc-shared/references/question-policy.md`.
+**Questions:** class `choose-path` (regenerate or enhance an existing spec); headless (no question tool or chat turn): enhance. See `skill://ycc-shared/references/question-policy.md`.
 
 ---
 
@@ -234,7 +234,7 @@ Use the prompts from `research-agents.md` with variables substituted:
 
 #### Path A — Standalone sub-agents (`AGENT_TEAM_MODE=false`, default)
 
-**CRITICAL**: Deploy all 7 researchers in a **SINGLE message** with **MULTIPLE `task` tool calls**. No `name` — standalone dispatch. Each `task` call uses the `agent` and `model` from the table above and the corresponding prompt from `research-agents.md`.
+**CRITICAL**: Deploy all 7 researchers in a **SINGLE message** with **MULTIPLE `task` tool calls**. Standalone dispatch. Each `task` call uses the `agent` and `model` from the table above and the corresponding prompt from `research-agents.md`.
 
 In this mode there is no shared task list; rely on each `task`'s return value plus the artifact check in Step 10 to confirm completion. Inter-teammate `SendMessage` coordination (Step 9) is not available — each sub-agent works independently from the prompt alone.
 

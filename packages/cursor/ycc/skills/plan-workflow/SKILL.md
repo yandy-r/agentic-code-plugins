@@ -71,7 +71,7 @@ Parse flags first, then the feature name (first non-flag argument, required; dir
 
 If no feature name is provided, abort with the full usage instructions from `references/checkpoint-messages.md` — read when the feature name is missing ("Usage Instructions" section).
 
-**Questions:** class `checkpoint` (Step 16 research review): without a question tool, continue to planning and report the skipped checkpoint in the summary. Class `confirm-destructive` (Step 4C overwrite choice): without a question tool, overwrite nothing; stop with `rerun with --no-checkpoint` to regenerate. See `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/question-policy.md`.
+**Questions:** class `checkpoint` (Step 16 research review): headless (no question tool or chat turn), continue to planning and report the skipped checkpoint in the summary. Class `confirm-destructive` (Step 4C overwrite choice): headless, overwrite nothing; stop with `rerun with --no-checkpoint` to regenerate. See `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/question-policy.md`.
 
 ## Visual mode
 
@@ -144,7 +144,7 @@ Run `scripts/check-prerequisites.sh "[feature-name]"` per gate 5. Then, for `--o
 
 - **Interactive (checkpoint enabled)**: surface the matching warning from `references/checkpoint-messages.md` ("Existing State Warnings") and let the user choose regenerate vs reuse/stop.
 - **Non-interactive (`--no-checkpoint`)**: default is **regenerate (overwrite)** so pipelines stay non-blocking; passing the flag is the explicit opt-in. State the choice when proceeding (e.g. "shared.md exists — regenerating (non-interactive default)").
-- **No question tool, checkpoint enabled**: do not overwrite. Print the existing paths and `rerun with --no-checkpoint` to regenerate, then **STOP** without writes or dispatch.
+- **Headless (no question tool or chat turn), checkpoint enabled**: do not overwrite. Print the existing paths and `rerun with --no-checkpoint` to regenerate, then **STOP** without writes or dispatch.
 - **Research-only reuse**: report the existing `shared.md` path, state that no files were changed, print `/parallel-plan <feature>` as the next step, and **STOP** without dispatching agents.
 
 ### Step 5: Create Directory

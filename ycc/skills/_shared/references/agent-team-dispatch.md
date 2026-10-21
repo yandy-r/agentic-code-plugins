@@ -315,7 +315,7 @@ TaskCreate: subject="ux-reviewer: user-facing impact for <user request>", descri
 Failure: no auto-retry, no skipping. This is the `failure-recovery` gate in
 `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/question-policy.md`. Ask the user via
 `AskUserQuestion`: fix manually and resume, switch to sequential/standalone for remaining
-batches, or abort. Without a question tool: stop, shut down active teammates, and print the
+batches, or abort. Headless (no question tool or chat turn): stop, shut down active teammates, and print the
 failing batch plus the resume command. Switch/abort: shutdown active
 teammates. Resume: shut down current batch teammates and continue. The feature
 worktree survives abort for manual inspection/cleanup.

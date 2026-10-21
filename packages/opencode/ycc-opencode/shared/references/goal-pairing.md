@@ -47,7 +47,7 @@ Each skill fills the skeleton with its own signal keys (see that skill's
    printed signals, never main-repo file paths.
 2. **Interactive failure prompts**: parallel/team batch failures hit the `failure-recovery`
    gate in `{{package-root}}/shared/references/question-policy.md`. `/goal`
-   cannot answer it: with a question tool the loop stalls on the prompt; without one the
+   cannot answer it: interactively the loop stalls on the prompt; headless, the
    run stops with the failing batch and resume command. Expect manual intervention on
    batch failures.
 3. **Platform**: `/goal` is available only in the Anthropic terminal (v2.1.139+) and the

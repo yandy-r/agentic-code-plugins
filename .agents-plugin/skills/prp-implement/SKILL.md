@@ -52,7 +52,7 @@ Execute a plan file step-by-step with continuous validation. Every change is ver
 - Dry-run prints the roster and exits without team/task/agent tools.
 - Parallel validation failure stops the pipeline before the next batch. No auto-retry, no skipping a failed batch; preserve completed work and let the user decide.
 
-**Questions:** class `choose-path` (execution mode for a parallel-capable plan): without a question tool, run sequential (Path A); class `failure-recovery` (batch validation): stop, preserve completed work, and print the failing batch plus the resume command. See `~/.agents/ycc-shared/references/question-policy.md`.
+**Questions:** class `choose-path` (execution mode for a parallel-capable plan): headless (no question tool or chat turn), run sequential (Path A); class `failure-recovery` (batch validation): stop, preserve completed work, and print the failing batch plus the resume command. See `~/.agents/ycc-shared/references/question-policy.md`.
 
 ## Phase 0 — DETECT
 

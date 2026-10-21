@@ -63,7 +63,7 @@ Examples:
   /ycc:feature-research user-dashboard --dry-run
 ```
 
-**Questions:** class `choose-path` (regenerate or enhance an existing spec); without a question tool: enhance. See `{{package-root}}/shared/references/question-policy.md`.
+**Questions:** class `choose-path` (regenerate or enhance an existing spec); headless (no question tool or chat turn): enhance. See `{{package-root}}/shared/references/question-policy.md`.
 
 ---
 

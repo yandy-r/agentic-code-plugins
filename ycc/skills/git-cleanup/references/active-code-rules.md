@@ -304,9 +304,10 @@ branch. Additionally, a worktree is **active** if any of:
 <!-- ycc:verbatim-block:begin -->
 
 - The worktree sits under the legacy global ycc root (`~/.claude-worktrees/`)
-  instead of a preferred repo-local parent (`.claude/worktrees/` or
-  `.omp/worktrees/` under the repo root). Report and offer relocation; do not
-  delete without explicit approval.
+  instead of a preferred repo-local parent: `.claude/worktrees/`,
+  `.opencode/worktrees/`, `.codex/worktrees/`, `.cursor/worktrees/`,
+  `.omp/worktrees/` or `.agents/worktrees/` under the repo root. Report and offer
+  relocation; do not delete without explicit approval.
 - The worktree sits under `~/.omp/wt`. OMP manages that base
   (`omp worktree clear`); report it as active and never delete it.
 

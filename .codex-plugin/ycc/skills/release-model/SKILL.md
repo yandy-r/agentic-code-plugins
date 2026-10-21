@@ -49,7 +49,7 @@ Script paths used below:
 - `POINTER=../../shared/scripts/rules-pointer.sh` — the single canonical `AGENTS.md`/`CLAUDE.md` pointer helper shared with `init`; `$TARGETS` delegates to it. Release-model only reads it: it never migrates a layout and never creates a missing rules file.
 - `TEMPLATE=templates/RELEASING.md.tmpl`
 
-**Questions:** class `confirm-publish` (model questions, write after preview); without a question tool and without `--yes`: print the proposal and preview, write nothing, and print `rerun with --yes`. See `../../shared/references/question-policy.md`.
+**Questions:** class `confirm-publish` (model questions, write after preview); headless (no question tool or chat turn) and without `--yes`: print the proposal and preview, write nothing, and print `rerun with --yes`. See `../../shared/references/question-policy.md`.
 
 ## Phase 0 — Preflight and mode
 

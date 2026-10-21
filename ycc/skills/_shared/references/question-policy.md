@@ -10,24 +10,32 @@
 - Runtime modes
 
 Reference for every ycc skill that asks the user a question. Each asking skill declares
-its gate class(es) and its default without a question tool in one **Questions** line that
-links here. Fix the shared behavior here, not per skill.
+its gate class(es) and its headless default in one **Questions** line that links here. Fix
+the shared behavior here, not per skill.
 
 ## Detection rule
 
-- The question tool is **available** only when `AskUserQuestion` (or the runtime's
-  equivalent question tool) appears in your current tool list. Never call a question tool
-  that is not in the list, and never treat its absence as an error.
-- **Subagents never ask.** A subagent returns the open choices, the evidence and its
-  recommended option to the parent, and the parent applies this policy.
-- No question tool, but a chat turn exists (the user can reply): use the text-mode fallback
-  below.
-- No question tool and no chat turn (print, JSON, RPC, CI, or any headless run): apply the
-  skill's declared default for the gate class. Never wait for input that cannot arrive.
+<!-- ycc:verbatim-block:begin -->
+
+Pick the question surface per run, in this order:
+
+1. **Question tool.** If a question tool is in your current tool list (Claude Code's
+   built-in question tool, OMP `ask`), ask with it. Never call a question tool that is not in
+   the list, and never treat its absence as an error.
+2. **Chat turn.** No question tool, but the user can reply in the next turn (for example
+   Codex or Cursor chat): use the text-mode fallback below.
+3. **Headless.** No question tool and no chat turn (OMP `-p`, `--mode json`, `--mode rpc`;
+   CI; any print-mode run): apply the skill's declared headless default. Never wait for
+   input that cannot arrive.
+
+**Subagents never ask.** A subagent returns the open choices, the evidence and its
+recommended option to the parent, and the parent applies this policy.
+
+<!-- ycc:verbatim-block:end -->
 
 ## Gate classes
 
-| Class                 | Typical gate                                                     | Interactive | Without a question tool                                                                                          |
+| Class                 | Typical gate                                                     | Interactive | Headless default                                                                                                 |
 | --------------------- | ---------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------- |
 | `clarify`             | interviews, "STOP and ask" ambiguity gates, missing input path   | ask         | Print the open questions, write nothing, stop.                                                                   |
 | `confirm-destructive` | delete, apply, install, overwrite, continue a cherry-pick + push | ask         | Do not act. Take the read-only path (report, dry-run, save) and print `rerun with <flag>`.                       |
@@ -36,16 +44,17 @@ links here. Fix the shared behavior here, not per skill.
 | `checkpoint`          | review artifacts before continuing                               | ask         | Continue (artifacts are docs only) and report the checkpoint in the final summary.                               |
 | `failure-recovery`    | batch or validation failure mid-run                              | ask         | Stop, preserve completed work, and print the failing batch plus the resume command. Never auto-retry or skip.    |
 
+"Interactive" covers both a question tool and the text-mode fallback.
+
 ## Hard rules
 
 1. Destructive and publishing gates never auto-approve without an explicit flag the skill
-   documents (`--yes`, `--apply`, `--ci-yes`, `--publish`, …). Absence of a question tool is
-   not consent.
+   documents (`--yes`, `--apply`, `--ci-yes`, `--publish`, …). A headless run is not
+   consent.
 2. The headless stop message is one plain-text line naming the exact rerun, for example:
-   `Stopped before publish: no question tool. Rerun with --publish --confirm.`
-3. The declared default, not the `recommended` marker, governs when no question tool
-   exists. `recommended` is an interactive hint only and may differ from the declared
-   default.
+   `Stopped before publish: headless run. Rerun with --publish --confirm.`
+3. The declared default, not the `recommended` marker, governs a headless run.
+   `recommended` is an interactive hint only and may differ from the declared default.
 4. Never mark a destructive or publishing choice `recommended` in a `confirm-destructive` or
    `confirm-publish` question.
 5. Auto-select on timeout is a user opt-in interactive behavior (for example OMP
@@ -61,11 +70,12 @@ links here. Fix the shared behavior here, not per skill.
 Each asking skill carries one line near its arguments:
 
 ```
-**Questions:** class `<class>`; without a question tool: <default>. See `.../question-policy.md`.
+**Questions:** class `<class>`; headless (no question tool or chat turn): <default>. See `.../question-policy.md`.
 ```
 
 A skill with several gates lists each class with its default. A skill-specific default
-overrides the class default above only by being narrower.
+overrides the class default above only by being narrower. Declared defaults never replace
+an interactive prompt: with a chat turn, use the text-mode fallback instead.
 
 ## Text-mode fallback
 
@@ -79,11 +89,17 @@ For chat runtimes without a question tool:
 
 ## Runtime modes
 
-| Mode                                                              | Question surface   | Behavior                               |
-| ----------------------------------------------------------------- | ------------------ | -------------------------------------- |
-| Claude Code interactive; OMP TUI and `--mode rpc-ui`              | question tool      | ask; mark one `recommended` hint       |
-| OMP `-p`, `--mode json`, `--mode rpc`; any subagent; headless     | none               | declared default, or stop + rerun hint |
-| Chat runtimes without a question tool (for example Cursor, Codex) | text-mode fallback | print choices, wait for the reply      |
+<!-- ycc:verbatim-block:begin -->
 
-OMP registers its question tool only when a UI is attached, so the same skill can see it in
-the TUI and not in `-p`. Detect per run; never assume from the runtime name.
+| Runtime and mode                                           | Question surface         | Behavior                               |
+| ---------------------------------------------------------- | ------------------------ | -------------------------------------- |
+| Claude Code interactive                                    | built-in question tool   | ask; mark one `recommended` hint       |
+| OMP TUI and `--mode rpc-ui`                                | `ask`                    | ask; mark one `recommended` hint       |
+| Codex and Cursor chat                                      | none; text-mode fallback | print choices, wait for the reply      |
+| OMP `-p`, `--mode json`, `--mode rpc`; CI; print-mode runs | none (headless)          | declared default, or stop + rerun hint |
+| Any subagent                                               | none                     | return choices to the parent           |
+
+OMP registers `ask` only when a UI is attached, so the same skill sees it in the TUI and
+not in `-p`. Detect per run from the tool list; never assume from the runtime name.
+
+<!-- ycc:verbatim-block:end -->

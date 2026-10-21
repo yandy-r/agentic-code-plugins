@@ -451,6 +451,36 @@ class DispatchWordingTest(unittest.TestCase):
             with self.subTest(source=source[:40]):
                 self.assertEqual(omp.rewrite_dispatch_wording(source), expected)
 
+    def test_omit_name_rules_dropped(self) -> None:
+        cases = (
+            (
+                "Uses `subagent_type: x`, distinguished by `description` and the prompt "
+                "(omit `name` for standalone calls).",
+                "Uses `agent: x`, distinguished by `name` and the prompt.",
+            ),
+            (
+                "See the `Agent` spawn/return contract (omit `name` for standalone dispatch).",
+                "See the `Agent` spawn/return contract.",
+            ),
+            ("using the **`Agent`** tool (omit `name`):", "using the **`Agent`** tool:"),
+            (
+                "SEVEN `Agent` tool calls** (standalone — no `name`). Wait.",
+                "SEVEN `Agent` tool calls** (standalone). Wait.",
+            ),
+            (
+                "MULTIPLE calls**. No `name` — standalone dispatch. Each call",
+                "MULTIPLE calls**. Standalone dispatch. Each call",
+            ),
+            ("MULTIPLE calls**. No `name`. Each call", "MULTIPLE calls**. Each call"),
+            (
+                "If it spawns a teammate without `name`, it's a bug.",
+                "If it spawns a teammate without `name`, it's a bug.",
+            ),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source[:40]):
+                self.assertEqual(omp.rewrite_dispatch_wording(source), expected)
+
     def test_non_dispatch_description_and_prompt_untouched(self) -> None:
         cases = (
             "Findings:\n\n- `id`\n- `description`\n- `status`\n",
@@ -600,6 +630,21 @@ class ForbiddenSemanticsTest(unittest.TestCase):
         self.assertEqual(
             [finding.split(": Claude")[0] for finding in findings],
             ["skills/demo/SKILL.md:2", "skills/demo/SKILL.md:4", "skills/demo/SKILL.md:7"],
+        )
+
+    def test_scan_flags_omit_name_next_to_omp_dispatch(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            package = Path(raw)
+            write(
+                package / "skills/demo/SKILL.md",
+                "Dispatch via the `task` tool (omit `name`).\n\n"
+                "Each item sets `agent: x`; no `name` here.\n\n"
+                "A teammate without `name` is a bug.\n",
+            )
+            findings = omp.scan_forbidden_semantics(package)
+        self.assertEqual(
+            [finding.split(": omit")[0] for finding in findings],
+            ["skills/demo/SKILL.md:1", "skills/demo/SKILL.md:3"],
         )
 
     def test_real_generated_skills_are_clean(self) -> None:

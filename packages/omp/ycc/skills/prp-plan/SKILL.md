@@ -71,7 +71,7 @@ ARGUMENTS="${ARGUMENTS//--visual/}"
 
 **Compatibility note**: When this skill is invoked from a Cursor, Codex or OMP bundle, `--team` must not be used (those bundles ship without team tools). Use `--parallel` instead.
 
-**Questions:** class `clarify` (Ambiguity Gate): without a question tool, print the open questions and stop; a team retry offer prints the `--parallel` rerun and stops. See `skill://ycc-shared/references/question-policy.md`.
+**Questions:** class `clarify` (Ambiguity Gate): headless (no question tool or chat turn), print the open questions and stop; a team retry offer prints the `--parallel` rerun and stops. See `skill://ycc-shared/references/question-policy.md`.
 
 ### Input Detection
 
@@ -134,7 +134,7 @@ By default (`WORKTREE_MODE=true`), append the following directive to the researc
 ### Path B — Parallel sub-agents (`PARALLEL_MODE=true`)
 
 Dispatch **3 `prp-researcher` agents in a SINGLE message** as **standalone
-sub-agents** using the **`task`** tool (omit `name`):
+sub-agents** using the **`task`** tool:
 
 | Researcher          | Categories                             | Traces                  |
 | ------------------- | -------------------------------------- | ----------------------- |
@@ -155,7 +155,7 @@ After all 3 return: merge tables, de-duplicate, verify all 8 categories covered.
 #### Path B (enhanced) — when `ENHANCED_MODE=true`
 
 - Replace the 3-row researcher table above with the 7-row roster from `skill://prp-plan/references/enhanced-researchers.md`.
-- Dispatch in a **SINGLE message** with **SEVEN `task` tool calls** (standalone — no `name`). Wait for all researcher results, whether returned directly or delivered asynchronously, before synthesis.
+- Dispatch in a **SINGLE message** with **SEVEN `task` tool calls** (standalone). Wait for all researcher results, whether returned directly or delivered asynchronously, before synthesis.
 - Each call uses `agent: "prp-researcher"` with `name` set to the role name (`api-researcher`, `business-analyzer`, `tech-designer`, `ux-researcher`, `security-researcher`, `practices-researcher`, `recommendations-agent`) and the role-specific prompt copied verbatim from `enhanced-researchers.md`. Per `enhanced-researchers.md`, each role-specific prompt also instructs the researcher to write a backstop file at `docs/prps/plans/.prp-research/<feature-slug>/<role-name>.md` (`api-researcher.md`, `business-analyzer.md`, `tech-designer.md`, `ux-researcher.md`, `security-researcher.md`, `practices-researcher.md`, `recommendations-agent.md`) in addition to returning the same content inline.
 - The 5-line snippet cap and discovery-table-only constraints used in the 3-researcher path apply unchanged.
 

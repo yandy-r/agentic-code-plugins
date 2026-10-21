@@ -30,7 +30,7 @@ Generate a concise, actionable feature specification in a single pass. Lighter t
 
 **Core Philosophy**: A spec captures WHAT to build and WHY, with enough technical direction to feed directly into `prp-plan`. It does NOT capture HOW in implementation detail — that is the plan's job.
 
-**Questions:** class `clarify` (Phase 1); without a question tool: print the open questions, write nothing, stop. See `~/.agents/ycc-shared/references/question-policy.md`.
+**Questions:** class `clarify` (Phase 1); headless (no question tool or chat turn): print the open questions, write nothing, stop. See `~/.agents/ycc-shared/references/question-policy.md`.
 
 ---
 

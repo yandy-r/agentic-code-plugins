@@ -112,6 +112,18 @@ _CLAUDE_DISPATCH_FIELD = re.compile(
     re.MULTILINE,
 )
 
+# Claude reserves `name` for teammates, so its standalone rules say "omit `name`". An OMP
+# `task` item always carries `name` as its job label (template section 1), so those
+# clauses are dropped from generated markdown; the scanner flags any that survive.
+_NAME_OMISSION_REWRITES: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r" \(omit `name`(?: for standalone (?:dispatch|calls))?\)"), ""),
+    (re.compile(r"\(standalone — no `name`\)"), "(standalone)"),
+    (re.compile(r"\bNo `name` — standalone dispatch\."), "Standalone dispatch."),
+    (re.compile(r"\bNo `name`\. "), ""),
+)
+_NAME_OMISSION_RULE = re.compile(r"\b(?:[Oo]mit|[Nn]o|[Ww]ithout)\s+`name`")
+_OMP_DISPATCH_CONTEXT = re.compile(r"`task`|`agent`|\bagent\s*[:=]\s*[\"`\w]")
+
 # Team advisories name OMP too (D7): on lines about teams only.
 _TEAM_LINE = re.compile(r"\bteam", re.IGNORECASE)
 _TEAM_ADVISORY_WORDING: tuple[tuple[re.Pattern[str], str], ...] = (
@@ -615,22 +627,32 @@ def rewrite_dispatch_wording(text: str) -> str:
         if _DISPATCH_MARKER.search(parts[index]):
             parts[index] = _project_dispatch_fields(parts[index])
     text = "".join(parts)
-    for pattern, replacement in _DISPATCH_WORDING:
+    for pattern, replacement in _DISPATCH_WORDING + _NAME_OMISSION_REWRITES:
         text = pattern.sub(replacement, text)
     return text
 
 
-def dispatch_field_leaks(text: str) -> list[int]:
-    """1-based lines holding a Claude `description`/`prompt` field in a paragraph that sets an OMP `agent`."""
+def _paragraph_lines(text: str, context: re.Pattern[str], rule: re.Pattern[str]) -> list[int]:
+    """1-based lines matching rule inside paragraphs that match context."""
     lines: list[int] = []
     offset = 1
     for index, part in enumerate(_PARAGRAPH_BREAK.split(text)):
-        if index % 2 == 0 and _OMP_AGENT_FIELD.search(part):
+        if index % 2 == 0 and context.search(part):
             for number, line in enumerate(part.splitlines(), offset):
-                if _CLAUDE_DISPATCH_FIELD.search(line):
+                if rule.search(line):
                     lines.append(number)
         offset += part.count("\n")
     return lines
+
+
+def dispatch_field_leaks(text: str) -> list[int]:
+    """1-based lines holding a Claude `description`/`prompt` field in a paragraph that sets an OMP `agent`."""
+    return _paragraph_lines(text, _OMP_AGENT_FIELD, _CLAUDE_DISPATCH_FIELD)
+
+
+def name_omission_leaks(text: str) -> list[int]:
+    """1-based lines telling an OMP `task`/`agent` dispatch to omit `name` (every OMP item has one)."""
+    return _paragraph_lines(text, _OMP_DISPATCH_CONTEXT, _NAME_OMISSION_RULE)
 
 
 def rewrite_team_advisories(text: str) -> str:
@@ -859,6 +881,8 @@ def scan_forbidden_semantics(package_root: Path) -> list[str]:
         if path.suffix.lower() in MARKDOWN_SUFFIXES:
             for number in dispatch_field_leaks(text):
                 findings.append(f"{rel}:{number}: Claude dispatch field next to `agent`: {lines[number - 1].strip()}")
+            for number in name_omission_leaks(text):
+                findings.append(f"{rel}:{number}: omit-`name` rule next to OMP dispatch: {lines[number - 1].strip()}")
     return findings
 
 

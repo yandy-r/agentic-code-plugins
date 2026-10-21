@@ -55,7 +55,7 @@ Context injection is deliberately one scoped helper call: no `pwd`, `ls | head`,
 
 Flags are composable. See `references/flag-reference.md` for the full matrix.
 
-**Questions:** class `clarify` (empty or unknown profile): print the questions and stop; class `confirm-destructive` (profile confirmation, conflicts, rules migration): behave as `--dry-run`, skip existing files, print diffs and the rerun, then stop. The release-model offer is skipped unless `--release-model` is passed. See `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/question-policy.md`.
+**Questions:** headless (no question tool or chat turn) defaults: class `clarify` (empty or unknown profile): print the questions and stop; class `confirm-destructive` (profile confirmation, conflicts, rules migration): behave as `--dry-run`, skip existing files, print diffs and the rerun, then stop. The release-model offer is skipped unless `--release-model` is passed. See `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/question-policy.md`.
 
 ## Task
 

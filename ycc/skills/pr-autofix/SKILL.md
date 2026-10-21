@@ -51,7 +51,7 @@ Vendor-neutral counterpart to `coderabbit:autofix`. Pulls every comment surface 
 - Every eligible thread is processed exactly once: applied, skipped-with-reason, deferred, or failed.
 - GitHub-only. Forgejo/Gitea lack GraphQL `resolveReviewThread`, per-comment harvesting, and `gh run` controls, with no `tea` equivalent. Phase 0 detects the provider per `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/forge-detection.md` (capability matrix rows: "Review-thread resolution", "Per-comment PR autofix harvesting", "CI-autofix loop"); on a non-`github` remote, stop gracefully and say why.
 
-**Questions:** class `confirm-destructive` (per-comment approval, dirty tree, branch switch); without a question tool and without `--yes`/`--ci`: behave as `--dry-run`; a dirty tree or wrong branch aborts. Class `confirm-publish` (Phase 7 CI authorization): without a question tool and without `--ci-yes`, skip CI monitoring and print `rerun with --ci-yes`. See `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/question-policy.md`.
+**Questions:** class `confirm-destructive` (per-comment approval, dirty tree, branch switch); headless (no question tool or chat turn) and without `--yes`/`--ci`: behave as `--dry-run`; a dirty tree or wrong branch aborts. Class `confirm-publish` (Phase 7 CI authorization): headless and without `--ci-yes`, skip CI monitoring and print `rerun with --ci-yes`. See `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/question-policy.md`.
 
 ## Phase checklist
 

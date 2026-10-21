@@ -51,7 +51,7 @@ Error: /skill:quick-review takes no positional argument (only flags).
 - `--team` passed while `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is not set to `1` in the environment -> abort with: `--team requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1. Use --parallel instead, or set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in your Claude Code settings if you intentionally want agent-team dispatch.`
 - `--severity` value not one of `CRITICAL|HIGH|MEDIUM|LOW` -> abort with: `Invalid --severity value. Use CRITICAL, HIGH, MEDIUM, or LOW.`
 
-**Questions:** class `choose-path` (Phase 4 review action); without a question tool and without a chat turn: behave as `--save` (Save to file). See `skill://ycc-shared/references/question-policy.md`.
+**Questions:** class `choose-path` (Phase 4 review action); headless (no question tool or chat turn): behave as `--save` (Save to file). See `skill://ycc-shared/references/question-policy.md`.
 
 ---
 

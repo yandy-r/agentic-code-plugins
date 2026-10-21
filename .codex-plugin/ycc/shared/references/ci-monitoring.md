@@ -70,10 +70,11 @@ invocation:
   showing the resolved caps (PR number, head branch, `--max-pushes`,
   `--max-same-failure`, `--timeout-min`) and the non-toggleable safety
   constraints below. The user must confirm before the first iteration. Skip this
-  prompt by passing `--ci-yes` (for non-interactive callers). Without a question
-  tool and without `--ci-yes`, this is a `confirm-publish` gate
-  (`question-policy.md` in this directory): do not enter the loop, report that CI
-  was not monitored, and print `rerun with --ci-yes`.
+  prompt by passing `--ci-yes` (for non-interactive callers). The prompt is a
+  `confirm-publish` gate (`question-policy.md` in this directory): with a chat turn
+  but no question tool, use the text-mode fallback. Headless (no question tool or
+  chat turn) and without `--ci-yes`: do not enter the loop, report that CI was not
+  monitored, and print `rerun with --ci-yes`.
 - **Non-toggleable safety constraints** (cannot be overridden by any flag):
   - Never `git push --force` or `git push --force-with-lease`.
   - Never commit with `--no-verify`.

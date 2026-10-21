@@ -20,7 +20,7 @@ Execute a parallel implementation plan by deploying implementor agents in depend
 - Never pass `isolation: "worktree"` per agent — all agents in all batches share the one feature worktree (or the prepared checkout under `--no-worktree`).
 - Standalone task failure: record it and continue only independent tasks. Team failure: no auto-retry or skipping; ask the user before advancing.
 
-**Questions:** class `failure-recovery` (team batch failure); without a question tool: stop, keep the feature worktree, and print the failing batch plus the resume command. See `{{package-root}}/shared/references/question-policy.md`.
+**Questions:** class `failure-recovery` (team batch failure); headless (no question tool or chat turn): stop, keep the feature worktree, and print the failing batch plus the resume command. See `{{package-root}}/shared/references/question-policy.md`.
 
 ## Workflow Integration
 
