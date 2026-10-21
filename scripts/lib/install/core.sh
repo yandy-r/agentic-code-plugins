@@ -212,6 +212,7 @@ plugins_selection() {
         PLUGINS_GROUPS="${kept[*]:-}"
         return 0
     fi
+    # shellcheck disable=SC2034  # PLUGINS_SELECT is read by the target libs.
     PLUGINS_SELECT=(--entry-groups plugins --entries "${selection}")
     info "Plugins: ${selection//,/, }"
 }
