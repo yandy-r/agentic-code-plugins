@@ -84,7 +84,20 @@ run_slice() {
             else
                 step_enabled "${other}" || { [[ "${other}" == skills && "${target}" == claude ]] && step_enabled commands; } || continue
                 pending='*'
-                has_selection "${other}" && pending="$(selection_for_target "${other}" "${target}")"
+                # Claude skills: narrowed by the same --skills/--commands union
+                # its skills slice installs with (empty union: whole slice).
+                local -a union=()
+                if [[ "${other}" == skills && "${target}" == claude ]]; then
+                    read -r -a union <<< "$(slice_selection_kinds claude skills)"
+                elif has_selection "${other}"; then
+                    union=("${other}")
+                fi
+                if [[ ${#union[@]} -gt 0 ]]; then
+                    pending=""
+                    for kind in "${union[@]}"; do
+                        pending+="${pending:+,}$(selection_for_target "${kind}" "${target}")"
+                    done
+                fi
             fi
             command=(env "YCC_PENDING_${other^^}=${pending}" "${command[@]}")
         done

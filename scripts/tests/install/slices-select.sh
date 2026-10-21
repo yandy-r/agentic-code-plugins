@@ -300,5 +300,8 @@ home="$(new_home)"
 install_must_succeed "${home}" sync --target claude --intent agents,commands --agents review-fixer
 assert_not_contains "${INSTALL_OUT}" "is dispatched only by" "claude commands (the skills alias): no dispatched-only warning"
 assert_not_contains "${INSTALL_OUT}" "but not installed" "claude commands (the skills alias) count as the same run's full skills slice"
+home="$(new_home)"
+install_must_succeed "${home}" sync --target claude --intent agents,commands --agents review-fixer --commands clean
+assert_contains "${INSTALL_OUT}" "'review-fixer' is dispatched only by" "claude --commands narrows the same run's skills for agent warnings"
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then install_tests_finish; fi
