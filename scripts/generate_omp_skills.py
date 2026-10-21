@@ -32,7 +32,8 @@ from generate_codex_common import (
     restore_marked_verbatim_blocks,
 )
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parent
 SRC_DIR = REPO_ROOT / "ycc" / "skills"
 DST_DIR = REPO_ROOT / "packages/omp/ycc/skills"
 
@@ -60,6 +61,75 @@ TEAM_DISPATCH_NOTE = (
     "\n"
     "Agent teams (`--team`) are unsupported on OMP. Abort if requested and rerun without `--team`\n"
     "using standalone dispatch.\n"
+)
+
+# Sections 1-7 of the OMP standalone-dispatch reference come from this template; the
+# dispatch-independent sections 8-10 come from the canonical source (opencode precedent).
+STANDALONE_DISPATCH_REL = Path(SHARED_DIR_NAME) / "references" / "standalone-dispatch.md"
+STANDALONE_DISPATCH_TEMPLATE = SCRIPT_DIR / "omp_templates" / "standalone-dispatch.md"
+TEMPLATE_SECTIONS = tuple(range(1, 8))
+CANONICAL_SECTIONS = (8, 9, 10)
+_NUMBERED_SECTION = re.compile(r"^## (\d+)\.\s", re.MULTILINE)
+
+# OMP keeps skill-managed worktrees under <repo-root>/.omp/worktrees (D1). Applied to
+# markdown and scripts, so worktree-paths.sh's @YCC_DEFAULT_WORKTREE_ROOT@ line emits
+# `.omp`; verbatim blocks keep the multi-runtime tables intact.
+WORKTREE_ROOT_REWRITE = ("/.claude/worktrees", "/.omp/worktrees")
+
+# Claude dispatch arguments -> OMP `task` item fields (D5). `isolation: "worktree"`
+# only ever appears in "never pass" rules, which keep their meaning as `isolated: true`.
+_DISPATCH_WORDING: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\bsubagent_type\b"), "agent"),
+    (re.compile(r"\bisolation\s*[:=]\s*\"worktree\""), "isolated: true"),
+)
+
+# Claude `Agent` call fields inside a dispatch paragraph (a blank-line-delimited block
+# naming `subagent_type`) -> OMP item fields: `prompt` -> `task`, `description` -> `name`
+# (dropped where the block already sets a `name` field), and every bullet, table or
+# code field list gains `solutionSpace`. Prose outside such paragraphs, frontmatter and
+# `todo` registrations are untouched.
+_PARAGRAPH_BREAK = re.compile(r"(\n[ \t]*\n)")
+_DISPATCH_MARKER = re.compile(r"\bsubagent_type\b")
+_NAME_FIELD = re.compile(r"^[ \t]*-[ \t]*`name`:|^[ \t]*name\s*=\s*\"", re.MULTILINE)
+_DESCRIPTION_BULLET = re.compile(r"^(?P<indent>[ \t]*)- `description`:[ \t]*(?P<value>.*)\n?", re.MULTILINE)
+_PROMPT_BULLET = re.compile(r"^(?P<indent>[ \t]*)- `prompt`:(?P<rest>.*)$", re.MULTILINE)
+_DESCRIPTION_ROW = re.compile(
+    r"^\|(?P<pad>[ \t]*)description[ \t]*\|[ \t]*(?P<value>.*?)[ \t]*\|[ \t]*$\n?", re.MULTILINE
+)
+_PROMPT_ROW = re.compile(r"^\|(?P<pad>[ \t]*)prompt[ \t]*\|(?P<rest>.*)$", re.MULTILINE)
+_DESCRIPTION_CODE = re.compile(
+    r"^(?P<indent>[ \t]*)description(?P<eq>\s*=\s*)\"(?P<value>[^\"\n]*)\"(?P<tail>,?)[ \t]*\n", re.MULTILINE
+)
+_PROMPT_CODE = re.compile(r"^(?P<indent>[ \t]*)prompt(?P<eq>\s*=\s*)(?P<value>\"[^\"\n]*\")", re.MULTILINE)
+_DESCRIPTION_INLINE = re.compile(r"`description=\"(?P<value>[^\"\n]*)\"`")
+_PROMPT_INLINE = re.compile(r"`prompt=(?P<value>\"[^\"\n]*\")`")
+_FIELD_SPAN = {"`description`": "`name`", "`prompt`": "`task`"}
+_SOLUTION_SPACE = "how open-ended the work is (item shape: `skill://ycc-shared/references/standalone-dispatch.md` §1)"
+# Generated OMP text: a paragraph that sets an OMP `agent` field must not keep Claude fields.
+_OMP_AGENT_FIELD = re.compile(r"`agent`|\bagent\s*[:=]\s*[\"`\w]|^\|[ \t]*agent[ \t]*\|", re.MULTILINE)
+_CLAUDE_DISPATCH_FIELD = re.compile(
+    r"`(?:description|prompt)`|\b(?:description|prompt)\s*=\s*\"|^\|[ \t]*(?:description|prompt)[ \t]*\|",
+    re.MULTILINE,
+)
+
+# Claude reserves `name` for teammates, so its standalone rules say "omit `name`". An OMP
+# `task` item always carries `name` as its job label (template section 1), so those
+# clauses are dropped from generated markdown; the scanner flags any that survive.
+_NAME_OMISSION_REWRITES: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r" \(omit `name`(?: for standalone (?:dispatch|calls))?\)"), ""),
+    (re.compile(r"\(standalone — no `name`\)"), "(standalone)"),
+    (re.compile(r"\bNo `name` — standalone dispatch\."), "Standalone dispatch."),
+    (re.compile(r"\bNo `name`\. "), ""),
+)
+_NAME_OMISSION_RULE = re.compile(r"\b(?:[Oo]mit|[Nn]o|[Ww]ithout)\s+`name`")
+_OMP_DISPATCH_CONTEXT = re.compile(r"`task`|`agent`|\bagent\s*[:=]\s*[\"`\w]")
+
+# Team advisories name OMP too (D7): on lines about teams only.
+_TEAM_LINE = re.compile(r"\bteam", re.IGNORECASE)
+_TEAM_ADVISORY_WORDING: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\bCursor and Codex\b"), "Cursor, Codex and OMP"),
+    (re.compile(r"\bCursor or Codex\b"), "Cursor, Codex or OMP"),
+    (re.compile(r"\bCursor/Codex\b(?!/OMP)"), "Cursor/Codex/OMP"),
 )
 
 # Frontmatter keys OMP keeps; `allowed-tools` has no OMP semantics (spike §2.8).
@@ -130,6 +200,143 @@ PATH_TOOL_SENTENCES: PathSentences = {
             "`TaskCreate`/`TaskUpdate` in Path A, `TaskList` in Path B",
             "`todo` (create and update tasks in Path A, list them in Path B)",
         ),
+    ),
+}
+# Dispatch sentences whose Claude semantics (`run_in_background`, "end the turn",
+# `TaskList` monitoring, `Agent(...)` examples) are wrong on OMP, keyed by source file;
+# applied before every other rewrite and drift-checked like PATH_TOOL_SENTENCES. The
+# standalone-dispatch §3/§7 entries pin the source wording the OMP template mirrors.
+_MONITOR_PROGRESS = (
+    "**Monitor progress** - Use TaskList to check when all tasks complete",
+    "**Monitor progress** - Call `wait` until every spawned job settles",
+)
+_PLAYBOOK_PROMPT = (
+    '"Working directory: <repo-root>/.claude/worktrees/<repo>-<FEATURE_SLUG>/\\n'
+    "All parallel agents in this batch share this path; batching guarantees no two agents touch the same file."
+    '\\n\\n[substituted template with Path A coordination block]"'
+)
+# (agent, Claude description, OMP CamelCase name) for the three Path A example calls.
+_PLAYBOOK_AGENTS = (
+    ("nodejs-backend-architect", "Implement auth system", "ImplementAuthSystem"),
+    ("test-strategy-planner", "Create auth test plan", "AuthTestPlan"),
+    ("documentation-writer", "Document auth API", "AuthApiDocs"),
+)
+_PLAYBOOK_PATH_A_SOURCE = (
+    "```\n"
+    + "".join(
+        f'Agent(\n  subagent_type = "{agent}",\n  description = "{title}",\n  prompt = {_PLAYBOOK_PROMPT}\n)\n'
+        for agent, title, _ in _PLAYBOOK_AGENTS
+    )
+    + "```"
+)
+_PLAYBOOK_PATH_A_OMP = (
+    "```\ntask({\n"
+    '  context: "<task goal and the Path A coordination background shared by every subtask>",\n'
+    "  tasks: [\n"
+    + ",\n".join(
+        f'    {{ agent: "{agent}", name: "{name}",\n'
+        f"      task: {_PLAYBOOK_PROMPT},\n"
+        '      solutionSpace: "<how open-ended>" }'
+        for agent, _, name in _PLAYBOOK_AGENTS
+    )
+    + "\n  ]\n})\n```\n\nThen call `wait` until every job of the batch has settled."
+)
+OMP_DISPATCH_SENTENCES: PathSentences = {
+    "_shared/references/standalone-dispatch.md": (
+        (
+            "If results are pending and the runtime offers a wait tool, call it until every dispatched\n"
+            "job has settled; otherwise end the turn so completion notifications can arrive.",
+            "If results are pending, call `wait` until every dispatched job has settled.",
+        ),
+        (
+            "OMP dispatches through one `task` batch, ships no team tools, and fails `--team` closed.",
+            "OMP dispatches through one `task` batch and fails `--team` closed.",
+        ),
+        (
+            "Applies to standalone and `--team` runs.",
+            "Applies to standalone runs; `--team` is unsupported on OMP (section 7).",
+        ),
+        (
+            'Never pass `isolation: "worktree"` or\n'
+            '`Agent(isolation: "worktree")`; it creates separate harness worktrees. Codex/opencode: prompt line is\n'
+            "sufficient. Cursor: warn and print the manual `git worktree add` command.",
+            "Never set `isolated` on a `task` item: it makes a separate `~/.omp/wt` copy per agent and\n"
+            "breaks the single-worktree contract. The prompt line is sufficient.",
+        ),
+        (
+            "Dispatch each batch as one message;\nwait for the whole batch before the next.",
+            "Dispatch each batch as one `task` call;\n`wait` for the whole batch before the next.",
+        ),
+        (
+            "with one `ycc:implementor` `Agent` per step in one message;",
+            "with one `ycc:implementor` item per step in one `task` batch;",
+        ),
+    ),
+    "_shared/references/review-dispatch.md": (
+        (
+            "in parallel in a single\nmessage with multiple `Agent` calls.",
+            "in one `task` batch\n(one `tasks[]` item each).",
+        ),
+        (
+            "if results are pending and the runtime\noffers a wait tool, call it until every reviewer job has settled;",
+            "if results are pending, call `wait`\nuntil every reviewer job has settled;",
+        ),
+        ("After all 3 `Agent` calls return,", "After all 3 reviewer jobs settle,"),
+    ),
+    "_shared/references/review-checklist.md": (
+        (
+            "dispatched via `Agent` without\n`name` or `run_in_background` (Path B),",
+            "dispatched in one `task` batch\n(Path B),",
+        ),
+    ),
+    "prp-plan/SKILL.md": (
+        (
+            "Dispatch without `name` or `run_in_background`. Results may arrive asynchronously; "
+            "wait for all results before synthesis and end the turn while results are pending.",
+            "Dispatch every researcher in one `task` batch. Results arrive as background jobs; "
+            "call `wait` until every job settles before synthesis, and never end the turn while one is pending.",
+        ),
+    ),
+    "orchestrate/references/dispatch-playbook.md": (
+        (
+            "One message, multiple calls, no `name`, no `run_in_background`.",
+            "One `task` call with one `tasks[]` item per subtask.",
+        ),
+        (_PLAYBOOK_PATH_A_SOURCE, _PLAYBOOK_PATH_A_OMP),
+    ),
+    "feature-research/templates/research-agents.md": (_MONITOR_PROGRESS,),
+    "implement-plan/SKILL.md": (
+        (
+            '`description="Implement [Task ID]: [Title]"`, full substituted template.',
+            '`name="Impl<TaskId>"`, `task=` the full substituted template, `solutionSpace="<how open-ended>"`.',
+        ),
+    ),
+    "plan/references/enhanced-personas.md": (
+        (
+            "distinguished by `description` and the role-specific prompt in standalone mode; "
+            "only team mode sets `name`.",
+            "distinguished by the item `name` (role) and the role-specific `task` prompt.",
+        ),
+    ),
+    "plan-workflow/references/planning-agents.md": (_MONITOR_PROGRESS,),
+    "plan-workflow/references/research-agents.md": (_MONITOR_PROGRESS,),
+    "plan-workflow/references/validation-agents.md": (_MONITOR_PROGRESS,),
+}
+
+# Forbidden Claude workflow semantics in the generated OMP package (AC1). Allowed only
+# in multi-runtime text: whole verbatim files (paths relative to packages/omp/ycc) and
+# line-anchored rows of the worktree-strategy runtime table.
+FORBIDDEN_SEMANTICS = re.compile(
+    r"subagent_type|run_in_background|isolation\s*[:=]\s*\"worktree\"|AskUserQuestion|TaskOutput|BashOutput"
+    r"|/\.claude/worktrees"
+)
+SEMANTICS_ALLOWED_FILES: frozenset[str] = frozenset({"skills/_shared/references/target-capability-matrix.md"})
+SEMANTICS_ALLOWED_LINES: Mapping[str, tuple[re.Pattern[str], ...]] = {
+    "skills/_shared/references/worktree-strategy.md": (
+        re.compile(
+            r"^\| Claude Code +\| `<repo-root>/\.claude/worktrees/` +\| source default \(`worktree-paths\.sh`\) +\|$"
+        ),
+        re.compile(r"^ *`<repo-root>/\.claude/worktrees` and honors `YCC_WORKTREE_ROOT`\. Without the$"),
     ),
 }
 _FENCE = re.compile(r"^[ \t]*(?:```|~~~)")
@@ -370,11 +577,129 @@ def apply_path_sentences(
     return text
 
 
+def rewrite_worktree_root(text: str) -> str:
+    """`/.claude/worktrees` -> `/.omp/worktrees` (D1)."""
+    return text.replace(*WORKTREE_ROOT_REWRITE)
+
+
+def _project_dispatch_fields(paragraph: str) -> str:
+    """One dispatch paragraph: Claude `description`/`prompt` fields -> OMP `name`/`task`."""
+    has_name = bool(_NAME_FIELD.search(paragraph))
+
+    def label(value: str) -> str:
+        return f"CamelCase label for {value.strip()}"
+
+    def description_bullet(match: re.Match[str]) -> str:
+        return "" if has_name else f"{match['indent']}- `name`: {label(match['value'])}\n"
+
+    def description_row(match: re.Match[str]) -> str:
+        return "" if has_name else f"|{match['pad']}name | {label(match['value'])} |\n"
+
+    def description_code(match: re.Match[str]) -> str:
+        if has_name:
+            return ""
+        return f'{match["indent"]}name{match["eq"]}"<CamelCase label for {match["value"]}>"{match["tail"]}\n'
+
+    paragraph = _DESCRIPTION_BULLET.sub(description_bullet, paragraph)
+    paragraph = _PROMPT_BULLET.sub(
+        lambda m: f"{m['indent']}- `task`:{m['rest']}\n{m['indent']}- `solutionSpace`: {_SOLUTION_SPACE}", paragraph
+    )
+    paragraph = _DESCRIPTION_ROW.sub(description_row, paragraph)
+    paragraph = _PROMPT_ROW.sub(
+        lambda m: f"|{m['pad']}task |{m['rest']}\n|{m['pad']}solutionSpace | {_SOLUTION_SPACE} |", paragraph
+    )
+    paragraph = _DESCRIPTION_CODE.sub(description_code, paragraph)
+    paragraph = _PROMPT_CODE.sub(
+        lambda m: f'{m["indent"]}task{m["eq"]}{m["value"]},\n{m["indent"]}solutionSpace{m["eq"]}"<how open-ended>"',
+        paragraph,
+    )
+    paragraph = _DESCRIPTION_INLINE.sub(lambda m: f"`name` ({label(m['value'])})", paragraph)
+    paragraph = _PROMPT_INLINE.sub(lambda m: f'`task={m["value"]}`, `solutionSpace="<how open-ended>"`', paragraph)
+    for span, replacement in _FIELD_SPAN.items():
+        paragraph = paragraph.replace(span, replacement)
+    return paragraph
+
+
+def rewrite_dispatch_wording(text: str) -> str:
+    """Claude dispatch arguments -> OMP `task` item fields (D5); item shape: OMP standalone-dispatch §1."""
+    parts = _PARAGRAPH_BREAK.split(text)
+    for index in range(0, len(parts), 2):
+        if _DISPATCH_MARKER.search(parts[index]):
+            parts[index] = _project_dispatch_fields(parts[index])
+    text = "".join(parts)
+    for pattern, replacement in _DISPATCH_WORDING + _NAME_OMISSION_REWRITES:
+        text = pattern.sub(replacement, text)
+    return text
+
+
+def _paragraph_lines(text: str, context: re.Pattern[str], rule: re.Pattern[str]) -> list[int]:
+    """1-based lines matching rule inside paragraphs that match context."""
+    lines: list[int] = []
+    offset = 1
+    for index, part in enumerate(_PARAGRAPH_BREAK.split(text)):
+        if index % 2 == 0 and context.search(part):
+            for number, line in enumerate(part.splitlines(), offset):
+                if rule.search(line):
+                    lines.append(number)
+        offset += part.count("\n")
+    return lines
+
+
+def dispatch_field_leaks(text: str) -> list[int]:
+    """1-based lines holding a Claude `description`/`prompt` field in a paragraph that sets an OMP `agent`."""
+    return _paragraph_lines(text, _OMP_AGENT_FIELD, _CLAUDE_DISPATCH_FIELD)
+
+
+def name_omission_leaks(text: str) -> list[int]:
+    """1-based lines telling an OMP `task`/`agent` dispatch to omit `name` (every OMP item has one)."""
+    return _paragraph_lines(text, _OMP_DISPATCH_CONTEXT, _NAME_OMISSION_RULE)
+
+
+def rewrite_team_advisories(text: str) -> str:
+    """Team advisories that list the bundles without team tools also name OMP (D7)."""
+    lines = text.splitlines(keepends=True)
+    for index, line in enumerate(lines):
+        if _TEAM_LINE.search(line):
+            for pattern, replacement in _TEAM_ADVISORY_WORDING:
+                line = pattern.sub(replacement, line)
+            lines[index] = line
+    return "".join(lines)
+
+
+def split_numbered_sections(text: str, required: tuple[int, ...], what: str) -> dict[int, str]:
+    """Split `## <n>. ...` sections by number; raise when a required number is missing."""
+    matches = list(_NUMBERED_SECTION.finditer(text))
+    sections: dict[int, str] = {}
+    for index, match in enumerate(matches):
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        sections[int(match.group(1))] = text[match.start() : end].rstrip().removesuffix("---").rstrip()
+    missing = [number for number in required if number not in sections]
+    if missing:
+        raise OmpGenerationError(f"{what} is missing sections {missing}")
+    return sections
+
+
+def render_omp_standalone_dispatch(source: str, template_path: Path = STANDALONE_DISPATCH_TEMPLATE) -> str:
+    """Template sections 1-7 (with its preamble) + canonical sections 8-10, before rewrites."""
+    try:
+        template = template_path.read_text(encoding="utf-8")
+    except OSError as error:
+        raise OmpGenerationError(f"OMP dispatch template is unavailable: {template_path}") from error
+    found = split_numbered_sections(template, TEMPLATE_SECTIONS, f"OMP dispatch template {template_path.name}")
+    if tuple(found) != TEMPLATE_SECTIONS:
+        raise OmpGenerationError(f"OMP dispatch template {template_path.name} must hold exactly sections 1-7")
+    canonical = split_numbered_sections(source, CANONICAL_SECTIONS, str(STANDALONE_DISPATCH_REL))
+    head = template.rstrip().removesuffix("---").rstrip()
+    body = "\n\n---\n\n".join(canonical[number] for number in CANONICAL_SECTIONS)
+    return f"{head}\n\n---\n\n{body}\n"
+
+
 def transform_text(
     text: str,
     rel: Path,
     catalog: Catalog,
     sentences: tuple[tuple[str, str], ...] = (),
+    dispatch_sentences: tuple[tuple[str, str], ...] = (),
 ) -> str:
     """Rewrite one non-verbatim skill-tree text file for OMP."""
     is_markdown = rel.suffix.lower() in MARKDOWN_SUFFIXES
@@ -392,7 +717,10 @@ def transform_text(
         if is_markdown:
             segment = rewrite_relative_shared_links(segment, rel, catalog)
         segment = rewrite_namespace(segment, rel, catalog)
+        segment = rewrite_worktree_root(segment)
         if is_markdown:
+            segment = rewrite_dispatch_wording(segment)
+            segment = rewrite_team_advisories(segment)
             segment = rewrite_tool_wording(segment)
         if not keeps_plugin_root:
             _check_no_plugin_root(segment, rel)
@@ -406,7 +734,10 @@ def transform_text(
         frontmatter, text = parse_frontmatter(text)
         header = dump_frontmatter(transform_frontmatter(frontmatter, rel, body_rewrite))
 
+    text = apply_path_sentences(text, rel, dispatch_sentences, "OMP_DISPATCH_SENTENCES")
     text = apply_path_sentences(text, rel, sentences)
+    if rel == STANDALONE_DISPATCH_REL:
+        text = render_omp_standalone_dispatch(text)
     protected, blocks = protect_marked_verbatim_blocks(text)
     output = header + restore_marked_verbatim_blocks(body_rewrite(protected), blocks)
     if output and not output.endswith("\n"):
@@ -441,19 +772,22 @@ def write_tree(
     src_root: Path | None = None,
     aliases: Mapping[str, str] | None = None,
     path_sentences: PathSentences | None = None,
+    dispatch_sentences: PathSentences | None = None,
 ) -> set[Path]:
     """Write the OMP skill tree under dest; returns the relative file paths written."""
     src = SRC_DIR if src_root is None else src_root
-    # Fixture trees (an explicit src_root) get no real-tree sentence table by default.
+    # Fixture trees (an explicit src_root) get no real-tree sentence tables by default.
     if path_sentences is None:
         path_sentences = PATH_TOOL_SENTENCES if src_root is None else {}
+    if dispatch_sentences is None:
+        dispatch_sentences = OMP_DISPATCH_SENTENCES if src_root is None else {}
     sentences = path_sentences
     if not src.is_dir():
         raise SystemExit(f"Missing source directory: {src}")
     catalog = build_catalog(src, aliases)
     if (src / SHARED_STUB_REL).exists():
         raise OmpGenerationError(f"{SHARED_STUB_REL}: source must not define the generated {SHARED_SKILL_NAME} stub")
-    listed_files = set(sentences) | (REPOSITORY_LAYOUT_FILES if src_root is None else set())
+    listed_files = set(sentences) | set(dispatch_sentences) | (REPOSITORY_LAYOUT_FILES if src_root is None else set())
     for listed in sorted(listed_files):
         if not (src / listed).is_file():
             raise OmpGenerationError(f"{listed}: listed in the OMP generator but missing from ycc/skills")
@@ -468,7 +802,13 @@ def write_tree(
             except UnicodeDecodeError:
                 pass
             else:
-                data = transform_text(text, rel, catalog, sentences.get(rel.as_posix(), ())).encode("utf-8")
+                data = transform_text(
+                    text,
+                    rel,
+                    catalog,
+                    sentences.get(rel.as_posix(), ()),
+                    dispatch_sentences.get(rel.as_posix(), ()),
+                ).encode("utf-8")
         outputs[rel] = (data, src_file)
     if (src / SHARED_DIR_NAME).is_dir():
         outputs[SHARED_STUB_REL] = (SHARED_STUB.encode("utf-8"), None)
@@ -520,6 +860,30 @@ def compare_trees(generated: Path, repo_dst: Path) -> list[str]:
         elif (gen[rel].stat().st_mode ^ dst[rel].stat().st_mode) & 0o111:
             diffs.append(f"mode drift: {rel}")
     return diffs
+
+
+def scan_forbidden_semantics(package_root: Path) -> list[str]:
+    """Lines under package_root (packages/omp/ycc) with Claude workflow semantics, minus the allowlist."""
+    findings: list[str] = []
+    for path in sorted(p for p in package_root.rglob("*") if p.is_file()):
+        rel = path.relative_to(package_root).as_posix()
+        if rel in SEMANTICS_ALLOWED_FILES:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        allowed = SEMANTICS_ALLOWED_LINES.get(rel, ())
+        lines = text.splitlines()
+        for number, line in enumerate(lines, 1):
+            if FORBIDDEN_SEMANTICS.search(line) and not any(pattern.match(line) for pattern in allowed):
+                findings.append(f"{rel}:{number}: {line.strip()}")
+        if path.suffix.lower() in MARKDOWN_SUFFIXES:
+            for number in dispatch_field_leaks(text):
+                findings.append(f"{rel}:{number}: Claude dispatch field next to `agent`: {lines[number - 1].strip()}")
+            for number in name_omission_leaks(text):
+                findings.append(f"{rel}:{number}: omit-`name` rule next to OMP dispatch: {lines[number - 1].strip()}")
+    return findings
 
 
 def run_check(dest: Path = DST_DIR) -> int:

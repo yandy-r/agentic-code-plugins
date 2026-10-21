@@ -60,8 +60,10 @@ Agent(subagent_type="<type>", description="<role and short title>", prompt="<ful
 
 Results may arrive as tool return values or asynchronously through task notifications.
 Wait for **all** dispatched agents' results before merging or starting the next batch.
-If results are pending, end the turn to allow completion notifications to arrive; do
-not busy-wait with `sleep`, `echo`, or polling. Resume collection when notified.
+If results are pending and the runtime offers a wait tool, call it until every dispatched
+job has settled; otherwise end the turn so completion notifications can arrive. Never
+finish the run while a dispatched job is still running, and do not busy-wait with
+`sleep`, `echo`, or polling. Resume collection when notified.
 
 Validate each completed agent's report and required artifacts before marking its task
 complete. A launch acknowledgement or task status alone is not a findings report.
@@ -117,12 +119,13 @@ the gap — a quietly missing finding is worse than a reported one.
 
 ## 7. Cross-Target Portability
 
-This file is the Claude-facing source contract. Cursor, Codex, and opencode generators
+This file is the Claude-facing source contract. Cursor, Codex, opencode, and OMP generators
 must project it onto the target's actual tools and lifecycle rather than copying Claude
 identifiers or return assumptions. `Agent` with `name` remains Claude-Code-only. Per the
 `AGENTS:cursor` note in `target-capability-matrix.md` in this directory, those
 generated targets have no Claude teammate-messaging surface (`SendMessage`); their standalone path must use the target-native dispatch
 primitive, and their generated `--team` path must fail closed when no equivalent exists.
+OMP dispatches through one `task` batch, ships no team tools, and fails `--team` closed.
 
 ---
 
@@ -263,7 +266,8 @@ Run the skill's own validation inside the execution tree (worktree path or prepa
 After each batch update todos and print the skill's verbatim `[done] Batch BN: K tasks — complete` marker (em dash; transcript loops match the marker).
 Do not auto-retry a failed batch (usually file conflict or hidden dependency) and do not skip it;
 later batches may depend on it. Preserve completed work; ask the user (fix/resume, switch to
-sequential, abort). Standalone partial failure: continue only independent tasks.
+sequential, abort) per the `failure-recovery` class in `question-policy.md` in this directory.
+Standalone partial failure: continue only independent tasks.
 
 ---
 
@@ -277,4 +281,5 @@ rules (lowercase, non `[a-z0-9-]` to `-`, collapse, cap 20, fallback `untitled`)
 a different feature branch (`--allow-existing-feature-branch` after confirmation) or on `release/*`
 when `RELEASING.md` exists (`--allow-release-branch` for release-only fixes). Do not skip.
 Then process section 9 batches with one `implementor` `Agent` per step in one message; run the
-project type-check and unit-test commands between batches; on failure stop and ask the user.
+project type-check and unit-test commands between batches; on failure stop and ask the user
+(`failure-recovery` class in `question-policy.md`).

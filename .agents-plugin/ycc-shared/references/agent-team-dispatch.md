@@ -162,7 +162,7 @@ primitives — never mix them within the same dispatch. See
 | Experimental flag missing      | Abort skill; report error. Do NOT fall back silently.            |
 | `TaskCreate` fails             | Shut down any spawned teammates, then abort.                     |
 | Teammate returns error         | Record failure in TaskList; decide per skill (continue / abort). |
-| Between-batch validation fails | Shutdown current batch, ask user (fix / sequential / abort).     |
+| Between-batch validation fails | Shutdown current batch; `failure-recovery` gate (see below).     |
 | User aborts mid-run            | `SendMessage(shutdown)` to every active teammate, then stop.     |
 
 Never leave a teammate live after the skill exits.
@@ -312,8 +312,11 @@ TaskCreate: subject="ux-reviewer: user-facing impact for <user request>", descri
    batch; wait before next batch. Print the skill's `[done] Batch BN: ...` marker.
 7. Confirm every teammate has shut down after the last batch or on abort.
 
-Failure: no auto-retry, no skipping. Ask the user via `AskUserQuestion`: fix manually and resume,
-switch to sequential/standalone for remaining batches, or abort. Switch/abort: shutdown active
+Failure: no auto-retry, no skipping. This is the `failure-recovery` gate in
+`~/.agents/ycc-shared/references/question-policy.md`. Ask the user via
+`AskUserQuestion`: fix manually and resume, switch to sequential/standalone for remaining
+batches, or abort. Headless (no question tool or chat turn): stop, shut down active teammates, and print the
+failing batch plus the resume command. Switch/abort: shutdown active
 teammates. Resume: shut down current batch teammates and continue. The feature
 worktree survives abort for manual inspection/cleanup.
 

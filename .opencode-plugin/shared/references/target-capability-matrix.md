@@ -54,7 +54,7 @@ Follow these rules exactly or the parser will misread cells:
 | MCP               | supported | supported   | partial     | supported   | unsupported |
 | INSTALL_PATH      | supported | supported   | supported   | supported   | partial     |
 | DANGEROUS_MODE    | supported | unsupported | unsupported | unsupported | unsupported |
-| WORKTREE          | supported | partial     | partial     | partial     | unsupported |
+| WORKTREE          | supported | partial     | partial     | partial     | partial     |
 | MODS              | supported | unsupported | unsupported | unsupported | unsupported |
 
 ---
@@ -322,9 +322,13 @@ and it loads via `omp --plugin-dir`. Skills run as `/skill:<name>`, and `disable
 maps natively. `${CLAUDE_PLUGIN_ROOT}` and `_shared` paths become `skill://` URLs, and `_shared`
 ships once as the hidden `ycc-shared` skill. `/ycc:<name>` becomes `/skill:<name>`. The tree ships
 in the generated `ycc` package (YAN-1171), which is unlisted until release; `install.sh install
---target omp` installs it from a checkout (see INSTALL_PATH:omp). Workflow semantics (worktree
-roots, background jobs, questions in non-interactive modes) stay with YAN-1170. Source: ADR 0002;
-spike §3.
+--target omp` installs it from a checkout (see INSTALL_PATH:omp). Workflow semantics (YAN-1170):
+repo-local worktrees under `.omp/worktrees` (see WORKTREE:omp); fan-out uses one `task` batch and
+calls `wait` until every owned job settles, because `-p`/JSON runs exit and drop pending async
+results; `ask` exists only in the TUI and `--mode rpc-ui`, so `-p`, `--mode json`, `--mode rpc`
+and subagents take each skill's declared default from `question-policy.md`; `--team` is
+unsupported and fails closed. Per-skill status: `docs/internal/omp-workflow-semantics.md`.
+Source: ADR 0002; spike §3.
 
 **COMMANDS:omp**
 Partial: `scripts/generate_omp_commands.py` writes one thin command per public skill to
@@ -366,8 +370,12 @@ agent `model:` only for Claude-dialect roots (a `.claude-plugin/plugin.json` wit
 so it keeps agent `model:` both under `--plugin-dir` and as a marketplace install (YAN-1171).
 Delegation: OMP `task` runs agents in the background
 when `async.enabled` is set and inline otherwise; worktree isolation is the per-call `isolated`
-flag (`task.isolation.enabled`). Rewording skill text that uses `isolation: "worktree"` or
-`run_in_background` is YAN-1170.
+flag (`task.isolation.enabled`, default off). Since YAN-1170 the generated dispatch reference
+uses the `task({context, tasks: [...]})` batch shape (`agent`, not `subagent_type`), never sets
+`isolated` for ycc fan-out, calls `wait` before yielding, and reads `agent://<id>` when an inline
+summary is truncated at 5000 chars. Subagents have no `ask` tool and return choices to the
+parent. OMP has no team tools; `--team` aborts, and `write agent://<id>` peer messaging is not a
+team lifecycle.
 Source: ADR 0002.
 
 **HOOKS.PreToolUse:omp**
@@ -408,10 +416,15 @@ Unsupported. ycc ships no mapping for `--dangerously-skip-permissions`. OMP's de
 flag analogue to emit. Source: spike §2.10.
 
 **WORKTREE:omp**
-Unsupported. OMP has no `WorktreeCreate` event, and its task isolation manages its own
-workspaces (spike §2.4). The generated skill tree ships (YAN-1167), but the skills'
-`git worktree add` fallback stays untested on OMP until the workflow semantics land (YAN-1170),
-so there is no tested path today. Source: ADR 0002.
+Partial: skill-managed worktrees use `<repo-root>/.omp/worktrees/`. The OMP generator rewrites the
+`worktree-paths.sh` default to `.omp`, and the portable `agents` bundle resolves `.omp` from
+`OMPCODE=1` (OMP bash also sets `CLAUDECODE=1`, which `OMPCODE` consumes). Tested by
+`scripts/test-worktree-roots.sh` (omp bundle and agents-bundle OMP cases). Gaps: OMP has no
+`WorktreeCreate` event, so there is no native hook. OMP's own task isolation and
+`omp worktree` place workspaces under `~/.omp/wt` (`OMP_WORKTREE_DIR`); ycc never sets
+`isolated` and never deletes `~/.omp/wt`. The bash tool rewrites a literal `git worktree add`
+to clone-first `omp worktree add`, which falls back to a plain checkout for in-repo roots.
+No native-parity claim. Source: ADR 0002; `worktree-strategy.md` §1.
 
 **MODS:omp**
 Unsupported. The Claude Code mod API differs from OMP's `ExtensionAPI`; the status-bar mod is

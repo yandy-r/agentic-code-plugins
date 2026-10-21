@@ -33,6 +33,8 @@ Parse `$ARGUMENTS`:
   any branch that is the base of an open PR, and — when the repo has a
   `RELEASING.md` — the state's `trunk` and every `maintenance` branch.
 
+**Questions:** class `confirm-destructive` (Phase 4 decision gate, per-item prompts); headless (no question tool or chat turn): produce the dry-run report even with `--apply`, delete nothing, and print the interactive rerun. See `~/.config/opencode/shared/references/question-policy.md`.
+
 ## Phase 0: Setup and Host Detection
 
 1. **Verify working tree is a git repo**: `git rev-parse --git-dir`. Abort if not.
@@ -81,10 +83,17 @@ flags that emit machine-readable output.
 - **Branches**: `git for-each-ref refs/heads/ --format='%(refname:short)|%(upstream)|%(upstream:track)|%(committerdate:iso8601)|%(objectname)'`
 - **Remote-tracking prune candidates**: `git remote prune <remote> --dry-run`
   for each remote from `git remote`.
+
+
 - **Worktrees**: `git worktree list --porcelain`. Flag entries whose `worktree`
   path no longer exists, whose branch is `[gone]`, or which sit under a legacy
-  global ycc root (`~/.claude-worktrees/`) instead of the repo-local managed root
-  (`<repo-root>/.opencode/worktrees/`).
+  global ycc root (`~/.claude-worktrees/`) instead of a repo-local managed root.
+  The managed roots under the repo root are `.claude/worktrees/`,
+  `.opencode/worktrees/`, `.codex/worktrees/`, `.cursor/worktrees/`,
+  `.omp/worktrees/` and `.agents/worktrees/`; every runtime checks all of them.
+  Entries under `~/.omp/wt` are OMP-managed (`omp worktree clear`): report only,
+  never delete.
+
 - **Stashes**: `git stash list --date=iso`. Parse the date from each entry.
 - **Tags**: `git for-each-ref refs/tags/ --format='%(refname:short)|%(creatordate:iso8601)|%(objectname)'`
   then `git ls-remote --tags <remote>` to find local-only tags.
@@ -278,9 +287,14 @@ release-model rules (a malformed state has already stopped the run in Phase 0).
 - **A malformed `RELEASING.md` state block stops the audit** with the parse
   error and a pointer to `/release-model --audit`.
 - **Never `git branch -D`** without explicit per-item confirmation.
-- **Worktrees under `<repo-root>/.opencode/worktrees/`** are fair game per this repo's
-  convention. Legacy worktrees under `~/.claude-worktrees/` should be reported
-  and, if the user confirms, relocated or removed.
+
+
+- **Worktrees under any repo-local managed root** (`.claude/`, `.opencode/`,
+  `.codex/`, `.cursor/`, `.omp/` or `.agents/` followed by `worktrees/`) are fair
+  game per this repo's convention. Legacy worktrees under `~/.claude-worktrees/`
+  should be reported and, if the user confirms, relocated or removed. Never delete
+  worktrees under `~/.omp/wt`; OMP manages them (`omp worktree clear`).
+
 - **Respect the repo's label taxonomy**. Do not invent stale/wontfix labels.
 - **No secrets**. Do not log tokens or API responses containing credentials.
 - **Ambiguous items are always surfaced**, never auto-deleted.

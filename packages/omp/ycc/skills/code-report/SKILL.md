@@ -45,6 +45,8 @@ Examples:
   /code-report payment-integration --dry-run
 ```
 
+**Questions:** class `clarify` (prerequisite failure "proceed anyway?", changed-file list request): headless (no question tool or chat turn), print the error or the missing input and stop; write no report. See `skill://ycc-shared/references/question-policy.md`.
+
 ---
 
 ## Phase 0: Prerequisites Check

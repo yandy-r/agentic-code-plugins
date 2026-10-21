@@ -12,8 +12,8 @@ Follow the spawn/return contract in
 `skill://ycc-shared/references/standalone-dispatch.md` for
 how reviewers are dispatched and how their results are collected.
 
-Dispatch 3 standalone `code-reviewer` sub-agents in parallel in a single
-message with multiple `task` calls. Use the mode-appropriate roster
+Dispatch 3 standalone `code-reviewer` sub-agents in one `task` batch
+(one `tasks[]` item each). Use the mode-appropriate roster
 (Local / Quick Mode Roster or PR Mode Roster) and the Standard Findings Format
 from `skill://ycc-shared/references/review-checklist.md`.
 That reference defines the roster, severity rubric, findings-format directive
@@ -45,8 +45,10 @@ Each reviewer prompt includes the instruction "flag only gaps that affect correc
    commands. The prompt must supply the diff and any command output the
    reviewer needs.
 
-After all 3 `task` calls return, the calling skill (not the reviewer) persists
-each valid inline return to its scratch copy at
+Wait for all 3 reviewer results before merging: if results are pending, call `wait`
+until every reviewer job has settled; never finish the run
+while a reviewer is still running. After all 3 reviewer jobs settle, the calling skill
+(not the reviewer) persists each valid inline return to its scratch copy at
 `docs/prps/reviews/.review-scratch/<run-id>/<reviewer-name>.md`, where
 `<run-id>` is `local-<YYYYMMDD-HHMMSS>` for local mode, `pr-<NUMBER>` for PR
 mode, `quick-<YYYYMMDD-HHMMSS>` for quick mode. An empty, missing, or malformed
@@ -105,8 +107,8 @@ If any `todo` fails, shut down any active teammates and abort.
 
 Single message, three `task` calls. Every call includes `name`
 (the reviewer name — must match the `todo` subject prefix),
-`subagent_type: "code-reviewer"`, a one-line `description`, and the same
-`prompt` as Path B plus a note that the teammate shares a task list with two
+`agent: "code-reviewer"`, a one-line `name`, and the same
+`task` as Path B plus a note that the teammate shares a task list with two
 sibling reviewers (name them), may `SendMessage` them on overlapping scope,
 and must call `todo` to mark its task complete before returning.
 

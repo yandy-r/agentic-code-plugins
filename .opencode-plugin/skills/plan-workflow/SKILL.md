@@ -50,6 +50,8 @@ Parse flags first, then the feature name (first non-flag argument, required; dir
 
 If no feature name is provided, abort with the full usage instructions from `references/checkpoint-messages.md` — read when the feature name is missing ("Usage Instructions" section).
 
+**Questions:** class `checkpoint` (Step 16 research review): headless (no question tool or chat turn), continue to planning and report the skipped checkpoint in the summary. Class `confirm-destructive` (Step 4C overwrite choice): headless, overwrite nothing; stop with `rerun with --no-checkpoint` to regenerate. See `~/.config/opencode/shared/references/question-policy.md`.
+
 ## Visual mode
 
 See `~/.config/opencode/shared/references/visual-mode.md` for the canonical `--visual` contract. `--visual` is a terminal decorator step, orthogonal to `--optimized` and `--no-worktree`; it runs once at the very end. With `VISUAL_MODE=true` and no `--dry-run`, after the final phase invoke `visual-plan <absolute-plan-path>` where the path is the **actual written plan** at `${feature_dir}/parallel-plan.md` (resolved in Phase 0) — never a hardcoded `docs/prps/plans` path; `visual-plan` derives its `visual/` output directory from it. With `--dry-run`, short-circuit: print `visual generation would run` and do not invoke `visual-plan`. `--research-only` produces no plan file, so `--visual` does not run.
@@ -119,7 +121,8 @@ Run `scripts/check-prerequisites.sh "[feature-name]"` per gate 5. Then, for `--o
 ### Step 4C: Overwrite Choice (when shared.md or parallel-plan.md exists)
 
 - **Interactive (checkpoint enabled)**: surface the matching warning from `references/checkpoint-messages.md` ("Existing State Warnings") and let the user choose regenerate vs reuse/stop.
-- **Non-interactive (`--no-checkpoint`)**: default is **regenerate (overwrite)** so pipelines stay non-blocking. State the choice when proceeding (e.g. "shared.md exists — regenerating (non-interactive default)").
+- **Non-interactive (`--no-checkpoint`)**: default is **regenerate (overwrite)** so pipelines stay non-blocking; passing the flag is the explicit opt-in. State the choice when proceeding (e.g. "shared.md exists — regenerating (non-interactive default)").
+- **Headless (no question tool or chat turn), checkpoint enabled**: do not overwrite. Print the existing paths and `rerun with --no-checkpoint` to regenerate, then **STOP** without writes or dispatch.
 - **Research-only reuse**: report the existing `shared.md` path, state that no files were changed, print `/parallel-plan <feature>` as the next step, and **STOP** without dispatching agents.
 
 ### Step 5: Create Directory

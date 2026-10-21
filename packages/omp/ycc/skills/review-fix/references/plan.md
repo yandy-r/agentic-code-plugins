@@ -104,7 +104,7 @@ WORKTREE_ACTIVE=true
 1. **Dispatch** review-fixer agents with `Working directory: $PARENT_PATH` appended to
    their prompt, plus the coordination note: "Other agents in this batch are working
    in the same directory — do not run destructive git commands (reset, clean, checkout)."
-   Do **not** pass `isolation: "worktree"` here; that creates a separate harness worktree per review-fixer and breaks the single-worktree contract.
+   Do **not** pass `isolated: true` here; that creates a separate harness worktree per review-fixer and breaks the single-worktree contract.
 
 2. **Validate** inside `$PARENT_PATH` after the batch completes:
 

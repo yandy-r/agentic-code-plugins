@@ -4,9 +4,10 @@ Read once before parallel or agent-team dispatch. Substitute complete task detai
 
 ## Prompt fields
 
-- `subagent_type`: `implementor`
-- `description`: task title (e.g. `Task 1.1: add rate limiter middleware`)
-- `prompt`: complete task spec (ACTION, IMPLEMENT, MIRROR, IMPORTS, GOTCHA, VALIDATE), plus relevant excerpt from the plan's Patterns to Mirror section.
+- `agent`: `implementor`
+- `name`: CamelCase label for task title (e.g. `Task 1.1: add rate limiter middleware`)
+- `task`: complete task spec (ACTION, IMPLEMENT, MIRROR, IMPORTS, GOTCHA, VALIDATE), plus relevant excerpt from the plan's Patterns to Mirror section.
+- `solutionSpace`: how open-ended the work is (item shape: `skill://ycc-shared/references/standalone-dispatch.md` §1)
 
 ## Prompt template
 

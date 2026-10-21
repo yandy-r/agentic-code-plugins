@@ -28,7 +28,7 @@ Read `skill://ycc-shared/references/agent-team-dispatch.md` only when `--team` i
    ```
 
 2. **Feature name required**: kebab-case (lowercase, hyphens), no other special characters. If missing or invalid, abort with the matching error block from `references/checkpoint-messages.md` ("Error Messages": Missing Feature Name / Invalid Feature Name).
-3. **Team opt-in env gate**: `--team` without `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` aborts with: `--team requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1. Omit --team for standalone dispatch, or set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in your Claude Code settings if you intentionally want agent-team dispatch.` Cursor and Codex bundles ship without team tools — never pass `--team` there.
+3. **Team opt-in env gate**: `--team` without `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` aborts with: `--team requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1. Omit --team for standalone dispatch, or set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in your Claude Code settings if you intentionally want agent-team dispatch.` Cursor, Codex and OMP bundles ship without team tools — never pass `--team` there.
 4. **Dry-run writes nothing**: handled before the prereq gate, overwrite prompt, any `mkdir`, write, dispatch, or rendering. Never prompts for input. It prints the preview and then **STOP**s.
    With `--team`, that dry-run additionally makes no `todo`/`task`/`SendMessage` calls.
 5. **`--plan-only` prerequisite gate (before any `mkdir` or write)**: `scripts/check-prerequisites.sh` must exit 0. On failure, print its output plus `run /skill:shared-context <feature> or /skill:plan-workflow <feature> --research-only first`, then **STOP**. Never fall back to running research inline under `--plan-only`.
@@ -54,6 +54,8 @@ Parse flags first, then the feature name (first non-flag argument, required; dir
 - **--visual**: render the finished plan as an Agent-Native visual artifact (MDX) via `/skill:visual-plan`; local files by default, hosted link requires `--share`.
 
 If no feature name is provided, abort with the full usage instructions from `references/checkpoint-messages.md` — read when the feature name is missing ("Usage Instructions" section).
+
+**Questions:** class `checkpoint` (Step 16 research review): headless (no question tool or chat turn), continue to planning and report the skipped checkpoint in the summary. Class `confirm-destructive` (Step 4C overwrite choice): headless, overwrite nothing; stop with `rerun with --no-checkpoint` to regenerate. See `skill://ycc-shared/references/question-policy.md`.
 
 ## Visual mode
 
@@ -125,7 +127,8 @@ Run `scripts/check-prerequisites.sh "[feature-name]"` per gate 5. Then, for `--o
 ### Step 4C: Overwrite Choice (when shared.md or parallel-plan.md exists)
 
 - **Interactive (checkpoint enabled)**: surface the matching warning from `references/checkpoint-messages.md` ("Existing State Warnings") and let the user choose regenerate vs reuse/stop.
-- **Non-interactive (`--no-checkpoint`)**: default is **regenerate (overwrite)** so pipelines stay non-blocking. State the choice when proceeding (e.g. "shared.md exists — regenerating (non-interactive default)").
+- **Non-interactive (`--no-checkpoint`)**: default is **regenerate (overwrite)** so pipelines stay non-blocking; passing the flag is the explicit opt-in. State the choice when proceeding (e.g. "shared.md exists — regenerating (non-interactive default)").
+- **Headless (no question tool or chat turn), checkpoint enabled**: do not overwrite. Print the existing paths and `rerun with --no-checkpoint` to regenerate, then **STOP** without writes or dispatch.
 - **Research-only reuse**: report the existing `shared.md` path, state that no files were changed, print `/skill:parallel-plan <feature>` as the next step, and **STOP** without dispatching agents.
 
 ### Step 5: Create Directory
@@ -157,7 +160,7 @@ Create 4 tasks in the shared task list: "Research architecture for [feature-name
 
 ### Step 10: Spawn Research Agents (standard mode)
 
-Read `references/research-agents.md`. **CRITICAL**: Deploy all 4 research agents in a **SINGLE message** with **MULTIPLE `task` tool calls**. No `name` — standalone dispatch. Each `task` call uses the `subagent_type` and `model` from the inline table below; full prompts live in `references/research-agents.md`.
+Read `references/research-agents.md`. **CRITICAL**: Deploy all 4 research agents in a **SINGLE message** with **MULTIPLE `task` tool calls**. Standalone dispatch. Each `task` call uses the `agent` and `model` from the inline table below; full prompts live in `references/research-agents.md`.
 
 | Name                      | Subagent Type               | Output File                | Model  | Focus                                    |
 | ------------------------- | --------------------------- | -------------------------- | ------ | ---------------------------------------- |
@@ -252,7 +255,7 @@ Create 3 tasks: "Synthesize planning context for [feature-name]", "Analyze code 
 
 ### Step 20: Spawn Analysis Agents
 
-**CRITICAL**: Deploy all 3 analysis agents in a **SINGLE message** with **MULTIPLE `task` tool calls**. No `name`. Each `task` call uses the `subagent_type` and `model` from the inline table below; full prompts live in `references/planning-agents.md`.
+**CRITICAL**: Deploy all 3 analysis agents in a **SINGLE message** with **MULTIPLE `task` tool calls**. Each `task` call uses the `agent` and `model` from the inline table below; full prompts live in `references/planning-agents.md`.
 
 Team mode instead spawns 3 (standard) or 5 (optimized) teammates in one message with `name=`, per Step 19.
 
@@ -353,7 +356,7 @@ Standard mode, 3 tasks: "Validate file paths in [feature-name] plan", "Validate 
 | `path-dep-validator`     | `explore`                   | haiku  | Verify paths + dependency graph |
 | `completeness-validator` | `codebase-research-analyst` | sonnet | Task quality + completeness     |
 
-**CRITICAL**: Deploy all validation agents (3 in standard, 2 in optimized) in a **SINGLE message** with **MULTIPLE `task` tool calls**. No `name`. Each `task` call uses the `subagent_type` and `model` from the relevant table in `references/validation-agents.md`. Rely on each `task`'s return value for validator findings.
+**CRITICAL**: Deploy all validation agents (3 in standard, 2 in optimized) in a **SINGLE message** with **MULTIPLE `task` tool calls**. Each `task` call uses the `agent` and `model` from the relevant table in `references/validation-agents.md`. Rely on each `task`'s return value for validator findings.
 
 Team mode instead spawns the validators as teammates in one message with `name=` per Step 29.
 

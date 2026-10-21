@@ -63,6 +63,8 @@ Examples:
   /feature-research user-dashboard --dry-run
 ```
 
+**Questions:** class `choose-path` (regenerate or enhance an existing spec); headless (no question tool or chat turn): enhance. See `~/.config/opencode/shared/references/question-policy.md`.
+
 ---
 
 ## Phase 0: Initialize

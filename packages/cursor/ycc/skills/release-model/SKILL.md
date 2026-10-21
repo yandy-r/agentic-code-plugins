@@ -65,6 +65,8 @@ Script paths used below:
 - `POINTER=${CURSOR_PLUGIN_ROOT}/skills/_shared/scripts/rules-pointer.sh` — the single canonical `AGENTS.md`/`CLAUDE.md` pointer helper shared with `init`; `$TARGETS` delegates to it. Release-model only reads it: it never migrates a layout and never creates a missing rules file.
 - `TEMPLATE=${CURSOR_PLUGIN_ROOT}/skills/release-model/templates/RELEASING.md.tmpl`
 
+**Questions:** class `confirm-publish` (model questions, write after preview); headless (no question tool or chat turn) and without `--yes`: print the proposal and preview, write nothing, and print `rerun with --yes`. See `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/question-policy.md`.
+
 ## Phase 0 — Preflight and mode
 
 1. `git rev-parse --show-toplevel` must succeed; call the result `ROOT`. Otherwise STOP:

@@ -84,8 +84,8 @@ the stated requirements.
 
 ## Parallel Reviewer Roster (Path B / Path C)
 
-Three standalone `code-reviewer` sub-agents, dispatched via `task` without
-`name` or `run_in_background` (Path B), or agent-team teammates spawned via
+Three standalone `code-reviewer` sub-agents, dispatched in one `task` batch
+(Path B), or agent-team teammates spawned via
 `task` with `name` (Path C). See
 `skill://ycc-shared/references/standalone-dispatch.md`
 for the full `task` spawn/return contract that Path B must follow. The **focus

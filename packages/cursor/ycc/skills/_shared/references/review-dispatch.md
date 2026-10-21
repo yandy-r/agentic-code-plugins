@@ -45,8 +45,10 @@ Each reviewer prompt includes the instruction "flag only gaps that affect correc
    commands. The prompt must supply the diff and any command output the
    reviewer needs.
 
-After all 3 `Agent` calls return, the calling skill (not the reviewer) persists
-each valid inline return to its scratch copy at
+Wait for all 3 reviewer results before merging: if results are pending and the runtime
+offers a wait tool, call it until every reviewer job has settled; never finish the run
+while a reviewer is still running. After all 3 `Agent` calls return, the calling skill
+(not the reviewer) persists each valid inline return to its scratch copy at
 `docs/prps/reviews/.review-scratch/<run-id>/<reviewer-name>.md`, where
 `<run-id>` is `local-<YYYYMMDD-HHMMSS>` for local mode, `pr-<NUMBER>` for PR
 mode, `quick-<YYYYMMDD-HHMMSS>` for quick mode. An empty, missing, or malformed

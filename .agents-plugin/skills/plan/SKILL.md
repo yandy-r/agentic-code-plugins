@@ -27,6 +27,8 @@ Create conversational implementation plan before code. Default output stays in c
 
 **Core gate: WAIT for explicit confirmation before any code is written.** Accept "yes", "proceed", "approved", or similar affirmative. Until then, read-only analysis only; do not touch code. Unclear draft: ask focused question and re-dispatch rather than guess.
 
+**Questions:** class `checkpoint` (Step 4 confirmation); headless (no question tool or chat turn): emit the plan and stop before any implementation. See `~/.agents/ycc-shared/references/question-policy.md`.
+
 ## What This Skill Does
 
 1. Parse `--parallel`, `--enhanced`, `--dry-run`, `--no-worktree`, legacy `--worktree`, `--visual`; read request and referenced context; clarify ambiguity before dispatch.

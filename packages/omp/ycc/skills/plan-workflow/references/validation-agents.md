@@ -430,7 +430,7 @@ Common to both paths:
 
 3. **Create tasks** - Use `todo` for validation tasks
 4. **Spawn in parallel** - Use a single message with `task` tool calls, each with `name`
-5. **Monitor progress** - Use `todo` to check when all tasks complete
+5. **Monitor progress** - Call `wait` until every spawned job settles
 6. **Review results** - Address issues found before finalizing plan
 
 ## Teammate Configuration

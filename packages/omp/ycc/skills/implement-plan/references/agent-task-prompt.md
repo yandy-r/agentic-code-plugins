@@ -103,9 +103,10 @@ When deploying an implementor agent:
 2. **Extract all variables** from the task section
 3. **Substitute variables** in this template
 4. **Deploy agent** with:
-   - `subagent_type`: `implementor`
-   - `description`: "Implement {{TASK_ID}}: {{TASK_TITLE}}"
-   - `prompt`: The substituted template
+   - `agent`: `implementor`
+   - `name`: CamelCase label for "Implement {{TASK_ID}}: {{TASK_TITLE}}"
+   - `task`: The substituted template
+   - `solutionSpace`: how open-ended the work is (item shape: `skill://ycc-shared/references/standalone-dispatch.md` §1)
 
 ---
 

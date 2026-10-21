@@ -97,7 +97,7 @@ two agents on the same file, or serial execution for conflicting edits — see
 per-skill rules).
 
 
-### Worktree root per runtime (YAN-1111)
+### Worktree root per runtime (YAN-1111, YAN-1170)
 
 Each runtime keeps its skill-managed worktrees inside the repository, under a
 root named for that runtime. Each worktree keeps the name
@@ -109,6 +109,7 @@ root named for that runtime. Each worktree keeps the name
 | opencode    | `<repo-root>/.opencode/worktrees/`    | generator rewrite (`.opencode`)           |
 | Codex       | `<repo-root>/.codex/worktrees/`       | generator rewrite (`.codex`)              |
 | Cursor      | `<repo-root>/.cursor/worktrees/`      | generator rewrite (`.cursor`)             |
+| OMP         | `<repo-root>/.omp/worktrees/`         | generator rewrite (`.omp`)                |
 | `agents`    | runtime-selected, `.agents/` fallback | `worktree-paths.sh` detection (see below) |
 
 `YCC_WORKTREE_ROOT` remains the explicit override for every runtime; relative
@@ -142,10 +143,25 @@ except where noted:
   (documented at cursor.com/docs/cli/reference/parameters, `-w/--worktree`),
   not repo-locally; no repo-local placement option is documented. ycc's
   `.cursor/worktrees` root applies to skill-managed worktrees only.
+- **OMP**: task isolation (`isolated: true`, off by default via
+  `task.isolation.enabled`) and `omp worktree add|list|clear` use the
+  agent-managed base `~/.omp/wt` (`worktree.base`, override `OMP_WORKTREE_DIR`).
+  `omp worktree list|clear` touch only that base, never repo-local ycc
+  worktrees. The bash tool rewrites a literal `git worktree add` in command
+  text to clone-first `omp worktree add`; for an in-repo destination the clone
+  falls back to a plain checkout and still yields a correct linked worktree.
+  `setup-worktree.sh` runs `git worktree add` inside the script, so it is not
+  rewritten. Isolated tasks skip linked worktrees under a gitignored in-repo
+  root (omp 18.12.3, #16068). ycc's `.omp/worktrees` root applies to
+  skill-managed worktrees only; ycc fan-out never sets `isolated`. (Verified
+  against omp 18.12.3.)
 - **`agents` bundle**: no fixed runtime. `worktree-paths.sh` picks the root
-  from verified single-runtime markers: `OPENCODE=1` (opencode), `CLAUDECODE=1`
-  (Claude Code), non-empty `CODEX_THREAD_ID` (Codex). Zero or multiple
-  markers — including nested agents — fall back to
+  from verified single-runtime markers: `OPENCODE=1` (opencode), `OMPCODE=1`
+  (OMP), `CLAUDECODE=1` (Claude Code), non-empty `CODEX_THREAD_ID` (Codex).
+  OMP bash sets both `OMPCODE=1` and `CLAUDECODE=1`, so `OMPCODE=1` wins and
+  consumes the `CLAUDECODE` marker; a Claude Code launched from an OMP shell
+  inherits `OMPCODE=1` and also resolves to `.omp` (use `YCC_WORKTREE_ROOT`).
+  Zero or multiple markers — including other nested agents — fall back to
   `<repo-root>/.agents/worktrees/`. Deliberately **not** used (not evidence of
   the active runtime): installed binaries, `CLAUDE_CODE_*` credentials,
   `~/.cursor/` presence, `AI_AGENT` (multi-agent generic), and generic

@@ -276,7 +276,8 @@ Run the skill's own validation inside the execution tree (worktree path or prepa
 After each batch update todos and print the skill's verbatim `[done] Batch BN: K tasks — complete` marker (em dash; transcript loops match the marker).
 Do not auto-retry a failed batch (usually file conflict or hidden dependency) and do not skip it;
 later batches may depend on it. Preserve completed work; ask the user (fix/resume, switch to
-sequential, abort). Standalone partial failure: continue only independent tasks.
+sequential, abort) per the `failure-recovery` class in `question-policy.md` in this directory.
+Standalone partial failure: continue only independent tasks.
 
 ## 10. Executing a Confirmed Plan
 
@@ -288,7 +289,8 @@ rules (lowercase, non `[a-z0-9-]` to `-`, collapse, cap 20, fallback `untitled`)
 a different feature branch (`--allow-existing-feature-branch` after confirmation) or on `release/*`
 when `RELEASING.md` exists (`--allow-release-branch` for release-only fixes). Do not skip.
 Then process section 9 batches with one `implementor` `subagent` per step in one message; run the
-project type-check and unit-test commands between batches; on failure stop and ask the user.
+project type-check and unit-test commands between batches; on failure stop and ask the user
+(`failure-recovery` class in `question-policy.md`).
 
 ## 11. Unsupported team mode
 

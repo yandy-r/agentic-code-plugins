@@ -140,9 +140,10 @@ Step 15 — deploy all agents in a SINGLE message with MULTIPLE `task` tool call
 
 | Field         | Value                                                             |
 | ------------- | ----------------------------------------------------------------- |
-| subagent_type | `docs-git-committer`                                              |
-| description   | "Commit [feature-name] with docs"                                 |
-| prompt        | Complete instructions including scope, files, documentation needs |
+| agent | `docs-git-committer`                                              |
+| name | CamelCase label for "Commit [feature-name] with docs" |
+| task | Complete instructions including scope, files, documentation needs |
+| solutionSpace | how open-ended the work is (item shape: `skill://ycc-shared/references/standalone-dispatch.md` §1) |
 
 Prompt template:
 

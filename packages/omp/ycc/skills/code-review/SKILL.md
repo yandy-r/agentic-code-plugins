@@ -35,7 +35,7 @@ Gates (abort on invalid combinations):
 
 - Both `--parallel` and `--team`:
   `--parallel and --team are mutually exclusive. Pick one.`
-- `--team` in Cursor/Codex bundles:
+- `--team` in Cursor/Codex/OMP bundles:
   `--team is not supported in bundle invocations; use --parallel instead.`
 - `--team` without `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`:
   `--team requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1. Use --parallel instead, or set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in your Claude Code settings if you intentionally want agent-team dispatch.`
@@ -49,6 +49,8 @@ Gates (abort on invalid combinations):
 Mode selection: `--quick` first; PR number/URL (or branch selector) means PR;
 blank means local. Local/quick mode MUST NOT post to GitHub, promote drafts,
 commit/push artifacts, or remove worktrees.
+
+**Questions:** none. A PR argument is the explicit `confirm-publish` selection: PR mode posts the review, promotes a draft unless `--keep-draft`, and commits and pushes the artifact, interactive or headless. Local and `--quick` modes never publish. See `skill://ycc-shared/references/question-policy.md`.
 
 ### Quick delegation
 

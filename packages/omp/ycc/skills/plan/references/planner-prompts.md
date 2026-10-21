@@ -5,7 +5,7 @@
 - Sequential prompt (`PARALLEL_MODE=false` — default)
 - Parallel prompt (`PARALLEL_MODE=true`)
 
-Use the `task` tool with `subagent_type: "planner"`. In the prompt, include:
+Use the `task` tool with `agent: "planner"`. In the prompt, include:
 
 - The user's original request (verbatim)
 - Any file paths or context they referenced

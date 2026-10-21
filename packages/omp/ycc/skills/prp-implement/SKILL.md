@@ -21,6 +21,8 @@ Execute a plan file step-by-step with continuous validation. Every change is ver
 - Dry-run prints the roster and exits without team/task/agent tools.
 - Parallel validation failure stops the pipeline before the next batch. No auto-retry, no skipping a failed batch; preserve completed work and let the user decide.
 
+**Questions:** class `choose-path` (execution mode for a parallel-capable plan): headless (no question tool or chat turn), run sequential (Path A); class `failure-recovery` (batch validation): stop, preserve completed work, and print the failing batch plus the resume command. See `skill://ycc-shared/references/question-policy.md`.
+
 ## Phase 0 — DETECT
 
 ### Flag Parsing
@@ -44,7 +46,7 @@ Validation (abort with these exact messages):
 - `DRY_RUN=true` and `AGENT_TEAM_FLAG=false`: `--dry-run requires --team.`
 - Both `--worktree` and `--no-worktree`: `--worktree and --no-worktree are mutually exclusive. Use --no-worktree to opt out of the default.`
 
-`--no-worktree` combines freely with `--parallel` and `--team`. Cursor/Codex bundles lack team tools: reject `--team` with guidance to use `--parallel`.
+`--no-worktree` combines freely with `--parallel` and `--team`. Cursor/Codex/OMP bundles lack team tools: reject `--team` with guidance to use `--parallel`.
 
 ### Package Manager and Validation Scripts
 
@@ -106,7 +108,7 @@ Process each task from Step-by-Step Tasks in order:
 ### Parallel Batch Execution
 
 For standalone parallel execution, use common batching from standalone-dispatch.md §9; the plan's `Batches` table and task `BATCH: BN` fields select tasks. Read `references/agent-task-prompt.md` once before dispatch for the full ACTION/IMPLEMENT/MIRROR/IMPORTS/GOTCHA/VALIDATE prompt and Patterns to Mirror excerpt.
-Dispatch one `task` call per task in one parallel message: `subagent_type="implementor"`, `description="<task title>"`, `prompt="<complete task spec and Patterns to Mirror excerpt>"`. Use the shared foreground result contract for the batch.
+Dispatch one `task` call per task in one parallel message: `agent="implementor"`, `name` (CamelCase label for <task title>), `task="<complete task spec and Patterns to Mirror excerpt>"`, `solutionSpace="<how open-ended>"`. Use the shared foreground result contract for the batch.
 Every prompt includes `Working directory: ${WT_PARENT_PATH}` when `WORKTREE_ACTIVE=true`, otherwise `Working directory: ${REPO_ROOT}`. Apply standalone-dispatch §8.3 working-directory rules; no per-agent worktree isolation.
 With `--team`, use agent-team-dispatch.md §8.2 instead, with the same prompt and working directory.
 

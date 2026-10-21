@@ -32,13 +32,15 @@ Extract flags from `$ARGUMENTS` before treating the remainder as the input:
 
 Strip these flags from `$ARGUMENTS` and set `PARALLEL_MODE`, `AGENT_TEAM_MODE`, `MIN_SEVERITY`, `DRY_RUN`, and `WORKTREE_MODE=true` unless `--no-worktree` is present. The remaining text is the input selector.
 
+**Questions:** class `failure-recovery` (Path B/C between-batch failure): headless (no question tool or chat turn), stop, preserve completed fixes, and print the failing batch plus the resume command; class `clarify` (blank input): headless, print the resolved artifact path and stop. See `skill://ycc-shared/references/question-policy.md`.
+
 **Validation**:
 
 - Both `--parallel` and `--team`:
   `--parallel and --team are mutually exclusive. Pick one.`
 - `--team` without `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`:
   `--team requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1. Use --parallel instead, or set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in your Claude Code settings if you intentionally want agent-team dispatch.`
-- `--team` in Cursor/Codex bundles: use `--parallel` instead.
+- `--team` in Cursor/Codex/OMP bundles: use `--parallel` instead.
 
 Input resolution — artifact lives on the PR branch in the worktree's
 `docs/prps/reviews/`; fall back to main repo's. Path ending `.md` → as-is;

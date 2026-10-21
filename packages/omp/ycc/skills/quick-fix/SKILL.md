@@ -200,9 +200,10 @@ artifact status lines.
 Process one batch containing all same-file groups. Dispatch all groups in a
 single message with multiple `task` calls, one call per file group:
 
-- `subagent_type`: `review-fixer`
-- `description`: `Quick-fix <ids> in <file>`
-- `prompt`: Shape A or Shape B as above
+- `agent`: `review-fixer`
+- `name`: CamelCase label for `Quick-fix <ids> in <file>`
+- `task`: Shape A or Shape B as above
+- `solutionSpace`: how open-ended the work is (item shape: `skill://ycc-shared/references/standalone-dispatch.md` §1)
 
 Wait for all agents to return, then collect statuses.
 

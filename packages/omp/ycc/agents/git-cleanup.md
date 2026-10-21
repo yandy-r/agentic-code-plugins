@@ -140,8 +140,9 @@ Return to the caller:
   `.git-cleanup/report.md`).
 - **Host-CLI status**: which CLIs were available, which domains were
   skipped.
-- **Next step hint**: "Caller should present report via `ask` and
-  gate execution on `--apply` + per-item approval." Do not attempt execution.
+- **Next step hint**: "Caller should present the report to the user and gate
+  execution on `--apply` + per-item approval." Subagents cannot ask the user;
+  return the choices to the parent caller. Do not attempt execution.
 
 ## Shell scope (OMP)
 

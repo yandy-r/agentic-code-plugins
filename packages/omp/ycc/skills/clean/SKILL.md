@@ -19,6 +19,8 @@ Parse `$ARGUMENTS` for:
 - **--report-only**: Generate report without deletions
 - **--safe-mode**: Extra confirmation per category
 
+**Questions:** class `confirm-destructive` (both deletion prompts); headless (no question tool or chat turn): behave as `--report-only`. See `skill://ycc-shared/references/question-policy.md`.
+
 ### Deprecated: `--include-git`
 
 If `$ARGUMENTS` contains `--include-git`: ignore the flag, keep every other argument unchanged, and display this notice exactly once, before Phase 0 (including before any `--dry-run` stop):

@@ -18,8 +18,10 @@ Parallelism is the baseline of this skill — every batch's tasks dispatch concu
 - `--team` without `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` → abort (exact message in Arguments).
 - `--dry-run` → print the plan only; never dispatch agents or manage team state. STOP HERE.
 - Always run the branch-prep helper before any dispatch — narrative-only branch instructions are how agents end up committing to `main`.
-- Never pass `isolation: "worktree"` per agent — all agents in all batches share the one feature worktree (or the prepared checkout under `--no-worktree`).
+- Never pass `isolated: true` per agent — all agents in all batches share the one feature worktree (or the prepared checkout under `--no-worktree`).
 - Standalone task failure: record it and continue only independent tasks. Team failure: no auto-retry or skipping; ask the user before advancing.
+
+**Questions:** class `failure-recovery` (team batch failure); headless (no question tool or chat turn): stop, keep the feature worktree, and print the failing batch plus the resume command. See `skill://ycc-shared/references/question-policy.md`.
 
 ## Workflow Integration
 
@@ -42,7 +44,7 @@ If parallel-plan.md doesn't exist, run `/parallel-plan [feature-name]` first.
 
 Parse flags first, then treat the remainder as the feature name:
 
-- `--team` — (Claude Code only) Dispatch each batch's implementor agents as teammates under the implicit session team with up-front `todo` + `addBlockedBy` dependency wiring and per-batch shutdown via `SendMessage`. Aborts if invoked from a Cursor or Codex bundle (team dispatch is absent there).
+- `--team` — (Claude Code only) Dispatch each batch's implementor agents as teammates under the implicit session team with up-front `todo` + `addBlockedBy` dependency wiring and per-batch shutdown via `SendMessage`. Aborts if invoked from a Cursor, Codex or OMP bundle (team dispatch is absent there).
 - `--dry-run` — Show the execution plan without deploying agents. With `--team`, also prints the team name and per-batch teammate roster.
 - `--worktree` — (legacy — now default; safe to omit) Accepted as a silent no-op. Worktree isolation is on by default; this flag matches the new default and has no additional effect.
 - `--no-worktree` — Force worktree mode **OFF** regardless of plan annotations. Create/use `feat/<feature-name>` in the current checkout and run tasks there. No feature worktree is created.
@@ -59,7 +61,7 @@ If no feature name remains after stripping flags, abort with this usage line fol
 
 Usage: /implement-plan [--team] [--dry-run] [--worktree] [--no-worktree] <feature-name>
 
-**Compatibility note**: from a Cursor or Codex bundle, `--team` must abort with a clear message — those bundles ship without team tools (`todo`, `SendMessage`, etc.); the standalone path is the only mode available there. `--worktree` is compatible with all targets through a single pre-created feature worktree plus `Working directory:` prompts. Do not request tool-side per-agent worktree isolation — that creates separate harness worktrees and breaks the single-worktree contract. Codex and opencode use Bash `git worktree add`; Cursor emits manual setup commands only.
+**Compatibility note**: from a Cursor, Codex or OMP bundle, `--team` must abort with a clear message — those bundles ship without team tools (`todo`, `SendMessage`, etc.); the standalone path is the only mode available there. `--worktree` is compatible with all targets through a single pre-created feature worktree plus `Working directory:` prompts. Do not request tool-side per-agent worktree isolation — that creates separate harness worktrees and breaks the single-worktree contract. Codex and opencode use Bash `git worktree add`; Cursor emits manual setup commands only.
 
 ## Dispatch Lifecycle
 
@@ -143,9 +145,9 @@ Execute the dependency-ready standalone batches described below.
 
 ### Path A — Standalone Sub-Agent Batches (default)
 
-Read `skill://ycc-shared/references/standalone-dispatch.md` for the `task` contract; use its §§9–10 for dependency-ready batches. Coordinate agents, do not implement tasks yourself. Read `skill://implement-plan/references/agent-task-prompt.md` once before the loop. Per ready task, one `task` call per batch message: `subagent_type=implementor`, `description="Implement [Task ID]: [Title]"`, full substituted template.
+Read `skill://ycc-shared/references/standalone-dispatch.md` for the `task` contract; use its §§9–10 for dependency-ready batches. Coordinate agents, do not implement tasks yourself. Read `skill://implement-plan/references/agent-task-prompt.md` once before the loop. Per ready task, one `task` call per batch message: `agent=implementor`, `name="Impl<TaskId>"`, `task=` the full substituted template, `solutionSpace="<how open-ended>"`.
 
-**When `WORKTREE_ACTIVE=true`**, every task prompt (parallel and sequential) carries the lines below; when `WORKTREE_ACTIVE=false` (`--no-worktree`) use `Working directory: ${REPO_ROOT}` and `All parallel agents in this batch share the current feature branch; batching guarantees no two agents touch the same file.` Never pass `isolation: "worktree"`. Agents read the plan, shared context and "READ THESE BEFORE TASK" files first, implement only assigned files/instructions, lint and compile/parse modified files, then report files created/modified and issues.
+**When `WORKTREE_ACTIVE=true`**, every task prompt (parallel and sequential) carries the lines below; when `WORKTREE_ACTIVE=false` (`--no-worktree`) use `Working directory: ${REPO_ROOT}` and `All parallel agents in this batch share the current feature branch; batching guarantees no two agents touch the same file.` Never pass `isolated: true`. Agents read the plan, shared context and "READ THESE BEFORE TASK" files first, implement only assigned files/instructions, lint and compile/parse modified files, then report files created/modified and issues.
 
 ```
 Working directory: ${WT_PARENT_PATH}

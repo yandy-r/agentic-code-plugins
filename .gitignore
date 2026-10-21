@@ -43,11 +43,12 @@ plan-blocks.md
 .config/opencode/
 opencode.json
 
-# Agent-managed git worktrees (per-runtime repo-local roots, YAN-1111)
+# Agent-managed git worktrees (per-runtime repo-local roots, YAN-1111, YAN-1170)
 .claude/worktrees/
 .opencode/worktrees/
 .codex/worktrees/
 .cursor/worktrees/
+.omp/worktrees/
 .agents/worktrees/
 
 .slim/deepwork/

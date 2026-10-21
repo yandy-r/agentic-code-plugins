@@ -1,79 +1,88 @@
-# Standalone Dispatch — Agent Tool Reference
+# Standalone Dispatch — OMP `task` Contract
 
 ## Contents
 
-1. What `task` Is
+1. Call Shape
 2. Spawn Rule
 3. Result Delivery and Batch Completion
 4. Hard Anti-Patterns
 5. Disk-Artifact Backstop
 6. Failure Policy
-7. Cross-Target Portability
+7. Team Mode
 8. Worktree and Branch Preparation
 9. Dependency Resolution and Batching
 10. Executing a Confirmed Plan
 
-Used by `/skill:prp-plan`, `/skill:deep-research`, `/skill:prp-implement`, `/skill:review-fix`,
-`/skill:quick-fix`, `/skill:orchestrate`, `/skill:feature-research`, `/skill:parallel-plan`,
-`/skill:shared-context`, `/skill:plan-workflow`, `/skill:clean`, and `/skill:git-workflow` for
-**standalone** sub-agent fan-out (no shared team, no `--team` flag). This file documents
-the `task`-tool spawn/return contract. See `agent-team-dispatch.md` in this directory
-for the separate `task` with `name` lifecycle used by `--team`/Path C runs. Sections 8-10
-hold the dispatch-mode-independent worktree, dependency-batching and plan-execution
-mechanics that `--team` runs reuse; only dispatch arguments and coordination differ.
+This is the generated OMP (oh-my-pi) contract for standalone sub-agent fan-out. It uses
+OMP's `task`, `wait`, `todo`, `proc://` and `agent://` surfaces directly. Sections 8-10
+hold the dispatch-independent worktree, dependency-batching and plan-execution mechanics.
 
 ---
 
-## 1. What `task` Is
+## 1. Call Shape
 
-`task` dispatches standalone sub-agents or named teammates. For standalone work,
-omit `name` and `run_in_background`; identify the role through `description` and
-`prompt`. This requests standalone dispatch, not a blocking-return guarantee.
-The runtime may still deliver results asynchronously, including in headless sessions.
+One `task` call dispatches a batch of standalone sub-agents:
 
-Named teammates (`task` with `name`) require the implicit-team lifecycle in
-`agent-team-dispatch.md`. Do not mix teammate and standalone dispatch in one batch.
-Compatibility generators must project these instructions onto their target's tools.
+```
+task({
+  context: "<shared background: goal, plan path, worktree line, artifact contract>",
+  tasks: [
+    { agent: "<ycc agent name, e.g. implementor>", name: "<CamelCase role>",
+      task: "<full self-contained prompt incl. Working directory:>",
+      solutionSpace: "<how open-ended>" },
+    { agent: "<ycc agent name>", name: "<CamelCase role>",
+      task: "<full self-contained prompt>", solutionSpace: "<how open-ended>" }
+  ]
+})
+```
+
+- `agent` selects the agent by its frontmatter name. `name` labels the job; it is not a
+  teammate identity.
+- `task` carries the complete prompt. A sub-agent starts blank, so inline any skill or
+  shared reference content it needs; standalone agent installs do not ship those files.
+- `context` holds background every item shares. Keep per-item facts in `task`.
 
 ---
 
 ## 2. Spawn Rule (non-negotiable)
 
-Spawn independent standalone sub-agents in **ONE message** with **MULTIPLE
-`task` tool calls**:
-
-```
-task(subagent_type="<type>", description="<role and short title>", prompt="<full task prompt>")
-task(subagent_type="<type>", description="<role and short title>", prompt="<full task prompt>")
-```
-
-- Omit `name` (reserved for teammates) and `run_in_background`. Also omit
-  `team_name`, which is accepted but ignored.
-- Track the orchestrator's own progress with `todo` when needed. These tools neither dispatch agents nor retrieve results.
+- Put every independent agent of a batch in **one** `task` call, one `tasks[]` item each.
+- Never set `isolated`. ycc pre-creates one feature worktree and passes it through the
+  `Working directory:` line (section 8). Isolation is off by default
+  (`task.isolation.enabled`) and, when on, makes one `~/.omp/wt` copy per agent and merges
+  patches back, which breaks the single-worktree contract.
+- If `task.batch` is off, issue one `task` call per agent in a single message and write
+  the shared context to `local://ctx.md`.
 - Keep every dispatched agent associated with its role and expected deliverable.
-- Keep agent guidance self-contained: inline any skill/shared reference content needed by the agent in its dispatch prompt; standalone agent installs do not ship those files.
 
 ---
 
 ## 3. Result Delivery and Batch Completion
 
-Results may arrive as tool return values or asynchronously through task notifications.
-Wait for **all** dispatched agents' results before merging or starting the next batch.
-If results are pending, end the turn to allow completion notifications to arrive; do
-not busy-wait with `sleep`, `echo`, or polling. Resume collection when notified.
+With async on (the default), `task` returns background job ids at once; results arrive
+later as async-result messages.
 
-Validate each completed agent's report and required artifacts before marking its task
-complete. A launch acknowledgement or task status alone is not a findings report.
-Only treat a result as missing after the agent has completed or failed, not merely
-because its dispatch returned without findings.
+- Call `wait` until **every** job you spawned has settled. Never end the turn while a job
+  you own is running: `omp -p`, `--mode json` and RPC runs exit and drop pending results.
+- If `task` ran inline (async off) or `wait` is absent, the results are already in the
+  call output; do not wait.
+- Do not busy-wait with `sleep`, `echo`, or status loops.
+- Wait for the whole batch before merging or starting the next batch.
+
+Validate each completed agent's report and required artifacts before marking its step
+complete. A spawn acknowledgement or job status alone is not a findings report. An inline
+summary longer than 5000 characters is truncated; read `agent://<id>` for the full report.
 
 ---
 
 ## 4. Hard Anti-Patterns
 
-- Do not pass `name` or `run_in_background` for standalone dispatch.
+- Do not set `isolated` for ycc fan-out.
+- Do not end the turn or finish the run with owned jobs pending.
 - Do not proceed with a partial batch while other results are pending.
-- Do not use `SendMessage` for standalone result retrieval; it is teammate messaging.
+- Do not use `todo` for dispatch or result retrieval; it tracks only the orchestrator's
+  own steps. Inspect a job with `read proc://<id>` and cancel one with
+  `write proc://<id>/kill`.
 - Do not fabricate findings for a completed agent with an empty or malformed report.
   Apply the backstop and failure policies below after completion.
 
@@ -81,23 +90,26 @@ because its dispatch returned without findings.
 
 ## 5. Disk-Artifact Backstop
 
-Content-producing sub-agents with `Write` (for example, report-writing researchers)
-should also write findings to a declared artifact path and return the same content. Read-only reviewers, advisors, and planners never write artifacts: the
-orchestrator persists each valid delivered report, and an empty/missing return is a
+Content-producing sub-agents that can write files (for example, report-writing
+researchers) should also write findings to a declared artifact path and return the same
+content. Read-only reviewers, advisors, and planners never write artifacts: the
+orchestrator persists each valid delivered report, and an empty or missing return is a
 failed review, not evidence to reconstruct.
 
 For agents allowed to write a backstop artifact:
 
-1. After the agent completes, the orchestrator validates its delivered report first.
+1. After the job settles, validate its delivered report first (`agent://<id>` when the
+   inline summary is truncated).
 2. If the delivered report is empty or missing, re-read the backstop artifact from disk
    before treating the sub-agent as failed.
-3. Only if **both** the delivered report and the backstop artifact are empty/missing is the
-   sub-agent considered to have failed (see §6).
+3. Only if **both** the delivered report and the backstop artifact are empty or missing is
+   the sub-agent considered to have failed (see section 6).
 
-For **code-writing** sub-agents (e.g. `implementor`, `review-fixer`), there is no
-separate findings file — the "artifact" is the code changes already committed to disk,
-plus a final `STATUS:` line in the delivered report so the `task` result stays
-parseable (e.g. `STATUS: Fixed` / `STATUS: Failed: <reason>`).
+Code-writing sub-agents (for example `implementor`, `review-fixer`) have no separate
+findings file: the artifact is the code already on disk, plus a final `STATUS:` line in the
+delivered report (`STATUS: Fixed` / `STATUS: Failed: <reason>`).
+
+Keep deliverables in repo paths. `local://` is session-scoped and is lost with the session.
 
 ---
 
@@ -114,21 +126,19 @@ the gap — a quietly missing finding is worse than a reported one.
 
 ---
 
-## 7. Cross-Target Portability
+## 7. Team Mode
 
-This file is the Claude-facing source contract. Cursor, Codex, and opencode generators
-must project it onto the target's actual tools and lifecycle rather than copying Claude
-identifiers or return assumptions. `task` with `name` remains Claude-Code-only. Per the
-`AGENTS:cursor` note in `target-capability-matrix.md` in this directory, those
-generated targets have no Claude teammate-messaging surface (`SendMessage`); their standalone path must use the target-native dispatch
-primitive, and their generated `--team` path must fail closed when no equivalent exists.
+`--team` is unsupported on OMP: abort before dispatch and rerun without `--team` (see
+`agent-team-dispatch.md` in this directory). `write agent://<id>` messages a live agent,
+but it is not a team lifecycle; never use it to emulate a team roster, shared task list,
+or shutdown protocol.
 
 ---
 
 ## 8. Worktree and Branch Preparation
 
 Single source for plan, plan-workflow, prp-plan (annotation directive) and the executors
-`implement-plan`, `prp-implement`, `orchestrate`. Applies to standalone and `--team` runs.
+`implement-plan`, `prp-implement`, `orchestrate`. Applies to standalone runs; `--team` is unsupported on OMP (section 7).
 
 ### 8.1 How worktree mode is decided
 
@@ -150,7 +160,7 @@ Default-on deduction (no annotations):
   description (cap 20); `plan` confirmed execution uses the team sanitization (cap 20,
   fallback `untitled`). Shared sanitizer: lowercase, `[^a-z0-9-]` to `-`, collapse runs, trim
 - `FEATURE_BRANCH` = `feat/${WT_FEATURE_SLUG}`
-- `WT_PARENT_PATH` = `<repo-root>/.claude/worktrees/${WT_REPO_NAME}-${WT_FEATURE_SLUG}/`
+- `WT_PARENT_PATH` = `<repo-root>/.omp/worktrees/${WT_REPO_NAME}-${WT_FEATURE_SLUG}/`
 
 ### 8.2 Prepare (before any implementor dispatch)
 
@@ -196,9 +206,8 @@ Working directory: ${REPO_ROOT}
 All parallel agents in this batch share the current feature branch; batching guarantees no two agents touch the same file.
 ```
 
-Treat that directory as repo root for Read/Write/Edit/Bash. Never pass `isolation: "worktree"` or
-`task(isolation: "worktree")`; it creates separate harness worktrees. Codex/opencode: prompt line is
-sufficient. Cursor: warn and print the manual `git worktree add` command.
+Treat that directory as repo root for Read/Write/Edit/Bash. Never set `isolated` on a `task` item: it makes a separate `~/.omp/wt` copy per agent and
+breaks the single-worktree contract. The prompt line is sufficient.
 
 ### 8.4 Planner annotation directive (default WORKTREE_MODE=true; omit for --no-worktree)
 
@@ -215,9 +224,9 @@ In your emitted plan:
 
    ## Worktree Setup
 
-   - **Parent**: <repo-root>/.claude/worktrees/<repo>-<feature>/ (branch: feat/<feature>)
+   - **Parent**: <repo-root>/.omp/worktrees/<repo>-<feature>/ (branch: feat/<feature>)
 
-   Substitute the concrete `<repo>` and `<feature>` values; keep `<repo-root>/.claude/worktrees/`
+   Substitute the concrete `<repo>` and `<feature>` values; keep `<repo-root>/.omp/worktrees/`
    as this runtime's worktree root. All tasks - parallel and sequential - share this one path.
    Do NOT add a `**Children**:` list and do NOT add per-task `**Worktree**:` annotations.
 ```
@@ -231,8 +240,8 @@ In your emitted plan:
 Build the graph from `Depends on [...]` annotations. Tasks with `Depends on [none]` form batch 1.
 A task joins the earliest batch whose dependencies are all in prior batches. Two tasks touching the
 same file never share a batch. Cross-cutting shared types/config get a dedicated early batch.
-Prefer wide-shallow graphs over narrow-deep chains. Dispatch each batch as one message;
-wait for the whole batch before the next.
+Prefer wide-shallow graphs over narrow-deep chains. Dispatch each batch as one `task` call;
+`wait` for the whole batch before the next.
 
 ### 9.2 Planner output directives (parallel plans)
 
@@ -262,18 +271,20 @@ Run the skill's own validation inside the execution tree (worktree path or prepa
 After each batch update todos and print the skill's verbatim `[done] Batch BN: K tasks — complete` marker (em dash; transcript loops match the marker).
 Do not auto-retry a failed batch (usually file conflict or hidden dependency) and do not skip it;
 later batches may depend on it. Preserve completed work; ask the user (fix/resume, switch to
-sequential, abort). Standalone partial failure: continue only independent tasks.
+sequential, abort) per the `failure-recovery` class in `question-policy.md` in this directory.
+Standalone partial failure: continue only independent tasks.
 
 ---
 
 ## 10. Executing a Confirmed Plan
 
 After a user confirms an in-conversation parallel plan: run section 8 (worktree: plan names parent
-`<repo-root>/.claude/worktrees/<repo>-<feature>/`; run `setup-worktree.sh parent` once, dispatch with
+`<repo-root>/.omp/worktrees/<repo>-<feature>/`; run `setup-worktree.sh parent` once, dispatch with
 `Working directory: <parent path>`; `--no-worktree`: derive the slug with the team-name sanitization
 rules (lowercase, non `[a-z0-9-]` to `-`, collapse, cap 20, fallback `untitled`) and run
 `prepare-feature-branch.sh`). The helper is idempotent, exits 1 on unrelated dirty tree, exits 2 on
 a different feature branch (`--allow-existing-feature-branch` after confirmation) or on `release/*`
 when `RELEASING.md` exists (`--allow-release-branch` for release-only fixes). Do not skip.
-Then process section 9 batches with one `implementor` `task` per step in one message; run the
-project type-check and unit-test commands between batches; on failure stop and ask the user.
+Then process section 9 batches with one `implementor` item per step in one `task` batch; run the
+project type-check and unit-test commands between batches; on failure stop and ask the user
+(`failure-recovery` class in `question-policy.md`).

@@ -44,6 +44,8 @@ Context injection is deliberately one scoped helper call: no `pwd`, `ls | head`,
 
 Flags are composable. See `references/flag-reference.md` for the full matrix.
 
+**Questions:** headless (no question tool or chat turn) defaults: class `clarify` (empty or unknown profile): print the questions and stop; class `confirm-destructive` (profile confirmation, conflicts, rules migration): behave as `--dry-run`, skip existing files, print diffs and the rerun, then stop. The release-model offer is skipped unless `--release-model` is passed. See `skill://ycc-shared/references/question-policy.md`.
+
 ## Task
 
 Execute the following phases in order. Phases are short — do not add narrative prose between steps.
@@ -90,7 +92,7 @@ Otherwise, estimate source file count with the single scoped helper (no pipeline
 skill://init/scripts/count-source-files.sh --repo .
 ```
 
-It prints `count=<n>`, `capped=true|false`, `cap=50`. If `capped=true` (i.e., >50 files), dispatch `subagent_type: "codebase-research-analyst"` with a prompt requesting:
+It prints `count=<n>`, `capped=true|false`, `cap=50`. If `capped=true` (i.e., >50 files), dispatch `agent: "codebase-research-analyst"` with a prompt requesting:
 
 - Key architectural patterns and conventions to encode in `AGENTS.md`
 - Critical commands (test, lint, build, deploy) to embed

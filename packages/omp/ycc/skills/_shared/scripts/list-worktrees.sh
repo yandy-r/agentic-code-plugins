@@ -3,7 +3,7 @@
 # Usage: list-worktrees.sh <repo-name> <feature-slug>
 #
 # Runs `git worktree list --porcelain` and filters results to worktrees whose
-# path contains <repo-root>/.claude/worktrees/<repo-name>-<feature-slug>
+# path contains <repo-root>/.omp/worktrees/<repo-name>-<feature-slug>
 # (generated bundles rewrite the root for their runtime).
 #
 # Output:
@@ -30,7 +30,7 @@ Examples:
   list-worktrees.sh ystack worktree-flag
 
 Output:
-  Markdown table of matching worktrees under <repo-root>/.claude/worktrees/<repo>-<feature>/
+  Markdown table of matching worktrees under <repo-root>/.omp/worktrees/<repo>-<feature>/
   followed by cleanup commands. Legacy roots are not migrated or deleted.
 EOF
   exit 1

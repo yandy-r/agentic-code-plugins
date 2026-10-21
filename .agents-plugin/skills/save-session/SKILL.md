@@ -20,6 +20,8 @@ allowed-tools:
 
 Capture everything that happened in this session — what was built, what worked, what failed, what's left — and write it to a dated file so the next session can pick up exactly where this one left off.
 
+**Questions:** class `checkpoint` (Step 5 review); headless (no question tool or chat turn): the file is written; report its path and finish. See `~/.agents/ycc-shared/references/question-policy.md`.
+
 ## When to Use
 
 - End of a work session before closing Claude Code

@@ -497,7 +497,7 @@ When spawning research teammates:
    - `{{FEATURE_DIR}}` - Full output directory (e.g., `docs/plans/user-authentication`)
 3. **Create tasks** - Use `todo` to create research tasks
 4. **Spawn in parallel** - Use a single message with multiple `task` tool calls, each with `name`
-5. **Monitor progress** - Use `todo` to check when all tasks complete
+5. **Monitor progress** - Call `wait` until every spawned job settles
 6. **Verify artifacts** - Check all research files exist on disk
 7. **Shut down teammates** - Send shutdown requests via SendMessage
 8. **Read results** - Review each research file before writing shared.md

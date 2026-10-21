@@ -121,7 +121,7 @@ the [spike, section 3](../spikes/omp-runtime-contract.md#3-component--verdict-ma
 | YAN-1167 | Skill and `_shared` generation, body rewriter, invocation policy (`disable-model-invocation`)                           |
 | YAN-1168 | Optional `commands/` wrappers or a documented `/skill:<name>` entrypoint                                                |
 | YAN-1169 | Agent translator (tools, `@role` models, MCP names) under `.omp-plugin/plugin.json`                                     |
-| YAN-1170 | Workflow semantics: tool-name gaps, OMP task isolation instead of `WorktreeCreate`, background jobs                     |
+| YAN-1170 | Delivered: `.omp/worktrees` root (`OMPCODE`), `task` batch + `wait` dispatch, `question-policy.md`; never `isolated`    |
 | YAN-1171 | `.omp-plugin/marketplace.json` and per-package tree generator; `ycc-all` omitted                                        |
 | YAN-1172 | Delivered: `install.sh --target omp` lifecycle using `omp plugin` (`--dry-run`, scopes, profile and XDG-aware paths)    |
 | YAN-1173 | `ycc-mcp` OMP package (native `.mcp.json`)                                                                              |

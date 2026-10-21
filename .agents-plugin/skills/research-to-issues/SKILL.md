@@ -31,6 +31,8 @@ Parse arguments:
 - **--skip-anti-scope**: Skip creating issues for anti-scope/deferred items
 - **--skip-gaps**: Skip creating issues for research gaps
 
+**Questions:** class `clarify` (source not found): headless (no question tool or chat turn), print the expected paths and stop; class `confirm-publish` (Step 3 source confirmation): headless, behave as `--dry-run`. See `~/.agents/ycc-shared/references/question-policy.md`.
+
 ---
 
 ## Tool Preference Strategy

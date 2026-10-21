@@ -60,8 +60,8 @@ Batch M: <comma-separated task IDs>  (depends on Batch M-1)
 
 Per-batch teammate roster:
   Batch 1:
-    - <task-id-1>  subagent_type=implementor  task=<short>
-    - <task-id-2>  subagent_type=implementor  task=<short>
+    - <task-id-1>  agent=implementor  task=<short>
+    - <task-id-2>  agent=implementor  task=<short>
   ...
 ```
 
@@ -121,10 +121,10 @@ Provide completion summary:
 
 [Output of list-worktrees.sh]
 
-> The parent worktree at `<repo-root>/.claude/worktrees/[repo]-[feature]/` survives for inspection
+> The parent worktree at `<repo-root>/.omp/worktrees/[repo]-[feature]/` survives for inspection
 > and PR creation. When you are done, run:
 >
-> git worktree remove <repo-root>/.claude/worktrees/[repo]-[feature]/
+> git worktree remove <repo-root>/.omp/worktrees/[repo]-[feature]/
 > git branch -d feat/[feature]
 
 ## Next Steps

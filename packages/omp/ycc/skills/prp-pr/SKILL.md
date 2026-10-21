@@ -33,6 +33,8 @@ This is the lightweight counterpart to `/skill:git-workflow --pr`. Use it when y
 
   Without an explicit base this is the `RELEASING.md` base (`release-state.sh base`), else the repo default branch. Exit 2 means a malformed `RELEASING.md`: stop with the parse error and `/skill:release-model --audit`. Use `$BASE` as `<base>` everywhere below. See `skill://ycc-shared/references/pr-base-and-backport.md`.
 
+**Questions:** class `confirm-publish` (Phase 1 "run --ci against the existing PR?", Phase 7 CI authorization): headless (no question tool or chat turn) and without `--ci-yes`, skip CI monitoring and print `rerun with --ci-yes`. Class `confirm-publish` (backport prompt): headless, add no label and print the `/skill:backport` hint. Class `choose-path` (multiple PR templates): headless, use `default.md` (or the first template) and say so. See `skill://ycc-shared/references/question-policy.md`.
+
 ---
 
 ## Phase 1 — VALIDATE

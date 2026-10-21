@@ -87,6 +87,8 @@ Examples:
   /feature-research --team --dry-run payment-system
 ```
 
+**Questions:** class `choose-path` (regenerate or enhance an existing spec); headless (no question tool or chat turn): enhance. See `~/.agents/ycc-shared/references/question-policy.md`.
+
 ---
 
 ## Phase 0: Initialize

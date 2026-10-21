@@ -16,6 +16,8 @@ Generate a concise, actionable feature specification in a single pass. Lighter t
 
 **Core Philosophy**: A spec captures WHAT to build and WHY, with enough technical direction to feed directly into `prp-plan`. It does NOT capture HOW in implementation detail — that is the plan's job.
 
+**Questions:** class `clarify` (Phase 1); headless (no question tool or chat turn): print the open questions, write nothing, stop. See `skill://ycc-shared/references/question-policy.md`.
+
 ---
 
 ## Key Distinctions
@@ -117,7 +119,7 @@ Derive a kebab-case `{name}` from the input:
 - Codebase side: similar implementations, relevant types, existing patterns, integration points already in place
 - Market side: competitor approaches, library options, API documentation, known gotchas
 
-Instruct the researcher to return the compact discovery table format (codebase) and KEY_INSIGHT format (market) — do NOT ask for recommendations or opinions. This is a standalone single-researcher dispatch — see `skill://ycc-shared/references/standalone-dispatch.md` for the `task` spawn/return contract (omit `name` for standalone dispatch).
+Instruct the researcher to return the compact discovery table format (codebase) and KEY_INSIGHT format (market) — do NOT ask for recommendations or opinions. This is a standalone single-researcher dispatch — see `skill://ycc-shared/references/standalone-dispatch.md` for the `task` spawn/return contract.
 
 **Summarize findings to the user before generating**:
 

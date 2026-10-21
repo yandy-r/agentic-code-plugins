@@ -7,7 +7,7 @@
 #   setup-worktree.sh child  <repo-name> <feature-slug> <task-id>   [DEPRECATED]
 #
 # Modes:
-#   parent  Creates <repo-root>/.claude/worktrees/<repo>-<feature>/.  This is the
+#   parent  Creates <repo-root>/.omp/worktrees/<repo>-<feature>/.  This is the
 #           only supported worktree-creation path for the shared contract.
 #           Generated bundles retarget this root for their runtime.
 #
@@ -46,7 +46,7 @@ Arguments:
                     worktree instead of creating a new feat/<feature> branch.
 
 Worktree (single contract):
-  feature  <repo-root>/.claude/worktrees/<repo>-<feature>/
+  feature  <repo-root>/.omp/worktrees/<repo>-<feature>/
            (generated bundles rewrite the root for their runtime)
 
 Set YCC_WORKTREE_ROOT to override the root. Relative overrides are resolved

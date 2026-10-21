@@ -48,6 +48,8 @@ Each phase builds on previous answers. Grounding uses the `prp-researcher` agent
 dual-mode (market + codebase) discovery. Every `[GATE]` means: present the questions via
 `ask`, then WAIT for the user before proceeding. Do not batch gates together.
 
+**Questions:** class `clarify` (every `[GATE]`); headless (no question tool or chat turn): print the open gate questions, write nothing, stop. See `skill://ycc-shared/references/question-policy.md`.
+
 ---
 
 ## Phase 0: DETECT — Project Context
@@ -118,7 +120,7 @@ Dispatch **`prp-researcher`** via the **`task`** tool, in **dual (market + codeb
 Instruct the researcher to return URL citations for market findings and `file:line`
 references for codebase findings. This is a standalone single-researcher dispatch — see
 `skill://ycc-shared/references/standalone-dispatch.md` for the `task`
-spawn/return contract (omit `name` for standalone dispatch).
+spawn/return contract.
 
 **Summarize to the user:**
 

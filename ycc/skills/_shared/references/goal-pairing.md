@@ -45,8 +45,10 @@ Each skill fills the skeleton with its own signal keys (see that skill's
 1. **Worktree cwd**: when the skill runs in worktree mode (the default for both), reports
    and artifacts live under `<repo-root>/.claude/worktrees/<repo>-<slug>/...`. Conditions must key off
    printed signals, never main-repo file paths.
-2. **Interactive failure prompts**: parallel/team batch failures raise `AskUserQuestion`
-   prompts that `/goal` cannot answer, so the loop stalls. Expect manual intervention on
+2. **Interactive failure prompts**: parallel/team batch failures hit the `failure-recovery`
+   gate in `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/question-policy.md`. `/goal`
+   cannot answer it: interactively the loop stalls on the prompt; headless, the
+   run stops with the failing batch and resume command. Expect manual intervention on
    batch failures.
 3. **Platform**: `/goal` is available only in the Anthropic terminal (v2.1.139+) and the
    Codex CLI (v0.128.0+) — not in Cursor or opencode bundle invocations. Accept the trust

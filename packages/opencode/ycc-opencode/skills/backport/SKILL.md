@@ -43,6 +43,8 @@ Validation — stop with the usage line on failure:
 - With `--pending`, `--to` filters the pending list to those targets.
 - Each `--to` value must match `release/X.Y`.
 
+**Questions:** class `confirm-destructive` (continue the cherry-pick and push); headless (no question tool or chat turn): do not continue or push, leave the backport worktree in place, report the conflict and stop. Class `confirm-publish` (Phase 5 CI authorization): headless and without `--ci-yes`, skip CI monitoring and print `rerun with --ci-yes`. See `{{package-root}}/shared/references/question-policy.md`.
+
 ## Phase 1 — Preflight
 
 1. **Forge.** Source `{{package-root}}/shared/scripts/lib/forge.sh` and run
