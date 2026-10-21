@@ -5,8 +5,7 @@
 # *_for_target functions and supports_repo_mode dispatch to them by name.
 #
 # Sourced by install.sh (never run directly); reads its arg globals (INTENTS,
-# ONLY_STEPS, EXCLUSIVE_STEPS, SETTINGS, RULES, MCP, HOOKS, SCOPE, MODE,
-# MCP_SERVERS) and
+# ONLY_STEPS, EXCLUSIVE_STEPS, SETTINGS, RULES, MCP, HOOKS, SCOPE, MODE) and
 # ALL_TARGETS at call time.
 
 # shellcheck disable=SC2034  # VALID_INTENTS is read by install.sh's arg validation.
@@ -248,7 +247,7 @@ resolve_targets() {
         for target in "${ALL_TARGETS[@]}"; do
             # Optional <t>_in_all: a target that cannot install here yet is
             # skipped; install/sync/remove say why (on stderr). Queries such as
-            # list-mcps run before COMMAND is set and skip silently.
+            # 'list' run before COMMAND is set and skip silently.
             if declare -F "${target}_in_all" >/dev/null && ! "${target}_in_all"; then
                 if [[ -n "${COMMAND:-}" ]]; then
                     reason="not available here"
@@ -461,49 +460,7 @@ preflight_targets() {
         fi
         preflight_step_support "${target}"
     done
-    preflight_mcp_selection
-}
-
-# mcp_step_selected <target> — true when the run executes <target>'s mcp step.
-# Subshell: intent mapping rewrites ONLY_STEPS.
-mcp_step_selected() {
-    [[ ",$(valid_steps_for_target "$1")," == *",mcp,"* ]] || return 1
-    (
-        if [[ -n "${PACKAGE:-}" ]]; then
-            package_configure_steps "$(package_steps_csv "$1")"
-        elif [[ ${#INTENTS[@]} -gt 0 ]]; then
-            configure_intents_for_target "$1" >/dev/null
-        fi
-        step_enabled mcp
-    )
-}
-
-# preflight_mcp_selection
-# --mcps needs an mcp step to act on, and every name must be a server the repo
-# manages for at least one selected target (targets skip names they lack).
-preflight_mcp_selection() {
-    [[ ${#MCP_SERVERS[@]} -gt 0 ]] || return 0
-    local -a managed=() names=()
-    local target name any=0
-    for target in "${TARGETS[@]}"; do
-        mcp_step_selected "${target}" || continue
-        any=1
-        mapfile -t names < <(mcp_server_names "${target}")
-        for name in "${names[@]}"; do
-            [[ " ${managed[*]:-} " == *" ${name} "* ]] || managed+=("${name}")
-        done
-    done
-    if [[ ${any} -eq 0 ]]; then
-        err "--mcps needs the mcp step (sync/remove --intent mcp, install --mcp or --only mcp) on a target that has one"
-        exit 1
-    fi
-    for name in "${MCP_SERVERS[@]}"; do
-        if [[ " ${managed[*]:-} " != *" ${name} "* ]]; then
-            err "unknown MCP server '${name}' (managed for ${TARGETS[*]}: ${managed[*]:-none})"
-            err "  list them with: ${CLI_NAME} list-mcps --target <targets>"
-            exit 1
-        fi
-    done
+    preflight_selections
 }
 
 # preflight_step_support <target>

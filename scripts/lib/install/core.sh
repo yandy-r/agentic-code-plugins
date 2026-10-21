@@ -3,8 +3,8 @@
 # managed-config merge, scope handling and the MCP step.
 #
 # Sourced by install.sh (never run directly); inherits its shell options and
-# SCRIPT_DIR, and reads its arg globals (FORCE, SCOPE, COMMAND, MCP_SERVERS) at
-# call time.
+# SCRIPT_DIR, and reads its arg globals (FORCE, SCOPE, COMMAND) and the --mcps
+# selection (select.sh) at call time.
 
 MCP_CONFIG_SRC="${SCRIPT_DIR}/mcp-configs/mcp.json"
 CONFIG_MERGE_HELPER="${SCRIPT_DIR}/scripts/merge_managed_config.py"
@@ -310,26 +310,6 @@ mcp_source() {
     esac
 }
 
-# mcp_server_names <target> — MCP servers the repo manages for <target>, one per line.
-mcp_server_names() {
-    local profile src
-    read -r profile src <<< "$(mcp_source "$1")"
-    python3 "${CONFIG_MERGE_HELPER}" --profile "${profile}" --source "${src}" \
-        --destination /dev/null --groups mcp --list-entries
-}
-
-# mcp_selection_for_target <target> — the --mcps names <target> manages, comma-separated.
-mcp_selection_for_target() {
-    local -a managed=() selected=()
-    local name
-    mapfile -t managed < <(mcp_server_names "$1")
-    for name in "${MCP_SERVERS[@]}"; do
-        [[ " ${managed[*]} " == *" ${name} "* ]] && selected+=("${name}")
-    done
-    local IFS=','
-    echo "${selected[*]:-}"
-}
-
 # run_mcp_step <target> — merge (or, for 'remove', strip) managed MCP servers;
 # with --mcps, only the selected servers (others are left untouched).
 run_mcp_step() {
@@ -338,11 +318,12 @@ run_mcp_step() {
     dest="$(mcp_destination "${target}")"
 
     local -a select=()
-    if [[ ${#MCP_SERVERS[@]} -gt 0 ]]; then
+    if has_selection mcps; then
         local selection
-        selection="$(mcp_selection_for_target "${target}")"
+        selection="$(selection_for_target mcps "${target}")"
         if [[ -z "${selection}" ]]; then
-            warn "none of the selected MCP servers (${MCP_SERVERS[*]}) is managed for ${target} — skipping"
+            selection="$(selection_for mcps)"
+            warn "none of the selected MCP servers (${selection//,/ }) is managed for ${target} — skipping"
             return 0
         fi
         select=(--entries "${selection}")

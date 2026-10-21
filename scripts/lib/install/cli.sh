@@ -1,9 +1,8 @@
 # shellcheck shell=bash
-# cli.sh — 'cli' / 'completion' subcommands: put install.sh on PATH as `ycc`;
-# 'list-mcps' and --mcps parsing for MCP server selection.
+# cli.sh — 'cli' / 'completion' subcommands: put install.sh on PATH as `ycc`.
 #
 # Sourced by install.sh (never run directly); uses usage(), CLI_NAME and
-# SCRIPT_DIR from it, and the FORCE / MCP_SERVERS globals (set here).
+# SCRIPT_DIR from it, and the FORCE global (set here).
 
 # link_owned <src> <dest> — link_file, but an existing real file or a symlink
 # pointing elsewhere is someone else's and needs --force.
@@ -96,53 +95,4 @@ run_completion_command() {
         zsh)  info "Needs $(dirname "${dest}") in fpath before compinit; then: rm -f ~/.zcompdump*; exec zsh" ;;
         fish) info "Loaded automatically in new fish sessions" ;;
     esac
-}
-
-# parse_mcp_servers <csv> — set MCP_SERVERS from --mcps (deduped, order kept).
-parse_mcp_servers() {
-    local -a requested=()
-    local name
-    IFS=',' read -r -a requested <<< "${1// /}"
-    MCP_SERVERS=()
-    for name in "${requested[@]}"; do
-        if [[ -z "${name}" ]]; then
-            err "--mcps contains an empty value"
-            exit 1
-        fi
-        [[ " ${MCP_SERVERS[*]:-} " == *" ${name} "* ]] || MCP_SERVERS+=("${name}")
-    done
-    if [[ ${#MCP_SERVERS[@]} -eq 0 ]]; then
-        err "--mcps requires at least one MCP server"
-        exit 1
-    fi
-}
-
-# run_list_mcps_command [--target <targets>] — print the MCP servers the repo
-# manages (for the given targets, default all), one per line. Shell completion
-# reads this, so the list always matches the shipped configs.
-run_list_mcps_command() {
-    local target_csv="all"
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            --target)
-                [[ $# -lt 2 ]] && { err "--target requires an argument"; exit 1; }
-                target_csv="$2"
-                shift 2
-                ;;
-            --help|-h) usage; exit 0 ;;
-            *) err "Unknown option for list-mcps: $1"; exit 1 ;;
-        esac
-    done
-    resolve_targets "${target_csv}"
-    local -a names=() seen=()
-    local target name
-    for target in "${TARGETS[@]}"; do
-        [[ ",$(valid_steps_for_target "${target}")," == *",mcp,"* ]] || continue
-        mapfile -t names < <(mcp_server_names "${target}")
-        for name in "${names[@]}"; do
-            [[ " ${seen[*]:-} " == *" ${name} "* ]] && continue
-            seen+=("${name}")
-            echo "${name}"
-        done
-    done
 }

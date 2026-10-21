@@ -15,6 +15,8 @@ ALL_TARGETS=(claude cursor codex opencode agents omp)
 source "${SCRIPT_DIR}/scripts/lib/install/core.sh"
 # shellcheck source=scripts/lib/install/steps.sh
 source "${SCRIPT_DIR}/scripts/lib/install/steps.sh"
+# shellcheck source=scripts/lib/install/select.sh
+source "${SCRIPT_DIR}/scripts/lib/install/select.sh"
 # shellcheck source=scripts/lib/install/bundle.sh
 source "${SCRIPT_DIR}/scripts/lib/install/bundle.sh"
 # shellcheck source=scripts/lib/install/cli.sh
@@ -48,8 +50,8 @@ Commands:
               $(basename "$0") cli [--dir <dir>] [--force]
   completion  Print or install shell completion.
               $(basename "$0") completion [--shell bash|zsh|fish] [--install [--force]]
-  list-mcps   Print the MCP servers the repo manages (names for --mcps).
-              $(basename "$0") list-mcps [--target <targets>]
+  list        Print the selectable kinds, or the names a kind takes (for --<kind>).
+              $(basename "$0") list [<kind>] [--target <targets>]   (e.g. list mcps; list-mcps is an alias)
 
 A command is required; a bare '$(basename "$0") install --target ...' is rejected.
 
@@ -254,7 +256,7 @@ Options:
                       of every managed one; requires the mcp step. Servers not
                       named are left untouched. A target that manages none of
                       them skips its MCP step; a name no selected target
-                      manages is an error. Names: '$(basename "$0") list-mcps'
+                      manages is an error. Names: '$(basename "$0") list mcps'
                       (shell completion offers them).
   --project           Scope-capable steps (today: mcp) write into the current
                       project. Default when neither flag is given. omp base
@@ -500,14 +502,13 @@ ONLY_STEPS=()
 INTENTS=()
 PACKAGE=""
 PACKAGE_CONFLICT_FLAG=0
-MCP_SERVERS=()
 SCOPE=""
 # Read by targets/omp.sh (the only target with a dry-run).
 export DRY_RUN=0
 
 case "${1:-}" in
     migrate) shift; run_migrate_command "$@"; exit $? ;;
-    cli|completion|list-mcps)
+    cli|completion|list|list-mcps)
         for arg in "$@"; do
             if [[ "${arg}" == "--package" || "${arg}" == --package=* ]]; then
                 err "--package is only supported by the 'install' subcommand"
@@ -517,7 +518,8 @@ case "${1:-}" in
         case "$1" in
             cli)        shift; run_cli_command "$@"; exit 0 ;;
             completion) shift; run_completion_command "$@"; exit 0 ;;
-            list-mcps)  shift; run_list_mcps_command "$@"; exit 0 ;;
+            list)       shift; run_list_command "$@"; exit 0 ;;
+            list-mcps)  shift; LIST_COMMAND_LABEL=list-mcps run_list_command mcps "$@"; exit 0 ;;
         esac
         ;;
 esac
@@ -527,7 +529,7 @@ case "${1:-}" in
     --help|-h) usage; exit 0 ;;
     "") usage; exit 1 ;;
     *)
-        err "missing or unknown command '$1' (expected: install, sync, remove, migrate, cli, completion, list-mcps)"
+        err "missing or unknown command '$1' (expected: install, sync, remove, migrate, cli, completion, list)"
         err "  e.g. $(basename "$0") install $*"
         exit 1
         ;;
@@ -586,31 +588,11 @@ while [[ $# -gt 0 ]]; do
             IFS=',' read -r -a INTENTS <<< "$2"
             shift 2
             ;;
-        --mcp)
-            MCP=1
-            shift
-            ;;
-        --mcps)
-            [[ $# -lt 2 ]] && { err "--mcps requires a comma-separated list of MCP servers"; exit 1; }
-            parse_mcp_servers "$2"
-            shift 2
-            ;;
-        --settings)
-            SETTINGS=1
-            shift
-            ;;
-        --rules)
-            RULES=1
-            shift
-            ;;
-        --hooks)
-            HOOKS=1
-            shift
-            ;;
-        --dry-run)
-            DRY_RUN=1
-            shift
-            ;;
+        --mcp)      MCP=1; shift ;;
+        --settings) SETTINGS=1; shift ;;
+        --rules)    RULES=1; shift ;;
+        --hooks)    HOOKS=1; shift ;;
+        --dry-run)  DRY_RUN=1; shift ;;
         --project|--global)
             if [[ -n "${SCOPE}" && "${SCOPE}" != "${1#--}" ]]; then
                 err "--project and --global are mutually exclusive"
@@ -624,10 +606,16 @@ while [[ $# -gt 0 ]]; do
             FORCE=1
             shift
             ;;
-        --help|-h)
-            usage
-            exit 0
-            ;;
+        --help|-h)  usage; exit 0 ;;
+        --*)
+            # --<kind> <names>: item selection for any kind in select.sh.
+            if is_selectable_kind "${1#--}"; then
+                [[ $# -lt 2 ]] && { err "$1 requires a comma-separated list of ${SELECTION_NOUNS[${1#--}]}"; exit 1; }
+                parse_selection "${1#--}" "$2"
+                shift 2
+                continue
+            fi
+            ;&
         *)
             err "Unknown option: $1"
             usage

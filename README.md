@@ -171,7 +171,7 @@ and desktop app notes, use the dedicated install guides. Recommended sync form:
 ./install.sh sync --target codex,claude,opencode --intent mcp            # current project
 ./install.sh sync --target codex,claude,opencode --intent mcp --global   # user-global
 ./install.sh sync --target opencode --intent mcp --mcps github,linear    # only these servers
-./install.sh list-mcps                                                   # managed MCP server names
+./install.sh list mcps                                                   # managed MCP server names
 ./install.sh remove --target all --only mcp                              # undo project MCP
 ./install.sh remove --target all --intent settings,rules                 # undo any intent, any target
 ./install.sh cli && ycc completion --install                             # `ycc` on PATH for other projects

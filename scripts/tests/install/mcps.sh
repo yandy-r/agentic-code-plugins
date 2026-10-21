@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # install.sh tests — MCP server selection: --mcps for sync/install/remove on
-# every MCP-capable target, list-mcps, and the --mcps completions.
+# every MCP-capable target, list-mcps (alias of list mcps), and the --mcps completions.
 #
 # Runs alone (bash scripts/tests/install/mcps.sh) or from scripts/test-install-sync.sh.
 # shellcheck source=scripts/tests/install/lib.sh
@@ -86,9 +86,43 @@ assert_contains "${merged}" '"github"' "remove --mcps keeps the others"
 echo
 echo "== --mcps completion =="
 
-for f in _ycc ycc.bash ycc.fish; do
-    assert_contains "$(cat "${REPO_ROOT}/scripts/completions/${f}")" "list-mcps" "${f} completes --mcps from list-mcps"
-done
+# A new kind needs no completion edits: a stub ycc whose 'list' adds 'widgets'
+# must get a --widgets flag with names from 'ycc list widgets --target <t>'.
+widget_bin="${SANDBOX_ROOT}/widget-bin"
+mkdir -p "${widget_bin}"
+cat > "${widget_bin}/ycc" <<'SH'
+#!/usr/bin/env bash
+[[ "$1" == list ]] || exit 1
+if [[ $# -eq 1 ]]; then printf '%s\n' mcps widgets; exit 0; fi
+[[ "$2" == widgets && "$3" == --target ]] && printf '%s\n' "w-$4" w-shared
+SH
+chmod +x "${widget_bin}/ycc"
+out="$(PATH="${widget_bin}:${PATH}" bash -c 'source "$1"; COMP_WORDS=(ycc sync --wid); COMP_CWORD=2; _ycc; echo "${COMPREPLY[*]}"' \
+    _ "${REPO_ROOT}/scripts/completions/ycc.bash")"
+assert_contains "${out}" "--widgets" "bash offers the selector flag of a new kind"
+out="$(PATH="${widget_bin}:${PATH}" bash -c 'source "$1"; COMP_WORDS=(ycc sync --target codex --widgets w-shared,w); COMP_CWORD=5; _ycc; echo "${COMPREPLY[*]}"' \
+    _ "${REPO_ROOT}/scripts/completions/ycc.bash")"
+assert_contains "${out}" "w-shared,w-codex" "bash completes a new kind's names for the line's --target"
+if command -v zsh >/dev/null; then
+    # Stub the completion builtins, then run the --widgets action the way
+    # _arguments does: with '-J -default-' prepended to its words.
+    out="$(PATH="${widget_bin}:${PATH}" zsh -f -c '
+        _arguments() { specs=("$@"); }
+        _values() { print -r -- "VALUES $*"; }
+        compdef() { :; }
+        source "$1"
+        words=(ycc sync --target codex --widgets ""); CURRENT=6
+        _ycc
+        for s in "${specs[@]}"; do [[ "${s}" == --widgets* ]] && action="${s##*:}"; done
+        [[ -n "${action:-}" ]] || { print "no --widgets spec"; exit 1; }
+        _ycc_cmd=ycc
+        local -a act=(${(z)action})
+        "${act[1]}" -J -default- "${act[@]:1}"
+    ' _ "${REPO_ROOT}/scripts/completions/_ycc" 2>&1)"
+    assert_contains "${out}" "VALUES -s , widgets w-codex w-shared" "zsh completes a new kind's names for the line's --target"
+else
+    printf '[skip] zsh completion behavior (zsh not installed)\n'
+fi
 out="$(PATH="${REPO_ROOT}:${PATH}" bash -c 'source "$1"
     COMP_WORDS=(install.sh sync --target codex --intent mcp --mcps github,li); COMP_CWORD=7; _ycc; echo "${COMPREPLY[*]}"' \
     _ "${REPO_ROOT}/scripts/completions/ycc.bash")"
