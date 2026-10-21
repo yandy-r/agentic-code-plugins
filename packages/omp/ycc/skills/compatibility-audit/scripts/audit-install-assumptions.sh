@@ -243,7 +243,10 @@ run_opencode_checks() {
   [[ ${#miss[@]} -eq 0 ]] && record "opencode" "OC2" "PASS" "" \
     || record "opencode" "OC2" "FAIL" "missing: ${miss[*]}"
 
-  # OC3: opencode.json is valid JSON with expected top-level keys
+  # OC3: opencode.json is valid JSON with the expected $schema and no
+  # `instructions` key. The bundle ships its rules as the global AGENTS.md; a
+  # relative `instructions` entry resolves from the workspace and loads the
+  # project AGENTS.md a second time.
   local cfg="${odir}/opencode.json"
   if   [[ ! -f "$cfg" ]]; then record "opencode" "OC3" "FAIL" "${cfg} does not exist"
   elif json_ok "$cfg";    then
@@ -251,10 +254,9 @@ run_opencode_checks() {
     r=$(python3 - "$cfg" <<'PY'
 import json,sys
 d=json.load(open(sys.argv[1]))
-required={"$schema","instructions"}
-missing=required - set(d)
-if missing: print(f"FAIL:{sys.argv[1]}: missing keys {sorted(missing)}")
-elif d.get("$schema")!="https://opencode.ai/config.json": print(f"FAIL:$schema={d.get('$schema')!r} (expected 'https://opencode.ai/config.json')")
+if "$schema" not in d: print(f"FAIL:{sys.argv[1]}: missing key '$schema'")
+elif d.get("$schema")!="https://opencode.ai/config.json": print(f"FAIL:{sys.argv[1]}: $schema={d.get('$schema')!r} (expected 'https://opencode.ai/config.json')")
+elif "instructions" in d: print(f"FAIL:{sys.argv[1]}: unexpected key 'instructions' (bundle rules ship as the global AGENTS.md; a relative entry resolves from the workspace and loads the project AGENTS.md a second time)")
 else: print("PASS:")
 PY
     ); set -e; record "opencode" "OC3" "${r%%:*}" "${r#*:}"

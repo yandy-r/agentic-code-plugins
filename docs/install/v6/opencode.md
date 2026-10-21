@@ -145,6 +145,8 @@ default definition with an id and an effect or setup function.`). The config
   entry never reached the model; discovered `AGENTS.md` files did (positive
   control). That is why the file copy ships `~/.config/opencode/AGENTS.md` and
   the npm package uses the context hook instead.
+  Superseded on v2.1.1: config `instructions` entries now resolve (YAN-1241).
+  The bundle still omits the key; see [opencode install](../opencode.md).
 - Skills from config (`skills: ["<dir>"]`, HTTP catalog) listed fine; plugin
   skill bodies arrive as user-role `<skill_content>` blocks with the skill's
   base directory advertised. The generated npm package additionally renders

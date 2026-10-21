@@ -75,11 +75,12 @@ V1_TOP_LEVEL_RENAMES: dict[str, str] = {
     "tools": "permissions",
 }
 
-# Keys OpenCode parses but does not act on in V2. Carrying them in a generated
-# bundle implies behavior the runtime never delivers.
-INERT_TOP_LEVEL_KEYS: dict[str, str] = {
+# Keys V2 accepts that the generated bundle must not carry. V2 resolves
+# `instructions`, but the bundle omits it on purpose.
+BUNDLE_FORBIDDEN_TOP_LEVEL_KEYS: dict[str, str] = {
     "instructions": (
-        "V2 accepts `instructions` but does not resolve its files, globs, or URLs; ship rules as AGENTS.md instead"
+        "bundle rules install as the global ~/.config/opencode/AGENTS.md, which V2 loads first; "
+        "a relative entry such as AGENTS.md resolves from the workspace and loads the project AGENTS.md again"
     ),
 }
 
@@ -391,8 +392,8 @@ def validate_config(data: Any) -> list[str]:
     for key in data:
         if key in V1_TOP_LEVEL_RENAMES:
             errors.add(f"{key} is V1 config; use {V1_TOP_LEVEL_RENAMES[key]}")
-        elif key in INERT_TOP_LEVEL_KEYS:
-            errors.add(f"{key} has no effect in V2: {INERT_TOP_LEVEL_KEYS[key]}")
+        elif key in BUNDLE_FORBIDDEN_TOP_LEVEL_KEYS:
+            errors.add(f"{key} must not be set in the bundle: {BUNDLE_FORBIDDEN_TOP_LEVEL_KEYS[key]}")
         elif key not in V2_TOP_LEVEL_KEYS:
             errors.add(f"{key} is not a documented V2 config field")
 

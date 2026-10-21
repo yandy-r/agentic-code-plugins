@@ -228,9 +228,10 @@ def load_mcp_block() -> dict[str, object]:
 
 def build_opencode_config() -> dict[str, object]:
     model_settings = load_model_settings()
-    # `instructions` is deliberately absent: V2 accepts the field but does not
-    # resolve its entries, and the bundle's rules already install as the global
-    # ~/.config/opencode/AGENTS.md, which V2 does load.
+    # `instructions` is deliberately absent. V2 resolves it, but the bundle's
+    # rules install as the global ~/.config/opencode/AGENTS.md, which V2 loads
+    # first. A relative entry such as "AGENTS.md" would resolve from the
+    # workspace and load the project's AGENTS.md again.
     config: dict[str, object] = {
         "$schema": "https://opencode.ai/config.json",
         "model": model_settings["main"]["model"],
