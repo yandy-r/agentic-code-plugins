@@ -22,7 +22,7 @@ Parallelism is the baseline: every batch's tasks dispatch concurrently. The only
 
 Parse flags first, then treat the remainder as the task description:
 
-- `--team`: (Claude Code only) dispatch each batch under the implicit session team with up-front `todo` + `addBlockedBy` wiring and per-batch shutdown via `SendMessage`. Aborts from a Cursor or Codex bundle (team dispatch absent there).
+- `--team`: (Claude Code only) dispatch each batch under the implicit session team with up-front `todo` + `addBlockedBy` wiring and per-batch shutdown via `SendMessage`. Aborts from a Cursor, Codex or OMP bundle (team dispatch absent there).
 - `--dry-run`: show the orchestration plan without deploying agents. Print a `Worktree:` line when worktree mode is active (no scripts called).
 - With `--team --dry-run`, also print the team name and per-batch teammate roster.
 - `--plan-only`: write the plan to `docs/orchestration/[sanitized-task].md` without execution. With worktree mode active, the plan gains a `## Worktree Setup` section.
@@ -38,12 +38,12 @@ Strip flags from `$ARGUMENTS` and set `TEAM_FLAG=true|false`, `DRY_RUN=true|fals
 ## Gates (hold across the whole run)
 
 1. No task description after stripping flags: print the usage block from `skill://orchestrate/references/dispatch-playbook.md` section 1 (read it only on this abort path), then abort.
-2. `--team` from a Cursor or Codex bundle: abort with a clear message. `--worktree` works everywhere via `git worktree add`; on Cursor emit the `git worktree add` commands as instructions instead of auto-creating.
+2. `--team` from a Cursor, Codex or OMP bundle: abort with a clear message. `--worktree` works everywhere via `git worktree add`; on Cursor emit the `git worktree add` commands as instructions instead of auto-creating.
 3. `--team` without `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`: abort with `--team requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1. Use --parallel instead, or set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in your Claude Code settings if you intentionally want agent-team dispatch.`
 4. Set all flag variables before any side effect.
 5. `DRY_RUN=true` or `PLAN_ONLY=true`: no branch prep, no worktree script calls, no team or agent calls. Stop after Phase 3 output.
 6. Non-dry runs: prepare the feature branch (Phase 2.5) before any agent dispatch, or agents commit on the starting branch (usually `main`).
-7. Never pass `isolation: "worktree"` to dispatch calls: it makes one harness worktree per agent and breaks the single-worktree contract.
+7. Never pass `isolated: true` to dispatch calls: it makes one harness worktree per agent and breaks the single-worktree contract.
 8. Read `skill://ycc-shared/references/standalone-dispatch.md` for standalone dispatch, worktree prep and dependency batches (sections 8-10).
    Read `skill://ycc-shared/references/agent-team-dispatch.md` only when `--team` is passed (section 8: orchestrate adapter).
 
@@ -98,11 +98,11 @@ With `--team`, use its Path B Team Communication section.
 
 ## Phase 2.5: Worktree Setup
 
-Follow standalone-dispatch §8 for mode decision (with this skill's inputs: no `## Worktree Setup` auto-detect, so `--no-worktree` is the only opt-out; EXECUTION_MODE and PLAN_ONLY are orchestrate-local), preparation, and agent lines. Summary inputs: `FEATURE_SLUG` per team-sanitizer (20 chars, fallback `untitled`); one shared parent worktree `<repo-root>/.claude/worktrees/<repo>-<FEATURE_SLUG>/`.
+Follow standalone-dispatch §8 for mode decision (with this skill's inputs: no `## Worktree Setup` auto-detect, so `--no-worktree` is the only opt-out; EXECUTION_MODE and PLAN_ONLY are orchestrate-local), preparation, and agent lines. Summary inputs: `FEATURE_SLUG` per team-sanitizer (20 chars, fallback `untitled`); one shared parent worktree `<repo-root>/.omp/worktrees/<repo>-<FEATURE_SLUG>/`.
 
 When `DRY_RUN=false` and `PLAN_ONLY=false`, follow standalone-dispatch §8.2: prepare the feature branch before any worktree setup or dispatch; if `WORKTREE_MODE=true`, create one parent with `<repo-name>` + `FEATURE_SLUG` and store its echoed path as `PARENT_WORKTREE_PATH`; otherwise skip setup. No plan-move call here (orchestrate builds its own decomposition, not a pre-existing plan file). Every agent uses §8.3 directory lines; treat `PARENT_WORKTREE_PATH` as `WT_PARENT_PATH` and derive `REPO_ROOT` there. Branch-prep exit contract: `skill://ycc-shared/references/branch-prep.md`.
 
-- `WORKTREE_MODE=true` and `DRY_RUN=true`: no script calls; compute `<repo-root>/.claude/worktrees/<repo>-<FEATURE_SLUG>/` for the dry-run output.
+- `WORKTREE_MODE=true` and `DRY_RUN=true`: no script calls; compute `<repo-root>/.omp/worktrees/<repo>-<FEATURE_SLUG>/` for the dry-run output.
 - `WORKTREE_MODE=true` and `PLAN_ONLY=true`: no script calls; add the worktree annotation to the written plan.
 
 Read `skill://ycc-shared/references/worktree-strategy.md` when writing the `## Worktree Setup` plan section (section 2 annotation format).
@@ -127,8 +127,8 @@ Batch M: <comma-separated subtask IDs>  (depends on Batch M-1)
 
 Per-batch teammate roster:
   Batch 1:
-    - subtask-1  subagent_type=<agent-type>  focus=<short>
-    - subtask-2  subagent_type=<agent-type>  focus=<short>
+    - subtask-1  agent=<agent-type>  focus=<short>
+    - subtask-2  agent=<agent-type>  focus=<short>
   ...
 ```
 

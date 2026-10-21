@@ -10,11 +10,11 @@
 > - **Path C** (`--enhanced` alone) — 5 standalone parallel sub-agents, no teammate dispatch.
 > - **Path B enhanced** (`--enhanced --team`) — 5-persona agent team with shared `todo`.
 >
-> Both enhanced personas use `subagent_type: "research-specialist"` distinguished by `description` and the role-specific prompt in standalone mode; only team mode sets `name`. They contribute slices that the synthesizer folds into the merged plan per `SKILL.md` (Merge outputs; Re-dispatch). They do NOT write any files — they return findings inline.
+> Both enhanced personas use `agent: "research-specialist"` distinguished by the item `name` (role) and the role-specific `task` prompt. They contribute slices that the synthesizer folds into the merged plan per `SKILL.md` (Merge outputs; Re-dispatch). They do NOT write any files — they return findings inline.
 
 ## Roster
 
-| name                | subagent_type             | Plan section(s) it owns                                                                                                          |
+| name                | agent             | Plan section(s) it owns                                                                                                          |
 | ------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | `security-reviewer` | `research-specialist` | `## Security Considerations` (top-level) and per-step `> **Security**:` callouts; risk rows folded into `## Risks & Mitigations` |
 | `ux-reviewer`       | `research-specialist` | `## UX Impact` (Before / After / Interaction Changes); omitted entirely if internal-only                                         |

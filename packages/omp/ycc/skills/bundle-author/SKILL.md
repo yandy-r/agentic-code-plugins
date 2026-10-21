@@ -29,6 +29,8 @@ Parse `$ARGUMENTS`:
 The older `--with-command` flag is accepted as a legacy no-op. It never creates
 a wrapper or overrides `--skill-only`.
 
+**Questions:** class `clarify` (Phase 0 anti-pattern match "proceed?"): without a question tool, print the matched anti-pattern and stop; scaffold nothing. See `skill://ycc-shared/references/question-policy.md`.
+
 ## Phase 0: Guards
 
 Before scaffolding, verify all of the following. If any check fails, abort immediately

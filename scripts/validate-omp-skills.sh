@@ -52,4 +52,22 @@ if not (dest / "_shared/SKILL.md").is_file():
 sys.exit(1 if bad else 0)
 PY
 
-echo "OK: packages/omp/ycc/skills is in sync and passes content policy."
+echo "== Workflow semantics (packages/omp) =="
+# Claude-only workflow semantics (subagent_type, run_in_background, isolation
+# "worktree", AskUserQuestion, TaskOutput/BashOutput, the Claude worktree root)
+# must not reach the OMP package. FORBIDDEN_SEMANTICS and its file and
+# line-anchored allowlists live in scripts/generate_omp_skills.py.
+PYTHONPATH="${REPO_ROOT}/scripts" python3 - "${REPO_ROOT}" <<'PY'
+import sys
+from pathlib import Path
+
+from generate_omp_skills import scan_forbidden_semantics
+
+package = Path(sys.argv[1]) / "packages/omp/ycc"
+findings = scan_forbidden_semantics(package)
+for finding in findings:
+    print(f"FORBIDDEN semantics in packages/omp/ycc/{finding}", file=sys.stderr)
+sys.exit(1 if findings else 0)
+PY
+
+echo "OK: packages/omp/ycc/skills is in sync and passes content and semantics policy."

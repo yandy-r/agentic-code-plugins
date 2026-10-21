@@ -3,8 +3,9 @@
 #
 # Verifies, against every generated bundle's own worktree-paths.sh /
 # setup-worktree.sh / list-worktrees.sh, using throwaway scratch repos:
-#   - default root per bundle (claude/codex/cursor/opencode/agents)
-#   - agents bundle runtime selection + .agents fallback (nested/unknown)
+#   - default root per bundle (claude/codex/cursor/opencode/omp/agents)
+#   - agents bundle runtime selection + .agents fallback (nested/unknown);
+#     OMPCODE=1 wins over the CLAUDECODE=1 marker OMP also sets (YAN-1170)
 #   - YCC_WORKTREE_ROOT override (absolute, relative, ~, spaces)
 #   - setup-worktree.sh parent + idempotency + list-worktrees.sh
 #   - paths with spaces
@@ -55,12 +56,13 @@ declare -A BUNDLES=(
   [codex]="${REPO_ROOT}/.codex-plugin/ycc/shared/scripts"
   [cursor]="${REPO_ROOT}/packages/cursor/ycc/skills/_shared/scripts"
   [opencode]="${REPO_ROOT}/.opencode-plugin/shared/scripts"
+  [omp]="${REPO_ROOT}/packages/omp/ycc/skills/_shared/scripts"
   [agents]="${REPO_ROOT}/.agents-plugin/ycc-shared/scripts"
 )
 # bundle-name -> expected default root dir name
-declare -A EXPECTED=([claude]=.claude [codex]=.codex [cursor]=.cursor [opencode]=.opencode [agents]=.agents)
+declare -A EXPECTED=([claude]=.claude [codex]=.codex [cursor]=.cursor [opencode]=.opencode [omp]=.omp [agents]=.agents)
 
-CLEAN_ENV=(env -u YCC_WORKTREE_ROOT -u OPENCODE -u CLAUDECODE -u CODEX_THREAD_ID)
+CLEAN_ENV=(env -u YCC_WORKTREE_ROOT -u OPENCODE -u OMPCODE -u CLAUDECODE -u CODEX_THREAD_ID)
 
 make_repo() {
   local dir="$1"
@@ -75,7 +77,7 @@ default_root() { # <bundle> <repo> [extra env assignments...]
   (cd "$repo" && "${CLEAN_ENV[@]}" "$@" bash -c 'source "$1"; ycc_worktree_root' _ "${BUNDLES[$bundle]}/worktree-paths.sh")
 }
 
-for bundle in claude codex cursor opencode agents; do
+for bundle in claude codex cursor opencode omp agents; do
   [[ -f "${BUNDLES[$bundle]}/worktree-paths.sh" ]] || { fail "$bundle: worktree-paths.sh missing"; continue; }
   repo="${SCRATCH}/repo-${bundle}"
   make_repo "$repo"
@@ -89,21 +91,28 @@ canon="$(cd "$repo" && pwd -P)"
 assert_eq "agents: OPENCODE=1 -> .opencode" "${canon}/.opencode/worktrees" "$(default_root agents "$repo" OPENCODE=1)"
 assert_eq "agents: CLAUDECODE=1 -> .claude" "${canon}/.claude/worktrees" "$(default_root agents "$repo" CLAUDECODE=1)"
 assert_eq "agents: CODEX_THREAD_ID -> .codex" "${canon}/.codex/worktrees" "$(default_root agents "$repo" CODEX_THREAD_ID=t1)"
+assert_eq "agents: OMPCODE=1 CLAUDECODE=1 -> .omp" "${canon}/.omp/worktrees" "$(default_root agents "$repo" OMPCODE=1 CLAUDECODE=1)"
+assert_eq "agents: OMPCODE=1 -> .omp" "${canon}/.omp/worktrees" "$(default_root agents "$repo" OMPCODE=1)"
+assert_eq "agents: OMPCODE=0 ignored -> .claude" "${canon}/.claude/worktrees" "$(default_root agents "$repo" OMPCODE=0 CLAUDECODE=1)"
+assert_eq "agents: OMPCODE+OPENCODE -> .agents" "${canon}/.agents/worktrees" "$(default_root agents "$repo" OMPCODE=1 CLAUDECODE=1 OPENCODE=1)"
+assert_eq "agents: OMPCODE+CODEX_THREAD_ID -> .agents" "${canon}/.agents/worktrees" "$(default_root agents "$repo" OMPCODE=1 CODEX_THREAD_ID=t1)"
 assert_eq "agents: nested markers -> .agents" "${canon}/.agents/worktrees" "$(default_root agents "$repo" OPENCODE=1 CLAUDECODE=1)"
 assert_eq "agents: OPENCODE=0 ignored -> .agents" "${canon}/.agents/worktrees" "$(default_root agents "$repo" OPENCODE=0)"
 assert_eq "agents: empty CODEX_THREAD_ID -> .agents" "${canon}/.agents/worktrees" "$(default_root agents "$repo" CODEX_THREAD_ID=)"
 assert_eq "agents: unsupported CURSOR_AGENT -> .agents" "${canon}/.agents/worktrees" "$(default_root agents "$repo" CURSOR_AGENT=1)"
 
 # Non-agents bundles must NOT be influenced by runtime markers.
-for bundle in claude codex cursor opencode; do
+for bundle in claude codex cursor opencode omp; do
+  [[ -f "${BUNDLES[$bundle]}/worktree-paths.sh" ]] || continue
   repo="${SCRATCH}/repo-${bundle}"
   canon="$(cd "$repo" && pwd -P)"
-  assert_eq "$bundle ignores runtime markers" "${canon}/${EXPECTED[$bundle]}/worktrees" "$(default_root "$bundle" "$repo" OPENCODE=1 CLAUDECODE=1)"
+  assert_eq "$bundle ignores runtime markers" "${canon}/${EXPECTED[$bundle]}/worktrees" "$(default_root "$bundle" "$repo" OPENCODE=1 OMPCODE=1 CLAUDECODE=1)"
 done
 
 # setup-worktree.sh / list-worktrees.sh / override / spaces / idempotency.
-for bundle in claude codex cursor opencode agents; do
+for bundle in claude codex cursor opencode omp agents; do
   scripts="${BUNDLES[$bundle]}"
+  [[ -f "${scripts}/setup-worktree.sh" ]] || { fail "$bundle: setup-worktree.sh missing"; continue; }
   repo="${SCRATCH}/with space/repo-${bundle}"
   make_repo "$repo"
   canon="$(cd "$repo" && pwd -P)"
@@ -123,15 +132,15 @@ for bundle in claude codex cursor opencode agents; do
 
   # Absolute override
   override="${SCRATCH}/override root/${bundle}"
-  got="$(cd "$repo" && env -u OPENCODE -u CLAUDECODE -u CODEX_THREAD_ID YCC_WORKTREE_ROOT="$override" bash "${scripts}/setup-worktree.sh" parent "$name" feat-two 2>/dev/null)"
+  got="$(cd "$repo" && env -u OPENCODE -u OMPCODE -u CLAUDECODE -u CODEX_THREAD_ID YCC_WORKTREE_ROOT="$override" bash "${scripts}/setup-worktree.sh" parent "$name" feat-two 2>/dev/null)"
   assert_eq "$bundle absolute override" "${override}/${name}-feat-two" "$got"
 
   # Relative override resolves against repo root
-  got="$(cd "$repo" && env -u OPENCODE -u CLAUDECODE -u CODEX_THREAD_ID YCC_WORKTREE_ROOT="rel/wt" bash "${scripts}/setup-worktree.sh" parent "$name" feat-three 2>/dev/null)"
+  got="$(cd "$repo" && env -u OPENCODE -u OMPCODE -u CLAUDECODE -u CODEX_THREAD_ID YCC_WORKTREE_ROOT="rel/wt" bash "${scripts}/setup-worktree.sh" parent "$name" feat-three 2>/dev/null)"
   assert_eq "$bundle relative override" "${canon}/rel/wt/${name}-feat-three" "$got"
 
   # ~ override
-  got="$(cd "$repo" && env -u OPENCODE -u CLAUDECODE -u CODEX_THREAD_ID HOME="${SCRATCH}/home" YCC_WORKTREE_ROOT="~/wt" bash -c 'source "$1"; ycc_worktree_root' _ "${scripts}/worktree-paths.sh")"
+  got="$(cd "$repo" && env -u OPENCODE -u OMPCODE -u CLAUDECODE -u CODEX_THREAD_ID HOME="${SCRATCH}/home" YCC_WORKTREE_ROOT="~/wt" bash -c 'source "$1"; ycc_worktree_root' _ "${scripts}/worktree-paths.sh")"
   assert_eq "$bundle ~ override" "${SCRATCH}/home/wt" "$got"
 done
 
@@ -226,6 +235,7 @@ for strat in \
   "${REPO_ROOT}/.codex-plugin/ycc/shared/references/worktree-strategy.md" \
   "${REPO_ROOT}/packages/cursor/ycc/skills/_shared/references/worktree-strategy.md" \
   "${REPO_ROOT}/.opencode-plugin/shared/references/worktree-strategy.md" \
+  "${REPO_ROOT}/packages/omp/ycc/skills/_shared/references/worktree-strategy.md" \
   "${REPO_ROOT}/.agents-plugin/ycc-shared/references/worktree-strategy.md"; do
   if grep -qE 'ycc:|ycc/skills/|Agent\(isolation|<!-- ycc:verbatim-block' "$strat"; then
     fail "${strat#"$REPO_ROOT"/} leaked unrewritten source token or marker"
@@ -235,13 +245,14 @@ for strat in \
 done
 
 # Gitignore coverage: repo .gitignore + init template (source and every bundle).
-ROOTS=(.claude/worktrees/ .opencode/worktrees/ .codex/worktrees/ .cursor/worktrees/ .agents/worktrees/)
+ROOTS=(.claude/worktrees/ .opencode/worktrees/ .codex/worktrees/ .cursor/worktrees/ .omp/worktrees/ .agents/worktrees/)
 for f in \
   "${REPO_ROOT}/.gitignore" \
   "${REPO_ROOT}/ycc/skills/init/templates/git/gitignore.tmpl" \
   "${REPO_ROOT}/.codex-plugin/ycc/skills/init/templates/git/gitignore.tmpl" \
   "${REPO_ROOT}/packages/cursor/ycc/skills/init/templates/git/gitignore.tmpl" \
   "${REPO_ROOT}/.opencode-plugin/skills/init/templates/git/gitignore.tmpl" \
+  "${REPO_ROOT}/packages/omp/ycc/skills/init/templates/git/gitignore.tmpl" \
   "${REPO_ROOT}/.agents-plugin/skills/init/templates/git/gitignore.tmpl"; do
   for r in "${ROOTS[@]}"; do
     grep -qxF "$r" "$f" && pass "$(basename "$(dirname "$f")")/$(basename "$f") ignores $r" || fail "${f#"$REPO_ROOT"/} missing $r"

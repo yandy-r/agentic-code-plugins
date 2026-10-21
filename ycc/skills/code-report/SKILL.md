@@ -44,6 +44,8 @@ Examples:
   /code-report payment-integration --dry-run
 ```
 
+**Questions:** class `clarify` (prerequisite failure "proceed anyway?", changed-file list request): without a question tool, print the error or the missing input and stop; write no report. See `${CLAUDE_PLUGIN_ROOT}/skills/_shared/references/question-policy.md`.
+
 ---
 
 ## Phase 0: Prerequisites Check

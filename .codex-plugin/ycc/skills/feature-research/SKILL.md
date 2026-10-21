@@ -70,6 +70,8 @@ Examples:
   /feature-research --team --dry-run payment-system
 ```
 
+**Questions:** class `choose-path` (regenerate or enhance an existing spec); without a question tool: enhance. See `../../shared/references/question-policy.md`.
+
 ---
 
 ## Phase 0: Initialize

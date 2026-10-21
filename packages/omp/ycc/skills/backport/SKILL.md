@@ -44,6 +44,8 @@ Validation — stop with the usage line on failure:
 - With `--pending`, `--to` filters the pending list to those targets.
 - Each `--to` value must match `release/X.Y`.
 
+**Questions:** class `confirm-destructive` (continue the cherry-pick and push); without a question tool: do not continue or push, leave the backport worktree in place, report the conflict and stop. Class `confirm-publish` (Phase 5 CI authorization): without a question tool and without `--ci-yes`, skip CI monitoring and print `rerun with --ci-yes`. See `skill://ycc-shared/references/question-policy.md`.
+
 ## Phase 1 — Preflight
 
 1. **Forge.** Source `skill://ycc-shared/scripts/lib/forge.sh` and run
@@ -159,7 +161,7 @@ bash "skill://backport/scripts/cherry-pick-pr.sh" \
 
 The script fetches `origin/release/X.Y`, creates the branch and a worktree through
 `skill://ycc-shared/scripts/setup-worktree.sh` (under
-`<repo>/.claude/worktrees/`, or `YCC_WORKTREE_ROOT`), and runs `git cherry-pick -x`
+`<repo>/.omp/worktrees/`, or `YCC_WORKTREE_ROOT`), and runs `git cherry-pick -x`
 (`-m 1` for a true merge commit). It never pushes. Parse its `key=value` stdout:
 
 | Exit | Meaning                                                                 | Action                    |

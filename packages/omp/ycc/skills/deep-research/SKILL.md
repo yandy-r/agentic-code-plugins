@@ -17,7 +17,7 @@ Parse `$ARGUMENTS`: flags first, remaining text is the required research subject
 
 Default: standalone parallel sub-agents.
 
-- `--team`: Claude Code only; opt into a shared team of 14 agents across three batches. Cursor and Codex lack team tools.
+- `--team`: Claude Code only; opt into a shared team of 14 agents across three batches. Cursor, Codex and OMP lack team tools.
 - `--output-dir "..."`: output directory; default `research/[sanitized-subject]`.
 - `--dry-run`: display the plan without running checks, creating files, or dispatching.
 
@@ -110,7 +110,7 @@ Read `skill://ycc-shared/references/agent-team-dispatch.md` when
    in `addBlockedBy`; each Batch 3 task gets both Batch 2 IDs. On registration
    failure, shut down any spawned teammates and abort.
 4. Spawn each batch in one message with multiple `task` calls. Every call carries
-   unique `name` from the roster, `subagent_type`, and its mandate.
+   unique `name` from the roster, `agent`, and its mandate.
 5. Confirm that batch's tasks are `completed` via `todo` before consuming outputs.
    Send `shutdown_request` via SendMessage to every teammate in that batch before
    advancing. Keep the team through Phases 1–3.

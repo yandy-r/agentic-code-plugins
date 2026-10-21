@@ -62,6 +62,8 @@ Each phase builds on previous answers. Grounding uses the `prp-researcher` agent
 dual-mode (market + codebase) discovery. Every `[GATE]` means: present the questions via
 `AskUserQuestion`, then WAIT for the user before proceeding. Do not batch gates together.
 
+**Questions:** class `clarify` (every `[GATE]`); without a question tool: print the open gate questions, write nothing, stop. See `~/.agents/ycc-shared/references/question-policy.md`.
+
 ---
 
 ## Phase 0: DETECT — Project Context

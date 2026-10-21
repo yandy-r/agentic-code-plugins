@@ -9,7 +9,7 @@
 - Re-dispatch
 - Merge outputs (B.7)
 
-| Sub-agent name      | `subagent_type`                 | Role focus                                                                         |
+| Sub-agent name      | `agent`                 | Role focus                                                                         |
 | ------------------- | ------------------------------- | ---------------------------------------------------------------------------------- |
 | `architect`         | `planner`                   | Structural plan, phases, file layout, dependencies                                 |
 | `risk-analyst`      | `codebase-research-analyst` | Risks, edge cases, rollback, migration concerns                                    |
@@ -26,11 +26,11 @@ Print:
 ```
 Dispatch:    standalone parallel sub-agents (no team)
 Sub-agents:  5
-  - architect         subagent_type=planner                    task=Structural plan, phases, file layout, dependencies
-  - risk-analyst      subagent_type=codebase-research-analyst  task=Risks, edge cases, rollback, migration concerns
-  - test-strategist   subagent_type=test-strategy-planner      task=Testing strategy, validation commands, acceptance criteria
-  - security-reviewer subagent_type=research-specialist        task=Threat model, input validation, authn/authz, secrets, dependency risk
-  - ux-reviewer       subagent_type=research-specialist        task=User-facing impact (UI, CLI, API responses, error messages); skip if internal-only
+  - architect         agent=planner                    task=Structural plan, phases, file layout, dependencies
+  - risk-analyst      agent=codebase-research-analyst  task=Risks, edge cases, rollback, migration concerns
+  - test-strategist   agent=test-strategy-planner      task=Testing strategy, validation commands, acceptance criteria
+  - security-reviewer agent=research-specialist        task=Threat model, input validation, authn/authz, secrets, dependency risk
+  - ux-reviewer       agent=research-specialist        task=User-facing impact (UI, CLI, API responses, error messages); skip if internal-only
 Batches:     1  (single message, 5 parallel Agent calls)
 ```
 
@@ -43,9 +43,9 @@ When `DRY_RUN=true` with `--team`, print (when `ENHANCED_MODE=false`):
 ```
 Team name:   plan-<sanitized-request>
 Teammates:   3
-  - architect       subagent_type=planner                    task=Structural plan, phases, file layout, dependencies
-  - risk-analyst    subagent_type=codebase-research-analyst  task=Risks, edge cases, rollback, migration concerns
-  - test-strategist subagent_type=test-strategy-planner      task=Testing strategy, validation commands, acceptance criteria
+  - architect       agent=planner                    task=Structural plan, phases, file layout, dependencies
+  - risk-analyst    agent=codebase-research-analyst  task=Risks, edge cases, rollback, migration concerns
+  - test-strategist agent=test-strategy-planner      task=Testing strategy, validation commands, acceptance criteria
 Batches:     1  (batch 1: architect, risk-analyst, test-strategist)
 Dependencies: none  (flat graph)
 ```
@@ -55,11 +55,11 @@ Print (when `ENHANCED_MODE=true`):
 ```
 Team name:        plan-<sanitized-request>
 Teammates:        5
-  - architect         subagent_type=planner                    task=Structural plan, phases, file layout, dependencies
-  - risk-analyst      subagent_type=codebase-research-analyst  task=Risks, edge cases, rollback, migration concerns
-  - test-strategist   subagent_type=test-strategy-planner      task=Testing strategy, validation commands, acceptance criteria
-  - security-reviewer subagent_type=research-specialist        task=Threat model, input validation, authn/authz, secrets, dependency risk
-  - ux-reviewer       subagent_type=research-specialist        task=User-facing impact (UI, CLI, API responses, error messages); skip if internal-only
+  - architect         agent=planner                    task=Structural plan, phases, file layout, dependencies
+  - risk-analyst      agent=codebase-research-analyst  task=Risks, edge cases, rollback, migration concerns
+  - test-strategist   agent=test-strategy-planner      task=Testing strategy, validation commands, acceptance criteria
+  - security-reviewer agent=research-specialist        task=Threat model, input validation, authn/authz, secrets, dependency risk
+  - ux-reviewer       agent=research-specialist        task=User-facing impact (UI, CLI, API responses, error messages); skip if internal-only
 Batches:          1  (batch 1: all 5 teammates)
 Dependencies:     none  (flat graph)
 ```

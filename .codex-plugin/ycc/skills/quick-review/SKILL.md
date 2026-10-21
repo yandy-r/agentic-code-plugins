@@ -51,6 +51,8 @@ Error: $quick-review takes no positional argument (only flags).
 - `--team` passed while `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is not set to `1` in the environment -> abort with: `--team requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1. Use --parallel instead, or set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in your Codex settings if you intentionally want agent-team dispatch.`
 - `--severity` value not one of `CRITICAL|HIGH|MEDIUM|LOW` -> abort with: `Invalid --severity value. Use CRITICAL, HIGH, MEDIUM, or LOW.`
 
+**Questions:** class `choose-path` (Phase 4 review action); without a question tool and without a chat turn: behave as `--save` (Save to file). See `../../shared/references/question-policy.md`.
+
 ---
 
 ## Phase 1 — GATHER
@@ -196,9 +198,9 @@ Mark "Apply fixes" with `(Recommended)` when `large_review=false` and
 `critical_count + high_count > 0`. Mark "Write file and apply fixes" with
 `(Recommended)` when `large_review=true`.
 
-**Text-mode fallback** (if `ask the user` is unavailable — Cursor/Codex
-bundles without that tool): print the available choices explicitly and WAIT for
-the user's next message. Parse their reply case-insensitively:
+**Text-mode fallback** (no question tool, chat turn available): follow the shared
+fallback in `../../shared/references/question-policy.md`.
+Reply synonyms (case-insensitive):
 
 - `yes` / `apply` / `apply fixes` / `fix` -> "Apply fixes"
 - `write and apply` / `write file and apply fixes` / `file and fix` / `artifact and fix` -> "Write file and apply fixes"

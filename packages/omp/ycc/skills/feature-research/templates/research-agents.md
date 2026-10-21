@@ -695,7 +695,7 @@ When spawning research teammates:
 3. **Register tasks** - Use `todo` for all 7 research tasks
 4. **Create tasks** - Use `todo` to create 7 research tasks
 5. **Spawn in parallel** - Use a single message with 7 `task` tool calls, each with `name`
-6. **Monitor progress** - Use `todo` to check when all tasks complete
+6. **Monitor progress** - Call `wait` until every spawned job settles
 7. **Validate results** - Run research validator before synthesis
 8. **Shut down teammates** - Send shutdown requests via SendMessage
 9. **Read results** - Review each research file before writing feature-spec.md

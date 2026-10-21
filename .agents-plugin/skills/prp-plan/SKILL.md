@@ -91,6 +91,8 @@ ARGUMENTS="${ARGUMENTS//--visual/}"
 
 **Compatibility note**: When this skill is invoked from a Cursor or Codex bundle, `--team` must not be used (those bundles ship without team tools). Use `--parallel` instead.
 
+**Questions:** class `clarify` (Ambiguity Gate): without a question tool, print the open questions and stop; a team retry offer prints the `--parallel` rerun and stops. See `~/.agents/ycc-shared/references/question-policy.md`.
+
 ### Input Detection
 
 | Input Pattern             | Action                                                            |

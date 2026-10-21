@@ -59,6 +59,8 @@ Extract flags from `$ARGUMENTS` before treating the remainder as the input:
 
 Strip these flags from `$ARGUMENTS` and set `PARALLEL_MODE`, `AGENT_TEAM_MODE`, `MIN_SEVERITY`, `DRY_RUN`, and `WORKTREE_MODE=true` unless `--no-worktree` is present. The remaining text is the input selector.
 
+**Questions:** class `failure-recovery` (Path B/C between-batch failure): without a question tool, stop, preserve completed fixes, and print the failing batch plus the resume command; class `clarify` (blank input): print the resolved artifact path and stop. See `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/question-policy.md`.
+
 **Validation**:
 
 - Both `--parallel` and `--team`:

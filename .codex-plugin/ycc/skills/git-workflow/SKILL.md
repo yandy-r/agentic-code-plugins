@@ -46,6 +46,8 @@ At least one action flag is required in normal use; with none, resolve interacti
 - **--ci**: monitor CI on the current branch's PR and auto-fix until green or a bail. Works with `--pr` (create-then-monitor), `--push` (push-then-monitor), or bare (monitor only: no commit, no push). An open PR for the branch must exist when Phase 6 starts. Incompatible with `--dry-run` and with `--commit`-only.
 - **--ci-max-pushes=N** (default 5), **--ci-max-same-failure=N** (default 3), **--ci-timeout-min=N** (default 30, from first iteration), **--ci-yes** (skip the one-time auth prompt)
 
+**Questions:** class `clarify` (Phase 0.5 action menu): without a question tool, print the menu and stop; pass `--commit`, `--push` or `--pr`. Class `confirm-publish` (Step 22a "run --ci against the existing PR?", Phase 6 CI authorization): without a question tool and without `--ci-yes`, skip CI monitoring and print `rerun with --ci-yes`. Class `confirm-publish` (backport-label question): without a question tool, add no label and print the `$backport` hint. See `../../shared/references/question-policy.md`.
+
 ## Tool Preference (before Phase 0)
 
 If tools matching `mcp__github__*` exist, use MCP for GitHub operations (PR create/view/list); otherwise use `gh` via Bash. `git` operations, the skill scripts, and file reading always use Bash and the Read/Grep/Glob tools regardless.

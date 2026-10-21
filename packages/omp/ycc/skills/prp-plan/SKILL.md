@@ -66,10 +66,12 @@ ARGUMENTS="${ARGUMENTS//--visual/}"
 - If `--team` is passed and `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is not set to `1` in the environment, abort with: `--team requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1. Use --parallel instead, or set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in your Claude Code settings if you intentionally want agent-team dispatch.`
 - `--dry-run` requires `--team`. If `DRY_RUN=true` and `AGENT_TEAM_MODE=false` → abort with: `--dry-run requires --team.`
 - `--no-worktree` is **orthogonal** to `--parallel` and `--team` — it may be combined freely with either flag or used alone to suppress annotations.
-- If `--enhanced` is passed without `--parallel` or `--team`, default to standalone sub-agent dispatch (Path B equivalent at width 7). If `--enhanced --team` is invoked from a Cursor or Codex bundle, abort with the same compatibility message used today for plain `--team`. If `--dry-run` is passed, it requires `--team` (same constraint as today); `--enhanced --dry-run` alone is invalid.
+- If `--enhanced` is passed without `--parallel` or `--team`, default to standalone sub-agent dispatch (Path B equivalent at width 7). If `--enhanced --team` is invoked from a Cursor, Codex or OMP bundle, abort with the same compatibility message used today for plain `--team`. If `--dry-run` is passed, it requires `--team` (same constraint as today); `--enhanced --dry-run` alone is invalid.
 - `--visual` is orthogonal — it composes with `--parallel`/`--team`/`--enhanced`/`--no-worktree` and runs after the plan is written and validated. `--dry-run` short-circuits it (prints intent only).
 
-**Compatibility note**: When this skill is invoked from a Cursor or Codex bundle, `--team` must not be used (those bundles ship without team tools). Use `--parallel` instead.
+**Compatibility note**: When this skill is invoked from a Cursor, Codex or OMP bundle, `--team` must not be used (those bundles ship without team tools). Use `--parallel` instead.
+
+**Questions:** class `clarify` (Ambiguity Gate): without a question tool, print the open questions and stop; a team retry offer prints the `--parallel` rerun and stops. See `skill://ycc-shared/references/question-policy.md`.
 
 ### Input Detection
 
@@ -140,7 +142,7 @@ sub-agents** using the **`task`** tool (omit `name`):
 | `quality-research`  | Error Handling, Logging, Tests         | State Changes, Patterns |
 | `infra-research`    | Configuration, Dependencies            | Data Flow               |
 
-Dispatch without `name` or `run_in_background`. Results may arrive asynchronously; wait for all results before synthesis and end the turn while results are pending. In addition to returning findings, instruct each researcher to write its discovery table to a backstop file at `docs/prps/plans/.prp-research/<feature-slug>/<role>.md` (`patterns-research.md`, `quality-research.md`, `infra-research.md`) using the `Write` tool, mirroring the phrasing `/skill:feature-research`'s researcher prompts use ("Write your findings to: ..."). The backstop guarantees the findings survive even if the inline return is interrupted or truncated. See `skill://ycc-shared/references/standalone-dispatch.md` for the full contract.
+Dispatch every researcher in one `task` batch. Results arrive as background jobs; call `wait` until every job settles before synthesis, and never end the turn while one is pending. In addition to returning findings, instruct each researcher to write its discovery table to a backstop file at `docs/prps/plans/.prp-research/<feature-slug>/<role>.md` (`patterns-research.md`, `quality-research.md`, `infra-research.md`) using the `Write` tool, mirroring the phrasing `/skill:feature-research`'s researcher prompts use ("Write your findings to: ..."). The backstop guarantees the findings survive even if the inline return is interrupted or truncated. See `skill://ycc-shared/references/standalone-dispatch.md` for the full contract.
 
 **IMPORTANT — Researcher prompt constraints**: Tell each researcher to keep code snippets to **5 lines max** per finding and limit the total response to the discovery table format only — no prose summaries.
 
@@ -154,7 +156,7 @@ After all 3 return: merge tables, de-duplicate, verify all 8 categories covered.
 
 - Replace the 3-row researcher table above with the 7-row roster from `skill://prp-plan/references/enhanced-researchers.md`.
 - Dispatch in a **SINGLE message** with **SEVEN `task` tool calls** (standalone — no `name`). Wait for all researcher results, whether returned directly or delivered asynchronously, before synthesis.
-- Each call uses `subagent_type: "prp-researcher"` with `description` set to the role name (`api-researcher`, `business-analyzer`, `tech-designer`, `ux-researcher`, `security-researcher`, `practices-researcher`, `recommendations-agent`) and the role-specific prompt copied verbatim from `enhanced-researchers.md`. Per `enhanced-researchers.md`, each role-specific prompt also instructs the researcher to write a backstop file at `docs/prps/plans/.prp-research/<feature-slug>/<role-name>.md` (`api-researcher.md`, `business-analyzer.md`, `tech-designer.md`, `ux-researcher.md`, `security-researcher.md`, `practices-researcher.md`, `recommendations-agent.md`) in addition to returning the same content inline.
+- Each call uses `agent: "prp-researcher"` with `name` set to the role name (`api-researcher`, `business-analyzer`, `tech-designer`, `ux-researcher`, `security-researcher`, `practices-researcher`, `recommendations-agent`) and the role-specific prompt copied verbatim from `enhanced-researchers.md`. Per `enhanced-researchers.md`, each role-specific prompt also instructs the researcher to write a backstop file at `docs/prps/plans/.prp-research/<feature-slug>/<role-name>.md` (`api-researcher.md`, `business-analyzer.md`, `tech-designer.md`, `ux-researcher.md`, `security-researcher.md`, `practices-researcher.md`, `recommendations-agent.md`) in addition to returning the same content inline.
 - The 5-line snippet cap and discovery-table-only constraints used in the 3-researcher path apply unchanged.
 
 ### Path C — Agent team (`AGENT_TEAM_MODE=true`, Claude Code only)
@@ -176,9 +178,9 @@ Print (when `ENHANCED_MODE=false`):
 ```
 Team name:   prpp-<sanitized-feature>
 Teammates:   3
-  - patterns-research  subagent_type=prp-researcher  task=Similar Implementations, Naming, Types | Entry Points, Contracts
-  - quality-research   subagent_type=prp-researcher  task=Error Handling, Logging, Tests | State Changes, Patterns
-  - infra-research     subagent_type=prp-researcher  task=Configuration, Dependencies | Data Flow
+  - patterns-research  agent=prp-researcher  task=Similar Implementations, Naming, Types | Entry Points, Contracts
+  - quality-research   agent=prp-researcher  task=Error Handling, Logging, Tests | State Changes, Patterns
+  - infra-research     agent=prp-researcher  task=Configuration, Dependencies | Data Flow
 Batches:     1  (batch 1: patterns-research, quality-research, infra-research)
 Dependencies: none  (flat graph)
 ```
@@ -188,13 +190,13 @@ Print (when `ENHANCED_MODE=true`):
 ```
 Team name:      prpp-<sanitized-feature>
 Teammates:      7
-  - api-researcher         subagent_type=prp-researcher  task=External APIs, libraries, integration patterns
-  - business-analyzer      subagent_type=prp-researcher  task=Requirements, user stories, business rules
-  - tech-designer          subagent_type=prp-researcher  task=Architecture, data models, API design
-  - ux-researcher          subagent_type=prp-researcher  task=User experience, workflows, accessibility
-  - security-researcher    subagent_type=prp-researcher  task=Security analysis, dependency risks, secure coding
-  - practices-researcher   subagent_type=prp-researcher  task=Modularity, code reuse, KISS, engineering best practices
-  - recommendations-agent  subagent_type=prp-researcher  task=Ideas, improvements, risks
+  - api-researcher         agent=prp-researcher  task=External APIs, libraries, integration patterns
+  - business-analyzer      agent=prp-researcher  task=Requirements, user stories, business rules
+  - tech-designer          agent=prp-researcher  task=Architecture, data models, API design
+  - ux-researcher          agent=prp-researcher  task=User experience, workflows, accessibility
+  - security-researcher    agent=prp-researcher  task=Security analysis, dependency risks, secure coding
+  - practices-researcher   agent=prp-researcher  task=Modularity, code reuse, KISS, engineering best practices
+  - recommendations-agent  agent=prp-researcher  task=Ideas, improvements, risks
 Batches:        1  (batch 1: all 7 researchers)
 Dependencies:   none  (flat graph)
 ```
@@ -225,7 +227,7 @@ Complete shared lifecycle cleanup before continuing to Phase 3, even on partial 
 
 - Team name stays `prpp-<sanitized-feature>`.
 - Register 7 tasks instead of 3 via `todo`, using the role names from `skill://prp-plan/references/enhanced-researchers.md` (`api-researcher`, `business-analyzer`, `tech-designer`, `ux-researcher`, `security-researcher`, `practices-researcher`, `recommendations-agent`).
-- Spawn 7 teammates in a **single message** with `name=`, all using `subagent_type: "prp-researcher"` with the role-specific prompt from `enhanced-researchers.md`.
+- Spawn 7 teammates in a **single message** with `name=`, all using `agent: "prp-researcher"` with the role-specific prompt from `enhanced-researchers.md`.
 - Apply shared lifecycle to all seven teammates.
 - Failure policy: a single teammate failure → continue with a stub note in synthesis ("{role} did not complete — {section} may be incomplete"); ≥4 teammate failures → abort, shut down survivors via `SendMessage`, fall back to suggesting the user re-run with `--enhanced --parallel`.
 
@@ -301,7 +303,7 @@ Derive `<feature-slug>` from the kebab-case plan file name (same value used for 
 ```markdown
 ## Worktree Setup
 
-- **Parent**: <repo-root>/.claude/worktrees/<repo>-<feature-slug>/ (branch: feat/<feature-slug>)
+- **Parent**: <repo-root>/.omp/worktrees/<repo>-<feature-slug>/ (branch: feat/<feature-slug>)
 ```
 
 All tasks — parallel and sequential — share this one feature worktree path. No `**Children**:` list and no per-task `**Worktree**:` annotation lines are emitted.

@@ -67,6 +67,8 @@ Validation — stop with the usage line on failure:
 - With `--pending`, `--to` filters the pending list to those targets.
 - Each `--to` value must match `release/X.Y`.
 
+**Questions:** class `confirm-destructive` (continue the cherry-pick and push); without a question tool: do not continue or push, leave the backport worktree in place, report the conflict and stop. Class `confirm-publish` (Phase 5 CI authorization): without a question tool and without `--ci-yes`, skip CI monitoring and print `rerun with --ci-yes`. See `~/.agents/ycc-shared/references/question-policy.md`.
+
 ## Phase 1 — Preflight
 
 1. **Forge.** Source `~/.agents/ycc-shared/scripts/lib/forge.sh` and run

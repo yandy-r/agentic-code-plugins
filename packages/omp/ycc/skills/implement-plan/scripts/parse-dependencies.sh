@@ -30,7 +30,7 @@
 #   2.1|Setup routes|1.1,1.2
 #
 # Examples (with ## Worktree Setup section):
-#   WT_PARENT_PATH=<repo-root>/.claude/worktrees/myrepo-my-feature/
+#   WT_PARENT_PATH=<repo-root>/.omp/worktrees/myrepo-my-feature/
 #   WT_FEATURE_SLUG=myrepo-my-feature
 #   1.1|Create user model|none
 #   1.2|Add validation|none
@@ -69,7 +69,7 @@ awk '
 /^## Worktree Setup/ { in_wt_setup = 1; next }
 # Stop at the next ## heading
 in_wt_setup && /^## / { in_wt_setup = 0; next }
-# Match: - **Parent**: <repo-root>/.claude/worktrees/<repo>-<feature>/   (branch: ...)
+# Match: - **Parent**: <repo-root>/.omp/worktrees/<repo>-<feature>/   (branch: ...)
 in_wt_setup && /^\- \*\*Parent\*\*:/ {
   line = $0
   sub(/.*\*\*Parent\*\*: */, "", line)

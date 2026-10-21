@@ -51,7 +51,7 @@ feature-spec.md        feature-spec.md     parallel-plan.md
 
 Parse arguments (flags first, then the feature name):
 
-- **--team**: Optional. (Claude Code only) Deploy the 7 researchers as teammates under the implicit session team with `todo` and coordinated shutdown. Default is standalone parallel sub-agents via the `task` tool. Cursor and Codex bundles lack team tools — do not pass `--team` there.
+- **--team**: Optional. (Claude Code only) Deploy the 7 researchers as teammates under the implicit session team with `todo` and coordinated shutdown. Default is standalone parallel sub-agents via the `task` tool. Cursor, Codex and OMP bundles lack team tools — do not pass `--team` there.
 - **--description "..."**: Brief description of the feature (guides research agents)
 - **--dry-run**: Show execution plan without running. With `--team`, also prints the team name and 7-teammate roster.
 - **feature-name**: Required. Directory name in `docs/plans/`
@@ -69,6 +69,8 @@ Examples:
   /feature-research --team --dry-run payment-system
 ```
 
+**Questions:** class `choose-path` (regenerate or enhance an existing spec); without a question tool: enhance. See `skill://ycc-shared/references/question-policy.md`.
+
 ---
 
 ## Phase 0: Initialize
@@ -84,7 +86,7 @@ Extract from `$ARGUMENTS`:
 
 Validate the feature name: must be kebab-case, no special characters except hyphens.
 
-**Compatibility note**: When this skill is invoked from a Cursor or Codex bundle, `--team` must not be used (those bundles ship without team tools).
+**Compatibility note**: When this skill is invoked from a Cursor, Codex or OMP bundle, `--team` must not be used (those bundles ship without team tools).
 
 **Team opt-in note**: If `--team` is passed and `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is not set to `1` in the environment, abort with: `--team requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1. Use --parallel instead, or set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in your Claude Code settings if you intentionally want agent-team dispatch.`
 
@@ -144,13 +146,13 @@ If `AGENT_TEAM_MODE=true`, additionally print the team roster block:
 ```
 Team name:      fr-<sanitized-feature-name>
 Teammates:      7
-  - api-researcher         subagent_type=research-specialist         task=External APIs, libraries, integration patterns
-  - business-analyzer      subagent_type=codebase-research-analyst   task=Requirements, user stories, business rules
-  - tech-designer          subagent_type=codebase-research-analyst   task=Architecture, data models, API design
-  - ux-researcher          subagent_type=research-specialist         task=User experience, workflows, accessibility
-  - security-researcher    subagent_type=research-specialist         task=Security analysis, dependency risks, secure coding
-  - practices-researcher   subagent_type=codebase-research-analyst   task=Modularity, code reuse, KISS, engineering best practices
-  - recommendations-agent  subagent_type=codebase-research-analyst   task=Ideas, improvements, risks
+  - api-researcher         agent=research-specialist         task=External APIs, libraries, integration patterns
+  - business-analyzer      agent=codebase-research-analyst   task=Requirements, user stories, business rules
+  - tech-designer          agent=codebase-research-analyst   task=Architecture, data models, API design
+  - ux-researcher          agent=research-specialist         task=User experience, workflows, accessibility
+  - security-researcher    agent=research-specialist         task=Security analysis, dependency risks, secure coding
+  - practices-researcher   agent=codebase-research-analyst   task=Modularity, code reuse, KISS, engineering best practices
+  - recommendations-agent  agent=codebase-research-analyst   task=Ideas, improvements, risks
 ```
 
 Do **not** call `todo`, `task`, or `SendMessage` in dry-run mode.
@@ -232,7 +234,7 @@ Use the prompts from `research-agents.md` with variables substituted:
 
 #### Path A — Standalone sub-agents (`AGENT_TEAM_MODE=false`, default)
 
-**CRITICAL**: Deploy all 7 researchers in a **SINGLE message** with **MULTIPLE `task` tool calls**. No `name` — standalone dispatch. Each `task` call uses the `subagent_type` and `model` from the table above and the corresponding prompt from `research-agents.md`.
+**CRITICAL**: Deploy all 7 researchers in a **SINGLE message** with **MULTIPLE `task` tool calls**. No `name` — standalone dispatch. Each `task` call uses the `agent` and `model` from the table above and the corresponding prompt from `research-agents.md`.
 
 In this mode there is no shared task list; rely on each `task`'s return value plus the artifact check in Step 10 to confirm completion. Inter-teammate `SendMessage` coordination (Step 9) is not available — each sub-agent works independently from the prompt alone.
 
@@ -249,7 +251,7 @@ All 7 `todo` entries were registered up front in Step 6 — do not re-create the
 Spawn all 7 teammates in **ONE message** with **SEVEN `task` tool calls**. Every call MUST include:
 
 - `name = "<teammate-name>"` (from the table above — must match the `todo` subject prefix)
-- `subagent_type` and `model` from the table above
+- `agent` and `model` from the table above
 - The researcher-specific prompt from `research-agents.md`
 
 After spawning, use `todo` to confirm all 7 tasks are `completed` before proceeding to Step 10. Do not rely on agent return values alone — check the shared task state.

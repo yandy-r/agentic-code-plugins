@@ -14,6 +14,8 @@ Bundled paths are relative to this SKILL.md's directory (the installed location 
 
 **Input**: `$ARGUMENTS`
 
+**Questions:** class `clarify` (every interview gate); without a question tool: print the open questions, write nothing, stop. See `../../shared/references/question-policy.md`.
+
 ---
 
 ## Your Role

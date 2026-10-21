@@ -22,7 +22,7 @@ PROJECT TYPE-CHECK COMMAND: <detected command or explicit SKIP (...)>
 Agents edit only their assigned source files; orchestrator alone updates source
 artifact statuses. When worktree active, append `Working directory: $PARENT_PATH`
 and coordination note: other agents share this directory; do not run destructive
-git commands (`reset`, `clean`, `checkout`). Do not pass `isolation: "worktree"`.
+git commands (`reset`, `clean`, `checkout`). Do not pass `isolated: true`.
 
 ### Path A — Sequential Execution (default)
 
@@ -38,16 +38,17 @@ pauses the pipeline; the fail-stop gate applies to Path B and Path C only.
 
 ### Path B — Parallel Sub-Agent Execution (`PARALLEL_MODE=true`)
 
-- When `WORKTREE_ACTIVE=true`: batches are still severity-ordered. Dispatch every parallel review-fixer with `Working directory: ${PARENT_PATH}` only. Do **not** add `isolation: "worktree"`. Between-batch validation runs once in `${PARENT_PATH}` before advancing to the next severity. No fan-in merge.
+- When `WORKTREE_ACTIVE=true`: batches are still severity-ordered. Dispatch every parallel review-fixer with `Working directory: ${PARENT_PATH}` only. Do **not** add `isolated: true`. Between-batch validation runs once in `${PARENT_PATH}` before advancing to the next severity. No fan-in merge.
 
 Process batches sequentially; within each batch, dispatch all review-fixer agents as standalone sub-agents in parallel. Dispatch per the contract in `skill://ycc-shared/references/standalone-dispatch.md`.
 
 For each batch:
 
 1. **Dispatch review-fixer agents in parallel** — Use a **single message** with **multiple `task` tool calls**, one per finding or same-file group in the batch:
-   - `subagent_type`: `"review-fixer"`
-   - `description`: e.g., `"Fix F042: missing null check in payments.ts"`
-   - `prompt`: The Finding spec (Shape A or Shape B) plus `SOURCE REVIEW FILE` and `PROJECT TYPE-CHECK COMMAND`
+   - `agent`: `"review-fixer"`
+   - `name`: CamelCase label for e.g., `"Fix F042: missing null check in payments.ts"`
+   - `task`: The Finding spec (Shape A or Shape B) plus `SOURCE REVIEW FILE` and `PROJECT TYPE-CHECK COMMAND`
+   - `solutionSpace`: how open-ended the work is (item shape: `skill://ycc-shared/references/standalone-dispatch.md` §1)
 
 2. **Wait for all agents in the batch to complete** before proceeding.
 
@@ -81,7 +82,7 @@ If a `review-fixer` agent returns `STATUS: Failed`:
 
 ### Path C — Agent Team Execution (`AGENT_TEAM_MODE=true`, Claude Code only)
 
-- When `WORKTREE_ACTIVE=true`: batches are still severity-ordered. Dispatch teammates with `Working directory: ${PARENT_PATH}` only. Do **not** add `isolation: "worktree"`. Before advancing to the next severity batch, send `SendMessage(shutdown)` to all current batch teammates, then run between-batch validation inside `${PARENT_PATH}`. No fan-in merge.
+- When `WORKTREE_ACTIVE=true`: batches are still severity-ordered. Dispatch teammates with `Working directory: ${PARENT_PATH}` only. Do **not** add `isolated: true`. Before advancing to the next severity batch, send `SendMessage(shutdown)` to all current batch teammates, then run between-batch validation inside `${PARENT_PATH}`. No fan-in merge.
 
 > **Agent team lifecycle**
 >
@@ -130,8 +131,8 @@ Dependencies: none  (batches are orchestrator-controlled; task graph is flat)
 
 Per-batch teammate roster:
   Batch 1 (<severity>, <count> fixes):
-    - <task-id-1>  subagent_type=review-fixer  finding=<F###: short>
-    - <task-id-2>  subagent_type=review-fixer  finding=<F###: short>
+    - <task-id-1>  agent=review-fixer  finding=<F###: short>
+    - <task-id-2>  agent=review-fixer  finding=<F###: short>
   Batch 2 (...):
     ...
 ```
@@ -169,9 +170,9 @@ For each batch `B1, B2, ... BN` in order (from the Phase 3 plan):
 
 2. **Spawn batch teammates** — Single message, multiple `task` tool calls, one per finding or same-file group in the batch. Every call must include:
    - `name`: the task ID (e.g., `"f042"`, `"f004-f005"`) — must match the `todo` subject prefix
-   - `subagent_type`: `"review-fixer"`
-   - `description`: One-line fix title (e.g., `"Fix F042: missing null check in api.ts"`)
-   - `prompt`: The Finding spec (Shape A or Shape B) plus `SOURCE REVIEW FILE`, `PROJECT TYPE-CHECK COMMAND`, and a directive that the teammate shares a task list with sibling fixers (list their task IDs) and may `SendMessage` them if a related finding becomes relevant, and must call `todo` to mark its task complete before returning.
+   - `agent`: `"review-fixer"`
+   - `task`: The Finding spec (Shape A or Shape B) plus `SOURCE REVIEW FILE`, `PROJECT TYPE-CHECK COMMAND`, and a directive that the teammate shares a task list with sibling fixers (list their task IDs) and may `SendMessage` them if a related finding becomes relevant, and must call `todo` to mark its task complete before returning.
+   - `solutionSpace`: how open-ended the work is (item shape: `skill://ycc-shared/references/standalone-dispatch.md` §1)
 
 3. **Wait for batch completion via `todo`** — poll until all tasks in this batch are `completed`. If a teammate messages with an issue, respond via `SendMessage` with guidance.
 

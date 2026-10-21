@@ -78,6 +78,8 @@ Mode selection: `--quick` first; PR number/URL (or branch selector) means PR;
 blank means local. Local/quick mode MUST NOT post to GitHub, promote drafts,
 commit/push artifacts, or remove worktrees.
 
+**Questions:** none. A PR argument is the explicit `confirm-publish` selection: PR mode posts the review, promotes a draft unless `--keep-draft`, and commits and pushes the artifact, with or without a question tool. Local and `--quick` modes never publish. See `~/.agents/ycc-shared/references/question-policy.md`.
+
 ### Quick delegation
 
 Print:

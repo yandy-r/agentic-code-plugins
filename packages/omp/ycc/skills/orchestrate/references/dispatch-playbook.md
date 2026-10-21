@@ -100,7 +100,7 @@ When worktree mode is active, append this line to either variant. No
 `setup-worktree.sh` or `list-worktrees.sh` calls happen in dry-run mode:
 
 ```
-Worktree:   feature=<repo-root>/.claude/worktrees/<repo>-<FEATURE_SLUG>/  (all subtasks)
+Worktree:   feature=<repo-root>/.omp/worktrees/<repo>-<FEATURE_SLUG>/  (all subtasks)
 ```
 
 ---
@@ -116,30 +116,31 @@ section 2: list only the parent path. Do not add child paths or a `**Children**:
 
 ## 4. Path A Dispatch Call (standalone)
 
-One message, multiple calls, no `name`, no `run_in_background`. Each prompt
+One `task` call with one `tasks[]` item per subtask. Each prompt
 uses the Path A Coordination Block from `agent-prompts.md`. With `WORKTREE_MODE=true`
 each prompt starts with the `Working directory:` line and the coordination note. Do not
-pass `isolation: "worktree"`: it creates a separate harness worktree per agent and
+pass `isolated: true`: it creates a separate harness worktree per agent and
 breaks the single-worktree contract. With `WORKTREE_MODE=false` omit the
 `Working directory:` line and the note.
 
 ```
-task(
-  subagent_type = "nodejs-backend-architect",
-  description = "Implement auth system",
-  prompt = "Working directory: <repo-root>/.claude/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path A coordination block]"
-)
-task(
-  subagent_type = "test-strategy-planner",
-  description = "Create auth test plan",
-  prompt = "Working directory: <repo-root>/.claude/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path A coordination block]"
-)
-task(
-  subagent_type = "documentation-writer",
-  description = "Document auth API",
-  prompt = "Working directory: <repo-root>/.claude/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path A coordination block]"
-)
+task({
+  context: "<task goal and the Path A coordination background shared by every subtask>",
+  tasks: [
+    { agent: "nodejs-backend-architect", name: "ImplementAuthSystem",
+      task: "Working directory: <repo-root>/.omp/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path A coordination block]",
+      solutionSpace: "<how open-ended>" },
+    { agent: "test-strategy-planner", name: "AuthTestPlan",
+      task: "Working directory: <repo-root>/.omp/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path A coordination block]",
+      solutionSpace: "<how open-ended>" },
+    { agent: "documentation-writer", name: "AuthApiDocs",
+      task: "Working directory: <repo-root>/.omp/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path A coordination block]",
+      solutionSpace: "<how open-ended>" }
+  ]
+})
 ```
+
+Then call `wait` until every job of the batch has settled.
 
 ---
 
@@ -147,28 +148,28 @@ task(
 
 One message, multiple `task` calls. Every call includes `name`. With
 `WORKTREE_MODE=true` each prompt carries the same `Working directory:` line and
-coordination note as Path A. Do not pass `isolation: "worktree"` in either worktree
+coordination note as Path A. Do not pass `isolated: true` in either worktree
 mode. Each prompt includes the Path B Team Communication section from
 `agent-prompts.md` with `{{BATCH_NUMBER}}` and `{{BATCH_TEAMMATES}}` substituted.
 
 ```
 task(
   name = "subtask-1",
-  subagent_type = "nodejs-backend-architect",
-  description = "Implement auth system",
-  prompt = "Working directory: <repo-root>/.claude/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path B Team Communication section]"
+  agent = "nodejs-backend-architect",
+  task = "Working directory: <repo-root>/.omp/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path B Team Communication section]",
+  solutionSpace = "<how open-ended>"
 )
 task(
   name = "subtask-2",
-  subagent_type = "test-strategy-planner",
-  description = "Create auth test plan",
-  prompt = "Working directory: <repo-root>/.claude/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path B Team Communication section]"
+  agent = "test-strategy-planner",
+  task = "Working directory: <repo-root>/.omp/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path B Team Communication section]",
+  solutionSpace = "<how open-ended>"
 )
 task(
   name = "subtask-3",
-  subagent_type = "documentation-writer",
-  description = "Document auth API",
-  prompt = "Working directory: <repo-root>/.claude/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path B Team Communication section]"
+  agent = "documentation-writer",
+  task = "Working directory: <repo-root>/.omp/worktrees/<repo>-<FEATURE_SLUG>/\nAll parallel agents in this batch share this path; batching guarantees no two agents touch the same file.\n\n[substituted template with Path B Team Communication section]",
+  solutionSpace = "<how open-ended>"
 )
 ```
 

@@ -37,6 +37,8 @@ Context injection is one scoped helper call: no `pwd`, `head`, `2>/dev/null`, or
 
 Flags are composable. See `references/flag-reference.md` for the full matrix and precedence rules. See `references/best-practices.md` for per-language tool rationale.
 
+**Questions:** class `confirm-destructive` ("Proceed with install?"); without a question tool: abort the install and print `rerun with --yes`. See `{{package-root}}/shared/references/question-policy.md`.
+
 ## Task
 
 Execute the phases in order. Phases are short — do not add narrative prose between them.

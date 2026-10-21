@@ -13,6 +13,8 @@ argument-hint: '[feature/product idea] (blank = start with questions)'
 
 **Input**: `$ARGUMENTS`
 
+**Questions:** class `clarify` (every interview gate); without a question tool: print the open questions, write nothing, stop. See `skill://ycc-shared/references/question-policy.md`.
+
 ---
 
 ## Your Role

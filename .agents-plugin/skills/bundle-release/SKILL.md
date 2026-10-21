@@ -33,6 +33,8 @@ Parse `$ARGUMENTS` for:
 - **--no-publish** — this is the default; the skill never invokes `gh release create`.
   The flag is accepted silently for clarity.
 
+**Questions:** class `confirm-publish` (semver concern, release-branch intent); without a question tool: stop before the bump and print the concern plus the rerun command. See `~/.agents/ycc-shared/references/question-policy.md`.
+
 ## Phase 0: Pre-flight
 
 Run `ycc/skills/bundle-release/scripts/preflight.sh`. On non-zero

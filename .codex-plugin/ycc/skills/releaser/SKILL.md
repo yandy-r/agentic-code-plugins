@@ -77,6 +77,8 @@ Parse `$ARGUMENTS`:
   release workflow has no `workflow_dispatch` trigger. Without it the loop refuses to
   enter when the only re-cut path is `gh release delete --cleanup-tag` + re-publish.
 
+**Questions:** class `confirm-publish` (version confirm, backport gate, manifest diff, notes review, CI authorization); without a question tool: stop at the first human gate, run nothing state-changing, and print the plan plus the exact rerun. Human gates are never auto-approved. See `../../shared/references/question-policy.md`.
+
 ## Phase 0..5: Preflight through Manifests
 
 Read `references/release-preparation.md` before Phase 0 and follow it for the six preparation phases in order:

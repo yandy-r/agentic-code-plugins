@@ -70,7 +70,10 @@ invocation:
   showing the resolved caps (PR number, head branch, `--max-pushes`,
   `--max-same-failure`, `--timeout-min`) and the non-toggleable safety
   constraints below. The user must confirm before the first iteration. Skip this
-  prompt by passing `--ci-yes` (for non-interactive callers).
+  prompt by passing `--ci-yes` (for non-interactive callers). Without a question
+  tool and without `--ci-yes`, this is a `confirm-publish` gate
+  (`question-policy.md` in this directory): do not enter the loop, report that CI
+  was not monitored, and print `rerun with --ci-yes`.
 - **Non-toggleable safety constraints** (cannot be overridden by any flag):
   - Never `git push --force` or `git push --force-with-lease`.
   - Never commit with `--no-verify`.
@@ -157,6 +160,12 @@ Exit code 1 is reserved for argument/usage errors and never appears in the loop.
 The SKILL.md files for `git-workflow` and `prp-pr` implement the
 following LLM-side loop. The script is a single-shot checker; the loop lives in
 the skill.
+
+**Long-running monitors.** One `ci-monitor.sh` call can block for up to
+`--timeout-min`. Some runtimes move a shell command to a background job after a
+fixed time (OMP: after 60 s). Pass a shell timeout above the monitor's wall-clock
+cap, or wait for the background job's result; never end the turn while a monitor
+runs, because headless runs exit and drop the result.
 
 1. **One-time auth prompt** (skip if `--ci-yes`): render resolved caps + safety
    constraints to the user; require confirmation before proceeding.

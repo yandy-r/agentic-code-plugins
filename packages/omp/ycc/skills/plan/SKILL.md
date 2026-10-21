@@ -13,6 +13,8 @@ Create conversational implementation plan before code. Default output stays in c
 
 **Core gate: WAIT for explicit confirmation before any code is written.** Accept "yes", "proceed", "approved", or similar affirmative. Until then, read-only analysis only; do not touch code. Unclear draft: ask focused question and re-dispatch rather than guess.
 
+**Questions:** class `checkpoint` (Step 4 confirmation); without a question tool: emit the plan and stop before any implementation. See `skill://ycc-shared/references/question-policy.md`.
+
 ## What This Skill Does
 
 1. Parse `--parallel`, `--enhanced`, `--dry-run`, `--no-worktree`, legacy `--worktree`, `--visual`; read request and referenced context; clarify ambiguity before dispatch.
@@ -49,8 +51,8 @@ Parse and strip `--parallel`, `--team`, `--enhanced`, `--dry-run`, `--no-worktre
 Validation errors (abort):
 
 - Dry-run without team/enhanced: `--dry-run requires --team or --enhanced (no-op for the single-agent path).`
-- Team in Cursor/Codex: `--team requires team tools, which Cursor/Codex bundles do not ship. Use --parallel instead.`
-- Enhanced team in Cursor/Codex: `--enhanced --team requires team tools, which Cursor/Codex bundles do not ship. Drop --team to use the standalone 5-persona path.`
+- Team in Cursor/Codex/OMP: `--team requires team tools, which Cursor/Codex/OMP bundles do not ship. Use --parallel instead.`
+- Enhanced team in Cursor/Codex/OMP: `--enhanced --team requires team tools, which Cursor/Codex/OMP bundles do not ship. Drop --team to use the standalone 5-persona path.`
 - Team without environment flag: `--team requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1. Use --parallel instead, or set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in your Claude Code settings if you intentionally want agent-team dispatch.`
 
 Read request and referenced files. Ambiguous request: ask one focused question before dispatch.

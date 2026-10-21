@@ -21,7 +21,7 @@ ycc_expand_worktree_root() {
     "")
       # Default for this runtime bundle's build. Portable `agents` builds
       # replace only this marker line with ycc_runtime_worktree_root below.
-      printf '%s/.claude/worktrees\n' "$repo_root" # @YCC_DEFAULT_WORKTREE_ROOT@
+      printf '%s/.omp/worktrees\n' "$repo_root" # @YCC_DEFAULT_WORKTREE_ROOT@
       ;;
     "~")
       printf '%s\n' "$HOME"
@@ -60,7 +60,9 @@ ycc_feature_worktree_path() {
 # Used only by portable (agents) builds, which swap the default marker line in
 # ycc_expand_worktree_root for this resolver. Evidence-based runtime markers;
 # missing or conflicting markers (nested agents) fall back to the portable
-# .agents root. See worktree-strategy.md §1 for the evidence list.
+# .agents root. OMP bash sets both OMPCODE=1 and CLAUDECODE=1, so OMPCODE
+# wins and consumes the CLAUDECODE marker. See worktree-strategy.md §1 for the
+# evidence list.
 ycc_runtime_worktree_root() {
   local repo_root="$1"
   local runtime=""
@@ -70,7 +72,10 @@ ycc_runtime_worktree_root() {
     runtime="opencode"
     count=$((count + 1))
   fi
-  if [[ "${CLAUDECODE:-}" == "1" ]]; then
+  if [[ "${OMPCODE:-}" == "1" ]]; then
+    runtime="omp"
+    count=$((count + 1))
+  elif [[ "${CLAUDECODE:-}" == "1" ]]; then
     runtime="claude"
     count=$((count + 1))
   fi

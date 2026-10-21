@@ -300,10 +300,14 @@ branch. Additionally, a worktree is **active** if any of:
   prune is a safe cleanup, not a destructive action).
 - The attached branch is `[gone]` — upstream deleted. Surface as Ambiguous:
   safe to remove IF R2 (unpushed commits) does not fire.
+
+
 - The worktree sits under the legacy global ycc root (`~/.claude-worktrees/`)
-  instead of the preferred repo-local parent
-  (`<repo-root>/.opencode/worktrees/`). Report and offer relocation; do not delete
-  without explicit approval.
+  instead of a preferred repo-local parent (`.claude/worktrees/` or
+  `.omp/worktrees/` under the repo root). Report and offer relocation; do not
+  delete without explicit approval.
+- The worktree sits under `~/.omp/wt`. OMP manages that base
+  (`omp worktree clear`); report it as active and never delete it.
 
 ## PR / Issue–specific notes
 

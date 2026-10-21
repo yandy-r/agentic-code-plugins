@@ -31,6 +31,8 @@ This is the lightweight counterpart to `/git-workflow --pr`. Use it when you jus
 
   Without an explicit base this is the `RELEASING.md` base (`release-state.sh base`), else the repo default branch. Exit 2 means a malformed `RELEASING.md`: stop with the parse error and `/release-model --audit`. Use `$BASE` as `<base>` everywhere below. See `~/.config/opencode/shared/references/pr-base-and-backport.md`.
 
+**Questions:** class `confirm-publish` (Phase 1 "run --ci against the existing PR?", Phase 7 CI authorization): without a question tool and without `--ci-yes`, skip CI monitoring and print `rerun with --ci-yes`. Class `confirm-publish` (backport prompt): without a question tool, add no label and print the `/backport` hint. Class `choose-path` (multiple PR templates): without a question tool, use `default.md` (or the first template) and say so. See `~/.config/opencode/shared/references/question-policy.md`.
+
 ---
 
 ## Phase 1 — VALIDATE

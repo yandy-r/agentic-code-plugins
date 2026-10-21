@@ -59,7 +59,7 @@ fails fast in plan-only mode. Stop and tell the user to run
 
 **Target**: `$ARGUMENTS`
 
-- **--team**: Optional. (Claude Code only) Deploy analysis and validation stages as teammates. Default is standalone parallel sub-agents via the `task` tool. Cursor and Codex bundles lack team tools — do not pass `--team` there.
+- **--team**: Optional. (Claude Code only) Deploy analysis and validation stages as teammates. Default is standalone parallel sub-agents via the `task` tool. Cursor, Codex and OMP bundles lack team tools — do not pass `--team` there.
 - **--worktree**: Optional. (legacy — now default; safe to omit) Worktree annotations are emitted by default. Accepted as a silent no-op.
 - **--no-worktree**: Optional. Opt out of worktree annotations. The plan will not contain a `## Worktree Setup` section.
 - **--visual**: Optional. Render the finished plan as an Agent-Native visual artifact (MDX) via `/skill:visual-plan`; local-files by default, hosted link requires `--share`.

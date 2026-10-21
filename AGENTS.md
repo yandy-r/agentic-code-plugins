@@ -108,6 +108,7 @@ this table records install ownership, not a claim of runtime feature parity:
   | opencode | `<repo-root>/.opencode/worktrees/` |
   | Codex    | `<repo-root>/.codex/worktrees/`    |
   | Cursor   | `<repo-root>/.cursor/worktrees/`   |
+  | OMP      | `<repo-root>/.omp/worktrees/`      |
 
 - Each worktree is named `<repo>-<branch-or-feature>/`; the out-of-repo
   `~/.claude-worktrees/` rule is retired (legacy worktrees are left in place).

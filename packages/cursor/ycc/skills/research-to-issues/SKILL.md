@@ -30,6 +30,8 @@ Parse arguments:
 - **--skip-anti-scope**: Skip creating issues for anti-scope/deferred items
 - **--skip-gaps**: Skip creating issues for research gaps
 
+**Questions:** class `clarify` (source not found): print the expected paths and stop; class `confirm-publish` (Step 3 source confirmation): without a question tool, behave as `--dry-run`. See `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/question-policy.md`.
+
 ---
 
 ## Tool Preference Strategy

@@ -19,6 +19,8 @@ Load the last saved session state and orient fully before doing any work. This s
 
 **Operational context:** Load the most recent session through the shared session-state contract, or select by date/path; brief completed work, successful and failed approaches, open questions, and the exact next step. Do not start work or touch files until the user directs continuation.
 
+**Questions:** class `checkpoint` (Step 4); without a question tool: print the brief and stop; start no work. See `${CURSOR_PLUGIN_ROOT}/skills/_shared/references/question-policy.md`.
+
 ## When to Use
 
 - Starting a new session to continue work from a previous day

@@ -12,6 +12,8 @@ description: Develops problem-first PRDs through interactive discovery. Use when
 
 **Input**: `$ARGUMENTS`
 
+**Questions:** class `clarify` (every interview gate); without a question tool: print the open questions, write nothing, stop. See `~/.config/opencode/shared/references/question-policy.md`.
+
 ---
 
 ## Your Role
