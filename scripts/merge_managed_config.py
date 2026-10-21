@@ -44,7 +44,17 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from managed_config_entries import available_entries, select_source_entries, selected_state
+from managed_config_entries import (
+    available_entries,
+    is_derived,
+    narrow_profile,
+    plan_keyed_list,
+    plan_keyed_list_removal,
+    retained_marketplaces,
+    select_source_entries,
+    selected_state,
+    selection,
+)
 from managed_config_hooks import prune_event
 from managed_config_legacy import plan_legacy_migration
 
@@ -66,6 +76,14 @@ STATE_PATH = Path(
 #                  Items this tool appended are recorded (by hash) so --remove
 #                  can take back exactly those; ``keep_empty`` keeps the key as
 #                  ``[]`` after removal for tools that require it.
+#
+# Entry metadata (see managed_config_entries.py):
+#   item_key     — ``package`` | ``name``: list-union items are keyed, so
+#                  ``--entries`` can select them and a new version of an item
+#                  this tool added replaces it instead of being appended.
+#   entry_key    — ``marketplace``: a derived rule selected through the
+#                  marketplace of each selected ``plugin@marketplace`` entry;
+#                  never listed, and kept on removal while still in use.
 PROFILES: dict[str, dict[str, Any]] = {
     "claude-settings": {
         "format": "json",
@@ -87,8 +105,13 @@ PROFILES: dict[str, dict[str, Any]] = {
             ],
             "plugins": [
                 {"path": ["enabledPlugins"], "policy": "map-entries"},
-                {"path": ["extraKnownMarketplaces"], "policy": "map-entries"},
-                {"path": ["pluginMarketplaces"], "policy": "list-union"},
+                {"path": ["extraKnownMarketplaces"], "policy": "map-entries", "entry_key": "marketplace"},
+                {
+                    "path": ["pluginMarketplaces"],
+                    "policy": "list-union",
+                    "item_key": "name",
+                    "entry_key": "marketplace",
+                },
             ],
         },
     },
@@ -181,7 +204,7 @@ PROFILES: dict[str, dict[str, Any]] = {
                 {"path": ["mcp", "servers"], "policy": "deep"},
             ],
             "plugins": [
-                {"path": ["plugins"], "policy": "list-union"},
+                {"path": ["plugins"], "policy": "list-union", "item_key": "package"},
             ],
         },
     },
@@ -499,13 +522,20 @@ def delete_nested(data: dict[str, Any], path: list[str]) -> None:
             del parent[key]
 
 
+def rule_for(profile: dict[str, Any], groups: list[str], path: list[str]) -> dict[str, Any] | None:
+    """The selected-group rule whose path prefixes this leaf."""
+    for group in groups:
+        rules: list[dict[str, Any]] = profile["groups"].get(group, [])
+        for rule in rules:
+            if path[: len(rule["path"])] == rule["path"]:
+                return rule
+    return None
+
+
 def policy_for(profile: dict[str, Any], groups: list[str], path: list[str]) -> str:
     """Find the policy whose rule path prefixes this leaf."""
-    for group in groups:
-        for rule in profile["groups"].get(group, []):
-            if path[: len(rule["path"])] == rule["path"]:
-                return str(rule["policy"])
-    return "scalar"
+    rule = rule_for(profile, groups, path)
+    return "scalar" if rule is None else str(rule["policy"])
 
 
 def plan_merge(
@@ -518,27 +548,38 @@ def plan_merge(
 ) -> tuple[list[tuple[list[str], Any]], list[str], list[list[str]], dict[str, list[str]]]:
     """Decide, per managed leaf, whether the repo value may be applied.
 
-    Returns updates, conflicts, stale managed leaves to delete, and the hashes
-    of list-union items appended per list pointer.
+    Returns updates, conflicts, stale managed leaves to delete, and the complete
+    owned-item hash list per updated list-union pointer.
     """
     updates: list[tuple[list[str], Any]] = []
     conflicts: list[str] = []
     managed_now: set[str] = set()
-    list_additions: dict[str, list[str]] = {}
+    owned_lists: dict[str, list[str]] = {}
 
     for path, source_value in collect_managed_leaves(profile, groups, source):
         managed_now.add(pointer(path))
         found, current_value = read_nested(destination, path)
         key = pointer(path)
 
-        if policy_for(profile, groups, path) == "list-union":
+        rule = rule_for(profile, groups, path)
+        if rule is not None and rule["policy"] == "list-union":
             current_list = current_value if found and isinstance(current_value, list) else []
-            merged = union_lists(current_list, source_value if isinstance(source_value, list) else [source_value])
+            source_items = source_value if isinstance(source_value, list) else [source_value]
+            previous = list(state_entry.get(key, {}).get(ADDED_ITEMS_KEY, []))
+            if rule.get("item_key"):
+                merged, owned, keyed_conflicts = plan_keyed_list(
+                    rule, current_list, source_items, previous, force, value_hash
+                )
+                conflicts.extend(f"{key}[{item}]" for item in keyed_conflicts)
+            else:
+                merged = union_lists(current_list, source_items)
+                added = [value_hash(item) for item in merged if item not in current_list]
+                owned = sorted({*previous, *added})
             # A missing destination path still needs the key written, even when
             # the merged list is empty (Cursor requires permissions.allow/deny).
             if merged != current_list or not found:
                 updates.append((path, merged))
-                list_additions[key] = [value_hash(item) for item in merged if item not in current_list]
+                owned_lists[key] = owned
             continue
 
         if not found:
@@ -567,8 +608,11 @@ def plan_merge(
         # Delete only keys inside a selected managed rule and only when the
         # current value still matches what this tool last wrote. User edits and
         # never-managed siblings survive.
-        policy = policy_for(profile, groups, path)
-        if policy == "scalar" and not path_is_managed(profile, groups, path):
+        rule = rule_for(profile, groups, path)
+        if rule is None:
+            continue
+        if rule["policy"] == "list-union" and selection(rule) is not None:
+            # A selection that leaves a list out says nothing about the list.
             continue
         found, current_value = read_nested(destination, path)
         last_applied = ownership.get("last_applied_sha256") if isinstance(ownership, dict) else None
@@ -599,7 +643,7 @@ def plan_merge(
     updates = [(p, v) for p, v in updates if not any(p[: len(b)] == b for b in preserved)]
     deletions = [p for p in deletions if not any(p[: len(b)] == b for b in preserved)]
 
-    return updates, conflicts, deletions, list_additions
+    return updates, conflicts, deletions, owned_lists
 
 
 # ---------------------------------------------------------------------------
@@ -918,51 +962,77 @@ def entry_policy_rules(profile: dict[str, Any], groups: list[str]) -> list[dict[
     return rules
 
 
+class ListRemovalPlan:
+    """List-union removal result: rewrites, deletes, conflicts, ownership and notes."""
+
+    def __init__(self) -> None:
+        self.rewrites: list[tuple[list[str], list[Any]]] = []
+        self.deletes: list[list[str]] = []
+        self.conflicts: list[str] = []
+        self.spent: list[str] = []
+        # Owned-item hashes that remain per list pointer whose state survives.
+        self.owned_after: dict[str, list[str]] = {}
+        self.notes: list[str] = []
+
+
 def plan_list_removals(
     rules: list[dict[str, Any]],
     source: dict[str, Any],
     destination: dict[str, Any],
     state_entry: dict[str, Any],
     force: bool,
-) -> tuple[list[tuple[list[str], list[Any]]], list[list[str]], list[str], list[str]]:
+    retained: dict[str, str],
+) -> ListRemovalPlan:
     """Take back list-union items this tool appended.
 
     Items are owned when their hash was recorded at merge time; ``force`` also
-    takes every item that equals a repo value. A list left empty is deleted
-    unless its rule says ``keep_empty``. Returns list rewrites, paths to
-    delete, conflicts and spent state keys.
+    takes every item that equals a repo value (keyed rules: shares a repo
+    item's key). Keyed rules honor their selection and, when derived, keep
+    items whose key is in ``retained``. A list left empty is deleted unless
+    its rule says ``keep_empty``.
     """
-    rewrites: list[tuple[list[str], list[Any]]] = []
-    deletes: list[list[str]] = []
-    conflicts: list[str] = []
-    spent: list[str] = []
+    plan = ListRemovalPlan()
     for rule in rules:
         path = rule["path"]
         key = pointer(path)
         found, current = read_nested(destination, path)
         if not found or not isinstance(current, list):
             if key in state_entry:
-                spent.append(key)
+                plan.spent.append(key)
             continue
         _, source_value = read_nested(source, path)
         source_items = source_value if isinstance(source_value, list) else []
-        owned_hashes = set(state_entry.get(key, {}).get(ADDED_ITEMS_KEY, []))
-        kept = [
-            item for item in current if value_hash(item) not in owned_hashes and not (force and item in source_items)
-        ]
-        if any(item in source_items for item in kept):
-            conflicts.append(key)
+        owned = list(state_entry.get(key, {}).get(ADDED_ITEMS_KEY, []))
+        if rule.get("item_key"):
+            kept, owned_left, keyed_conflicts, kept_notes = plan_keyed_list_removal(
+                rule, current, source_items, owned, force, retained if is_derived(rule) else {}, value_hash
+            )
+            plan.conflicts.extend(key if item is None else f"{key}[{item}]" for item in keyed_conflicts)
+            plan.notes.extend(f"{key}[{name}] (still used by {user})" for name, user in kept_notes)
+        else:
+            owned_hashes = set(owned)
+            kept = [
+                item
+                for item in current
+                if value_hash(item) not in owned_hashes and not (force and item in source_items)
+            ]
+            owned_left = []
+            if any(item in source_items for item in kept):
+                plan.conflicts.append(key)
         if key in state_entry:
-            spent.append(key)
+            if owned_left:
+                plan.owned_after[key] = owned_left
+            else:
+                plan.spent.append(key)
         keep_key = bool(kept) or bool(rule.get("keep_empty"))
         # An empty list is dropped only when this tool emptied or seeded it.
         if kept == current and (keep_key or key not in state_entry):
             continue
         if keep_key:
-            rewrites.append((path, kept))
+            plan.rewrites.append((path, kept))
         else:
-            deletes.append(path)
-    return rewrites, deletes, conflicts, spent
+            plan.deletes.append(path)
+    return plan
 
 
 def plan_remove(
@@ -972,11 +1042,12 @@ def plan_remove(
     destination: dict[str, Any],
     state_entry: dict[str, Any],
     force: bool,
-) -> tuple[list[list[str]], list[tuple[list[str], list[Any]]], list[str], list[str]]:
+) -> tuple[list[list[str]], list[tuple[list[str], list[Any]]], list[str], list[str], dict[str, list[str]], list[str]]:
     """Decide which managed entries can be deleted from the destination.
 
-    Returns entry paths to delete, list-union rewrites, conflicts and the
-    state keys that no longer track anything.
+    Returns entry paths to delete, list-union rewrites, conflicts, the state
+    keys that no longer track anything, the owned-item hashes left per list
+    pointer, and notes for marketplaces kept because a plugin still uses them.
     """
     rules = entry_policy_rules(profile, groups)
     list_rules = [rule for rule in rules if rule["policy"] == "list-union"]
@@ -992,6 +1063,7 @@ def plan_remove(
                 "path": list(rule["path"]),
                 "source_value": value,
                 "policy": rule["policy"],
+                "derived": False,
             }
         elif isinstance(value, dict) and value:
             for child_key, child_value in value.items():
@@ -1000,6 +1072,7 @@ def plan_remove(
                     "path": entry,
                     "source_value": child_value,
                     "policy": rule["policy"],
+                    "derived": is_derived(rule),
                 }
 
     for key in state_entry:
@@ -1018,21 +1091,31 @@ def plan_remove(
             entry = [*best["path"], path[len(best["path"])]]
         candidates.setdefault(
             tuple(entry),
-            {"path": entry, "source_value": None, "policy": best["policy"]},
+            {"path": entry, "source_value": None, "policy": best["policy"], "derived": is_derived(best)},
         )
 
     to_remove: list[list[str]] = []
     conflicts: list[str] = []
     stale_keys: list[str] = []
-    for entry_key in sorted(candidates, key=lambda parts: pointer(list(parts))):
+    notes: list[str] = []
+    # Primary entries first: whether a derived marketplace is still in use
+    # depends on which plugins this run removes.
+    ordered = sorted(candidates, key=lambda parts: (bool(candidates[parts]["derived"]), pointer(list(parts))))
+    retained: dict[str, str] | None = None
+    for entry_key in ordered:
         candidate = candidates[entry_key]
         entry_path = candidate["path"]
+        if candidate["derived"] and retained is None:
+            retained = retained_marketplaces(profile, groups, destination, {tuple(path) for path in to_remove})
         under = [
             key for key in state_entry if key.startswith("/") and parse_pointer(key)[: len(entry_path)] == entry_path
         ]
         found, dest_value = read_nested(destination, entry_path)
         if not found:
             stale_keys.extend(under)
+            continue
+        if candidate["derived"] and retained is not None and entry_path[-1] in retained:
+            notes.append(f"{pointer(entry_path)} (still used by {retained[entry_path[-1]]})")
             continue
         source_value = candidate["source_value"]
         if source_value is not None and dest_value == source_value:
@@ -1049,13 +1132,19 @@ def plan_remove(
         else:
             conflicts.append(pointer(entry_path))
 
-    rewrites, list_deletes, list_conflicts, spent = plan_list_removals(
-        list_rules, source, destination, state_entry, force
-    )
-    to_remove.extend(list_deletes)
-    conflicts.extend(list_conflicts)
-    stale_keys.extend(spent)
-    return to_remove, rewrites, conflicts, sorted(set(stale_keys))
+    if retained is None:
+        retained = retained_marketplaces(profile, groups, destination, {tuple(path) for path in to_remove})
+    lists = plan_list_removals(list_rules, source, destination, state_entry, force, retained)
+    to_remove.extend(lists.deletes)
+    conflicts.extend(lists.conflicts)
+    stale_keys.extend(lists.spent)
+    notes.extend(lists.notes)
+    return to_remove, lists.rewrites, conflicts, sorted(set(stale_keys)), lists.owned_after, notes
+
+
+# Rendered text (None: unchanged), changed paths, conflicts, spent state keys,
+# owned-item hashes left per list pointer, and retention notes.
+RemoveOutcome = tuple[str | None, list[list[str]], list[str], list[str], dict[str, list[str]], list[str]]
 
 
 def remove_json(
@@ -1065,9 +1154,9 @@ def remove_json(
     groups: list[str],
     state_entry: dict[str, Any],
     force: bool,
-) -> tuple[str | None, list[list[str]], list[str], list[str]]:
+) -> RemoveOutcome:
     if not destination_path.exists():
-        return None, [], [], []
+        return None, [], [], [], {}, []
     raw = destination_path.read_text(encoding="utf-8").strip()
     destination = load_json_config(raw, destination_path, profile)
     if not isinstance(destination, dict):
@@ -1076,14 +1165,16 @@ def remove_json(
         validate_cursor_hooks_destination(destination)
         check_cursor_hooks_ownership(source, destination)
 
-    to_remove, rewrites, conflicts, stale_keys = plan_remove(profile, groups, source, destination, state_entry, force)
+    to_remove, rewrites, conflicts, stale_keys, owned_after, notes = plan_remove(
+        profile, groups, source, destination, state_entry, force
+    )
     if profile.get("strict_hooks") and conflicts:
         raise MergeError(
             "Cursor sessionStart registration still references the hook script; "
             "refusing removal without ownership (resolve it or re-run with --force)"
         )
     if not to_remove and not rewrites:
-        return None, [], conflicts, stale_keys
+        return None, [], conflicts, stale_keys, owned_after, notes
 
     pruned = json.loads(json.dumps(destination))
     for path in to_remove:
@@ -1091,7 +1182,8 @@ def remove_json(
     for path, items in rewrites:
         write_nested(pruned, path, items)
     changed = to_remove + [path for path, _ in rewrites]
-    return json.dumps(pruned, indent=2, ensure_ascii=False) + "\n", changed, conflicts, stale_keys
+    rendered = json.dumps(pruned, indent=2, ensure_ascii=False) + "\n"
+    return rendered, changed, conflicts, stale_keys, owned_after, notes
 
 
 def remove_hook_commands(
@@ -1201,15 +1293,17 @@ def remove_toml(
     groups: list[str],
     state_entry: dict[str, Any],
     force: bool,
-) -> tuple[str | None, list[list[str]], list[str], list[str]]:
+) -> RemoveOutcome:
     if not destination_path.exists():
-        return None, [], [], []
+        return None, [], [], [], {}, []
     destination_text = destination_path.read_text(encoding="utf-8")
     destination = tomllib.loads(destination_text)
 
-    to_remove, rewrites, conflicts, stale_keys = plan_remove(profile, groups, source, destination, state_entry, force)
+    to_remove, rewrites, conflicts, stale_keys, owned_after, notes = plan_remove(
+        profile, groups, source, destination, state_entry, force
+    )
     if not to_remove and not rewrites:
-        return None, [], conflicts, stale_keys
+        return None, [], conflicts, stale_keys, owned_after, notes
 
     rendered = delete_toml_entries(destination_text, to_remove)
     if rewrites:
@@ -1222,7 +1316,7 @@ def remove_toml(
     for path, items in rewrites:
         if read_nested(reparsed, path) != (True, items):
             raise MergeError(f"TOML remove verification failed for {pointer(path)}")
-    return rendered, to_remove + [path for path, _ in rewrites], conflicts, stale_keys
+    return rendered, to_remove + [path for path, _ in rewrites], conflicts, stale_keys, owned_after, notes
 
 
 def is_empty_config(value: Any) -> bool:
@@ -1338,13 +1432,18 @@ def run_remove(
 ) -> int:
     """Remove tool-owned managed entries; user-edited entries need --force."""
     label = f"({args.profile}: {', '.join(groups)})"
-    remove = remove_json if profile["format"] == "json" else remove_toml
-    if args.prune_hook_commands:
-        remove = remove_hook_commands
     try:
-        rendered, removed, conflicts, stale_keys = remove(
-            source, destination_path, profile, groups, plan_state, args.force
-        )
+        if args.prune_hook_commands:
+            rendered, removed, conflicts, stale_keys = remove_hook_commands(
+                source, destination_path, profile, groups, plan_state, args.force
+            )
+            owned_after: dict[str, list[str]] = {}
+            notes: list[str] = []
+        else:
+            remove = remove_json if profile["format"] == "json" else remove_toml
+            rendered, removed, conflicts, stale_keys, owned_after, notes = remove(
+                source, destination_path, profile, groups, plan_state, args.force
+            )
     except (MergeError, json.JSONDecodeError, tomllib.TOMLDecodeError) as error:
         print(f"merge_managed_config: {error}", file=sys.stderr)
         return 1
@@ -1354,6 +1453,8 @@ def run_remove(
             print(f"  [!!] kept uncertain or locally modified hook commands at {conflict} (edit by hand to remove)")
         else:
             print(f"  [!!] kept your local value at {conflict} (re-run with --force to remove it)")
+    for note in notes:
+        print(f"  [ok] kept {note}")
 
     if args.dry_run:
         for path in removed:
@@ -1362,13 +1463,20 @@ def run_remove(
 
     for key in stale_keys:
         state_entry.pop(key, None)
+    # A selective list removal keeps ownership of the items it left in place.
+    owned_changed = False
+    for key, owned in owned_after.items():
+        ownership = state_entry.get(key)
+        if isinstance(ownership, dict) and ownership.get(ADDED_ITEMS_KEY) != owned:
+            state_entry[key] = {**ownership, ADDED_ITEMS_KEY: owned}
+            owned_changed = True
     if state_entry:
         state[state_key] = state_entry
     else:
         state.pop(state_key, None)
 
     if rendered is None:
-        if stale_keys:
+        if stale_keys or owned_changed:
             save_state(state)
         print(f"  [ok] nothing to remove: {destination_path} {label}")
         return 0
@@ -1418,9 +1526,13 @@ def main() -> int:
         help="Comma-separated entry names (e.g. MCP servers) to restrict the run to; other entries are left alone",
     )
     parser.add_argument(
+        "--entry-groups",
+        help="Comma-separated subset of --groups that --entries and --list-entries apply to (default: all --groups)",
+    )
+    parser.add_argument(
         "--list-entries",
         action="store_true",
-        help="Print the entry names the source manages for --groups, one per line, and exit",
+        help="Print the entry names the source manages for the entry groups, one per line, and exit",
     )
     args = parser.parse_args()
 
@@ -1429,6 +1541,17 @@ def main() -> int:
     if not groups:
         print("merge_managed_config: --groups requires at least one group", file=sys.stderr)
         return 1
+    entry_groups = groups
+    if args.entry_groups is not None:
+        entry_groups = [group.strip() for group in args.entry_groups.split(",") if group.strip()]
+        outside = [group for group in entry_groups if group not in groups]
+        if not entry_groups or outside:
+            print(
+                f"merge_managed_config: --entry-groups {', '.join(outside) or '(none given)'} "
+                f"must name groups from --groups ({', '.join(groups)})",
+                file=sys.stderr,
+            )
+            return 1
     if args.prune_hook_commands and (
         not args.remove or args.profile != "claude-settings" or groups != ["hooks"] or args.force or args.list_entries
     ):
@@ -1463,7 +1586,7 @@ def main() -> int:
         print(f"merge_managed_config: {error}", file=sys.stderr)
         return 1
 
-    managed_entries = available_entries(profile, groups, source)
+    managed_entries = available_entries(profile, entry_groups, source)
     if args.list_entries:
         for name in managed_entries:
             print(name)
@@ -1479,7 +1602,9 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 1
-        source = select_source_entries(profile, groups, source, entries)
+        # Every planner below reads the selection from the narrowed rules.
+        profile = narrow_profile(profile, entry_groups, entries)
+        source = select_source_entries(profile, groups, source)
 
     # Read a symlinked destination through its target but do not mutate it yet.
     # Validation, merge planning, and --dry-run must remain side-effect free.
@@ -1491,16 +1616,14 @@ def main() -> int:
     if not isinstance(state_entry, dict):
         state_entry = {}
     # Plan against the selected entries only; writes still go to the full entry.
-    plan_state = (
-        state_entry if entries is None else selected_state(profile, groups, state_entry, entries, parse_pointer)
-    )
+    plan_state = state_entry if entries is None else selected_state(profile, groups, state_entry, parse_pointer)
 
     if args.remove:
         return run_remove(args, profile, groups, source, destination_path, state, state_key, state_entry, plan_state)
 
     merge = merge_json if profile["format"] == "json" else merge_toml
     try:
-        rendered, updates, conflicts, deletions, additions = merge(
+        rendered, updates, conflicts, deletions, owned_lists = merge(
             source, destination_path, profile, groups, plan_state, args.force
         )
     except (MergeError, json.JSONDecodeError, tomllib.TOMLDecodeError) as error:
@@ -1540,9 +1663,8 @@ def main() -> int:
             # Migration rewrites of user-owned extras (e.g. env_vars) stay user-owned.
             continue
         ownership: dict[str, Any] = {"last_applied_sha256": value_hash(value)}
-        if key in additions:
-            previous = state_entry.get(key, {}).get(ADDED_ITEMS_KEY, [])
-            ownership[ADDED_ITEMS_KEY] = sorted({*previous, *additions[key]})
+        if key in owned_lists:
+            ownership[ADDED_ITEMS_KEY] = owned_lists[key]
         state_entry[key] = ownership
     for path in deletions:
         state_entry.pop(pointer(path), None)

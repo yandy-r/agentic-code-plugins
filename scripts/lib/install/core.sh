@@ -167,11 +167,53 @@ remove_copied_file() {
     fi
 }
 
-# remove_settings <profile> <src> <dest> <groups> — strip managed config keys.
+# remove_settings <profile> <src> <dest> <groups> [helper-args...] — strip
+# managed config keys.
 remove_settings() {
     [[ -n "$4" ]] || return 0
     info "Removing managed keys ($4) from $3"
-    merge_settings_config "$1" "$2" "$3" "$4" --remove
+    merge_settings_config "$1" "$2" "$3" "$4" --remove "${@:5}"
+}
+
+# plugins_source <target> — echo "<merge profile> <source file>" for the
+# settings file that carries <target>'s plugins config group (legacy codex
+# layout; the native codex route lists through codex_install.py).
+plugins_source() {
+    case "$1" in
+        claude)   echo "claude-settings ${SCRIPT_DIR}/ycc/settings/settings.json" ;;
+        codex)    echo "codex-config ${SCRIPT_DIR}/.codex-plugin/config/config.toml" ;;
+        opencode) echo "opencode-config ${OPENCODE_PLUGIN_DIR}/opencode.json" ;;
+        *) err "plugins_source: unknown target '$1'"; exit 1 ;;
+    esac
+}
+
+# plugins_selection <target> <groups> — apply --plugins to one settings merge.
+# Sets PLUGINS_GROUPS to <groups>, minus 'plugins' when <target> manages none
+# of the selected plugins (warns), and PLUGINS_SELECT to the helper arguments
+# narrowing only the plugins group (empty without --plugins or without the
+# group, so settings/hooks in the same run always stay whole).
+plugins_selection() {
+    local target="$1"
+    PLUGINS_GROUPS="$2"
+    PLUGINS_SELECT=()
+    has_selection plugins || return 0
+    [[ ",${PLUGINS_GROUPS}," == *",plugins,"* ]] || return 0
+    local selection
+    selection="$(selection_for_target plugins "${target}")"
+    if [[ -z "${selection}" ]]; then
+        selection="$(selection_for plugins)"
+        warn "none of the selected plugins (${selection//,/ }) is managed for ${target} — skipping its plugins group"
+        local -a kept=()
+        local group
+        for group in ${PLUGINS_GROUPS//,/ }; do
+            [[ "${group}" == plugins ]] || kept+=("${group}")
+        done
+        local IFS=','
+        PLUGINS_GROUPS="${kept[*]:-}"
+        return 0
+    fi
+    PLUGINS_SELECT=(--entry-groups plugins --entries "${selection}")
+    info "Plugins: ${selection//,/, }"
 }
 
 # ---------------------------------------------------------------------------

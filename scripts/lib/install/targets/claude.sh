@@ -274,14 +274,13 @@ sync_claude_target() {
         # Structured merge keeps CLI-written marketplace entries and local
         # machine preferences while updating repo-managed model, hook and
         # plugin keys. This is safe even when 'base' ran in the same invocation.
-        local claude_groups
-        claude_groups="$(config_groups_for_target claude)"
-        if [[ -n "${claude_groups}" ]]; then
+        plugins_selection claude "$(config_groups_for_target claude)"
+        if [[ -n "${PLUGINS_GROUPS}" ]]; then
             merge_settings_config \
                 "claude-settings" \
                 "${SCRIPT_DIR}/ycc/settings/settings.json" \
                 "${HOME}/.claude/settings.json" \
-                "${claude_groups}"
+                "${PLUGINS_GROUPS}" "${PLUGINS_SELECT[@]}"
         fi
         if [[ ${#INTENTS[@]} -eq 0 ]] || intent_requested settings; then
             copy_settings_file "${SCRIPT_DIR}/ycc/settings/statusline-command.sh" "${HOME}/.claude/statusline-command.sh"
@@ -395,8 +394,9 @@ remove_claude_target() {
     fi
     if step_enabled settings; then
         printf '\n%sClaude: remove managed settings + statusline%s\n' "${BOLD}" "${NC}"
+        plugins_selection claude "$(config_groups_for_target claude)"
         remove_settings "claude-settings" "${SCRIPT_DIR}/ycc/settings/settings.json" \
-            "${claude_dir}/settings.json" "$(config_groups_for_target claude)"
+            "${claude_dir}/settings.json" "${PLUGINS_GROUPS}" "${PLUGINS_SELECT[@]}"
         if [[ ${#INTENTS[@]} -eq 0 ]] || intent_requested settings; then
             remove_copied_file "${SCRIPT_DIR}/ycc/settings/statusline-command.sh" "${claude_dir}/statusline-command.sh"
         fi

@@ -409,4 +409,38 @@ INSTALL="${listed_install_saved}"
 STUB_BIN="${listed_stub_saved}"
 unset CODEX_LISTED_FIXTURE
 
+echo
+echo "== install.sh --plugins: codex =="
+
+# codex_plugin_tables <config.toml> — the [plugins.*] table names, sorted, comma-joined.
+codex_plugin_tables() {
+    python3 -c 'import sys, tomllib; print(",".join(sorted(tomllib.load(open(sys.argv[1], "rb")).get("plugins", {}))))' "$1"
+}
+
+home="$(new_home)"
+install_must_succeed "${home}" list plugins --target codex
+codex_names="${INSTALL_OUT}"
+assert_contains $'\n'"${codex_names}"$'\n' $'\ncloudflare@openai-curated\n' "list plugins --target codex lists the plugin tables"
+if repo_codex_native; then
+    assert_not_contains "${codex_names}" "ycc@local-ycc-plugins" "native list plugins drops the legacy selector"
+    assert_contains $'\n'"${codex_names}"$'\n' $'\nycc@ycc\n' "native list plugins names ycc@ycc"
+fi
+
+home="$(new_home)"
+install_must_succeed "${home}" sync --target codex --intent plugins --plugins github@openai-curated
+tables="$(codex_plugin_tables "${home}/.codex/config.toml")"
+if [[ "${tables}" == "github@openai-curated" ]]; then ok "codex --plugins sync writes one plugin table"; else ko "codex --plugins sync writes one plugin table" "${tables}"; fi
+
+home="$(new_home)"
+install_must_succeed "${home}" sync --target codex --intent plugins
+before="$(codex_plugin_tables "${home}/.codex/config.toml")"
+install_must_succeed "${home}" remove --target codex --intent plugins --plugins cloudflare@openai-curated
+after="$(codex_plugin_tables "${home}/.codex/config.toml")"
+expected="$(tr ',' '\n' <<< "${before}" | grep -vx 'cloudflare@openai-curated' | paste -sd, -)"
+if [[ "${before}" == *cloudflare@openai-curated* && "${after}" == "${expected}" ]]; then
+    ok "codex remove --plugins drops only the selected table"
+else
+    ko "codex remove --plugins drops only the selected table" "before=${before} after=${after}"
+fi
+
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then install_tests_finish; fi

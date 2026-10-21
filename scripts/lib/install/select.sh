@@ -1,27 +1,35 @@
 # shellcheck shell=bash
 # select.sh — item selection: --<kind> <names> narrows a step to the named
 # items (--mcps for the mcp step, --skills / --agents / --commands for the
-# standalone skills / agents / commands slices), and 'list [<kind>]' prints them.
+# standalone skills / agents / commands slices, --plugins for the settings
+# step's plugins config group), and 'list [<kind>]' prints them.
 #
 # Adding a kind: append it to SELECTABLE_KINDS, add its registry rows below
 # and define a '<kind>_names <target>' adapter (names the repo ships for
 # <target>, one per line). Parsing, preflight, 'list' and shell completion
-# pick it up from here; the kind's step reads selection_for_target.
+# pick it up from here; the kind's step reads selection_for_target. A kind
+# that narrows one managed config group of its step also sets
+# SELECTION_GROUP: preflight then also requires that group on the target.
 #
 # Sourced by install.sh (never run directly); uses err/warn from core.sh,
-# TARGETS / resolve_targets / valid_steps_for_target / step_enabled from
-# steps.sh, and PACKAGE / INTENTS / CLI_NAME at call time.
+# TARGETS / resolve_targets / valid_steps_for_target / step_enabled /
+# config_groups_for_target from steps.sh, and PACKAGE / INTENTS / CLI_NAME at
+# call time.
 
-SELECTABLE_KINDS=(mcps skills agents commands)
-declare -gA SELECTION_STEP=([mcps]=mcp [skills]=skills [agents]=agents [commands]=commands)
-declare -gA SELECTION_NOUN=([mcps]="MCP server" [skills]=skill [agents]=agent [commands]=command)
-declare -gA SELECTION_NOUNS=([mcps]="MCP servers" [skills]=skills [agents]=agents [commands]=commands)
+SELECTABLE_KINDS=(mcps skills agents commands plugins)
+declare -gA SELECTION_STEP=([mcps]=mcp [skills]=skills [agents]=agents [commands]=commands [plugins]=settings)
+declare -gA SELECTION_NOUN=([mcps]="MCP server" [skills]=skill [agents]=agent [commands]=command [plugins]=plugin)
+declare -gA SELECTION_NOUNS=([mcps]="MCP servers" [skills]=skills [agents]=agents [commands]=commands [plugins]=plugins)
 declare -gA SELECTION_STEP_HINT=(
     [mcps]="sync/remove --intent mcp, install --mcp or --only mcp"
     [skills]="it narrows the standalone skills slice; use --intent skills or --only skills"
     [agents]="it narrows the standalone agents slice; use --intent agents or --only agents"
     [commands]="it narrows the standalone commands slice; use --intent commands or --only commands"
+    [plugins]="it narrows the plugins config group; use --intent plugins, or install --only settings"
 )
+# SELECTION_GROUP[<kind>] — the managed config group (config_groups_for_target)
+# a kind narrows; unset for kinds that narrow a whole step.
+declare -gA SELECTION_GROUP=([plugins]=plugins)
 # SELECTION[<kind>] — the names given with --<kind>, comma-separated.
 declare -gA SELECTION=()
 
@@ -31,6 +39,22 @@ mcps_names() {
     read -r profile src <<< "$(mcp_source "$1")"
     python3 "${CONFIG_MERGE_HELPER}" --profile "${profile}" --source "${src}" \
         --destination /dev/null --groups mcp --list-entries
+}
+
+# plugins_names <target> — the plugin entries <target>'s plugins config group
+# manages: claude/codex 'name@marketplace' keys, opencode package names
+# (versions stripped). Marketplaces follow their plugins and are never listed.
+# Empty for targets without a plugins group.
+plugins_names() {
+    [[ ",$("${1}_config_groups")," == *",plugins,"* ]] || return 0
+    if [[ "$1" == codex ]] && codex_repository_native_enabled; then
+        python3 "${SCRIPT_DIR}/scripts/codex_install.py" settings --groups plugins --list-entries
+        return
+    fi
+    local profile src
+    read -r profile src <<< "$(plugins_source "$1")"
+    python3 "${CONFIG_MERGE_HELPER}" --profile "${profile}" --source "${src}" \
+        --destination /dev/null --groups plugins --list-entries
 }
 
 # skills_names <target> / agents_names <target> — the selectable entries of
@@ -97,9 +121,11 @@ selection_for_target() {
 }
 
 # kind_step_selected <kind> <target> — true when the run executes <target>'s
-# step for <kind>.
+# step for <kind> (and, for a SELECTION_GROUP kind, that step merges the group).
 kind_step_selected() {
-    target_runs_step "$2" "${SELECTION_STEP[$1]}"
+    target_runs_step "$2" "${SELECTION_STEP[$1]}" || return 1
+    [[ -n "${SELECTION_GROUP[$1]:-}" ]] || return 0
+    target_merges_group "$2" "${SELECTION_GROUP[$1]}"
 }
 
 # target_runs_step <target> <step> — true when the run executes <step> on
@@ -114,6 +140,19 @@ target_runs_step() {
             configure_intents_for_target "$1" >/dev/null
         fi
         step_enabled "${step}"
+    )
+}
+
+# target_merges_group <target> <group> — true when <target>'s settings step
+# merges managed config <group> this run. Subshell, as target_runs_step.
+target_merges_group() {
+    (
+        if [[ -n "${PACKAGE:-}" ]]; then
+            package_configure_steps "$(package_steps_csv "$1")"
+        elif [[ ${#INTENTS[@]} -gt 0 ]]; then
+            configure_intents_for_target "$1" >/dev/null
+        fi
+        [[ ",$(config_groups_for_target "$1")," == *",$2,"* ]]
     )
 }
 

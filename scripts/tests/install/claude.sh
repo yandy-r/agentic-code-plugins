@@ -317,4 +317,59 @@ echo "# mine" > "${home}/.claude/AGENTS.md"
 install_must_succeed "${home}" remove --target claude --intent rules --force
 assert_contains "$(cat "${home}/.claude/AGENTS.md" 2>/dev/null)" "# mine" "claude remove keeps a real AGENTS.md even with --force"
 
+echo
+echo "== install.sh --plugins: claude =="
+
+# claude_plugin_keys <settings.json> — 'enabledPlugins=<keys> markets=<keys> lists=<names>' (sorted, comma-joined).
+claude_plugin_keys() {
+    python3 - "$1" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+join = lambda xs: ",".join(sorted(xs))
+print("enabledPlugins=" + join(d.get("enabledPlugins", {})),
+      "markets=" + join(d.get("extraKnownMarketplaces", {})),
+      "lists=" + join(i.get("name", "") for i in d.get("pluginMarketplaces", [])))
+PY
+}
+
+home="$(new_home)"
+install_must_succeed "${home}" list plugins --target claude
+assert_contains $'\n'"${INSTALL_OUT}"$'\n' $'\nsuperpowers@claude-plugins-official\n' "list plugins --target claude lists enabledPlugins keys"
+assert_not_contains $'\n'"${INSTALL_OUT}"$'\n' $'\nclaude-plugins-official\n' "list plugins never lists a bare marketplace"
+
+home="$(new_home)"
+install_must_succeed "${home}" sync --target claude --intent plugins \
+    --plugins superpowers@claude-plugins-official,context7@claude-plugins-official
+assert_contains "${INSTALL_OUT}" "Plugins: superpowers@claude-plugins-official, context7@claude-plugins-official" "--plugins names the selection"
+keys="$(claude_plugin_keys "${home}/.claude/settings.json")"
+if [[ "${keys}" == "enabledPlugins=context7@claude-plugins-official,superpowers@claude-plugins-official markets=claude-plugins-official lists=claude-plugins-official" ]]; then
+    ok "--plugins writes exactly the selected plugins plus their marketplace"
+else
+    ko "--plugins writes exactly the selected plugins plus their marketplace" "${keys}"
+fi
+assert_not_contains "$(cat "${home}/.claude/settings.json")" '"model"' "--intent plugins --plugins leaves settings alone"
+
+install_must_succeed "${home}" remove --target claude --intent plugins --plugins context7@claude-plugins-official
+keys="$(claude_plugin_keys "${home}/.claude/settings.json")"
+if [[ "${keys}" == "enabledPlugins=superpowers@claude-plugins-official markets=claude-plugins-official lists=claude-plugins-official" ]]; then
+    ok "remove --plugins takes one plugin and keeps the marketplace another still uses"
+else
+    ko "remove --plugins takes one plugin and keeps the marketplace another still uses" "${keys}"
+fi
+
+home="$(new_home)"
+install_must_succeed "${home}" sync --target claude --intent settings,plugins --plugins ycc@ycc
+merged="$(cat "${home}/.claude/settings.json")"
+assert_contains "${merged}" '"claude-fable-5-1"' "--intent settings,plugins --plugins still merges settings whole"
+keys="$(claude_plugin_keys "${home}/.claude/settings.json")"
+if [[ "${keys}" == "enabledPlugins=ycc@ycc markets=ycc lists=" ]]; then ok "--plugins ycc@ycc writes no pluginMarketplaces item"; else ko "--plugins ycc@ycc writes no pluginMarketplaces item" "${keys}"; fi
+
+home="$(new_home)"
+out="$(run_install "${home}" sync --target claude --intent settings --plugins ycc@ycc)"
+assert_contains "${out}" "--plugins needs the settings step (it narrows the plugins config group; use --intent plugins, or install --only settings)" "--plugins without the plugins group rejected"
+if [[ ! -e "${home}/.claude/settings.json" ]]; then ok "--plugins rejection writes nothing"; else ko "--plugins rejection writes nothing"; fi
+out="$(run_install "${home}" sync --target claude --intent plugins --plugins claude-plugins-official)"
+assert_contains "${out}" "unknown plugin 'claude-plugins-official'" "a marketplace name is not a plugin"
+if [[ ! -e "${home}/.claude/settings.json" ]]; then ok "unknown plugin writes nothing"; else ko "unknown plugin writes nothing"; fi
+
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then install_tests_finish; fi
