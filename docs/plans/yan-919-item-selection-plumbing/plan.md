@@ -3,6 +3,10 @@
 Linear: YAN-919 (foundation for YAN-918). GitHub: #403. Target release: next minor from
 `main` (v6.1.0 line; RELEASING.md tracker is `none`).
 
+## Worktree Setup
+
+- **Parent**: /home/yandy/Projects/github.com/yandy-r/ystack/.omp/worktrees/ystack-yan-919-item-selection-plumbing/ (branch: feat/yan-919-item-selection-plumbing)
+
 ## Problem
 
 `--mcps` is wired by hand through `install.sh` (`MCP_SERVERS` global, `--mcps` case,
@@ -13,14 +17,14 @@ files (`_ycc_mcps` helpers). Siblings YAN-920..925 would each copy all of it.
 
 ## Decisions
 
-| Decision                                                                                      | Why                                                                                                   |
-| --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Registry holds only `mcps` in this PR                                                         | Kinds without an adapter and step wiring are unreachable; trunk stays releasable. Siblings add a row. |
-| Keep `ycc list-mcps` as a hidden compatibility alias of `ycc list mcps`                       | `--mcps`/`list-mcps` shipped in v5.2.1; scripts may call it.                                          |
-| Bare `ycc list` prints the selectable kinds, one per line                                     | Completion needs the kind list without hard-coding it; pure bash, no Python.                          |
-| Unknown-name hint now says `ycc list mcps --target <targets>`                                 | Only message change; points at the new canonical command. Everything else is byte-identical.          |
-| Completions derive selector flags from `ycc list`                                             | Acceptance: adding a kind needs no completion edits.                                                  |
-| New logic lives in `scripts/lib/install/select.sh`; `install.sh`, `steps.sh`, `cli.sh` shrink | Files stay near 500 lines; one code path.                                                             |
+| Decision                                                                                                | Why                                                                                                   |
+| ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Registry holds only `mcps` in this PR                                                                   | Kinds without an adapter and step wiring are unreachable; trunk stays releasable. Siblings add a row. |
+| Keep `ycc list-mcps` as a compatibility alias of `ycc list mcps` (still completed; old error text kept) | `--mcps`/`list-mcps` shipped in v5.2.1; scripts may call it.                                          |
+| Bare `ycc list` prints the selectable kinds, one per line                                               | Completion needs the kind list without hard-coding it; pure bash, no Python.                          |
+| Unknown-name hint now says `ycc list mcps --target <targets>`                                           | Only message change; points at the new canonical command. Everything else is byte-identical.          |
+| Completions derive selector flags from `ycc list`                                                       | Acceptance: adding a kind needs no completion edits.                                                  |
+| New logic lives in `scripts/lib/install/select.sh`; `install.sh`, `steps.sh`, `cli.sh` shrink           | Files stay near 500 lines; one code path.                                                             |
 
 ## Contract (`scripts/lib/install/select.sh`)
 
