@@ -187,6 +187,8 @@ run_config_part() {
         helpers)
             echo "== validate: model/effort declarations =="
             python3 "${REPO_ROOT}/scripts/validate-model-settings.py" || fail "validate-model-settings.py"
+            echo "== test: omp model policy =="
+            python3 "${REPO_ROOT}/scripts/test_omp_model_policy.py" || fail "test_omp_model_policy.py"
             echo "== validate: managed-config merge helper =="
             python3 "${REPO_ROOT}/scripts/test_merge_managed_config.py" || fail "test_merge_managed_config.py"
             python3 "${REPO_ROOT}/scripts/test_managed_config_entries.py" || fail "test_managed_config_entries.py"
@@ -270,6 +272,8 @@ run_target() {
             "${REPO_ROOT}/scripts/validate-omp-commands.sh" || fail "validate-omp-commands.sh"
             echo "== test: omp commands generator =="
             python3 "${REPO_ROOT}/scripts/test_generate_omp_commands.py" || fail "test_generate_omp_commands.py"
+            echo "== test: omp rules flattener =="
+            python3 "${REPO_ROOT}/scripts/test_generate_omp_rules.py" || fail "test_generate_omp_rules.py"
             echo "== validate: omp native packages and catalog =="
             "${REPO_ROOT}/scripts/validate-omp-packages.sh" || fail "validate-omp-packages.sh"
             echo "== test: omp packages generator and policy =="

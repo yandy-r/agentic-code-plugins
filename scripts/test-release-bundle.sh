@@ -571,6 +571,9 @@ MODEL_GENERATED=(
   "packages/omp/ycc-mcp/.omp-plugin/plugin.json"
   "packages/omp/ycc-mcp/.claude-plugin/plugin.json"
   "packages/omp/ycc-mcp/package.json"
+  "packages/omp/ycc-rules/.omp-plugin/plugin.json"
+  "packages/omp/ycc-rules/.claude-plugin/plugin.json"
+  "packages/omp/ycc-rules/package.json"
 )
 new_fixture model
 write_source_fixture "5.3.0"
@@ -651,6 +654,7 @@ if OUT="$(YCC_REPO_ROOT="${FIX}" "${SCRIPTS}/draft-notes.sh" 6.0.0 2>&1)"; then
   assert_contains "notes: excluded target" "${NOTES}" "| ycc-hooks | codex | excluded | native | no | target v6.0.0 |"
   assert_contains "notes: included unlisted omp package" "${NOTES}" "| ycc | omp | included | native | no | 6.0.0 |"
   assert_contains "notes: included unlisted omp mcp package" "${NOTES}" "| ycc-mcp | omp | included | native | no | 6.0.0 |"
+  assert_contains "notes: included unlisted omp rules package" "${NOTES}" "| ycc-rules | omp | included | native | no | 6.0.0 |"
   assert_contains "notes: excluded omp target" "${NOTES}" "| ycc-hooks | omp | excluded | native | no | target v6.1.0 |"
   assert_contains "notes: opencode npm release" "${NOTES}" "| @yandy-r/ycc-opencode | opencode | included | npm | no | 6.0.0 | experimental; opt-in; not yet published"
   assert_not_contains "notes: installer-fallback row omitted" "${NOTES}" "| installer-fallback |"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for scripts/generate_omp_packages.py and scripts/validate_omp_native.py (YAN-1171, YAN-1173)."""
+"""Tests for scripts/generate_omp_packages.py and scripts/validate_omp_native.py (YAN-1171, YAN-1173, YAN-1175)."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ import stat
 import sys
 import tempfile
 import unittest
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -24,6 +25,9 @@ VERSION = "9.8.7"
 AUTHOR = {"name": "fixture-owner"}
 YCC = gen.COMPONENT_ROOT
 MCP = gen.OUTPUT_ROOT / "ycc-mcp"
+RULES = gen.OUTPUT_ROOT / "ycc-rules"
+# A two-file rules fixture: security ships, hooks.md is skipped by the flattener.
+RULE_FIXTURES = ("common/security.md", "common/hooks.md")
 SENTINEL = "SENTINEL-must-never-be-materialized"
 
 
@@ -77,6 +81,10 @@ class GenerateOmpPackagesTests(unittest.TestCase):
             (self.root / rel).parent.mkdir(parents=True, exist_ok=True)
             (self.root / rel).write_text("x\n", encoding="utf-8")
         self.write_mcp((gen.REPO_ROOT / gen.SOURCE_MCP_PATH).read_bytes())
+        for rel in RULE_FIXTURES:
+            target = self.root / gen.SOURCE_RULES_PATH / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes((gen.REPO_ROOT / gen.SOURCE_RULES_PATH / rel).read_bytes())
 
     def write_mcp(self, content: bytes) -> None:
         source = self.root / gen.SOURCE_MCP_PATH
@@ -139,7 +147,9 @@ class GenerateOmpPackagesTests(unittest.TestCase):
 
     def test_export_catalog_includes_unlisted_included_rows(self) -> None:
         self.generate(include_unlisted=True)
-        self.assertEqual([entry["name"] for entry in self.read(gen.MARKETPLACE_PATH)["plugins"]], ["ycc", "ycc-mcp"])
+        self.assertEqual(
+            [entry["name"] for entry in self.read(gen.MARKETPLACE_PATH)["plugins"]], ["ycc", "ycc-mcp", "ycc-rules"]
+        )
         self.assertEqual(self.errors(export=True), [])
         self.assert_has(self.errors(), "must not exist when no OMP package is listed")
 
@@ -191,17 +201,65 @@ class GenerateOmpPackagesTests(unittest.TestCase):
     # --- fail closed ----------------------------------------------------------------
 
     def test_included_rows_without_an_emitter_fail_closed(self) -> None:
-        for key, reason in (
-            ("ycc-hooks", r"herdr integration install omp.*WorktreeCreate"),
-            ("ycc-rules", "YAN-1175"),
+        with self.assertRaisesRegex(
+            ValueError,
+            r"packages\.ycc-hooks\.runtimes\.omp: no OMP emitter.*herdr integration install omp.*WorktreeCreate",
         ):
-            with self.subTest(key=key):
-                with self.assertRaisesRegex(ValueError, rf"packages\.{key}\.runtimes\.omp: no OMP emitter.*{reason}"):
-                    self.output(with_omp(self.model, key, status="included"))
+            self.output(with_omp(self.model, "ycc-hooks", status="included"))
         with self.assertRaises(ValueError) as caught:
             self.output(with_omp(self.model, "ycc-hooks", status="included"))
         self.assertNotIn("YAN-1174 extension", str(caught.exception))
         self.assertFalse((self.root / "packages").exists())
+
+    # --- rules package (YAN-1175) -----------------------------------------------------
+
+    def test_rules_package_ships_manifests_and_flat_rules(self) -> None:
+        model = with_omp(self.model, "ycc-rules", status="included")
+        self.generate(model)
+        files = {
+            path.relative_to(self.root / RULES).as_posix() for path in (self.root / RULES).rglob("*") if path.is_file()
+        }
+        self.assertEqual(
+            files,
+            {".omp-plugin/plugin.json", ".claude-plugin/plugin.json", "package.json", "rules/ycc-common-security.md"},
+        )
+        for manifest in gen.MANIFESTS:
+            payload = self.read(RULES / manifest)
+            self.assertEqual((payload["name"], payload["version"]), ("ycc-rules", VERSION), manifest)
+        self.assertFalse(any("hooks" in name for name in files))
+        self.assertEqual(self.errors(model), [])
+
+    def test_mixed_rules_components_still_fail_closed(self) -> None:
+        model = with_omp(self.model, "ycc-rules", status="included", components=("rules", "skills"))
+        with self.assertRaisesRegex(ValueError, r"packages\.ycc-rules\.runtimes\.omp: no OMP emitter"):
+            self.output(model)
+        self.assertFalse((self.root / "packages").exists())
+
+    def test_validator_rejects_rules_nesting_stray_entries_and_drift(self) -> None:
+        model = with_omp(self.model, "ycc-rules", status="included")
+        rule = self.root / RULES / "rules/ycc-common-security.md"
+        cases: dict[str, tuple[Callable[[], object], str]] = {
+            "nested": (lambda: (self.root / RULES / "rules/x").mkdir(), "no subdirectories or symlinks"),
+            "extra root entry": (
+                lambda: (self.root / RULES / "README.md").write_text("x\n", encoding="utf-8"),
+                f"{RULES / 'README.md'}: unexpected entry",
+            ),
+            "drift": (
+                lambda: rule.write_bytes(rule.read_bytes() + b"x\n"),
+                f"{RULES / 'rules/ycc-common-security.md'}: drifted",
+            ),
+        }
+        for label, (mutate, expected) in cases.items():
+            with self.subTest(label=label):
+                self.generate(model)
+                self.assertEqual(self.errors(model), [])
+                mutate()
+                self.assert_has(self.errors(model), expected)
+                for stray in (self.root / RULES / "rules/x", self.root / RULES / "README.md"):
+                    if stray.is_dir():
+                        stray.rmdir()
+                    elif stray.exists():
+                        stray.unlink()
 
     def test_listed_deferred_row_fails_closed(self) -> None:
         for status in ("deferred", "excluded"):
@@ -211,7 +269,9 @@ class GenerateOmpPackagesTests(unittest.TestCase):
 
     def test_deferred_and_excluded_rows_emit_nothing(self) -> None:
         output, roots = self.output()
-        self.assertEqual({rel.parts[2] for rel in output if rel.parts[:2] == ("packages", "omp")}, {"ycc", "ycc-mcp"})
+        self.assertEqual(
+            {rel.parts[2] for rel in output if rel.parts[:2] == ("packages", "omp")}, {"ycc", "ycc-mcp", "ycc-rules"}
+        )
         self.assertIn(Path("packages/omp/ycc-hooks"), roots)
         self.assertNotIn(Path("packages/omp/ycc-all"), {rel.parent for rel in output})
         self.assertEqual(omp_rows(self.model)["ycc-all"], "excluded")

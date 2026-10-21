@@ -7,6 +7,8 @@ alwaysApply: false
 # Agent Orchestration
 
 - Use runtime-registered agent descriptions as the authority for available agents.
-- Use planner for complex implementation and architect for architectural decisions.
-- Request code-reviewer after modifying code; use rust-reviewer for Rust-specific review.
+- When registered, use planner for complex implementation and architect for architectural decisions;
+  otherwise plan or design in the current session.
+- After modifying code, request code-reviewer when registered (rust-reviewer for Rust-specific
+  review); otherwise review the diff in the current session.
 - Parallelize independent operations only; serialize work with dependencies or overlapping writes.

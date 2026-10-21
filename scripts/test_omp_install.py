@@ -416,7 +416,7 @@ class OmpInstallTests(unittest.TestCase):
 
     def test_matrix_model_packages_user_scope(self) -> None:
         packages = omp_install.select_packages("")
-        self.assertEqual(packages, ("ycc", "ycc-mcp"))
+        self.assertEqual(packages, ("ycc", "ycc-mcp", "ycc-rules"))
         self.lifecycle(packages, "user", self.model_version)
 
     def test_ycc_mcp_installs_its_mcp_config_and_asks_for_a_reload(self) -> None:
@@ -513,7 +513,10 @@ class OmpInstallTests(unittest.TestCase):
         self.clear_log()
         result = self.remove("user")
         self.assertEqual(self.mutating(), [])
-        self.assertIn("[!!] kept marketplace ycc: ycc@ycc (user), ycc-mcp@ycc (user) still installed", result.out)
+        self.assertIn(
+            "[!!] kept marketplace ycc: ycc@ycc (user), ycc-mcp@ycc (user), ycc-rules@ycc (user) still installed",
+            result.out,
+        )
         self.assertIsNotNone(self.entry("ycc", "user"))
         self.assertIn("ycc", self.marketplaces())
         self.assertTrue(omp_install.export_dir().is_dir())
@@ -729,9 +732,9 @@ class OmpInstallTests(unittest.TestCase):
         self.assertIn(overlap_line, result.out)
         # The default native selection replaces the legacy ycc with ycc and ycc-mcp.
         items = omp_install.ycc_items(self.listing(self.home), "user")
-        self.assertEqual([item["id"] for item in items], ["ycc@ycc", "ycc-mcp@ycc"])
-        self.assertEqual([len(item["entries"]) for item in items], [1, 1])
-        self.assert_installed(("ycc", "ycc-mcp"), "user", self.model_version)
+        self.assertEqual([item["id"] for item in items], ["ycc@ycc", "ycc-mcp@ycc", "ycc-rules@ycc"])
+        self.assertEqual([len(item["entries"]) for item in items], [1, 1, 1])
+        self.assert_installed(("ycc", "ycc-mcp", "ycc-rules"), "user", self.model_version)
         self.assertEqual(self.marketplaces(), {"other": str(other), "ycc": str(exported)})
         self.assertEqual(overlap.read_text(encoding="utf-8"), "mine")
 
@@ -909,7 +912,8 @@ class OmpInstallTests(unittest.TestCase):
             if runtime.runtime == "omp"
             and not (runtime.status == "included" and runtime.mechanism == "native" and not runtime.opt_in)
         ]
-        self.assertTrue({"ycc-hooks", "ycc-rules", "ycc-all", "installer-fallback"} <= set(rejected))
+        self.assertTrue({"ycc-hooks", "ycc-all", "installer-fallback"} <= set(rejected))
+        self.assertNotIn("ycc-rules", rejected)
         self.assertNotIn("ycc-mcp", rejected)
         before = self.snapshot()
         for package in rejected:

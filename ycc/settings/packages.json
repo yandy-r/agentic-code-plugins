@@ -285,7 +285,7 @@
       }
     },
     "ycc-rules": {
-      "description": "Language rules for Cursor.",
+      "description": "Language and common coding rules for Cursor and OMP.",
       "version_policy": "lockstep",
       "runtimes": {
         "cursor": {
@@ -305,7 +305,7 @@
           "notes": "Cursor-only rules package. No Claude ycc-rules: Claude rules stay on install.sh (see installer-fallback claude)."
         },
         "omp": {
-          "status": "deferred",
+          "status": "included",
           "listed": false,
           "mechanism": "native",
           "components": ["rules"],
@@ -315,10 +315,11 @@
           "opt_in": false,
           "evidence": [
             "docs/internal/adr/0002-omp-runtime-contract.md",
-            "docs/internal/spikes/omp-runtime-contract.md"
+            "docs/internal/spikes/omp-runtime-contract.md",
+            "docs/research/yan-1175-omp-rules-settings/feature-spec.md"
           ],
-          "gates": ["YAN-1175 rules flattener", "YAN-1178 live acceptance matrix passes on the real ycc tree"],
-          "notes": "Generated package with flat rules/ (omp >=18.12.2): the nested Cursor tree flattens under unique names, paths becomes globs, and alwaysApply and description are kept."
+          "gates": ["YAN-1178 live acceptance matrix passes on the real ycc tree"],
+          "notes": "Generated package under packages/omp/ycc-rules (omp >=18.12.2): 31 flat rules named ycc-<family>-<stem>, paths→globs, description kept, alwaysApply only when true. OMP lists globs as advisory (no auto-attach): language rules are rulebook entries read via rule://. Unlisted until YAN-1180."
         }
       }
     },
@@ -425,20 +426,21 @@
           "notes": "install.sh only: skills and ycc-shared into ~/.agents. The npx skills path is unspiked."
         },
         "omp": {
-          "status": "deferred",
+          "status": "included",
           "listed": false,
           "mechanism": "file-copy",
-          "components": ["rules", "instructions", "settings", "statusline"],
+          "components": ["instructions", "settings"],
           "requires": [],
           "target_release": "v6.1.0",
           "experimental": false,
           "opt_in": false,
           "evidence": [
             "docs/internal/adr/0002-omp-runtime-contract.md",
-            "docs/internal/spikes/omp-runtime-contract.md"
+            "docs/internal/spikes/omp-runtime-contract.md",
+            "docs/research/yan-1175-omp-rules-settings/feature-spec.md"
           ],
-          "gates": ["YAN-1175 settings, rules, and modelRoles fallback snippets"],
-          "notes": "User and project config.yml layers (modelRoles, task.agentModelOverrides); OMP has no plugin channel for settings or model roles, so these stay documented or opt-in snippets."
+          "gates": [],
+          "notes": "install.sh --target omp, user scope only: --rules links AGENTS.md into the omp agent dir; --settings merges ycc-owned modelRoles.{default,slow,task} and tools.approvalMode into config.yml (hash-owned; user edits and project config win). Rules ship natively in ycc-rules; the status line is unsupported."
         }
       }
     }

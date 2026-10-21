@@ -51,14 +51,16 @@ CARRIERS: dict[str, dict[str, str]] = {
         "mcp": "mcp",
     },
     # Each native OMP package is one `omp plugin install` (ycc-mcp ships its .mcp.json inside
-    # the package). Hooks never get an OMP carrier (ycc-hooks is excluded on OMP: herdr ships its
-    # own integration); rules wait for YAN-1175, so those rows fail closed.
+    # the package, ycc-rules its flat rules/). Hooks never get an OMP carrier (ycc-hooks is
+    # excluded on OMP: herdr ships its own integration). The installer-fallback payloads
+    # (instructions, settings) are opt-in via --rules/--settings, so no package implies them.
     "omp": {
         "skills": "base",
         "agents": "base",
         "commands": "base",
         "shared": "base",
         "mcp": "base",
+        "rules": "base",
     },
 }
 
@@ -99,7 +101,8 @@ def plan_install(
     """Expand model closures; a package's own components must all be deliverable.
 
     Explicit unsupported pairs fail before any write. Cursor fallback hooks
-    are not inherited: only a package providing hooks owns that carrier.
+    are not inherited: only a package providing hooks owns that carrier. OMP
+    inherits no fallback components at all (its --rules/--settings are opt-in).
     """
     known = {package.key: package for package in model.packages}
     for package in packages:
@@ -143,6 +146,10 @@ def plan_install(
                     selected = set(pair.install_set)
                     if target == "cursor" and "hooks" not in pair.provides:
                         selected.discard("hooks")
+                    if target == "omp":
+                        # OMP fallback payloads (instructions, settings) are opt-in via
+                        # --rules/--settings, never package-implied.
+                        selected &= set(pair.provides)
                     components.update(selected)
             if problem:
                 break

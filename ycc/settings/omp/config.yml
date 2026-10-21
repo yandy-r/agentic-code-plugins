@@ -1,0 +1,7 @@
+# Managed by ystack install.sh --target omp --settings (ycc-owned leaves only).
+modelRoles:
+  default: 'anthropic/claude-fable-5-1:medium, openai/gpt-5.6-sol:high'
+  slow: 'anthropic/claude-opus-5:high, openai/gpt-5.6-sol:high'
+  task: 'anthropic/claude-opus-5:high, openai/gpt-5.6-sol:high'
+tools:
+  approvalMode: write

@@ -17,6 +17,9 @@ output and need no omp binary. They mirror omp 18.12.x's own catalog parser
 - MCP closure: an MCP-only root (ycc-mcp) holds only its manifests and `.mcp.json`, which is
   byte-identical to mcp-configs/mcp.json, parses with an `mcpServers` object, and carries no
   secret literal (credential keys hold only `${VAR}` placeholders);
+- rules closure (YAN-1175): a rules-only root (ycc-rules) holds only its manifests and a flat
+  `rules/` of regular `ycc-*.md` files (no subdirectories or symlinks) whose names and bytes
+  equal generate_omp_rules' rendering of ycc/rules;
 - code surfaces (YAN-1174): no OMP root ships hooks, extensions or tools. ycc ships no OMP
   hooks: herdr session reporting is herdr's own integration (`herdr integration install omp`)
   and WorktreeCreate has no OMP event (ADR 0002). A package.json `extensions`/`hooks`/`tools`
@@ -38,6 +41,7 @@ from pathlib import Path
 from typing import Any
 
 import generate_omp_packages as generator
+import generate_omp_rules
 from mcp_secret_audit import audit_no_secret_literals, load_mcp_config
 from package_model import Package, PackageModel, load_package_model
 
@@ -47,6 +51,7 @@ MAX_NAME_LENGTH = 64
 RUNTIME_PACKAGE_NAME = re.compile(r"^(?:@[a-zA-Z0-9][a-zA-Z0-9._~-]*/)?[a-zA-Z0-9][a-zA-Z0-9._~-]*$")
 ROOT_ENTRIES = frozenset({".omp-plugin", ".claude-plugin", "package.json", *generator.COMPONENT_DIRS})
 MCP_ROOT_ENTRIES = frozenset({".omp-plugin", ".claude-plugin", "package.json", generator.MCP_CONFIG.name})
+RULES_ROOT_ENTRIES = frozenset({".omp-plugin", ".claude-plugin", "package.json", generator.RULES_DIR.name})
 SKILL_REF = re.compile(r"skill://([A-Za-z0-9][A-Za-z0-9-]*)(/[^\s`'\"()\[\]|,;<>]*)?")
 PATTERN_CHARS = frozenset("*?[]{}$<>")
 SKILL_NAME = re.compile(r"^name:\s*(\S+)\s*$", re.MULTILINE)
@@ -397,6 +402,41 @@ def mcp_closure_errors(root: Path, source_root: Path, package: Package) -> list[
     return errors
 
 
+def rules_closure_errors(root: Path, source_root: Path, package: Package) -> list[str]:
+    rel = generator.package_root(package)
+    package_root = root / rel
+    if not package_root.is_dir():
+        return [f"{rel}: missing package root"]
+    errors = [
+        f"{rel / entry.name}: unexpected entry outside the manifests and {generator.RULES_DIR}/"
+        for entry in sorted(package_root.iterdir())
+        if entry.name not in RULES_ROOT_ENTRIES
+    ]
+    rules_rel = rel / generator.RULES_DIR
+    rules_dir = root / rules_rel
+    if rules_dir.is_symlink() or not rules_dir.is_dir():
+        return [*errors, f"{rules_rel}: missing rules directory"]
+    try:
+        expected = generate_omp_rules.build_rules(source_root / generator.SOURCE_RULES_PATH)
+    except ValueError as exc:
+        return [*errors, f"{generator.SOURCE_RULES_PATH}: {exc}"]
+    actual: set[str] = set()
+    for entry in sorted(rules_dir.iterdir()):
+        entry_rel = rules_rel / entry.name
+        if entry.is_symlink() or not entry.is_file():
+            errors.append(f"{entry_rel}: rules/ holds only regular files (no subdirectories or symlinks)")
+        elif not (entry.name.startswith(generate_omp_rules.RULE_PREFIX) and entry.suffix == ".md"):
+            errors.append(f"{entry_rel}: rule files must be named {generate_omp_rules.RULE_PREFIX}*.md")
+        elif entry.name not in expected:
+            errors.append(f"{entry_rel}: no source rule under {generator.SOURCE_RULES_PATH}")
+        else:
+            actual.add(entry.name)
+            if entry.read_bytes() != expected[entry.name].encode("utf-8"):
+                errors.append(f"{entry_rel}: drifted from {generator.SOURCE_RULES_PATH}")
+    errors.extend(f"{rules_rel / name}: missing rule" for name in sorted(set(expected) - actual))
+    return errors
+
+
 def validate(root: Path, model: PackageModel, *, source_root: Path | None = None, export: bool = False) -> list[str]:
     """Every OMP package policy violation under ``root`` (a checkout, or an export with ``export``)."""
     source = root if source_root is None else source_root
@@ -411,6 +451,8 @@ def validate(root: Path, model: PackageModel, *, source_root: Path | None = None
     for package in packages:
         if generator.is_mcp_package(package):
             errors.extend(mcp_closure_errors(root, source, package))
+        elif generator.is_rules_package(package):
+            errors.extend(rules_closure_errors(root, source, package))
     return errors
 
 
