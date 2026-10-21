@@ -278,11 +278,14 @@ ycc sync --target cursor --intent skills,commands --skills clean,plan --commands
   and installs `implementor` on claude, cursor, codex and opencode; on its
   own, `--target agents --agents ...` is rejected.
 - `--commands` narrows the `commands` step. On claude the commands are the
-  skills, so it narrows the skills slice; with `--skills` as well, the union
-  of both selections installs once. `remove --intent commands --commands a`
-  on claude retires only the recorded legacy wrapper `a.md`. codex, agents and
-  omp have no commands step and skip `--commands`; it is an error only when no
-  selected target has one (`ycc list commands --target codex` prints nothing).
+  skills, so on `install` / `sync` it narrows the skills slice; with
+  `--skills` as well, the union of both selections installs once. On claude
+  `remove`, `--commands a` only retires the recorded legacy wrapper `a.md` and
+  never removes skills: only `--skills` narrows a skills removal, and
+  `remove --intent skills,commands --commands a` without `--skills` skips the
+  skills slice instead of removing all of it. codex, agents and omp have no
+  commands step and skip `--commands`; it is an error only when no selected
+  target has one (`ycc list commands --target codex` prints nothing).
 - Every command loads the skill of its own name. After a selective opencode
   commands install, the installer warns (never fails, never installs it) for
   each command whose skill is not available: a skill ycc installed, a `base`

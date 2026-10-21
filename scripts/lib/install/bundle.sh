@@ -24,14 +24,17 @@ selected_slices() {
 
 # slice_selection_kinds <target> <slice> — the --<kind> selections that
 # narrow <slice> on <target>, space-separated (empty: the whole slice). Claude
-# skills are its commands: its skills slice takes the union of --skills and
-# --commands over whichever of those steps run; a kind without a selection
-# does not widen it.
+# skills are its commands: on install/sync its skills slice takes the union of
+# --skills and --commands over whichever of those steps run; a kind without a
+# selection does not widen it. On remove only --skills narrows it: removing
+# claude commands only retires legacy wrappers, never skills.
 slice_selection_kinds() {
     local -a kinds=()
     local kind
     if [[ "$1" == claude && "$2" == skills ]]; then
         for kind in skills commands; do
+            # shellcheck disable=SC2153  # COMMAND is install.sh's subcommand global.
+            [[ "${kind}" == commands && "${COMMAND}" == remove ]] && continue
             step_enabled "${kind}" && has_selection "${kind}" && kinds+=("${kind}")
         done
     elif is_selectable_kind "$2" && has_selection "$2"; then
@@ -55,6 +58,13 @@ run_slice() {
     [[ "${FORCE:-0}" == "1" ]] && command+=(--force)
     local -a kinds=()
     [[ "${3:-}" == "select" ]] && read -r -a kinds <<< "$(slice_selection_kinds "${target}" "${slice}")"
+    # Claude remove: --commands names legacy wrappers to retire, not skills;
+    # without --skills the skills slice would go whole, so skip it instead.
+    if [[ "${3:-}" == "select" && "${action}" == remove && "${target}" == claude && "${slice}" == skills \
+        && ${#kinds[@]} -eq 0 ]] && has_selection commands; then
+        info "--commands only retires legacy command wrappers on claude; pass --skills to remove skills — skipping the skills slice"
+        return 0
+    fi
     if [[ ${#kinds[@]} -gt 0 ]]; then
         local kind name names="" selected="" nouns="${SELECTION_NOUNS[${kinds[0]}]}"
         for kind in "${kinds[@]}"; do

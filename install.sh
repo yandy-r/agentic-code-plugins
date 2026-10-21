@@ -99,9 +99,10 @@ plugins, mods):
             are native slash invocations; a successful skills install also
             retires the command wrappers an older ycc wrote to
             ~/.claude/commands — only entries recorded in
-            ~/.config/ycc/installed-units.json, never foreign files).
-            opencode: one thin generated command per public skill, each
-            loading its skill via the skill tool.
+            ~/.config/ycc/installed-units.json, never foreign files; on
+            remove it only retires those wrappers, never skills).
+            cursor/opencode: one thin generated command per public skill,
+            each loading its skill.
 
   Slices (skills/agents/commands) need no plugin. Each entry is copied with
   plugin-root paths and 'ycc:' prefixes rewritten so it works on its own;
@@ -111,7 +112,7 @@ plugins, mods):
     claude    ~/.claude/{skills,agents}/<name> (skills are the slash commands;
               'commands' installs the same skills — nothing lands in
               ~/.claude/commands)
-    cursor    ~/.cursor/{skills,agents}/<name>
+    cursor    ~/.cursor/{skills,agents,commands}/<name>
     codex     ~/.codex/skills/<name> (+ _shared), ~/.codex/agents/<name>.toml
     opencode  ~/.config/opencode/{skills,agents,commands}/<name> (+ shared/)
   The agents target ships ycc skills ONLY, once, into the cross-tool dir:
@@ -132,9 +133,9 @@ plugins, mods):
     claude    base→base  settings→settings  rules→rules  mcp→mcp
               hooks→settings+hooks  plugins→settings  mods→mods
               skills→skills  agents→agents  commands→skills (alias)
-    cursor    base→base  skills→skills  agents→agents  settings→settings
-              rules→rules  mcp→mcp
-              commands, hooks, plugins, mods → no-op
+    cursor    base→base  skills→skills  agents→agents  commands→commands
+              settings→settings  rules→rules  mcp→mcp  hooks→hooks
+              plugins, mods → no-op
     codex     base→base  skills→skills  agents→agents  settings→settings
               rules→rules  mcp→mcp  plugins → settings (config.toml)
               commands, hooks, mods → no-op
@@ -282,14 +283,15 @@ Options:
                       skips --agents (it has no agents step); on its own it
                       is rejected. Names: '$(basename "$0") list agents'
   --commands <names>  Same for the standalone commands step (--intent commands /
-                      --only commands): claude narrows its skills (they are
-                      its commands; with --skills too, the union installs) and
-                      remove retires only the named legacy wrappers; cursor
-                      and opencode install (or remove) only the named command
-                      files, never pruning. Targets without a commands step
-                      (codex, agents, omp) skip it. Each command loads its
-                      skill: opencode warns when that skill is missing, cursor
-                      refuses. Names: '$(basename "$0") list commands'
+                      --only commands): claude narrows its skills on
+                      install/sync (they are its commands; with --skills too,
+                      the union installs); on remove it only retires the
+                      named legacy wrappers, never skills (pass --skills for
+                      those); cursor and opencode install (or remove) only
+                      the named command files, never pruning. Targets without
+                      a commands step (codex, agents, omp) skip it. Each
+                      command loads its skill: opencode warns when that skill
+                      is missing, cursor refuses. Names: '$(basename "$0") list commands'
   --project           Scope-capable steps (today: mcp) write into the current
                       project. Default when neither flag is given. omp base
                       installs at omp's project scope only with an explicit
@@ -312,7 +314,7 @@ Options:
                       (e.g. --only settings, --only rules,settings).
                       Overrides defaults and --settings/--rules/--mcp/--hooks.
                       A skills/agents/commands step a target has no home for
-                      is skipped with a notice (e.g. commands on cursor).
+                      is skipped with a notice (e.g. commands on codex).
   --skills-home <dir> Resolve duplicate skills when ycc skills would land in
                       several of codex/opencode/cursor's own skills dirs (all
                       read ~/.agents/skills too):
@@ -392,10 +394,12 @@ Target steps:
                       copy ycc/{skills,agents,commands} entries into
                       ~/.claude/<slice>/ (paths re-pointed, 'ycc:' dropped).
                       With the ycc plugin also installed they appear twice.
-  cursor    base | skills | agents | settings | mcp | rules
+  cursor    base | skills | agents | commands | settings | mcp | rules
             base:     generate + validate + format + rsync bundle to ~/.cursor/.
             skills:   generate + install each skill into ~/.cursor/skills/.
             agents:   generate + install each agent into ~/.cursor/agents/.
+            commands: install each command into ~/.cursor/commands/ (each
+                      references its skill; missing skills fail closed).
             settings: merge packages/cursor/installer-fallback/config/cli-config.json into
                       ~/.cursor/cli-config.json (main CLI model preference).
             mcp:      merge mcp-configs/mcp.json mcpServers into

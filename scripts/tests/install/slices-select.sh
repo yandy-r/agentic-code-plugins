@@ -280,6 +280,25 @@ printf '{"version": 1, "units": {"%s/.claude/commands": ["clean.md", "plan.md"]}
 install_must_succeed "${home}" remove --target claude --intent commands --commands clean
 assert_entries "${home}/.claude/commands" "plan.md" "claude --commands remove retires only the named legacy wrapper"
 
+home="$(new_home)"
+install_must_succeed "${home}" sync --target claude --intent skills --skills clean,plan
+mkdir -p "${home}/.claude/commands"
+echo wrapper > "${home}/.claude/commands/clean.md"
+python3 - "${home}" <<'PY'
+import json, sys
+home = sys.argv[1]
+path = f"{home}/.config/ycc/installed-units.json"
+state = json.load(open(path))
+state["units"][f"{home}/.claude/commands"] = ["clean.md"]
+json.dump(state, open(path, "w"))
+PY
+install_must_succeed "${home}" remove --target claude --intent skills,commands --commands clean
+assert_entries "${home}/.claude/skills" "_shared clean plan" "claude --commands remove never removes skills"
+assert_contains "${INSTALL_OUT}" "pass --skills to remove skills" "claude --commands remove explains the skipped skills slice"
+if [[ ! -e "${home}/.claude/commands/clean.md" ]]; then ok "claude --commands remove retires the clean.md wrapper"; else ko "claude --commands remove retires the clean.md wrapper"; fi
+install_must_succeed "${home}" remove --target claude --intent skills,commands --skills plan --commands clean
+assert_entries "${home}/.claude/skills" "_shared clean" "claude --skills + --commands remove takes only the --skills selection"
+
 echo
 echo "== install.sh --skills: dependency warning =="
 
