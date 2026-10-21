@@ -1,7 +1,8 @@
 # OMP Install Guide
 
-This guide covers installing `ycc` and `ycc-mcp` into OMP (oh-my-pi) with
-`install.sh`.
+This guide covers installing `ycc`, `ycc-mcp` and `ycc-rules` into OMP
+(oh-my-pi) with `install.sh`, plus the opt-in global instructions, settings,
+model roles and approval default.
 
 > **Pre-release:** the OMP packages are generated but unlisted. This repository
 > publishes no OMP catalog until the release gate lists them (YAN-1180), so the
@@ -30,7 +31,7 @@ The `base` step generates and validates the OMP packages, then:
 2. registers that export as the OMP marketplace `ycc`
    (`omp plugin marketplace add`);
 3. installs each package with `omp plugin install --scope user <package>@ycc`
-   (`ycc@ycc` and `ycc-mcp@ycc`).
+   (`ycc@ycc`, `ycc-mcp@ycc` and `ycc-rules@ycc`).
 
 What ycc installed is recorded in `~/.config/ycc/omp-native-install.json`.
 `update`, `remove` and `migrate` act only on what that file records; an
@@ -38,12 +39,19 @@ install or marketplace you created yourself is reported and left untouched.
 
 `ycc@ycc` carries the skills, agents and commands (`/ycc:<skill>`) plus the
 shared helpers. `ycc-mcp@ycc` carries the MCP servers (see
-[MCP Servers](#mcp-servers)). Without `--package` both are installed;
-`--package ycc` or `--package ycc-mcp` selects one. `ycc-rules` is deferred
-(YAN-1175); `ycc-hooks` and `ycc-all` are excluded. ycc ships no OMP hooks
+[MCP Servers](#mcp-servers)). `ycc-rules@ycc` carries the rules (see
+[Rules](#rules)). Without `--package` all three are installed;
+`--package ycc`, `--package ycc-mcp` or `--package ycc-rules` selects a
+subset. `ycc-hooks` and `ycc-all` are excluded. ycc ships no OMP hooks
 (herdr reporting comes from herdr itself, see [herdr](#herdr)), and OMP does
 not read plugin dependencies; any other package is rejected with the package
 model's reason.
+
+Settings and global instructions are never package-implied. They need the
+opt-in `--settings` and `--rules` flags (see
+[Settings And Model Roles](#settings-and-model-roles---settings) and
+[Global Instructions](#global-instructions---rules)), which cannot be
+combined with `--package`.
 
 ## Update
 
@@ -65,15 +73,17 @@ without a version bump, the installer prints
 run `./install.sh install --target omp --force` to reinstall the new content.
 
 The `plugins` intent maps to the same `base` step
-(`./install.sh sync --target omp --intent plugins`). Every other intent is
-skipped with a notice.
+(`./install.sh sync --target omp --intent plugins`). The `settings` and
+`rules` intents map to the opt-in `settings` and `rules` steps. Every other
+intent is skipped with a notice.
 
 ## Reload Or Restart
 
 After an install or update, run `/reload-plugins` in running omp sessions (or
-restart them) to pick up skills, commands, agents and MCP servers. A package
-that ships hooks or extensions needs a session restart; the installer says so
-when it applies.
+restart them) to pick up skills, commands, agents and MCP servers. Rules and
+`AGENTS.md` load at session start: use `/new` or restart. Settings reload
+live. A package that ships hooks or extensions needs a session restart; the
+installer says so when it applies.
 
 ## MCP Servers
 
@@ -135,6 +145,148 @@ package's `.mcp.json`. omp loads them at session start and names each one
 omp has no `omp mcp` command; use `/mcp list` in a session to see what
 loaded.
 
+## Rules
+
+`ycc-rules@ycc` ships the `ycc/rules` families as 31 flat rules named
+`ycc-<family>-<stem>.md` (for example `ycc-common-security`,
+`ycc-golang-coding-style`). OMP scans plugin `rules/` flat and names each rule
+after its file stem.
+
+- **Always on.** `ycc-common-security` and `ycc-common-git-workflow` are
+  `alwaysApply` rules; their full bodies go into every main-session prompt.
+- **On demand.** Every other rule is a rulebook entry: a one-line
+  `- <name> (<globs>): <description>` listing, with the body read through
+  `rule://<name>` (for example `rule://ycc-python-testing`).
+- **Globs are advisory.** OMP shows a rule's `globs` in the listing but never
+  attaches the rule automatically when a matching file is touched, unlike
+  Cursor. Language-rule parity is partial.
+- **Override a rule.** Copy it under the same name to `<agentDir>/rules/`
+  (user) or `<cwd>/.omp/rules/` (project) and edit the copy. Native rules
+  outrank plugin rules, so your copy wins and survives ycc updates. OMP
+  reports no shadowing.
+- **Disable a rule.** List it in `ttsr.disabledRules` in your `config.yml`:
+
+  ```yaml
+  ttsr:
+    disabledRules: [ycc-web-design-quality]
+  ```
+
+- **Project rules apply at the `.omp` cwd only.** OMP reads
+  `<cwd>/.omp/rules` and `<cwd>/.omp/config.yml` from the session's working
+  directory, with no walk up to ancestors. Start omp in the directory that
+  holds `.omp/`.
+- **Disable the package** with `omp plugin disable ycc-rules@ycc`, or skip it
+  at install with `--package ycc,ycc-mcp`.
+
+`<agentDir>` is the active profile's agent directory; `omp config path`
+prints it (`~/.omp/agent` by default).
+
+## Global Instructions (`--rules`)
+
+```bash
+./install.sh install --target omp --rules
+```
+
+`--rules` symlinks `ycc/settings/rules/AGENTS.md` to `<agentDir>/AGENTS.md`,
+OMP's user context file. A project `AGENTS.md` or `.omp/AGENTS.md` still
+loads after it.
+
+A real (non-symlink) `<agentDir>/AGENTS.md` is your content, and the installer
+refuses to replace it:
+
+```text
+refusing to replace user-authored rules file: <agentDir>/AGENTS.md
+```
+
+Move it aside or re-run with `--force`. To keep your own file, import the ycc
+instructions from it instead; OMP expands `@<path>` lines inline:
+
+```markdown
+@/path/to/ystack/ycc/settings/rules/AGENTS.md
+```
+
+## Settings And Model Roles (`--settings`)
+
+```bash
+./install.sh install --target omp --settings
+```
+
+`--settings` merges these ycc-owned leaves from `ycc/settings/omp/config.yml`
+into your user `<agentDir>/config.yml` (or an existing `config.yaml`):
+
+```yaml
+modelRoles:
+  default: 'anthropic/claude-fable-5-1:medium, openai/gpt-5.6-sol:high'
+  slow: 'anthropic/claude-opus-5:high, openai/gpt-5.6-sol:high'
+  task: 'anthropic/claude-opus-5:high, openai/gpt-5.6-sol:high'
+tools:
+  approvalMode: write
+```
+
+Each role is an ordered fallback list. ycc agents use `@slow` or `@task`, so
+these roles set their models. Other roles (`smol`, `plan`, custom roles) and
+every other key are left alone. ycc never writes `task.agentModelOverrides`.
+
+- **Ownership.** Each leaf is tracked by hash in
+  `~/.config/ycc/managed-config-state.json`. A run prints one summary line,
+  `[ok] applied N managed update(s) and M removal(s) to <dest> (omp-config: settings)`,
+  or `[ok] up-to-date: <dest> (omp-config: settings)` when nothing changed. A
+  leaf you edited is kept on every update, with a warning such as
+  `[!!] kept your local value at /modelRoles/slow (re-run with --force to take the repo value)`;
+  `--force` replaces it. `--dry-run` lists each planned leaf as
+  `would set /modelRoles/default` (or `would remove …`) and writes nothing.
+- **`omp config set modelRoles …`** replaces the whole `modelRoles` record,
+  so ycc roles you did not set disappear. The next `--settings` run adds them
+  back and keeps the roles you set. To keep your own value, set it; to stop ycc
+  managing settings, remove them (below).
+- **Comments and formatting.** Rewriting the YAML drops comments and
+  formatting, as `omp config set` does. Values keep their YAML 1.2 meaning
+  (as OMP reads them), so `off`, `12:30` or `1_000` stay strings. Before the
+  first ycc rewrite of an existing file, the installer saves the original to
+  `config.yml.ycc-backup` (mode 600) and warns. A later run never overwrites
+  that backup.
+- **Refusals.** A symlinked `config.yml` (for example from a dotfiles repo) is
+  never written through; the installer prints the keys to add yourself and
+  exits non-zero. An invalid YAML file, or one whose root is not a mapping,
+  is left unchanged.
+- **Precedence.** OMP layers defaults < user < project < `--config` overlays
+  < runtime flags. A project `.omp/config.yml` beats these user values.
+- **User scope only.** `--project` with `--settings` or `--rules` is rejected;
+  ycc never writes `.omp/config.yml`, `.omp/rules` or `.omp/AGENTS.md`. Edit
+  the project file by hand.
+- **Missing credentials.** If no listed model resolves, OMP falls back to an
+  available model.
+
+Remove only the unchanged ycc leaves and the owned `AGENTS.md` symlink:
+
+```bash
+./install.sh remove --target omp --intent settings,rules
+```
+
+## Approvals
+
+OMP's default `tools.approvalMode` is `yolo`. `--settings` sets `write`:
+read and write tools are auto-approved, and `exec` tools prompt in the main
+session. Limits:
+
+- **Subagents run as `yolo`.** OMP forces task subagents to `yolo`, so `write`
+  covers main-session prompts only. A per-tool `deny` still applies.
+- **Project config wins.** A project `.omp/config.yml` can set any mode,
+  including `yolo`, and OMP applies it without a trust prompt. To pin a mode
+  for one session above project config, pass `--approval-mode <mode>`.
+- **Headless runs.** With no UI, a prompt fails closed, so `omp -p` with
+  `write` cannot run shell commands. Use `--approval-mode yolo` for trusted
+  automation.
+
+ycc never writes `yolo`, `bash.patterns` or per-tool `allow`/`deny`.
+
+## Status Line
+
+Unsupported. OMP has no command-backed status line, so ycc's
+`statusline-command.sh` has no OMP form, and ycc ships no OMP extension.
+OMP's built-in status line already shows the model, path and git state;
+customize it with the `statusLine.*` keys (`omp config list`).
+
 ## herdr
 
 herdr session reporting on OMP is herdr's own integration, not a ycc
@@ -187,13 +339,16 @@ cd <project-root> && <checkout>/install.sh install --target omp --project
 
 ```bash
 ./install.sh install --target omp --dry-run
+./install.sh install --target omp --settings --rules --dry-run
 ./install.sh remove --target omp --only base --dry-run
 ```
 
 `--dry-run` builds nothing and changes nothing. It prints each mutation as
 `[dry-run] would run: omp …` and runs omp's own `--dry-run` check where omp
-has one. It works with `install`, `sync` and `remove`, and only when every
-`--target` is `omp`.
+has one. `--settings` and `--rules` print the planned merge and link against
+the default agent dir (`$PI_CODING_AGENT_DIR`, else `~/.omp/agent`), because
+`omp config path` itself writes files. It works with `install`, `sync` and
+`remove`, and only when every `--target` is `omp`.
 
 ## Force Reinstall
 
@@ -233,7 +388,7 @@ Migration retires two older setups without leaving duplicates:
   tree (foreign links are kept and reported);
 - a `ycc` marketplace registered at the checkout root, which OMP falls back
   to the Claude catalog for. Its installs are uninstalled, the marketplace is
-  removed, and the default native packages (`ycc` and `ycc-mcp`) are
+  removed, and the default native packages (`ycc`, `ycc-mcp` and `ycc-rules`) are
   installed in the same scopes.
 
 Before anything is uninstalled, migration builds and validates the export.
@@ -281,7 +436,8 @@ OMP package and is refused until YAN-1180.
 - Skills run as `/skill:<name>` and commands as `/ycc:<skill>`; agents are
   OMP task agents with `@role` models.
 - OMP never runs shell hooks; `WorktreeCreate` has no OMP event; herdr
-  reporting comes from herdr's integration (see [herdr](#herdr)). Rules,
-  settings and `modelRoles` have no OMP plugin channel yet (YAN-1175).
+  reporting comes from herdr's integration (see [herdr](#herdr)). Rules ship
+  in `ycc-rules`; settings, model roles and global instructions are opt-in
+  installer steps (`--settings`, `--rules`).
 - Details: [ADR 0002](../internal/adr/0002-omp-runtime-contract.md) and the
   [capability matrix](../../ycc/skills/_shared/references/target-capability-matrix.md).

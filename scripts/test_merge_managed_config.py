@@ -10,13 +10,17 @@ from __future__ import annotations
 import json
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
 import tomllib
 import unittest
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
+
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 HELPER = REPO_ROOT / "scripts" / "merge_managed_config.py"
@@ -959,6 +963,187 @@ class MergeHelperTestCase(MergeBase):
 
         self.assertIn("removed empty file", result.stdout)
         self.assertFalse(destination.exists())
+
+
+class OmpYamlMergeTest(MergeBase):
+    ROLES = {
+        "default": "anthropic/claude-fable-5-1:medium, openai/gpt-5.6-sol:high",
+        "slow": "anthropic/claude-opus-5:high, openai/gpt-5.6-sol:high",
+        "task": "anthropic/claude-opus-5:high, openai/gpt-5.6-sol:high",
+    }
+
+    def write_source(self, roles: dict[str, str] | None = None, approval: str = "write") -> Path:
+        source = self.tmp / "config.src.yml"
+        payload = {"modelRoles": roles or self.ROLES, "tools": {"approvalMode": approval}}
+        source.write_text("# Managed by ystack\n" + yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+        return source
+
+    def merge(self, source: Path, destination: Path, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        return self.run_merge("omp-config", source, destination, "settings", **kwargs)
+
+    def load(self, path: Path) -> Any:
+        return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+    def test_m1_missing_destination_gets_only_managed_leaves(self) -> None:
+        destination = self.tmp / "agent" / "config.yml"
+
+        self.merge(self.write_source(), destination)
+
+        self.assertEqual(self.load(destination), {"modelRoles": self.ROLES, "tools": {"approvalMode": "write"}})
+
+    def test_m2_user_keys_survive(self) -> None:
+        providers = {"ollama": {"baseUrl": "http://127.0.0.1:11434", "models": ["llama4"]}}
+        user = {
+            "providers": providers,
+            "modelRoles": {"smol": "openai/gpt-5.6-mini", "reviewer": "@slow"},
+            "tools": {"approval": {"bash": "deny"}},
+        }
+        destination = self.tmp / "config.yml"
+        destination.write_text(yaml.safe_dump(user, sort_keys=False), encoding="utf-8")
+
+        self.merge(self.write_source(), destination)
+
+        merged = self.load(destination)
+        self.assertEqual(merged["providers"], providers)
+        self.assertEqual(merged["modelRoles"], {**user["modelRoles"], **self.ROLES})
+        self.assertEqual(merged["tools"], {"approval": {"bash": "deny"}, "approvalMode": "write"})
+
+    def test_m3_user_edit_wins_until_force(self) -> None:
+        destination = self.tmp / "config.yml"
+        self.merge(self.write_source(), destination)
+        edited = self.load(destination)
+        edited["modelRoles"]["slow"] = "openai/gpt-5.6-sol:xhigh"
+        destination.write_text(yaml.safe_dump(edited, sort_keys=False), encoding="utf-8")
+        updated = {**self.ROLES, "default": "anthropic/claude-fable-6:medium", "slow": "anthropic/claude-opus-6:high"}
+        source = self.write_source(updated)
+
+        result = self.merge(source, destination)
+
+        roles = self.load(destination)["modelRoles"]
+        self.assertEqual(roles["slow"], "openai/gpt-5.6-sol:xhigh")
+        self.assertEqual(roles["default"], "anthropic/claude-fable-6:medium")
+        self.assertIn("kept your local value at /modelRoles/slow", result.stdout)
+
+        self.merge(source, destination, force=True)
+
+        self.assertEqual(self.load(destination)["modelRoles"]["slow"], "anthropic/claude-opus-6:high")
+
+    def test_m4_remove_deletes_only_owned_leaves(self) -> None:
+        destination = self.tmp / "config.yml"
+        destination.write_text("modelRoles:\n  smol: openai/gpt-5.6-mini\n", encoding="utf-8")
+        source = self.write_source()
+        self.merge(source, destination)
+        edited = self.load(destination)
+        edited["modelRoles"]["slow"] = "openai/gpt-5.6-sol:xhigh"
+        destination.write_text(yaml.safe_dump(edited, sort_keys=False), encoding="utf-8")
+
+        result = self.merge(source, destination, extra=("--remove",))
+
+        self.assertEqual(
+            self.load(destination),
+            {"modelRoles": {"smol": "openai/gpt-5.6-mini", "slow": "openai/gpt-5.6-sol:xhigh"}},
+        )
+        self.assertIn("kept your local value at /modelRoles/slow", result.stdout)
+
+    def test_m5_symlinked_destination_refused_without_writes(self) -> None:
+        target = self.tmp / "dotfiles-config.yml"
+        target.write_text("modelRoles:\n  smol: openai/gpt-5.6-mini\n", encoding="utf-8")
+        before = target.read_bytes()
+        destination = self.tmp / "config.yml"
+        destination.symlink_to(target)
+
+        result = self.merge(self.write_source(), destination, expect_success=False)
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn(f"refusing to write through symlinked {destination}; add these keys yourself:", result.stderr)
+        self.assertIn("approvalMode: write", result.stderr)
+        self.assertTrue(destination.is_symlink())
+        self.assertEqual(os.readlink(destination), str(target))
+        self.assertEqual(target.read_bytes(), before)
+        self.assertFalse(self.state.exists())
+
+    def test_m6_invalid_or_list_root_refused_without_writes(self) -> None:
+        for text in ("modelRoles: [unclosed\n", "- default\n- slow\n"):
+            with self.subTest(text=text):
+                destination = self.tmp / "config.yml"
+                destination.write_text(text, encoding="utf-8")
+
+                result = self.merge(self.write_source(), destination, expect_success=False)
+
+                self.assertEqual(result.returncode, 1)
+                self.assertIn("not a valid OMP config", result.stderr)
+                self.assertEqual(destination.read_text(encoding="utf-8"), text)
+                self.assertFalse(self.state.exists())
+
+    def test_m7_first_rewrite_backs_up_once(self) -> None:
+        destination = self.tmp / "config.yml"
+        original = "# my machine\nmodelRoles:\n  smol: openai/gpt-5.6-mini  # cheap\n"
+        destination.write_text(original, encoding="utf-8")
+        backup = self.tmp / "config.yml.ycc-backup"
+
+        result = self.merge(self.write_source(), destination)
+
+        self.assertEqual(backup.read_text(encoding="utf-8"), original)
+        self.assertEqual(backup.stat().st_mode & 0o777, 0o600)
+        self.assertIn(f"original saved to {backup}", result.stdout)
+        self.assertNotIn("# my machine", destination.read_text(encoding="utf-8"))
+
+        destination.write_text("# second comment\n" + destination.read_text(encoding="utf-8"), encoding="utf-8")
+        self.merge(self.write_source(approval="always-ask"), destination, force=True)
+
+        self.assertEqual(backup.read_text(encoding="utf-8"), original)
+        self.assertEqual(self.load(destination)["tools"]["approvalMode"], "always-ask")
+
+    def test_m7_uncommented_destination_is_backed_up(self) -> None:
+        destination = self.tmp / "config.yml"
+        original = "modelRoles:\n  smol: openai/gpt-5.6-mini\n"
+        destination.write_text(original, encoding="utf-8")
+
+        self.merge(self.write_source(), destination)
+
+        self.assertEqual((self.tmp / "config.yml.ycc-backup").read_text(encoding="utf-8"), original)
+
+    def test_yaml_1_2_scalars_stay_strings_after_merge_and_remove(self) -> None:
+        # OMP reads config.yml as YAML 1.2 (Bun); PyYAML's default 1.1 schema
+        # would turn these unmanaged user values into bools/ints on rewrite.
+        # Expected values are what Bun.YAML.parse returns for the original file.
+        destination = self.tmp / "config.yml"
+        destination.write_text(
+            "memory:\n  backend: off\ncompletion:\n  notify: off\nperm: 0755\nt: 12:30\nn: 1_000\non: yes\n",
+            encoding="utf-8",
+        )
+        expected = {
+            "memory": {"backend": "off"},
+            "completion": {"notify": "off"},
+            "perm": 755,  # YAML 1.2 decimal, as Bun reads it; 1.1 would give octal 493
+            "t": "12:30",
+            "n": "1_000",
+            "on": "yes",
+        }
+        source = self.write_source()
+
+        for extra in ((), ("--remove",)):
+            with self.subTest(extra=extra):
+                self.merge(source, destination, extra=extra)
+                text = destination.read_text(encoding="utf-8")
+                for literal in (
+                    "backend: 'off'",
+                    "notify: 'off'",
+                    "perm: 755\n",
+                    "t: '12:30'",
+                    "n: '1_000'",
+                    "'on': 'yes'",
+                ):
+                    self.assertIn(literal, text)
+                bun = shutil.which("bun")
+                if bun:
+                    script = "console.log(JSON.stringify(Bun.YAML.parse(await Bun.file(process.argv[1]).text())))"
+                    out = subprocess.run(
+                        [bun, "-e", script, str(destination)], capture_output=True, text=True, check=True
+                    ).stdout
+                    parsed = json.loads(out)
+                    self.assertEqual({key: parsed[key] for key in expected}, expected)
+        self.assertNotIn("modelRoles", self.load(destination))
 
 
 class HookCommandPruneTestCase(MergeBase):

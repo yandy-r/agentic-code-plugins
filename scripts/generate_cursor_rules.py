@@ -14,6 +14,7 @@ import stat
 import sys
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -70,7 +71,7 @@ def extract_first_heading(body: str) -> str | None:
     return m.group(1).strip() if m else None
 
 
-def parse_frontmatter(raw: str) -> tuple[bool, dict, str]:
+def parse_frontmatter(raw: str) -> tuple[bool, dict[str, Any], str]:
     """Returns (has_yaml_block, data, body_without_frontmatter_if_present)."""
     if not raw.startswith("---\n"):
         return False, {}, raw
@@ -110,9 +111,9 @@ def validate_description(rel: Path, description: object, body: str) -> str:
 
 def normalize_rule_frontmatter(
     rel: Path,
-    data: dict,
+    data: dict[str, Any],
     body: str,
-) -> dict:
+) -> dict[str, Any]:
     """Normalize Claude-style rule YAML to Cursor .mdc frontmatter."""
     out = dict(data)
     if "paths" in out and "globs" not in out:
@@ -126,10 +127,10 @@ def normalize_rule_frontmatter(
     return out
 
 
-def dump_frontmatter(data: dict) -> str:
+def dump_frontmatter(data: dict[str, Any]) -> str:
     # Stable key order for Cursor-friendly diffs
     order = ("description", "alwaysApply", "globs")
-    ordered: dict = {}
+    ordered: dict[str, Any] = {}
     for k in order:
         if k in data:
             ordered[k] = data[k]
@@ -268,7 +269,7 @@ def compare_trees(generated: Path, repo_dst: Path) -> list[str]:
     return diffs
 
 
-def lint_rule_policy(path: Path, data: dict, body: str) -> int:
+def lint_rule_policy(path: Path, data: dict[str, Any], body: str) -> int:
     """Return policy errors for one generated rule."""
     errors = 0
     label = path.relative_to(REPO_ROOT)

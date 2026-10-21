@@ -27,11 +27,16 @@ Formats
 JSON destinations are parsed, merged and re-serialized. TOML destinations are
 patched textually (validated with ``tomllib`` before and after) so comments,
 ordering, quoting and unmanaged tables survive — Python ships no TOML writer.
+YAML destinations (OMP ``config.yml``) are parsed and re-serialized with the
+YAML 1.2 core schema OMP (Bun) uses, then re-parsed before the write.
+Re-serializing drops comments and formatting, so the first rewrite of an
+existing file saves a one-time ``<dest>.ycc-backup`` (mode 0600). PyYAML is imported lazily, only for YAML profiles.
 """
 
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import os
@@ -185,6 +190,20 @@ PROFILES: dict[str, dict[str, Any]] = {
             ],
         },
     },
+    # OMP's user config.yml. Only these ycc-owned leaves are managed; other
+    # modelRoles entries and every other key stay the user's. A symlinked
+    # config.yml (dotfiles) is refused: atomic_write would replace the link.
+    "omp-config": {
+        "format": "yaml",
+        "refuse_symlink": True,
+        "backup_original": True,
+        "groups": {
+            "settings": [
+                {"path": ["modelRoles"], "policy": "map-entries"},
+                {"path": ["tools", "approvalMode"], "policy": "scalar"},
+            ],
+        },
+    },
 }
 
 
@@ -302,11 +321,98 @@ class MergeError(RuntimeError):
     """Raised for user-facing failures that must abort before any write."""
 
 
+# OMP parses config.yml with Bun's YAML 1.2 core schema. PyYAML's default 1.1
+# schema would read user values such as `off`, `12:30` or `1_000` as booleans
+# and numbers and write them back changed. These resolvers implement 1.2 core.
+YAML12_RESOLVERS: list[tuple[str, str, str]] = [
+    ("tag:yaml.org,2002:null", r"^(?:~|null|Null|NULL|)$", "~nN"),
+    ("tag:yaml.org,2002:bool", r"^(?:true|True|TRUE|false|False|FALSE)$", "tTfF"),
+    ("tag:yaml.org,2002:int", r"^[-+]?(?:[0-9]+|0o[0-7]+|0x[0-9a-fA-F]+)$", "-+0123456789"),
+    (
+        "tag:yaml.org,2002:float",
+        r"^(?:[-+]?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)(?:[eE][-+]?[0-9]+)?|[-+]?\.(?:inf|Inf|INF)|\.(?:nan|NaN|NAN))$",
+        "-+.0123456789",
+    ),
+]
+YAML12_TAGS = {tag for tag, _, _ in YAML12_RESOLVERS}
+
+
+def _yaml12() -> tuple[Any, type[Any], type[Any]]:
+    """Return ``(yaml, Loader, Dumper)`` for the YAML 1.2 core schema.
+
+    The loader resolves plain scalars like Bun does. The dumper keeps PyYAML's
+    1.1 resolvers and adds the 1.2 ones, so any string either reader would
+    misread (``off``, ``0755``, ``1e3``, ``0o17``) is written quoted.
+    """
+    import yaml  # Lazy: JSON and TOML profiles never need PyYAML.
+
+    dropped = YAML12_TAGS | {"tag:yaml.org,2002:timestamp", "tag:yaml.org,2002:value"}
+
+    def resolvers(base: dict[Any, Any], keep_tags: bool) -> dict[Any, Any]:
+        table: dict[Any, Any] = {
+            ch: [entry for entry in entries if keep_tags or entry[0] not in dropped] for ch, entries in base.items()
+        }
+        for tag, pattern, first in YAML12_RESOLVERS:
+            # PyYAML looks up the empty scalar under the "" key.
+            for ch in [*first, ""] if tag.endswith(":null") else first:
+                table.setdefault(ch, []).append((tag, re.compile(pattern)))
+        return table
+
+    def construct_int(loader: Any, node: Any) -> int:
+        value = str(loader.construct_scalar(node))
+        sign = -1 if value.startswith("-") else 1
+        digits = value.lstrip("+-")
+        if digits.startswith(("0o", "0x")):
+            return sign * int(digits[2:], 8 if digits[1] == "o" else 16)
+        return sign * int(digits, 10)
+
+    class Loader(yaml.SafeLoader):
+        yaml_implicit_resolvers = resolvers(yaml.SafeLoader.yaml_implicit_resolvers, keep_tags=False)
+
+    Loader.add_constructor("tag:yaml.org,2002:int", construct_int)
+
+    class Dumper(yaml.SafeDumper):
+        yaml_implicit_resolvers = resolvers(yaml.SafeDumper.yaml_implicit_resolvers, keep_tags=True)
+
+    return yaml, Loader, Dumper
+
+
+def load_yaml_config(raw: str, label: str | Path) -> dict[str, Any]:
+    """Parse YAML 1.2 into a mapping; empty means ``{}``, anything else is refused."""
+    yaml, loader, _ = _yaml12()
+    try:
+        data = yaml.load(raw, Loader=loader)
+    except yaml.YAMLError as error:
+        detail = " ".join(str(error).split())
+        raise MergeError(f"{label}: not a valid OMP config ({detail}); fix it first, no changes made") from error
+    if data is None:
+        return {}
+    if not isinstance(data, dict):
+        raise MergeError(f"{label}: not a valid OMP config (expected a mapping)")
+    return data
+
+
+def render_yaml(data: dict[str, Any], label: str | Path) -> str:
+    """Serialize a merged mapping, refusing output that does not round-trip under YAML 1.2."""
+    yaml, loader, dumper = _yaml12()
+    rendered = str(yaml.dump(data, Dumper=dumper, sort_keys=False, allow_unicode=True, default_flow_style=False))
+    # repr, not ==: a user `.nan` value never equals itself.
+    if repr(yaml.load(rendered, Loader=loader)) != repr(data):
+        raise MergeError(f"{label}: YAML merge verification failed (rendered config does not round-trip)")
+    return rendered
+
+
 def load_source(path: Path, profile: dict[str, Any]) -> dict[str, Any]:
-    """Parse the repo-managed source config (JSON or TOML by suffix, else the profile's format)."""
+    """Parse the repo-managed source config (format by suffix, else the profile's format)."""
     text = path.read_text(encoding="utf-8")
-    is_json = path.suffix == ".json" or (path.suffix != ".toml" and profile["format"] == "json")
-    source = json.loads(text) if is_json else tomllib.loads(text)
+    suffix_format = {".json": "json", ".toml": "toml", ".yml": "yaml", ".yaml": "yaml"}
+    source_format = suffix_format.get(path.suffix, profile["format"])
+    if source_format == "yaml":
+        source: Any = load_yaml_config(text, path)
+    elif source_format == "json":
+        source = json.loads(text)
+    else:
+        source = tomllib.loads(text)
     if not isinstance(source, dict):
         raise MergeError(f"{path}: expected an object at the root")
     return source
@@ -396,10 +502,13 @@ def adopt_matching_values(
     essential: otherwise a future repo update looks like a local edit and is
     conservatively skipped forever.
     """
+    raw = destination_path.read_text(encoding="utf-8")
     if profile["format"] == "json":
-        destination = load_json_config(destination_path.read_text(encoding="utf-8"), destination_path, profile)
+        destination = load_json_config(raw, destination_path, profile)
+    elif profile["format"] == "yaml":
+        destination = load_yaml_config(raw, destination_path)
     else:
-        destination = tomllib.loads(destination_path.read_text(encoding="utf-8"))
+        destination = tomllib.loads(raw)
 
     changed = False
     for path, source_value in collect_managed_leaves(profile, groups, source):
@@ -1242,6 +1351,8 @@ def rendered_is_empty(profile: dict[str, Any], rendered: str) -> bool:
                 if rule.get("keep_empty") and read_nested(data, rule["path"]) == (True, []):
                     delete_nested(data, rule["path"])
         return isinstance(data, dict) and not data
+    if profile["format"] == "yaml":
+        return not load_yaml_config(rendered, "rendered config")
     # Only bare (now empty) table headers may remain; comments are user content.
     only_headers = all(not line.strip() or TOML_TABLE_RE.match(line) for line in rendered.splitlines())
     return only_headers and is_empty_config(tomllib.loads(rendered))
@@ -1325,6 +1436,78 @@ def merge_toml(
     return merged_text, updates, conflicts, deletions, additions
 
 
+def load_yaml_destination(destination_path: Path) -> dict[str, Any]:
+    if not destination_path.exists():
+        return {}
+    return load_yaml_config(destination_path.read_text(encoding="utf-8"), destination_path)
+
+
+def merge_yaml(
+    source: dict[str, Any],
+    destination_path: Path,
+    profile: dict[str, Any],
+    groups: list[str],
+    state_entry: dict[str, Any],
+    force: bool,
+) -> tuple[str | None, list[tuple[list[str], Any]], list[str], list[list[str]], dict[str, list[str]]]:
+    destination = load_yaml_destination(destination_path)
+    updates, conflicts, deletions, additions = plan_merge(profile, groups, source, destination, state_entry, force)
+    if not updates and not deletions:
+        return None, updates, conflicts, deletions, additions
+
+    merged = copy.deepcopy(destination)
+    for path, value in updates:
+        write_nested(merged, path, value)
+    for path in deletions:
+        delete_nested(merged, path)
+    return render_yaml(merged, destination_path), updates, conflicts, deletions, additions
+
+
+def remove_yaml(
+    source: dict[str, Any],
+    destination_path: Path,
+    profile: dict[str, Any],
+    groups: list[str],
+    state_entry: dict[str, Any],
+    force: bool,
+) -> tuple[str | None, list[list[str]], list[str], list[str]]:
+    if not destination_path.exists():
+        return None, [], [], []
+    destination = load_yaml_destination(destination_path)
+    to_remove, rewrites, conflicts, stale_keys = plan_remove(profile, groups, source, destination, state_entry, force)
+    if not to_remove and not rewrites:
+        return None, [], conflicts, stale_keys
+
+    pruned = copy.deepcopy(destination)
+    for path in to_remove:
+        delete_nested(pruned, path)
+    for path, items in rewrites:
+        write_nested(pruned, path, items)
+    changed = to_remove + [path for path, _ in rewrites]
+    return render_yaml(pruned, destination_path), changed, conflicts, stale_keys
+
+
+def backup_before_rewrite(profile: dict[str, Any], destination_path: Path) -> None:
+    """Save the original once before the first rewrite drops comments and formatting.
+
+    An existing backup is never overwritten: it holds the pre-ycc original.
+    """
+    if not profile.get("backup_original") or not destination_path.is_file():
+        return
+    backup = destination_path.with_name(f"{destination_path.name}.ycc-backup")
+    if backup.exists() or backup.is_symlink():
+        return
+    original = destination_path.read_bytes()
+    fd = os.open(backup, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        os.fchmod(fd, 0o600)
+        os.write(fd, original)
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    print(f"  [!!] comments and formatting in {destination_path} are not preserved; original saved to {backup}")
+
+
 def run_remove(
     args: argparse.Namespace,
     profile: dict[str, Any],
@@ -1338,7 +1521,8 @@ def run_remove(
 ) -> int:
     """Remove tool-owned managed entries; user-edited entries need --force."""
     label = f"({args.profile}: {', '.join(groups)})"
-    remove = remove_json if profile["format"] == "json" else remove_toml
+    removers = {"json": remove_json, "toml": remove_toml, "yaml": remove_yaml}
+    remove = removers[profile["format"]]
     if args.prune_hook_commands:
         remove = remove_hook_commands
     try:
@@ -1377,6 +1561,7 @@ def run_remove(
     original_mode = destination_path.stat().st_mode & 0o777
     original_link = os.readlink(destination_path) if destination_path.is_symlink() else None
     empty = rendered_is_empty(profile, rendered)
+    backup_before_rewrite(profile, destination_path)
     if empty:
         destination_path.unlink()
     else:
@@ -1445,10 +1630,21 @@ def main() -> int:
     if not source_path.is_file():
         print(f"merge_managed_config: source not found: {source_path}", file=sys.stderr)
         return 1
-    if profile.get("strict_hooks") and (
-        destination_path.is_symlink() or any(p.is_symlink() for p in destination_path.parents)
+    # Cursor hooks also refuse symlinked parents. OMP refuses only a symlinked
+    # config file (atomic_write would replace the link); a symlinked agent dir
+    # or home (/home -> /var/home) is written through normally.
+    if (profile.get("strict_hooks") and any(p.is_symlink() for p in destination_path.parents)) or (
+        (profile.get("strict_hooks") or profile.get("refuse_symlink")) and destination_path.is_symlink()
     ):
-        print("merge_managed_config: refusing symlinked Cursor hooks destination", file=sys.stderr)
+        if profile.get("strict_hooks"):
+            print("merge_managed_config: refusing symlinked Cursor hooks destination", file=sys.stderr)
+        else:
+            snippet = source_path.read_text(encoding="utf-8")
+            print(
+                f"merge_managed_config: refusing to write through symlinked {destination_path}; "
+                f"add these keys yourself:\n{snippet}",
+                file=sys.stderr,
+            )
         return 1
     try:
         source = load_source(source_path, profile)
@@ -1498,7 +1694,8 @@ def main() -> int:
     if args.remove:
         return run_remove(args, profile, groups, source, destination_path, state, state_key, state_entry, plan_state)
 
-    merge = merge_json if profile["format"] == "json" else merge_toml
+    mergers = {"json": merge_json, "toml": merge_toml, "yaml": merge_yaml}
+    merge = mergers[profile["format"]]
     try:
         rendered, updates, conflicts, deletions, additions = merge(
             source, destination_path, profile, groups, plan_state, args.force
@@ -1554,6 +1751,7 @@ def main() -> int:
 
     # Only now, after parsing and planning have succeeded, does anything on
     # disk change. atomic_write replaces the symlink itself via rename.
+    backup_before_rewrite(profile, destination_path)
     atomic_write(destination_path, rendered)
     try:
         save_state(state)

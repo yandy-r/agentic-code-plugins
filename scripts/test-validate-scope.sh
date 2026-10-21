@@ -94,6 +94,11 @@ expect_targets "OMP hook-verdict docs (ADR, spike) select omp" "omp" \
 expect_targets "OMP install helper selects omp, config and types" "omp config types" scripts/omp_install.py
 expect_targets "OMP install tests select omp, config and types (mypy files)" "omp config types" scripts/test_omp_install.py
 expect_targets "OMP install live harness selects omp" "omp" scripts/test-omp-install-lifecycle.sh
+expect_targets "OMP rules flattener selects omp and types" "omp types" scripts/generate_omp_rules.py
+expect_targets "OMP rules tests select omp and types (mypy files)" "omp types" scripts/test_generate_omp_rules.py
+expect_targets "OMP model policy and tests select omp, config and types" "omp config types" \
+    scripts/omp_model_policy.py scripts/test_omp_model_policy.py
+expect_targets "OMP rules/settings live harness selects omp" "omp" scripts/test-omp-rules-settings.sh
 expect_targets "unrelated package output selects everything" "${ALL}" packages/other/ycc-mcp/mcp.json
 expect_targets "Cursor hook source selects everything" "${ALL}" ycc/settings/cursor/herdr-session-start.sh
 expect_targets "vendored Cursor schemas select cursor native and config" "cursor cursor-native config" scripts/vendor/cursor/plugin.schema.json

@@ -1,6 +1,7 @@
-# Cursor rule sources
+# Cursor and OMP rule sources
 
-This tree supplies Cursor rule content, generated as `.cursor-plugin/rules/**/*.mdc`.
+This tree supplies Cursor rule content, generated as `.cursor-plugin/rules/**/*.mdc`,
+and OMP rule content, generated as flat `packages/omp/ycc-rules/rules/ycc-*.md`.
 No Claude, Codex or opencode rules generator/installer loads this tree as rules.
 Exception: the `hooks-workflow` skill reads `common/hooks.md` and language `hooks.md`
 as hook-configuration inputs across targets. These live inputs are retained for
@@ -12,6 +13,7 @@ After editing sources, regenerate and validate:
 ```bash
 ./scripts/generate-cursor-rules.sh
 ./scripts/validate-cursor-rules.sh
+./scripts/sync.sh --only omp       # regenerates packages/omp/ycc-rules
 ```
 
 ## Scope and descriptions
@@ -59,6 +61,28 @@ Keep directories intact to avoid colliding filenames. Choose only the stacks you
 need. The installer's `--rules` option is separate: it links files from
 `ycc/settings/rules/`, not this tree. It does not install these sources as Claude,
 Codex or opencode rules.
+
+## OMP
+
+`scripts/generate_omp_rules.py` (called by `scripts/generate_omp_packages.py`)
+flattens this tree into the `ycc-rules` OMP package, because OMP scans plugin
+`rules/` flat and names a rule after its file stem:
+
+- **Names.** `<family>/<stem>.md` becomes `ycc-<family>-<stem>.md` (for example
+  `golang/coding-style.md` → `ycc-golang-coding-style.md`). `hooks.md` and
+  `README.md` are skipped, which leaves 31 rules.
+- **Frontmatter.** `description` is copied; `alwaysApply` is emitted only when
+  true (`common/security.md`, `common/git-workflow.md`), and then `globs` is
+  dropped; source `paths` become `globs`. No other keys.
+- **Bodies.** Relative rule links become `rule://ycc-<family>-<stem>` URLs.
+  Generation fails on `~/.claude`, `CLAUDE_PLUGIN_ROOT` or `/ycc:` tokens.
+- **Advisory globs.** OMP lists `globs` next to each rule but never attaches a
+  rule automatically. Language and web rules are on-demand rulebook entries read
+  via `rule://<name>`, so parity with Cursor is partial. Write descriptions
+  that say when to read the rule.
+- **Override and disable.** Users override a rule by copying it under the same
+  name to `<agentDir>/rules/` or `<cwd>/.omp/rules/`, or disable it with
+  `ttsr.disabledRules`. See [`docs/install/omp.md`](../../docs/install/omp.md#rules).
 
 ## Adding guidance
 

@@ -47,4 +47,8 @@ files = [
   "scripts/omp_install.py",
   "scripts/test_omp_install.py",
   "scripts/tests/install/fake_omp.py",
+  "scripts/generate_omp_rules.py",
+  "scripts/test_generate_omp_rules.py",
+  "scripts/omp_model_policy.py",
+  "scripts/test_omp_model_policy.py",
 ]

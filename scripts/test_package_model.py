@@ -74,6 +74,18 @@ class CheckedInModelTests(unittest.TestCase):
         self.assertFalse(entry.listed)
         self.assertEqual(entry.gates, ())
 
+    def test_omp_rules_rows_included(self) -> None:
+        model = load_package_model()
+        rules = model.lookup("ycc-rules", "omp")
+        assert rules is not None
+        self.assertEqual((rules.status, rules.listed, rules.mechanism), ("included", False, "native"))
+        self.assertEqual(tuple(rules.components), ("rules",))
+        fallback = model.lookup("installer-fallback", "omp")
+        assert fallback is not None
+        self.assertEqual((fallback.status, fallback.listed), ("included", False))
+        self.assertEqual(tuple(fallback.components), ("instructions", "settings"))
+        self.assertEqual(fallback.gates, ())
+
     def test_claude_ycc_agents_deferred_to_v7(self) -> None:
         entry = load_package_model().lookup("ycc-agents", "claude")
         assert entry is not None

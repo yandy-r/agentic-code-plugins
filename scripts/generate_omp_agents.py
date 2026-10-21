@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import omp_model_policy
 from generate_codex_common import SOURCE_MCP_PATH, SRC_AGENTS_DIR, dump_frontmatter, parse_frontmatter
 from generate_omp_skills import (
     SRC_DIR as SRC_SKILLS_DIR,
@@ -58,11 +59,8 @@ TOOL_MAP: Mapping[str, str] = {
 OMP_TOOL_IDS = frozenset(TOOL_MAP.values())
 
 # D5: Claude model -> OMP role alias; None means "emit no model key" (parent model).
-MODEL_MAP: Mapping[str, str | None] = {
-    "opus": "@slow",
-    "sonnet": "@task",
-    "inherit": None,
-}
+# Declared in ycc/settings/models.json targets.omp.agentModels.
+MODEL_MAP: Mapping[str, str | None] = omp_model_policy.agent_model_map()
 
 # OMP reserves these names for the top-level and fallback subagent sessions and drops
 # custom agents that use them.
