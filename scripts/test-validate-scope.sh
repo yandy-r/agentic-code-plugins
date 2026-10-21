@@ -67,6 +67,7 @@ expect_targets "Cursor native policy tests select content, native and config" "c
 expect_targets "Cursor generator selects content, native, config and types" "cursor cursor-native config types" scripts/generate_cursor_packages.py
 expect_targets "Cursor resources select content, native, config and types" "cursor cursor-native config types" scripts/cursor_native_resources.py
 expect_targets "Cursor package tests select content, native and config" "cursor cursor-native config" scripts/test_generate_cursor_packages.py
+expect_targets "shared MCP secret audit selects Cursor, OMP, config and types" "cursor omp cursor-native config types" scripts/mcp_secret_audit.py
 expect_targets "generated OMP skills, agents and commands select omp" "omp" \
     packages/omp/ycc/skills/init/SKILL.md packages/omp/ycc/agents/planner.md packages/omp/ycc/commands/plan.md
 expect_targets "OMP generators select omp and types" "omp types" \

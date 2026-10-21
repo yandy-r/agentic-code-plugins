@@ -416,8 +416,43 @@ class OmpInstallTests(unittest.TestCase):
 
     def test_matrix_model_packages_user_scope(self) -> None:
         packages = omp_install.select_packages("")
-        self.assertIn("ycc", packages)
+        self.assertEqual(packages, ("ycc", "ycc-mcp"))
         self.lifecycle(packages, "user", self.model_version)
+
+    def test_ycc_mcp_installs_its_mcp_config_and_asks_for_a_reload(self) -> None:
+        for scope in omp_install.SCOPES:
+            with self.subTest(scope=scope):
+                self.clear_log()
+                result = self.install(scope)
+                self.assertIn(f"omp plugin install --scope {scope} ycc-mcp@ycc", self.calls())
+                entry = self.entry("ycc-mcp", scope)
+                assert entry is not None
+                config = Path(entry["installPath"]) / ".mcp.json"
+                self.assertEqual(config.read_bytes(), (omp_install.ROOT / "mcp-configs/mcp.json").read_bytes())
+                self.assertIn("MCP servers from ycc-mcp start only after a reload or restart", result.out)
+                self.assertIn("/reload-plugins", result.out)
+                self.clear_log()
+                self.remove(scope)
+                self.assertIn(f"omp plugin uninstall --scope {scope} ycc-mcp@ycc", self.calls())
+                self.assertIsNone(self.entry("ycc-mcp", scope))
+
+    def test_package_selection_installs_and_removes_only_ycc_mcp(self) -> None:
+        self.clear_log()
+        self.ok("install", "--packages", "ycc-mcp", "--scope", "user", "--project-root", str(self.home))
+        calls = self.calls()
+        self.assertIn("omp plugin install --scope user ycc-mcp@ycc", calls)
+        self.assertNotIn("omp plugin install --scope user ycc@ycc", calls)
+        self.assert_installed(("ycc-mcp",), "user", self.model_version)
+        self.assertIsNone(self.entry("ycc", "user"))
+        # A later default install adds ycc next to the recorded ycc-mcp; remove drops both.
+        self.install("user")
+        self.assert_installed(("ycc", "ycc-mcp"), "user", self.model_version)
+        self.clear_log()
+        self.remove("user")
+        calls = self.calls()
+        for package in ("ycc", "ycc-mcp"):
+            self.assertIn(f"omp plugin uninstall --scope user {package}@ycc", calls)
+        self.assertEqual(self.marketplaces(), {})
 
     def test_matrix_model_packages_project_scope(self) -> None:
         self.lifecycle(omp_install.select_packages(""), "project", self.model_version)
@@ -478,7 +513,7 @@ class OmpInstallTests(unittest.TestCase):
         self.clear_log()
         result = self.remove("user")
         self.assertEqual(self.mutating(), [])
-        self.assertIn("[!!] kept marketplace ycc: ycc@ycc (user) still installed", result.out)
+        self.assertIn("[!!] kept marketplace ycc: ycc@ycc (user), ycc-mcp@ycc (user) still installed", result.out)
         self.assertIsNotNone(self.entry("ycc", "user"))
         self.assertIn("ycc", self.marketplaces())
         self.assertTrue(omp_install.export_dir().is_dir())
@@ -692,10 +727,11 @@ class OmpInstallTests(unittest.TestCase):
             calls.index("omp plugin marketplace remove ycc"), calls.index(f"omp plugin marketplace add {exported}")
         )
         self.assertIn(overlap_line, result.out)
+        # The default native selection replaces the legacy ycc with ycc and ycc-mcp.
         items = omp_install.ycc_items(self.listing(self.home), "user")
-        self.assertEqual([item["id"] for item in items], ["ycc@ycc"])
-        self.assertEqual(len(items[0]["entries"]), 1)
-        self.assert_installed(("ycc",), "user", self.model_version)
+        self.assertEqual([item["id"] for item in items], ["ycc@ycc", "ycc-mcp@ycc"])
+        self.assertEqual([len(item["entries"]) for item in items], [1, 1])
+        self.assert_installed(("ycc", "ycc-mcp"), "user", self.model_version)
         self.assertEqual(self.marketplaces(), {"other": str(other), "ycc": str(exported)})
         self.assertEqual(overlap.read_text(encoding="utf-8"), "mine")
 
@@ -737,13 +773,24 @@ class OmpInstallTests(unittest.TestCase):
         self.assertEqual(self.snapshot(), before)
 
     def test_migrate_refuses_a_legacy_install_with_no_native_package(self) -> None:
-        self.legacy_checkout_marketplace("ycc", "ycc-mcp")
+        self.legacy_checkout_marketplace("ycc", "ycc-hooks")
         before = self.snapshot()
         self.clear_log()
         result = self.refused("migrate", "--apply")
-        self.assertIn("ycc-mcp@ycc (user) has no native OMP package yet", result.err)
+        self.assertIn("ycc-hooks@ycc (user) has no native OMP package yet", result.err)
         self.assertEqual(self.mutating(), [])
         self.assertEqual(self.snapshot(), before)
+
+    def test_migrate_carries_a_legacy_ycc_and_ycc_mcp_pair_to_native(self) -> None:
+        self.legacy_checkout_marketplace("ycc", "ycc-mcp")
+        self.clear_log()
+        self.ok("migrate", "--apply")
+        calls = self.calls()
+        for package in ("ycc", "ycc-mcp"):
+            self.assertIn(f"omp plugin uninstall --scope user {package}@ycc", calls)
+            self.assertIn(f"omp plugin install --scope user {package}@ycc", calls)
+        self.assert_installed(("ycc", "ycc-mcp"), "user", self.model_version)
+        self.assertEqual(self.marketplaces(), {"ycc": str(omp_install.export_dir())})
 
     def test_migrate_failure_records_pending_scopes_and_rerun_finishes_them(self) -> None:
         self.legacy_checkout_marketplace("ycc")
@@ -862,7 +909,8 @@ class OmpInstallTests(unittest.TestCase):
             if runtime.runtime == "omp"
             and not (runtime.status == "included" and runtime.mechanism == "native" and not runtime.opt_in)
         ]
-        self.assertTrue({"ycc-mcp", "ycc-hooks", "ycc-rules", "ycc-all", "installer-fallback"} <= set(rejected))
+        self.assertTrue({"ycc-hooks", "ycc-rules", "ycc-all", "installer-fallback"} <= set(rejected))
+        self.assertNotIn("ycc-mcp", rejected)
         before = self.snapshot()
         for package in rejected:
             with self.subTest(package=package):

@@ -489,6 +489,12 @@ def restart_line(packages: tuple[str, ...]) -> str:
     restart = [package for package in packages if RESTART_COMPONENTS & set(package_components(package))]
     if restart:
         return f"[!!] restart running omp sessions: {', '.join(restart)} ship hooks or extensions"
+    mcp = [package for package in packages if "mcp" in package_components(package)]
+    if mcp:
+        return (
+            "[ok] running omp sessions: run /reload-plugins (skills, commands, agents, MCP) or restart them; "
+            f"MCP servers from {', '.join(mcp)} start only after a reload or restart"
+        )
     return "[ok] running omp sessions: run /reload-plugins (skills, commands, agents, MCP)"
 
 

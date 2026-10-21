@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Opt-in live install checks for the generated OMP native packages (YAN-1171).
+# Opt-in live install checks for the generated OMP native packages (YAN-1171) and the
+# ycc-mcp package's MCP servers (YAN-1173: list, start, disable/override, removal).
 # Not part of CI. No credentials, no network inside the sandbox, no model inference.
 set -euo pipefail
 umask 077
@@ -35,6 +36,20 @@ plugin list --json (lockstep version, installPath, cache bytes and modes), docto
 get_available_commands (every ycc:<skill> command and skill:<name>), agent models kept
 (probe extension calling omp's agent discovery), upgrade detection (.omp-plugin-only bump
 is ignored; .claude-plugin + catalog + package.json bump upgrades), uninstall cleanup.
+
+ycc-mcp (YAN-1173; skipped, and logged, when the catalog does not list it): --dry-run then
+install with a byte-identical cache; list (a probe extension calls omp's loadAllMCPConfigs:
+every server in the shipped .mcp.json is ycc-mcp:<server> unless an equivalent connection
+shadows it, the browser filter drops exactly playwright, unset ${VAR} env stays literal);
+start (a stdio stub's tool reaches RPC get_state); user mcp.json disabledServers hides a
+server and enabledServers revives one shipped with enabled: false; plugin disable/enable;
+a native user mcp.json entry with the same ycc-mcp:<server> name overrides the package;
+uninstall leaves no install, cache, link or server. Local mode appends fixture-only
+python3 stub servers (smoke; smokeoff with enabled: false; both run
+${OMP_PLUGIN_ROOT}/mcp_stub.py) to the fixture copy's ycc-mcp/.mcp.json before the commit
+and leaves the shipped servers unchanged. --public has no stub: the start and
+enabledServers checks are skipped (logged), and disabledServers and the override target
+ycc-mcp:context7 instead.
 --keep    Retain the sandbox and transcript (always retained when a check fails).
 EOF
 }
@@ -216,8 +231,11 @@ if ((public)); then
   # The fork's packages must be exactly what this checkout generates (catalog may list a subset).
   host fixture-proof diff -r "$root/export/packages/omp" "$source_root/packages/omp"
 else
-  log "YAN-1171 | $version_text | sandbox=$sandbox | local pinned fixture (generated export)"
+  log "YAN-1171/YAN-1173 | $version_text | sandbox=$sandbox | local pinned fixture (generated export)"
   cp -a "$root/export" "$source_root"
+  # Fixture-only stdio stubs in the ycc-mcp copy (never in the export): the shipped servers
+  # cannot connect offline, so these prove a server from the installed package starts.
+  check mcp-fixture mcp-fixture "$source_root"
   host init git -C "$source_root" init -q -b fixture
   host stage git -C "$source_root" add -A
   host commit-v1 git -C "$source_root" -c user.name=omp-native -c user.email=omp-native@localhost \
@@ -229,6 +247,12 @@ fi
 version=$("$python" -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' \
   "$source_root/packages/omp/ycc/.omp-plugin/plugin.json")
 log "Pinned commit: $commit_sha (lockstep version $version)"
+if "$python" -c 'import json,sys; sys.exit("ycc-mcp" not in {p["name"] for p in json.load(open(sys.argv[1]))["plugins"]})' \
+  "$source_root/.omp-plugin/marketplace.json"; then
+  mcp_listed=1
+else
+  mcp_listed=0
+fi
 
 # Null model provider: lets RPC sessions start; no prompt is ever sent.
 mkdir -p "$omp_home/agent"
@@ -268,6 +292,51 @@ rpc() {
   assert_rc 0 "$label rpc"
   has "$label" '"command":"get_available_commands","success":true'
 }
+# The MCP probe imports omp's own MCP config loader (mcp/config.ts loadAllMCPConfigs, the
+# function a session's MCP manager discovers with) and capability dedupe. It reports every
+# discovered server with its source, the servers left after the browser filter a session
+# applies (shouldFilterBrowserMCPForPrelude with the live browser.enabled setting; eval is a
+# default tool) and the servers an equivalent connection shadows.
+cat >"$root/mcp-probe.ts" <<'EOF'
+export default async function (pi) {
+  let d;
+  try {
+    const cfg = await import("@oh-my-pi/pi-coding-agent/mcp/config");
+    const disc = await import("@oh-my-pi/pi-coding-agent/discovery");
+    const { Settings } = await import("@oh-my-pi/pi-coding-agent/config/settings");
+    const { cfgBrowserEnabled } = await import("@oh-my-pi/pi-coding-agent/tools/browser/settings");
+    const browserEnabled = cfgBrowserEnabled.get(Settings.instance);
+    const filter = cfg.shouldFilterBrowserMCPForPrelude({
+      restrictToolNames: false, browserEnabled, evalRegistered: true, evalActive: true });
+    const r = await cfg.loadAllMCPConfigs(process.cwd(), { filterBrowser: false });
+    const kept = await cfg.loadAllMCPConfigs(process.cwd(), { filterBrowser: filter });
+    const all = await disc.loadCapability("mcps", { cwd: process.cwd() });
+    d = "PROBE " + JSON.stringify({
+      browserEnabled,
+      servers: Object.fromEntries(Object.entries(r.configs).map(([k, v]) => [k, {
+        type: v.type, args: v.args, url: v.url, env: v.env, enabled: v.enabled,
+        provider: r.sources[k]?.provider ?? null, path: r.sources[k]?.path ?? null }])),
+      browserKept: Object.keys(kept.configs),
+      shadowed: all.all.filter(s => s._shadowed).map(s => s.name),
+    });
+  } catch (e) { d = "PROBEERR " + String(e).replace(/"/g, "'"); }
+  pi.registerCommand("mcp-probe", { description: d, handler: async () => {} });
+}
+EOF
+# One RPC session with the MCP probe: get_available_commands (probe) then get_state (prompt).
+mcp_rpc() {
+  local label=$1; shift
+  printf '%s\n' '{"id":"cmds","type":"get_available_commands"}' '{"id":"state","type":"get_state"}' \
+    >"$root/tmp/$label.rpc.in"
+  stdin_file="$root/tmp/$label.rpc.in"
+  o "$label" --mode rpc --no-session --no-title --model omp-native-null/null-model -e "$root/mcp-probe.ts" "$@"
+  stdin_file=/dev/null
+  assert_rc 0 "$label rpc"
+  has "$label" '"command":"get_available_commands","success":true' '"command":"get_state","success":true'
+}
+# mcp_state LABEL SERVER STATE TOOLS: a fresh MCP RPC session, then the omp_native_smoke assertion.
+mcp_state() { mcp_rpc "$1"; check "$1-proof" mcp-state "$root/logs/$1.stdout" "$2" "$3" "$4"; }
+user_mcp=$omp_home/agent/mcp.json
 
 # --- 1. Catalog, dry run, install ----------------------------------------------------------
 o mkt-add plugin marketplace add "$url"
@@ -301,7 +370,101 @@ rpc rpc-agents -e "$root/probe.ts"
 check agents-proof agents "$root/logs/rpc-agents.stdout" "$source_root"
 log 'PASS discovery: every ycc:<skill> command, skill:<name> skill and agent loads from the install; agent models kept'
 
-# --- 3. Upgrade detection ----------------------------------------------------------------------
+# --- 3. ycc-mcp: install, list, start, disable/override, removal (YAN-1173) -----------------
+# Runs before the upgrade checks, which then see only ycc installed again.
+if ((mcp_listed)); then
+  # 0 waits for the initial connection attempts, so the first get_state carries MCP tools.
+  printf 'mcp:\n  startupTimeoutMs: 0\n' >"$omp_home/agent/config.yml"
+  if ((public)); then
+    target=ycc-mcp:context7
+    target_tool=
+    log 'SKIP --public: no fixture stub, so the start and enabledServers checks are skipped; disabledServers and the override use ycc-mcp:context7'
+  else
+    target=ycc-mcp:smoke
+    target_tool=mcp__ycc_mcp_smoke_smoke_ping
+  fi
+  # The generated ycc-mcp package is the committed one; the fixture only appends stub servers.
+  host mcp-export-proof diff -r "$root/export/packages/omp/ycc-mcp" "$repo/packages/omp/ycc-mcp"
+  o mcp-install-dry plugin install --dry-run ycc-mcp@ycc
+  assert_rc 0 'ycc-mcp install --dry-run'
+  has mcp-install-dry '[dry-run] Would install ycc-mcp@ycc'
+  if [[ -e "$omp_home/plugins/node_modules/ycc-mcp" ]] ||
+    grep -qF 'ycc-mcp@ycc' "$omp_home/plugins/installed_plugins.json"; then
+    die 'ycc-mcp install --dry-run wrote plugin state'
+  fi
+  o mcp-install plugin install ycc-mcp@ycc
+  assert_rc 0 'ycc-mcp install'
+  has mcp-install "Installed ycc-mcp from ycc ($version)"
+  o mcp-list plugin list --json
+  assert_rc 0 'plugin list --json (ycc-mcp)'
+  check mcp-list-proof mcp-installed "$root/logs/mcp-list.stdout" "$source_root" "$version"
+  [[ -L "$omp_home/plugins/node_modules/ycc-mcp" ]] || die 'runtime link node_modules/ycc-mcp missing (package.json#name)'
+  log "PASS ycc-mcp install: export matches the committed packages/omp/ycc-mcp; --dry-run writes nothing; user scope at $version, cache byte-identical to the pinned packages/omp/ycc-mcp$( ((public)) || printf ' (plus fixture stubs)'), runtime link ycc-mcp"
+
+  shipped_mcp=$root/export/packages/omp/ycc-mcp/.mcp.json
+  mcp_rpc mcp-servers
+  check mcp-servers-proof mcp-listed "$root/logs/mcp-servers.stdout" "$shipped_mcp" "$root/logs/mcp-list.stdout"
+  printf 'mcp:\n  startupTimeoutMs: 0\nbrowser:\n  enabled: false\n' >"$omp_home/agent/config.yml"
+  mcp_rpc mcp-servers-nobrowser
+  check mcp-servers-nobrowser-proof mcp-listed "$root/logs/mcp-servers-nobrowser.stdout" "$shipped_mcp" "$root/logs/mcp-list.stdout"
+  printf 'mcp:\n  startupTimeoutMs: 0\n' >"$omp_home/agent/config.yml"
+  # shellcheck disable=SC2016 # literal ${VAR} placeholder in a log line
+  log 'PASS ycc-mcp list: omp discovers every shipped server as ycc-mcp:<server> from the install (linear-personal shadowed by linear); browser.enabled drops exactly playwright and browser.enabled: false keeps it; unset ${XERO_*} env stays literal'
+
+  if ((public)); then
+    log 'SKIP ycc-mcp start (--public): no fixture stub server; the shipped servers cannot connect offline'
+  else
+    check mcp-start-proof mcp-state "$root/logs/mcp-servers.stdout" ycc-mcp:smoke plugin \
+      'mcp__ycc_mcp_smoke_smoke_ping,!mcp__ycc_mcp_smokeoff_'
+    # shellcheck disable=SC2016 # literal ${OMP_PLUGIN_ROOT} placeholder in a log line
+    log 'PASS ycc-mcp start: the packaged stdio server ycc-mcp:smoke (${OMP_PLUGIN_ROOT}/mcp_stub.py) spawned; mcp__ycc_mcp_smoke_smoke_ping in RPC get_state; the enabled: false stub did not start'
+  fi
+
+  printf '{"disabledServers": ["%s"]}\n' "$target" >"$user_mcp"
+  mcp_state mcp-user-disabled "$target" absent "${target_tool:--}"
+  rm -f -- "$user_mcp"
+  mcp_state mcp-user-restored "$target" plugin "${target_tool:--}"
+  if ((!public)); then
+    printf '{"enabledServers": ["ycc-mcp:smokeoff"]}\n' >"$user_mcp"
+    mcp_state mcp-user-enabled ycc-mcp:smokeoff plugin mcp__ycc_mcp_smokeoff_smokeoff_ping
+    printf '{"disabledServers": ["ycc-mcp:smokeoff"], "enabledServers": ["ycc-mcp:smokeoff"]}\n' >"$user_mcp"
+    mcp_state mcp-user-both ycc-mcp:smokeoff absent mcp__ycc_mcp_smokeoff_smokeoff_ping
+    rm -f -- "$user_mcp"
+  fi
+  log "PASS ycc-mcp disabledServers: user mcp.json [\"$target\"] hides it; removing the list restores it$( ((public)) || printf '; enabledServers revives ycc-mcp:smokeoff (enabled: false) and disabledServers beats it')"
+
+  o mcp-disable plugin disable ycc-mcp@ycc
+  assert_rc 0 'plugin disable ycc-mcp@ycc'
+  has mcp-disable 'Disabled ycc-mcp@ycc'
+  mcp_state mcp-plugin-disabled 'ycc-mcp:*' absent '!mcp__ycc_mcp_'
+  o mcp-enable plugin enable ycc-mcp@ycc
+  assert_rc 0 'plugin enable ycc-mcp@ycc'
+  mcp_state mcp-plugin-enabled "$target" plugin "${target_tool:--}"
+  log 'PASS ycc-mcp plugin disable/enable: disable removes every ycc-mcp:<server> (no mcp__ycc_mcp_ tool); enable restores them'
+
+  override_tool=mcp__ycc_mcp_${target#ycc-mcp:}_override_ping
+  check mcp-override-stub mcp-stub "$root/override_stub.py"
+  printf '{"mcpServers": {"%s": {"command": "python3", "args": ["%s", "override"]}}}\n' \
+    "$target" "$root/override_stub.py" >"$user_mcp"
+  mcp_state mcp-override "$target" native "$override_tool${target_tool:+,!$target_tool}"
+  rm -f -- "$user_mcp"
+  mcp_state mcp-override-removed "$target" plugin "${target_tool:-!$override_tool}"
+  log "PASS ycc-mcp override: a native user mcp.json entry named $target wins over the package (started $override_tool); removing it restores the package server"
+
+  o mcp-uninstall plugin uninstall --scope user ycc-mcp@ycc
+  assert_rc 0 'uninstall ycc-mcp@ycc'
+  o mcp-list-after plugin list --json
+  assert_rc 0 'plugin list --json (after ycc-mcp uninstall)'
+  check mcp-absent-proof mcp-absent "$root/logs/mcp-list-after.stdout" "$omp_home"
+  mcp_state mcp-after 'ycc-mcp:*' absent '!mcp__ycc_mcp_'
+  check mcp-ycc-kept installed "$root/logs/mcp-list-after.stdout" "$source_root" "$version"
+  rm -f -- "$omp_home/agent/config.yml"
+  log 'PASS ycc-mcp removal: uninstall leaves no ycc-mcp install, registry or lock entry, runtime link, cache or ycc-mcp:<server>; ycc stays installed'
+else
+  log 'SKIP ycc-mcp (YAN-1173): the pinned catalog does not list ycc-mcp; no MCP checks ran'
+fi
+
+# --- 4. Upgrade detection ----------------------------------------------------------------------
 # A version only in .omp-plugin/plugin.json is invisible: OMP reads .claude-plugin/plugin.json,
 # then root plugin.json, then the catalog entry, then package.json (manager.ts #resolveCatalogVersion).
 IFS=. read -r v_major v_minor v_patch <<<"${version%%[-+]*}"
@@ -329,7 +492,7 @@ assert_rc 0 'plugin list --json (upgraded)'
 check upgraded-proof installed "$root/logs/list-upgraded.stdout" "$source_root" "$bump_two"
 log "PASS upgrade: .omp-plugin-only bump ignored ('All marketplace plugins are up to date.'); lockstep bump upgrades $version -> $bump_two"
 
-# --- 4. Uninstall ----------------------------------------------------------------------------
+# --- 5. Uninstall ----------------------------------------------------------------------------
 o uninstall plugin uninstall --scope user ycc@ycc
 assert_rc 0 uninstall
 o list-after plugin list --json
@@ -346,4 +509,4 @@ for line in open(sys.argv[1], encoding="utf-8"):
 sys.exit(1)
 PY
 log 'PASS uninstall: no ycc plugin, registry, lock entry, runtime link, cache or ycc: command remains'
-log "PASS all YAN-1171 OMP native package checks ($version_text, sandbox=$sandbox)"
+log "PASS all YAN-1171/YAN-1173 OMP native package checks ($version_text, sandbox=$sandbox)"

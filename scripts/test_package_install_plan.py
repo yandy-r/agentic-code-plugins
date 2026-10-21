@@ -37,6 +37,7 @@ def test_closures() -> None:
         ("ycc-hooks", "cursor", ("settings", "hooks")),
         ("ycc-hooks", "claude", ("settings", "rules", "hooks")),
         ("ycc", "omp", ("base",)),
+        ("ycc-mcp", "omp", ("base",)),
     ):
         assert plan_install(MODEL, (package,), (target,)).targets[0].steps == expected
     rules = plan_install(MODEL, ("ycc-rules",), ("cursor",)).targets[0]
@@ -48,6 +49,8 @@ def test_closures() -> None:
     assert hooks.cursor_units == ()
     assert "hooks" not in plan_install(MODEL, ("ycc-mcp",), ("cursor",)).targets[0].steps
     assert parse_packages("ycc,ycc-mcp,ycc") == ("ycc", "ycc-mcp")
+    both = plan_install(MODEL, ("ycc", "ycc-mcp"), ("omp",)).targets[0]
+    assert (both.steps, both.skipped_components) == (("base",), ())
 
 
 def test_rejections() -> None:
@@ -60,7 +63,7 @@ def test_rejections() -> None:
         ("ycc", "opencode", "not available"),
         ("ycc", "agents", "not available"),
         ("ycc-hooks", "codex", "excluded"),
-        ("ycc-mcp", "omp", "is deferred or opt-in for target 'omp'"),
+        ("ycc-mcp", "agents", "not available"),
         ("ycc-hooks", "omp", "is deferred or opt-in for target 'omp'"),
         ("ycc-rules", "omp", "is deferred or opt-in for target 'omp'"),
         ("ycc-all", "omp", "dependency installation proof"),

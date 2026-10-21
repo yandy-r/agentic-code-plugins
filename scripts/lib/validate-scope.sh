@@ -68,6 +68,9 @@ validate_scope_owned_targets() {
         # and other targets import or regenerate them.
         scripts/generate_cursor_packages.py | scripts/cursor_native_resources.py | scripts/generate-cursor-packages.sh | scripts/validate-cursor-packages.sh | scripts/validate_cursor_native.py | scripts/test_validate_cursor_native.py | scripts/test_generate_cursor_packages.py | scripts/vendor/cursor/*) echo "cursor cursor-native config" ;;
         scripts/cursor_live_smoke.py | scripts/test_cursor_live_smoke.py) echo "cursor-native" ;;
+        # The MCP secret-literal audit shared by the Cursor and OMP package generators (typed,
+        # so it also selects `types` through the scripts/*.py rule).
+        scripts/mcp_secret_audit.py) echo "cursor cursor-native omp config" ;;
 
         # OMP skill, agent and command generators, validators and golden tests. The golden
         # tests are in pyproject.toml [tool.mypy] files, so they also select `types`.

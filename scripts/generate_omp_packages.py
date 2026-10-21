@@ -7,13 +7,17 @@ Each included native OMP row becomes a package root at packages/omp/<key>/ carry
 - `.claude-plugin/plugin.json`: names the `/ycc:<skill>` command prefix under `--plugin-dir`
   and is the first manifest OMP reads for a relative source's install and upgrade version;
 - `package.json`: the unique runtime package name OMP links under `plugins/node_modules/`;
-- the component trees, staged through the existing generators (generate_omp_{skills,agents,commands}).
+- the component trees, staged through the existing generators (generate_omp_{skills,agents,commands});
+- for an MCP-only row (ycc-mcp), a root `.mcp.json` holding the exact bytes of mcp-configs/mcp.json.
+  OMP falls back to `<root>/.mcp.json` when no manifest declares `mcpServers` and names each
+  server `<package>:<server>`. The source is audited for secret literals first, and `${VAR}`
+  placeholders are never expanded here: OMP expands them when it starts a server.
 
 All manifests and the catalog entry carry the lockstep version from the model's version source.
 
 Selection keys on runtime == "omp" and mechanism == "native". Only included rows are emitted,
-and only the {skills, agents, commands, shared} component set has an emitter here; an included
-or listed row with any other set fails closed (MCP, hooks and rules are YAN-1173/1174/1175).
+and only the {skills, agents, commands, shared} and {mcp} component sets have emitters here; an
+included or listed row with any other set fails closed (hooks and rules are YAN-1174/1175).
 The root `.omp-plugin/marketplace.json` is written only when a row is listed and holds exactly
 the listed rows with fork-safe relative sources; otherwise it is removed. `--export DIR` writes
 a repository-shaped tree outside the checkout whose catalog also lists unlisted included rows,
@@ -33,6 +37,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from mcp_secret_audit import audit_no_secret_literals, load_mcp_config
 from package_model import Package, PackageModel, RuntimePackage, load_package_model
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -44,14 +49,17 @@ CLAUDE_MANIFEST = Path(".claude-plugin/plugin.json")
 PACKAGE_JSON = Path("package.json")
 MANIFESTS = (OMP_MANIFEST, CLAUDE_MANIFEST, PACKAGE_JSON)
 SOURCE_PLUGIN_PATH = Path("ycc/.claude-plugin/plugin.json")
+SOURCE_MCP_PATH = Path("mcp-configs/mcp.json")
+MCP_CONFIG = Path(".mcp.json")
 CATALOG_NAME = "ycc"
 MIN_OMP_VERSION = "18.12.2"
 CATALOG_DESCRIPTION = f"ycc development-workflow packages for oh-my-pi (omp >={MIN_OMP_VERSION})."
 
-# The one component set with an emitter in this generator. Other sets are owned by the
+# The component sets with an emitter in this generator. Other sets are owned by the
 # issues named here and fail closed until their emitters land.
 WORKFLOW_COMPONENTS = frozenset({"skills", "agents", "commands", "shared"})
-COMPONENT_OWNERS = {"mcp": "YAN-1173", "hooks": "YAN-1174", "rules": "YAN-1175"}
+MCP_COMPONENTS = frozenset({"mcp"})
+COMPONENT_OWNERS = {"hooks": "YAN-1174", "rules": "YAN-1175"}
 COMPONENT_DIRS = ("skills", "agents", "commands")
 # generate_omp_{skills,agents,commands} write one tree, always under this package root.
 WORKFLOW_PACKAGE = "ycc"
@@ -102,14 +110,14 @@ def native_packages(packages: Iterable[Package]) -> tuple[Package, ...]:
         if runtime.status != "included":
             continue
         components = frozenset(runtime.components)
-        if components != WORKFLOW_COMPONENTS:
-            unsupported = components - WORKFLOW_COMPONENTS or components
+        if components not in (WORKFLOW_COMPONENTS, MCP_COMPONENTS):
+            unsupported = components - WORKFLOW_COMPONENTS - MCP_COMPONENTS or components
             owners = sorted({COMPONENT_OWNERS.get(component, "no planned issue") for component in unsupported})
             raise ValueError(
                 f"{where}: no OMP emitter for components {sorted(components)} (owned by {', '.join(owners)}); "
                 "keep the row deferred and unlisted until its emitter lands"
             )
-        if package.key != WORKFLOW_PACKAGE:
+        if components == WORKFLOW_COMPONENTS and package.key != WORKFLOW_PACKAGE:
             raise ValueError(f"{where}: the skills/agents/commands trees ship only in the {WORKFLOW_PACKAGE} package")
         package_root(package)
         selected.append(package)
@@ -177,6 +185,26 @@ def manifest_payloads(packages: Iterable[Package], version: str, author: dict[st
     return output
 
 
+def is_mcp_package(package: Package) -> bool:
+    runtime = omp_runtime(package)
+    return runtime is not None and frozenset(runtime.components) == MCP_COMPONENTS
+
+
+def mcp_source(repo_root: Path = REPO_ROOT) -> bytes:
+    """The audited source bytes; parsed only to fail closed, never rewritten or expanded."""
+    content = (repo_root / SOURCE_MCP_PATH).read_bytes()
+    audit_no_secret_literals(load_mcp_config(content, SOURCE_MCP_PATH.as_posix()), SOURCE_MCP_PATH.as_posix())
+    return content
+
+
+def mcp_payloads(packages: Iterable[Package], repo_root: Path = REPO_ROOT) -> dict[Path, Payload]:
+    roots = [package_root(package) for package in packages if is_mcp_package(package)]
+    if not roots:
+        return {}
+    content = mcp_source(repo_root)
+    return {root / MCP_CONFIG: Payload(content) for root in roots}
+
+
 def component_payloads(root: Path) -> dict[Path, Payload]:
     """Stage the skills, agents and commands through their generators without touching the repo."""
     import generate_omp_agents as agents
@@ -202,6 +230,7 @@ def build_output(
     *,
     include_unlisted: bool = False,
     components: ComponentSource = component_payloads,
+    repo_root: Path = REPO_ROOT,
 ) -> tuple[dict[Path, Payload], tuple[Path, ...]]:
     """Resolve the complete expected output and owned roots before any write.
 
@@ -211,6 +240,7 @@ def build_output(
     roots = tuple(dict.fromkeys((COMPONENT_ROOT, *native_package_roots(model.packages))))
     selected = native_packages(model.packages)
     output = manifest_payloads(selected, version, author)
+    output.update(mcp_payloads(selected, repo_root))
     output.update(components(COMPONENT_ROOT))
     catalog = build_marketplace(model.packages, version, author, include_unlisted=include_unlisted)
     if catalog is not None:

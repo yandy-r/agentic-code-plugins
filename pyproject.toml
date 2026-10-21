@@ -34,6 +34,7 @@ files = [
   "scripts/test_generate_omp_agents.py",
   "scripts/generate_omp_commands.py",
   "scripts/test_generate_omp_commands.py",
+  "scripts/mcp_secret_audit.py",
   "scripts/generate_omp_packages.py",
   "scripts/validate_omp_native.py",
   "scripts/test_generate_omp_packages.py",

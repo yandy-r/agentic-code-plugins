@@ -23,7 +23,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 import stat
 import sys
 import tempfile
@@ -33,6 +32,7 @@ from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft7Validator, FormatChecker
+from mcp_secret_audit import audit_no_secret_literals, collect_variables, load_mcp_config
 from package_model import Package, PackageModel, RuntimePackage, load_package_model
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -164,76 +164,10 @@ def validate_manifest(manifest: dict[str, Any], schema: dict[str, Any], name: st
 
 # --- payload builders (resolve everything before any write) ----------------
 
-SECRET_KEY_TOKENS = (
-    "token",
-    "secret",
-    "password",
-    "api_key",
-    "apikey",
-    "auth",
-    "bearer",
-    "credential",
-)
-
-
-def _scalar_strings(value: Any) -> Iterable[str]:
-    if isinstance(value, str):
-        yield value
-    elif isinstance(value, dict):
-        for child in value.values():
-            yield from _scalar_strings(child)
-    elif isinstance(value, list):
-        for child in value:
-            yield from _scalar_strings(child)
-
-
-def _audit_credential(value: str, where: str, path: str, key: str) -> None:
-    """A credential may be one exact ${VAR}, or an auth scheme plus one ${VAR}."""
-    scheme, separator, rest = value.partition(" ")
-    remainder = rest if scheme.lower() in {"bearer", "basic", "token"} and separator else value
-    if scheme.lower() not in {"bearer", "basic", "token"}:
-        remainder = value
-    placeholder = re.fullmatch(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}", remainder)
-    if remainder and placeholder is None:
-        raise ValueError(f"{where}: {path}.{key} looks like a secret literal; use a ${{VAR}} placeholder")
-
-
-def audit_no_secret_literals(config: dict[str, Any], where: str) -> None:
-    """Reject literal credential material in an MCP configuration."""
-
-    def walk(value: Any, path: str) -> None:
-        if isinstance(value, dict):
-            for key, child in value.items():
-                if isinstance(child, str) and (
-                    key.lower() == "authorization" or any(token in key.lower() for token in SECRET_KEY_TOKENS)
-                ):
-                    _audit_credential(child, where, path, key)
-                walk(child, f"{path}.{key}")
-        elif isinstance(value, list):
-            for index, child in enumerate(value):
-                walk(child, f"{path}[{index}]")
-
-    walk(config, "$")
-
-
-def collect_variables(config: dict[str, Any]) -> list[str]:
-    """Names of ${VAR} placeholders in the MCP config, in first-seen order."""
-    import re
-
-    names: list[str] = []
-    for value in _scalar_strings(config):
-        for match in re.finditer(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}", value):
-            if match.group(1) not in names:
-                names.append(match.group(1))
-    return names
-
 
 def mcp_payload(root: Path) -> dict[Path, Payload]:
     content = (REPO_ROOT / SOURCE_MCP_PATH).read_bytes()
-    config = json.loads(content)
-    if not isinstance(config, dict) or not isinstance(config.get("mcpServers"), dict):
-        raise ValueError(f"{SOURCE_MCP_PATH}: missing mcpServers object")
-    audit_no_secret_literals(config, SOURCE_MCP_PATH.as_posix())
+    audit_no_secret_literals(load_mcp_config(content, SOURCE_MCP_PATH.as_posix()), SOURCE_MCP_PATH.as_posix())
     return {root / "mcp.json": Payload(content)}
 
 
@@ -282,7 +216,7 @@ def native_payloads(model: PackageModel, packages: Iterable[Package]) -> dict[Pa
         }
         components = frozenset(runtime.components)
         if components == frozenset({"mcp"}):
-            config = json.loads((REPO_ROOT / SOURCE_MCP_PATH).read_text(encoding="utf-8"))
+            config = load_mcp_config((REPO_ROOT / SOURCE_MCP_PATH).read_bytes(), SOURCE_MCP_PATH.as_posix())
             variables = collect_variables(config)
             if variables:
                 manifest["variables"] = {
@@ -441,7 +375,7 @@ def unit_output(root: Path, package: Package) -> dict[Path, Payload]:
         }
         if package.key == "ycc":
             mcp = (REPO_ROOT / SOURCE_MCP_PATH).read_bytes()
-            audit_no_secret_literals(json.loads(mcp), str(SOURCE_MCP_PATH))
+            audit_no_secret_literals(load_mcp_config(mcp, str(SOURCE_MCP_PATH)), str(SOURCE_MCP_PATH))
             helper = REPO_ROOT / "ycc/settings/cursor/select-mcp.py"
             output[root / "resources/mcp/mcp.json"] = Payload(mcp)
             output[root / "resources/mcp/select-mcp.py"] = Payload(helper.read_bytes(), True)
