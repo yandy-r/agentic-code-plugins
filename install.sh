@@ -295,7 +295,7 @@ Options:
                       --settings/--rules/--mcp/--hooks flags.
   --package <ids>     'install' only. Comma-separated ids from the package model:
                       ycc, ycc-mcp, ycc-hooks (Claude and Cursor), ycc-rules (Cursor only);
-                      omp: ycc (ycc-mcp, ycc-hooks, ycc-rules are deferred there).
+                      omp: ycc, ycc-mcp (ycc-hooks, ycc-rules are deferred there).
                       Expands dependency and installer-fallback components into
                       existing installer steps. The 'base' step of the Claude and
                       Codex ycc package uses native marketplace registration
@@ -417,7 +417,8 @@ Target steps:
             base:     generate + validate packages/omp, export them to
                       \${XDG_DATA_HOME:-~/.local/share}/ycc/omp-marketplace,
                       register that export as the omp marketplace 'ycc', then
-                      'omp plugin install|upgrade --scope user|project ycc@ycc'.
+                      'omp plugin install|upgrade --scope user|project' for
+                      ycc@ycc and ycc-mcp@ycc (MCP servers ycc-mcp:<server>).
                       Ownership is recorded per omp profile in
                       ~/.config/ycc/omp-native-install.json; remove touches
                       only what ycc installed. Legacy ycc skills in
@@ -470,12 +471,12 @@ Examples:
                                                                      # cursor/opencode are skipped
   $(basename "$0") install --target claude --mode repo --settings --rules
 
-  # OMP (oh-my-pi >= 18.12.2; native package through 'omp plugin'):
-  $(basename "$0") install --target omp                            # export + install ycc@ycc (user scope)
+  # OMP (oh-my-pi >= 18.12.2; native packages through 'omp plugin'):
+  $(basename "$0") install --target omp                            # export + install ycc@ycc, ycc-mcp@ycc (user scope)
   $(basename "$0") install --target omp --dry-run                  # preview every omp call; no writes
-  $(basename "$0") install --target omp --package ycc              # same, through the package planner
+  $(basename "$0") install --target omp --package ycc              # skills/agents/commands only, no MCP servers
   $(basename "$0") install --target omp --project                  # omp project scope (not at \$HOME)
-  $(basename "$0") install --target omp --force                    # reinstall the ycc-owned package
+  $(basename "$0") install --target omp --force                    # reinstall the ycc-owned packages
   $(basename "$0") remove  --target omp --only base                # uninstall what ycc installed
   $(basename "$0") migrate --target omp                            # report legacy ycc skills in ~/.agents/skills
 EOF

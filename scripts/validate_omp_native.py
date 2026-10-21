@@ -13,7 +13,10 @@ output and need no omp binary. They mirror omp 18.12.x's own catalog parser
   included row, each named after the package key, with the lockstep version that the catalog
   entry and metadata also carry; unique, valid runtime package names;
 - closure: the ycc root holds only manifests and skills/agents/commands; every source skill,
-  agent and the shared stub ship; every command has its skill; every skill:// reference resolves.
+  agent and the shared stub ship; every command has its skill; every skill:// reference resolves;
+- MCP closure: an MCP-only root (ycc-mcp) holds only its manifests and `.mcp.json`, which is
+  byte-identical to mcp-configs/mcp.json, parses with an `mcpServers` object, and carries no
+  secret literal (credential keys hold only `${VAR}` placeholders).
 """
 
 from __future__ import annotations
@@ -26,6 +29,7 @@ from pathlib import Path
 from typing import Any
 
 import generate_omp_packages as generator
+from mcp_secret_audit import audit_no_secret_literals, load_mcp_config
 from package_model import Package, PackageModel, load_package_model
 
 # omp marketplace/types.ts NAME_RE / MAX_NAME_LENGTH, manager.ts RUNTIME_PACKAGE_NAME_RE.
@@ -33,6 +37,7 @@ NAME_SEGMENT = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$")
 MAX_NAME_LENGTH = 64
 RUNTIME_PACKAGE_NAME = re.compile(r"^(?:@[a-zA-Z0-9][a-zA-Z0-9._~-]*/)?[a-zA-Z0-9][a-zA-Z0-9._~-]*$")
 ROOT_ENTRIES = frozenset({".omp-plugin", ".claude-plugin", "package.json", *generator.COMPONENT_DIRS})
+MCP_ROOT_ENTRIES = frozenset({".omp-plugin", ".claude-plugin", "package.json", generator.MCP_CONFIG.name})
 SKILL_REF = re.compile(r"skill://([A-Za-z0-9][A-Za-z0-9-]*)(/[^\s`'\"()\[\]|,;<>]*)?")
 PATTERN_CHARS = frozenset("*?[]{}$<>")
 SKILL_NAME = re.compile(r"^name:\s*(\S+)\s*$", re.MULTILINE)
@@ -194,6 +199,31 @@ def closure_errors(root: Path, source_root: Path, *, has_manifests: bool) -> lis
     return errors
 
 
+def mcp_closure_errors(root: Path, source_root: Path, package: Package) -> list[str]:
+    rel = generator.package_root(package)
+    package_root = root / rel
+    if not package_root.is_dir():
+        return [f"{rel}: missing package root"]
+    errors = [
+        f"{rel / entry.name}: unexpected entry outside the manifests and {generator.MCP_CONFIG}"
+        for entry in sorted(package_root.iterdir())
+        if entry.name not in MCP_ROOT_ENTRIES
+    ]
+    config_rel = rel / generator.MCP_CONFIG
+    config_path = root / config_rel
+    if config_path.is_symlink() or not config_path.is_file():
+        return [*errors, f"{config_rel}: missing MCP configuration"]
+    content = config_path.read_bytes()
+    if content != (source_root / generator.SOURCE_MCP_PATH).read_bytes():
+        errors.append(f"{config_rel}: must be byte-identical to {generator.SOURCE_MCP_PATH}")
+    try:
+        config = load_mcp_config(content, config_rel.as_posix())
+        audit_no_secret_literals(config, config_rel.as_posix())
+    except ValueError as exc:
+        errors.append(str(exc))
+    return errors
+
+
 def validate(root: Path, model: PackageModel, *, source_root: Path | None = None, export: bool = False) -> list[str]:
     """Every OMP package policy violation under ``root`` (a checkout, or an export with ``export``)."""
     source = root if source_root is None else source_root
@@ -204,6 +234,9 @@ def validate(root: Path, model: PackageModel, *, source_root: Path | None = None
     errors.extend(inactive_root_errors(root, model, packages))
     has_manifests = generator.WORKFLOW_PACKAGE in {package.key for package in packages}
     errors.extend(closure_errors(root, source, has_manifests=has_manifests))
+    for package in packages:
+        if generator.is_mcp_package(package):
+            errors.extend(mcp_closure_errors(root, source, package))
     return errors
 
 

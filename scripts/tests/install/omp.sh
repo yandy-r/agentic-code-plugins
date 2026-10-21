@@ -24,8 +24,10 @@ home="$(new_home)"
 install_must_succeed "${home}" install --target omp
 out="${INSTALL_OUT}"
 log="$(omp_log "${home}")"
-assert_contains "${log}" "omp plugin marketplace add $(omp_export "${home}")" "omp install registers the local export marketplace"
 assert_contains "${log}" "omp plugin install --scope user ycc@ycc" "omp install installs ycc@ycc at user scope"
+assert_contains "${log}" "omp plugin marketplace add $(omp_export "${home}")" "omp install registers the local export marketplace"
+assert_contains "${log}" "omp plugin install --scope user ycc-mcp@ycc" "omp install installs ycc-mcp@ycc at user scope"
+assert_contains "${out}" "MCP servers from ycc-mcp start only after a reload or restart" "omp install tells running sessions to reload for MCP"
 assert_contains "${out}" " installed (user)" "omp install reports the installed package"
 assert_contains "${out}" "OMP has no trust prompt" "omp install warns that OMP has no trust prompt"
 assert_contains "${out}" "omp install complete." "omp install completes"
@@ -35,6 +37,11 @@ if [[ -f "$(omp_export "${home}")/packages/omp/ycc/.omp-plugin/plugin.json" ]]; 
     ok "omp install writes the local export"
 else
     ko "omp install writes the local export" "$(find "$(omp_export "${home}")" -maxdepth 3 2>/dev/null | head -5)"
+fi
+if cmp -s "$(omp_export "${home}")/packages/omp/ycc-mcp/.mcp.json" "${REPO_ROOT}/mcp-configs/mcp.json"; then
+    ok "omp export ships ycc-mcp .mcp.json byte-identical to mcp-configs/mcp.json"
+else
+    ko "omp export ships ycc-mcp .mcp.json byte-identical to mcp-configs/mcp.json"
 fi
 
 before="$(omp_log "${home}")"
@@ -50,6 +57,7 @@ install_must_succeed "${home}" remove --target omp --only base
 out="${INSTALL_OUT}"
 log="$(omp_log "${home}")"
 assert_contains "${log}" "omp plugin uninstall --scope user ycc@ycc" "omp remove uninstalls the user install"
+assert_contains "${log}" "omp plugin uninstall --scope user ycc-mcp@ycc" "omp remove uninstalls the user ycc-mcp install"
 assert_contains "${log}" "omp plugin marketplace remove ycc" "omp remove drops the ycc marketplace"
 assert_contains "${out}" "[ok] removed $(omp_export "${home}")" "omp remove reports the export removal"
 assert_not_contains "$(cat "${home}/.fake-omp/plugins/installed_plugins.json" 2>/dev/null)" "ycc@ycc" "omp remove empties the fake registry"
@@ -67,7 +75,7 @@ log="$(omp_log "${home}")"
 assert_contains "${log}" "omp plugin install --scope project ycc@ycc" "omp --project installs at project scope"
 assert_not_contains "${log}" "omp plugin install --scope user" "omp --project leaves user scope alone"
 assert_contains "${INSTALL_OUT}" "a project install shadows your user install here" "omp --project explains the shadowing"
-assert_contains "$(cat "${home}/project/.omp/plugins/installed_plugins.json" 2>/dev/null)" "ycc@ycc" "omp --project writes the fake project registry"
+assert_contains "${log}" "omp plugin install --scope project ycc-mcp@ycc" "omp --project installs ycc-mcp at project scope"
 assert_contains "$(cat "$(omp_state "${home}")" 2>/dev/null)" '"scope": "project"' "omp --project records the project install"
 
 install_must_succeed "${home}" remove --target omp --only base --project
@@ -75,6 +83,7 @@ log="$(omp_log "${home}")"
 assert_contains "${log}" "omp plugin uninstall --scope project ycc@ycc" "omp remove --project uninstalls the project install"
 assert_contains "${log}" "omp plugin marketplace remove ycc" "omp remove --project drops the ycc marketplace"
 assert_not_contains "$(cat "${home}/project/.omp/plugins/installed_plugins.json" 2>/dev/null)" "ycc@ycc" "omp remove --project empties the project registry"
+assert_contains "${log}" "omp plugin uninstall --scope project ycc-mcp@ycc" "omp remove --project uninstalls the project ycc-mcp install"
 if [[ ! -e "$(omp_export "${home}")" && ! -e "$(omp_state "${home}")" ]]; then
     ok "omp remove --project deletes the export and state"
 else
@@ -124,10 +133,18 @@ install_must_succeed "${home}" install --target omp --package ycc
 assert_contains "$(omp_log "${home}")" "omp plugin install --scope user ycc@ycc" "omp --package ycc installs ycc@ycc"
 
 home="$(new_home)"
-if out="$(run_install "${home}" install --target omp --package ycc-mcp)"; then
-    ko "omp --package ycc-mcp rejected as deferred"
+install_must_succeed "${home}" install --target omp --package ycc-mcp
+log="$(omp_log "${home}")"
+assert_contains "${log}" "omp plugin install --scope user ycc-mcp@ycc" "omp --package ycc-mcp installs ycc-mcp@ycc"
+assert_not_contains "${log}" "omp plugin install --scope user ycc@ycc" "omp --package ycc-mcp leaves ycc alone"
+install_must_succeed "${home}" remove --target omp --only base
+assert_contains "$(omp_log "${home}")" "omp plugin uninstall --scope user ycc-mcp@ycc" "omp remove uninstalls the ycc-mcp-only install"
+
+home="$(new_home)"
+if out="$(run_install "${home}" install --target omp --package ycc-hooks)"; then
+    ko "omp --package ycc-hooks rejected as deferred"
 else
-    assert_contains "${out}" "package 'ycc-mcp' is deferred or opt-in for target 'omp'" "omp --package ycc-mcp rejected as deferred"
+    assert_contains "${out}" "package 'ycc-hooks' is deferred or opt-in for target 'omp'" "omp --package ycc-hooks rejected as deferred"
 fi
 assert_not_contains "$(omp_log "${home}")" "omp plugin install" "deferred package installs nothing"
 

@@ -500,6 +500,6 @@ install_must_succeed "${home}" migrate --target omp --apply
 assert_contains "$(cat "${home}/claude-calls.log")" "omp plugin uninstall ycc" "omp migrate --apply uninstalls the link"
 assert_contains "$(omp_installed "${home}")" "npm=[] marketplace=[]" "omp migrate --apply removes the link"
 install_must_succeed "${home}" install --target omp
-assert_contains "$(omp_installed "${home}")" "npm=[] marketplace=[ycc@ycc]" "omp install after migrate leaves exactly one ycc@ycc"
+assert_contains "$(omp_installed "${home}")" "npm=[] marketplace=[ycc@ycc ycc-mcp@ycc]" "omp install after migrate leaves exactly one ycc@ycc and one ycc-mcp@ycc"
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then install_tests_finish; fi

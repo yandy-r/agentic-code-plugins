@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for scripts/generate_omp_packages.py and scripts/validate_omp_native.py (YAN-1171)."""
+"""Tests for scripts/generate_omp_packages.py and scripts/validate_omp_native.py (YAN-1171, YAN-1173)."""
 
 from __future__ import annotations
 
@@ -23,6 +23,8 @@ from package_model import PackageModel, load_package_model  # noqa: E402
 VERSION = "9.8.7"
 AUTHOR = {"name": "fixture-owner"}
 YCC = gen.COMPONENT_ROOT
+MCP = gen.OUTPUT_ROOT / "ycc-mcp"
+SENTINEL = "SENTINEL-must-never-be-materialized"
 
 
 def fake_components(root: Path) -> dict[Path, gen.Payload]:
@@ -67,18 +69,31 @@ class GenerateOmpPackagesTests(unittest.TestCase):
         self.write_source()
 
     def write_source(self) -> None:
-        """The source inputs validate_omp_native reads (version source, skills and agents)."""
+        """The source inputs validate_omp_native reads (version source, skills, agents, MCP config)."""
         plugin = self.root / gen.SOURCE_PLUGIN_PATH
         plugin.parent.mkdir(parents=True)
         plugin.write_text(json.dumps({"name": "ycc", "version": VERSION, "author": AUTHOR}), encoding="utf-8")
         for rel in ("ycc/skills/alpha/SKILL.md", "ycc/skills/_shared/references/x.md", "ycc/agents/planner.md"):
             (self.root / rel).parent.mkdir(parents=True, exist_ok=True)
             (self.root / rel).write_text("x\n", encoding="utf-8")
+        self.write_mcp((gen.REPO_ROOT / gen.SOURCE_MCP_PATH).read_bytes())
+
+    def write_mcp(self, content: bytes) -> None:
+        source = self.root / gen.SOURCE_MCP_PATH
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(content)
+
+    def write_mcp_servers(self, servers: dict[str, Any]) -> bytes:
+        content = (json.dumps({"mcpServers": servers}, indent=2) + "\n").encode()
+        self.write_mcp(content)
+        return content
 
     def output(
         self, model: PackageModel | None = None, **kwargs: bool
     ) -> tuple[dict[Path, gen.Payload], tuple[Path, ...]]:
-        return gen.build_output(model or self.model, VERSION, AUTHOR, components=fake_components, **kwargs)
+        return gen.build_output(
+            model or self.model, VERSION, AUTHOR, components=fake_components, repo_root=self.root, **kwargs
+        )
 
     def generate(self, model: PackageModel | None = None, **kwargs: bool) -> set[Path]:
         output, roots = self.output(model, **kwargs)
@@ -124,7 +139,7 @@ class GenerateOmpPackagesTests(unittest.TestCase):
 
     def test_export_catalog_includes_unlisted_included_rows(self) -> None:
         self.generate(include_unlisted=True)
-        self.assertEqual([entry["name"] for entry in self.read(gen.MARKETPLACE_PATH)["plugins"]], ["ycc"])
+        self.assertEqual([entry["name"] for entry in self.read(gen.MARKETPLACE_PATH)["plugins"]], ["ycc", "ycc-mcp"])
         self.assertEqual(self.errors(export=True), [])
         self.assert_has(self.errors(), "must not exist when no OMP package is listed")
 
@@ -176,22 +191,108 @@ class GenerateOmpPackagesTests(unittest.TestCase):
     # --- fail closed ----------------------------------------------------------------
 
     def test_included_rows_without_an_emitter_fail_closed(self) -> None:
-        for key, owner in (("ycc-mcp", "YAN-1173"), ("ycc-hooks", "YAN-1174"), ("ycc-rules", "YAN-1175")):
+        for key, owner in (("ycc-hooks", "YAN-1174"), ("ycc-rules", "YAN-1175")):
             with self.subTest(key=key):
                 with self.assertRaisesRegex(ValueError, rf"packages\.{key}\.runtimes\.omp: no OMP emitter.*{owner}"):
                     self.output(with_omp(self.model, key, status="included"))
         self.assertFalse((self.root / "packages").exists())
 
     def test_listed_deferred_row_fails_closed(self) -> None:
-        with self.assertRaisesRegex(ValueError, r"packages\.ycc-mcp\.runtimes\.omp: listed=true requires"):
-            self.output(with_omp(self.model, "ycc-mcp", listed=True))
+        with self.assertRaisesRegex(ValueError, r"packages\.ycc-hooks\.runtimes\.omp: listed=true requires"):
+            self.output(with_omp(self.model, "ycc-hooks", listed=True))
 
     def test_deferred_and_excluded_rows_emit_nothing(self) -> None:
         output, roots = self.output()
-        self.assertEqual({rel.parts[2] for rel in output if rel.parts[:2] == ("packages", "omp")}, {"ycc"})
-        self.assertIn(Path("packages/omp/ycc-mcp"), roots)
+        self.assertEqual({rel.parts[2] for rel in output if rel.parts[:2] == ("packages", "omp")}, {"ycc", "ycc-mcp"})
+        self.assertIn(Path("packages/omp/ycc-hooks"), roots)
         self.assertNotIn(Path("packages/omp/ycc-all"), {rel.parent for rel in output})
         self.assertEqual(omp_rows(self.model)["ycc-all"], "excluded")
+
+    # --- MCP package (YAN-1173) -------------------------------------------------------
+
+    def test_mcp_package_ships_the_source_bytes_and_lockstep_manifests(self) -> None:
+        self.generate()
+        source = (self.root / gen.SOURCE_MCP_PATH).read_bytes()
+        self.assertEqual((self.root / MCP / gen.MCP_CONFIG).read_bytes(), source)
+        self.assertEqual(
+            {path.relative_to(self.root / MCP).as_posix() for path in (self.root / MCP).rglob("*") if path.is_file()},
+            {".omp-plugin/plugin.json", ".claude-plugin/plugin.json", "package.json", ".mcp.json"},
+        )
+        for manifest in gen.MANIFESTS:
+            payload = self.read(MCP / manifest)
+            self.assertEqual((payload["name"], payload["version"]), ("ycc-mcp", VERSION), manifest)
+            self.assertNotIn("mcpServers", payload, manifest)
+        self.assertFalse((self.root / MCP / "plugin.json").exists())
+        self.assertEqual(self.errors(), [])
+
+    def test_mcp_placeholders_are_kept_and_env_is_never_materialized(self) -> None:
+        servers = {
+            "xero": {
+                "command": "npx",
+                "env": {"XERO_CLIENT_ID": "${XERO_CLIENT_ID}", "XERO_CLIENT_SECRET": "${XERO_CLIENT_SECRET}"},
+            },
+            "remote": {
+                "type": "http",
+                "url": "https://example.invalid/mcp",
+                "headers": {"Authorization": "Bearer ${REMOTE_TOKEN}"},
+            },
+        }
+        content = self.write_mcp_servers(servers)
+        env = {"XERO_CLIENT_ID": SENTINEL, "XERO_CLIENT_SECRET": SENTINEL, "REMOTE_TOKEN": SENTINEL}
+        with mock.patch.dict(os.environ, env):
+            self.generate(include_unlisted=True)
+        self.assertEqual((self.root / MCP / gen.MCP_CONFIG).read_bytes(), content)
+        for path in (self.root / gen.OUTPUT_ROOT).rglob("*"):
+            if path.is_file():
+                self.assertNotIn(SENTINEL.encode(), path.read_bytes(), path)
+
+    def test_secret_literals_in_the_mcp_source_fail_generation(self) -> None:
+        cases: dict[str, dict[str, Any]] = {
+            "env literal": {"command": "npx", "env": {"XERO_CLIENT_SECRET": "abc"}},
+            "authorization literal": {"type": "http", "url": "https://x.invalid", "headers": {"Authorization": "abc"}},
+            "bearer literal": {"type": "http", "url": "https://x.invalid", "headers": {"Authorization": "Bearer abc"}},
+            "api key literal": {"command": "npx", "env": {"STRIPE_API_KEY": "sk_live_abc"}},
+            "mixed placeholder": {"command": "npx", "env": {"API_TOKEN": "${API_TOKEN}abc"}},
+            "dashed api key header": {"type": "http", "url": "https://x.invalid", "headers": {"X-API-Key": "abc"}},
+            "dashed auth token header": {"type": "http", "url": "https://x.invalid", "headers": {"X-Auth-Token": "a"}},
+        }
+        for label, server in cases.items():
+            with self.subTest(label=label):
+                self.write_mcp_servers({"svc": server})
+                with self.assertRaisesRegex(ValueError, r"mcp-configs/mcp\.json: .* looks like a secret literal"):
+                    self.output()
+        # A later duplicate placeholder must not mask an earlier literal: the strict loader rejects it.
+        self.write_mcp(b'{"mcpServers": {"svc": {"env": {"API_TOKEN": "hunter2", "API_TOKEN": "${API_TOKEN}"}}}}\n')
+        with self.assertRaisesRegex(ValueError, r"mcp-configs/mcp\.json: invalid JSON: duplicate JSON object key"):
+            self.output()
+        self.assertFalse((self.root / "packages").exists())
+
+    def test_mcp_source_without_an_mcpservers_object_fails_generation(self) -> None:
+        self.write_mcp(b'{"servers": {}}\n')
+        with self.assertRaisesRegex(ValueError, r"mcp-configs/mcp\.json: missing mcpServers object"):
+            self.output()
+
+    def test_deferring_ycc_mcp_prunes_its_root(self) -> None:
+        self.generate()
+        self.assertTrue((self.root / MCP / gen.MCP_CONFIG).is_file())
+        deferred = with_omp(self.model, "ycc-mcp", status="deferred")
+        self.generate(deferred)
+        self.assertFalse((self.root / MCP).exists())
+        self.assertEqual(self.errors(deferred), [])
+
+    def test_validator_rejects_mcp_drift_secrets_and_stray_entries(self) -> None:
+        self.generate()
+        config = self.root / MCP / gen.MCP_CONFIG
+        config.write_bytes(config.read_bytes().replace(b"${XERO_CLIENT_SECRET}", b"hunter2"))
+        (self.root / MCP / "skills").mkdir()
+        errors = self.errors()
+        self.assert_has(errors, f"{MCP / gen.MCP_CONFIG}: must be byte-identical to mcp-configs/mcp.json")
+        self.assert_has(errors, "XERO_CLIENT_SECRET looks like a secret literal")
+        self.assert_has(errors, f"{MCP}/skills: unexpected entry outside the manifests and .mcp.json")
+        config.unlink()
+        self.assert_has(self.errors(), f"{MCP / gen.MCP_CONFIG}: missing MCP configuration")
+        config.write_text("{not json", encoding="utf-8")
+        self.assert_has(self.errors(), f"{MCP / gen.MCP_CONFIG}: invalid JSON")
 
     def test_deferring_ycc_drops_manifests_but_keeps_the_component_tree(self) -> None:
         self.generate()
@@ -244,7 +345,7 @@ class GenerateOmpPackagesTests(unittest.TestCase):
         os.chmod(self.root / YCC / "skills/alpha/scripts/run.sh", 0o644)
         (self.root / YCC / "commands/alpha.md").unlink()
         (self.root / YCC / "commands/stray.md").write_text("x\n", encoding="utf-8")
-        (self.root / "packages/omp/ycc-mcp").mkdir()
+        (self.root / "packages/omp/ycc-hooks").mkdir()
         self.assertEqual(
             gen.check_payloads(self.root, output, roots),
             [
@@ -252,7 +353,7 @@ class GenerateOmpPackagesTests(unittest.TestCase):
                 f"missing file: {YCC}/commands/alpha.md",
                 f"executable-bit drift: {YCC}/skills/alpha/scripts/run.sh",
                 f"extra in output: {YCC}/commands/stray.md",
-                "extra in output: packages/omp/ycc-mcp",
+                "extra in output: packages/omp/ycc-hooks",
             ],
         )
         gen.write_payloads(self.root, output, roots, dry_run=False)

@@ -1,9 +1,10 @@
 # OMP Install Guide
 
-This guide covers installing `ycc` into OMP (oh-my-pi) with `install.sh`.
+This guide covers installing `ycc` and `ycc-mcp` into OMP (oh-my-pi) with
+`install.sh`.
 
-> **Pre-release:** the OMP package is generated but unlisted. This repository
-> publishes no OMP catalog until the release gate lists it (YAN-1180), so the
+> **Pre-release:** the OMP packages are generated but unlisted. This repository
+> publishes no OMP catalog until the release gate lists them (YAN-1180), so the
 > only install path today is `install.sh` from a checkout. `--mode repo` and
 > `--target all` do not include OMP yet.
 
@@ -23,22 +24,25 @@ Install only from a checkout you trust.
 ./install.sh install --target omp
 ```
 
-The `base` step generates and validates the OMP package, then:
+The `base` step generates and validates the OMP packages, then:
 
-1. exports it to `${XDG_DATA_HOME:-~/.local/share}/ycc/omp-marketplace`;
+1. exports them to `${XDG_DATA_HOME:-~/.local/share}/ycc/omp-marketplace`;
 2. registers that export as the OMP marketplace `ycc`
    (`omp plugin marketplace add`);
-3. installs `ycc@ycc` with `omp plugin install --scope user ycc@ycc`.
+3. installs each package with `omp plugin install --scope user <package>@ycc`
+   (`ycc@ycc` and `ycc-mcp@ycc`).
 
 What ycc installed is recorded in `~/.config/ycc/omp-native-install.json`.
 `update`, `remove` and `migrate` act only on what that file records; an
 install or marketplace you created yourself is reported and left untouched.
 
 `ycc@ycc` carries the skills, agents and commands (`/ycc:<skill>`) plus the
-shared helpers. It is the only OMP package today: `ycc-mcp`, `ycc-hooks` and
-`ycc-rules` are deferred (YAN-1173 to YAN-1175), and `ycc-all` is excluded
-because OMP does not read plugin dependencies. `--package ycc` selects it
-explicitly; any other package is rejected with the package model's reason.
+shared helpers. `ycc-mcp@ycc` carries the MCP servers (see
+[MCP Servers](#mcp-servers)). Without `--package` both are installed;
+`--package ycc` or `--package ycc-mcp` selects one. `ycc-hooks` and
+`ycc-rules` are deferred (YAN-1174, YAN-1175), and `ycc-all` is excluded
+because OMP does not read plugin dependencies; any other package is rejected
+with the package model's reason.
 
 ## Update
 
@@ -50,9 +54,9 @@ Re-run the same command after pulling a new release:
 ```
 
 A re-run refreshes the export and runs `omp plugin marketplace update ycc`,
-then `omp plugin upgrade --scope <scope> ycc@ycc` only when the exported
+then `omp plugin upgrade --scope <scope> <package>@ycc` only when the exported
 version differs from the installed one. When nothing changed, omp is not
-touched and the installer prints `ycc@ycc <version> up to date`.
+touched and the installer prints `<package>@ycc <version> up to date`.
 
 omp upgrades by version only. After you regenerate or edit the packages
 without a version bump, the installer prints
@@ -65,9 +69,70 @@ skipped with a notice.
 
 ## Reload Or Restart
 
-After an install or update, run `/reload-plugins` in running omp sessions to
-pick up skills, commands, agents and MCP servers. A package that ships hooks
-or extensions needs a session restart; the installer says so when it applies.
+After an install or update, run `/reload-plugins` in running omp sessions (or
+restart them) to pick up skills, commands, agents and MCP servers. A package
+that ships hooks or extensions needs a session restart; the installer says so
+when it applies.
+
+## MCP Servers
+
+`ycc-mcp@ycc` ships the servers from `mcp-configs/mcp.json` unchanged as the
+package's `.mcp.json`. omp loads them at session start and names each one
+`ycc-mcp:<server>` (for example `ycc-mcp:github`). Generated files hold only
+`${VAR}` placeholders, never secret values.
+
+- **Environment.** omp expands `${VAR}` in `env`, `url` and `headers` from
+  your environment when it loads the servers. An unset variable arrives
+  literally: with `XERO_CLIENT_ID` unset, `ycc-mcp:xero` receives the text
+  `${XERO_CLIENT_ID}`. Export the variables before starting omp.
+- **OAuth.** The http servers ship without an `auth` block. Sign in with
+  `/mcp reauth ycc-mcp:<server>`. omp stores tokens in `agent.db`, keyed by
+  profile and URL, never in a config file.
+- **Timeouts** are milliseconds. omp ignores a plugin `timeout` below `1000`
+  and uses its 30 s default; `OMP_MCP_TIMEOUT_MS` overrides every server.
+- **Disable one server.** Add its name to `disabledServers` in the active
+  profile's user `mcp.json` (`~/.omp/agent/mcp.json`, or
+  `~/.omp/profiles/<name>/agent/mcp.json` under `--profile`). This beats
+  every source; `/mcp disable` does the same. `enabledServers` re-enables a
+  server whose source sets `enabled: false`, and `disabledServers` wins over
+  it.
+
+  ```json
+  { "disabledServers": ["ycc-mcp:xero"] }
+  ```
+
+- **Disable the whole package** with `omp plugin disable ycc-mcp@ycc` (add
+  `--scope project` for a project install), then `/reload-plugins`.
+  `omp plugin enable` restores it. `plugin-overrides.json` does not hide
+  marketplace MCP servers, so it is not a kill switch.
+- **Override a server.** An entry with the same namespaced name
+  (`ycc-mcp:github`) in your user or project `mcp.json` wins, because native
+  config outranks plugins. A plain `github` entry does not replace it; disable
+  `ycc-mcp:github` and define your own name instead.
+- **Precedence.** The first definition of a name wins: the project
+  `.omp/mcp.json`, then `.omp/.mcp.json`, then the active profile's user
+  `mcp.json`, then Claude configs (project `.claude/`; user-level files only
+  with `enabledProviders`), then plugins such as `ycc-mcp`, then imported
+  Codex, opencode and Cursor configs. `--profile` reads only that profile's
+  user file. `mcp.enableProjectConfig: false` drops the project files.
+- **Duplicates.** Servers with different names but the same connection (same
+  URL and headers, or same command, args and env) collapse to the
+  higher-priority one. `ycc-mcp:linear-personal` has the same URL as
+  `ycc-mcp:linear`, so it is shadowed and never connects; a native or Claude
+  server with the same connection shadows the `ycc-mcp` one; an equivalent
+  Codex, opencode or Cursor import is itself shadowed by `ycc-mcp`.
+  Foreign user-level configs (`~/.claude.json`, `~/.codex/config.toml`,
+  `~/.cursor/mcp.json`, opencode) load only when `enabledProviders` lists
+  their provider.
+- **Playwright.** omp drops `ycc-mcp:playwright` while `browser.enabled` is on
+  (the default), because its built-in browser replaces it. Set
+  `browser.enabled: false` to keep the server.
+- **Removal.** `./install.sh remove --target omp --only base` uninstalls the
+  recorded installs, including `ycc-mcp@ycc`. To drop only the servers, run
+  `omp plugin uninstall --scope <scope> ycc-mcp@ycc`.
+
+omp has no `omp mcp` command; use `/mcp list` in a session to see what
+loaded.
 
 ## Project Scope
 
@@ -147,13 +212,14 @@ Migration retires two older setups without leaving duplicates:
   tree (foreign links are kept and reported);
 - a `ycc` marketplace registered at the checkout root, which OMP falls back
   to the Claude catalog for. Its installs are uninstalled, the marketplace is
-  removed, and the native package is installed in the same scopes.
+  removed, and the default native packages (`ycc` and `ycc-mcp`) are
+  installed in the same scopes.
 
 Before anything is uninstalled, migration builds and validates the export.
 It refuses (and changes nothing) while a legacy install is disabled, because
 the native reinstall would come back enabled and ycc never toggles plugins
 for you, or while a legacy install has no native OMP package yet
-(`ycc-mcp`, `ycc-hooks`, `ycc-all`). The message names the exact `omp`
+(`ycc-hooks`, `ycc-all`). The message names the exact `omp`
 commands to run first. Project scope means the project root `install
 --project` uses (the git toplevel, else the current directory).
 

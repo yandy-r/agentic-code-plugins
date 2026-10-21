@@ -129,7 +129,7 @@
           "notes": "Native MCP-only plugin."
         },
         "omp": {
-          "status": "deferred",
+          "status": "included",
           "listed": false,
           "mechanism": "native",
           "components": ["mcp"],
@@ -141,11 +141,8 @@
             "docs/internal/adr/0002-omp-runtime-contract.md",
             "docs/internal/spikes/omp-runtime-contract.md"
           ],
-          "gates": [
-            "YAN-1173 ycc-mcp OMP package with native .mcp.json",
-            "YAN-1178 live acceptance matrix passes on the real ycc tree"
-          ],
-          "notes": "Generated package with .mcp.json (omp >=18.12.2); servers become ycc-mcp:<server> and ${VAR} env placeholders expand."
+          "gates": ["YAN-1178 live acceptance matrix passes on the real ycc tree"],
+          "notes": "Generated OMP package under packages/omp/ycc-mcp (omp >=18.12.2) with .omp-plugin and .claude-plugin manifests, package.json, and a root .mcp.json byte-identical to mcp-configs/mcp.json (secret-literal audited; ${VAR} env placeholders stay unexpanded until omp starts a server). Servers load as ycc-mcp:<server>. install.sh --target omp installs it next to ycc through omp plugin (user or project scope); a running session picks it up after /reload-plugins or a restart. Unlisted: root .omp-plugin/marketplace.json stays absent until listing."
         }
       }
     },

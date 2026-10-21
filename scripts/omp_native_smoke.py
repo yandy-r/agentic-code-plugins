@@ -4,14 +4,28 @@
 Each subcommand reads files the harness captured from real `omp` runs and exits non-zero
 with a message on the first violation. Nothing here invokes omp or a model.
 
-  installed  LIST_JSON SOURCE_ROOT VERSION   ycc@ycc in `plugin list --json` at VERSION; the
-                                             cache copy matches the package root byte-for-byte
-  commands   RPC_OUT SOURCE_ROOT             every packaged command and skill registered
-                                             (`ycc:<cmd>` file commands, `skill:<name>` skills)
-  agents     RPC_OUT SOURCE_ROOT             probe output: every packaged agent loaded from the
-                                             install with its generated `model:` kept
-  absent     LIST_JSON OMP_HOME              no ycc plugin, registry entry or runtime link remains
-  bump       SOURCE_ROOT VERSION FILE...     rewrite `version` (and catalog versions) in FILEs
+  installed      LIST_JSON SOURCE_ROOT VERSION  ycc@ycc in `plugin list --json` at VERSION; the
+                                                cache copy matches the package root byte-for-byte
+  mcp-installed  LIST_JSON SOURCE_ROOT VERSION  the same proof for ycc-mcp@ycc
+  commands       RPC_OUT SOURCE_ROOT            every packaged command and skill registered
+                                                (`ycc:<cmd>` file commands, `skill:<name>` skills)
+  agents         RPC_OUT SOURCE_ROOT            probe output: every packaged agent loaded from the
+                                                install with its generated `model:` kept
+  absent         LIST_JSON OMP_HOME             no ycc plugin, registry entry or runtime link remains
+  mcp-absent     LIST_JSON OMP_HOME             the same proof for ycc-mcp@ycc
+  mcp-fixture    SOURCE_ROOT                    add the fixture-only stdio stub servers (`smoke`,
+                                                `smokeoff` with enabled: false) to the ycc-mcp copy
+  mcp-stub       PATH                           write the stdio MCP stub (user override fixture)
+  mcp-listed     RPC_OUT SHIPPED_MCP LIST_JSON  MCP probe (omp's loadAllMCPConfigs): every server in
+                                                SHIPPED_MCP is discovered as `ycc-mcp:<server>` from
+                                                the install unless an equivalent connection shadows
+                                                it; the browser filter drops exactly playwright when
+                                                browser.enabled; env placeholders arrive literally
+  mcp-state      RPC_OUT SERVER STATE TOOLS     SERVER (or `ycc-mcp:*`) is absent|plugin|native in
+                                                the MCP probe; TOOLS (comma list or -) are minted
+                                                tool names get_state's system prompt must carry
+                                                (the server started), or must not with a `!` prefix
+  bump           SOURCE_ROOT VERSION FILE...    rewrite `version` (and catalog versions) in FILEs
 """
 
 from __future__ import annotations
@@ -26,6 +40,34 @@ from typing import Any
 PACKAGE = "ycc"
 PLUGIN_ID = "ycc@ycc"
 PACKAGE_ROOT = Path("packages/omp/ycc")
+MCP_PACKAGE = "ycc-mcp"
+MCP_PLUGIN_ID = "ycc-mcp@ycc"
+MCP_PACKAGE_ROOT = Path("packages/omp/ycc-mcp")
+# Fixture-only stdio servers the harness adds to its ycc-mcp copy (never to the export).
+STUB_SERVERS = {"smoke": True, "smokeoff": False}
+# Servers omp's browser filter (mcp/config.ts filterBrowserMCPServers) drops while the built-in
+# browser is enabled. Asserted exactly, so a new browser-like server fails loudly.
+BROWSER_FILTERED = {"playwright"}
+STUB_SOURCE = """import json, sys
+name = sys.argv[1]
+for line in sys.stdin:
+    try:
+        m = json.loads(line)
+    except ValueError:
+        continue
+    if m.get("id") is None:
+        continue
+    if m.get("method") == "initialize":
+        r = {"protocolVersion": m["params"].get("protocolVersion", "2024-11-05"),
+             "capabilities": {"tools": {}}, "serverInfo": {"name": name, "version": "0"}}
+    elif m.get("method") == "tools/list":
+        r = {"tools": [{"name": name + "_ping", "description": "marker " + name,
+                        "inputSchema": {"type": "object", "properties": {}}}]}
+    else:
+        r = {}
+    sys.stdout.write(json.dumps({"jsonrpc": "2.0", "id": m["id"], "result": r}) + "\\n")
+    sys.stdout.flush()
+"""
 PROBE_PREFIX = "PROBE "
 NAME_LINE = re.compile(r"^name:\s*(\S+)\s*$", re.MULTILINE)
 MODEL_LINE = re.compile(r"^model:\s*['\"]?([^'\"\n]+)['\"]?\s*$", re.MULTILINE)
@@ -65,11 +107,11 @@ def rpc_commands(path: Path) -> list[dict[str, Any]]:
     raise SmokeError(f"{path}: no get_available_commands response")
 
 
-def installed_entry(list_json: Path) -> dict[str, Any]:
+def installed_entry(list_json: Path, plugin_id: str = PLUGIN_ID) -> dict[str, Any]:
     payload = load_json(list_json)
-    matches = [item for item in payload.get("marketplace", []) if item.get("id") == PLUGIN_ID]
+    matches = [item for item in payload.get("marketplace", []) if item.get("id") == plugin_id]
     if len(matches) != 1 or not matches[0].get("entries"):
-        raise SmokeError(f"{list_json}: expected exactly one {PLUGIN_ID} install, got {matches}")
+        raise SmokeError(f"{list_json}: expected exactly one {plugin_id} install, got {matches}")
     entry: dict[str, Any] = matches[0]["entries"][0]
     return entry
 
@@ -82,21 +124,23 @@ def tree(root: Path) -> dict[Path, tuple[bytes, int]]:
     }
 
 
-def check_installed(list_json: Path, source_root: Path, version: str) -> str:
-    entry = installed_entry(list_json)
+def check_installed(
+    list_json: Path, source_root: Path, version: str, plugin_id: str = PLUGIN_ID, package_root: Path = PACKAGE_ROOT
+) -> str:
+    entry = installed_entry(list_json, plugin_id)
     if entry.get("version") != version or entry.get("scope") != "user":
-        raise SmokeError(f"{PLUGIN_ID}: expected user scope at {version}, got {entry}")
+        raise SmokeError(f"{plugin_id}: expected user scope at {version}, got {entry}")
     install = Path(str(entry.get("installPath", "")))
     if not install.is_dir():
-        raise SmokeError(f"{PLUGIN_ID}: installPath {install} does not exist")
-    expected, actual = tree(source_root / PACKAGE_ROOT), tree(install)
+        raise SmokeError(f"{plugin_id}: installPath {install} does not exist")
+    expected, actual = tree(source_root / package_root), tree(install)
     # omp adds generated runtime files (for example .lsp.json) beside the copied payload.
     missing = sorted(str(rel) for rel in expected if rel not in actual)
     changed = sorted(str(rel) for rel in expected if rel in actual and actual[rel] != expected[rel])
     if missing or changed:
         raise SmokeError(f"{install}: cache differs from the package root; missing={missing[:5]} changed={changed[:5]}")
     count = len(expected)
-    return f"{PLUGIN_ID} {version} at {install} ({count} payload files byte-identical, executable bits preserved)"
+    return f"{plugin_id} {version} at {install} ({count} payload files byte-identical, executable bits preserved)"
 
 
 def skill_names(skills: Path) -> set[str]:
@@ -154,23 +198,157 @@ def check_agents(rpc_out: Path, source_root: Path) -> str:
     return f"{len(list(agents_dir.glob('*.md')))} agents loaded from the install; {with_model} keep their @role model"
 
 
-def check_absent(list_json: Path, omp_home: Path) -> str:
+def check_absent(list_json: Path, omp_home: Path, package: str = PACKAGE, plugin_id: str = PLUGIN_ID) -> str:
     payload = load_json(list_json)
-    if any(PACKAGE == str(item.get("id", "")).split("@", 1)[0] for item in payload.get("marketplace", [])):
-        raise SmokeError(f"{list_json}: {PACKAGE} still installed")
+    if any(package == str(item.get("id", "")).split("@", 1)[0] for item in payload.get("marketplace", [])):
+        raise SmokeError(f"{list_json}: {package} still installed")
     registry = omp_home / "plugins/installed_plugins.json"
-    if registry.is_file() and PLUGIN_ID in load_json(registry).get("plugins", {}):
-        raise SmokeError(f"{registry}: still lists {PLUGIN_ID}")
-    link = omp_home / "plugins/node_modules" / PACKAGE
+    if registry.is_file() and plugin_id in load_json(registry).get("plugins", {}):
+        raise SmokeError(f"{registry}: still lists {plugin_id}")
+    link = omp_home / "plugins/node_modules" / package
     if link.exists() or link.is_symlink():
         raise SmokeError(f"{link}: runtime link remains")
     lock = omp_home / "plugins/omp-plugins.lock.json"
-    if lock.is_file() and PACKAGE in load_json(lock).get("plugins", {}):
-        raise SmokeError(f"{lock}: still lists {PACKAGE}")
-    caches = sorted((omp_home / "plugins/cache/plugins").glob(f"ycc___{PACKAGE}___*"))
+    if lock.is_file() and package in load_json(lock).get("plugins", {}):
+        raise SmokeError(f"{lock}: still lists {package}")
+    caches = sorted((omp_home / "plugins/cache/plugins").glob(f"ycc___{package}___*"))
     if caches:
         raise SmokeError(f"plugin cache remains: {[str(path) for path in caches]}")
-    return f"no {PLUGIN_ID} install, registry entry, lock entry, runtime link or cache remains"
+    return f"no {plugin_id} install, registry entry, lock entry, runtime link or cache remains"
+
+
+def write_stub(path: Path) -> str:
+    path.write_text(STUB_SOURCE, encoding="utf-8")
+    return f"wrote stdio MCP stub {path}"
+
+
+def add_mcp_fixture(source_root: Path) -> str:
+    """Append the stub servers to the fixture's ycc-mcp `.mcp.json`; the shipped text stays a prefix."""
+    root = source_root / MCP_PACKAGE_ROOT
+    config = root / ".mcp.json"
+    text = config.read_text(encoding="utf-8")
+    shipped: dict[str, Any] = json.loads(text)["mcpServers"]
+    tail = "\n  }\n}\n"
+    if not text.endswith(tail) or set(STUB_SERVERS) & set(shipped):
+        raise SmokeError(f"{config}: unexpected layout; cannot append the fixture stubs")
+    stubs = {
+        name: {"command": "python3", "args": ["${OMP_PLUGIN_ROOT}/mcp_stub.py", name]}
+        | ({} if enabled else {"enabled": False})
+        for name, enabled in STUB_SERVERS.items()
+    }
+    entries = "".join(f",\n    {json.dumps(name)}: {json.dumps(value)}" for name, value in stubs.items())
+    updated = text[: -len(tail)] + entries + tail
+    if json.loads(updated)["mcpServers"] != shipped | stubs:
+        raise SmokeError(f"{config}: appending the stubs changed a shipped server")
+    config.write_text(updated, encoding="utf-8")
+    write_stub(root / "mcp_stub.py")
+    return f"fixture-only stubs {sorted(STUB_SERVERS)} appended to {config}; shipped servers unchanged"
+
+
+def mcp_probe(rpc_out: Path) -> dict[str, Any]:
+    probe = next((c.get("description", "") for c in rpc_commands(rpc_out) if c.get("name") == "mcp-probe"), None)
+    if not isinstance(probe, str) or not probe.startswith(PROBE_PREFIX):
+        raise SmokeError(f"{rpc_out}: MCP probe failed: {probe!r}")
+    payload = json.loads(probe[len(PROBE_PREFIX) :])
+    if not isinstance(payload, dict) or not isinstance(payload.get("servers"), dict):
+        raise SmokeError(f"{rpc_out}: MCP probe returned no server map: {probe[:300]!r}")
+    return payload
+
+
+def system_prompt(rpc_out: Path) -> str:
+    for frame in frames(rpc_out):
+        if frame.get("type") == "response" and frame.get("command") == "get_state":
+            if frame.get("success") is not True:
+                raise SmokeError(f"{rpc_out}: get_state failed: {frame}")
+            return json.dumps(frame.get("data", {}).get("systemPrompt"))
+    raise SmokeError(f"{rpc_out}: no get_state response")
+
+
+def connection(server: dict[str, Any]) -> str:
+    """The fields omp's isSameMCPConnection compares (capability/mcp.ts), as a stable key."""
+    transport = server.get("type") or ("stdio" if server.get("command") else "http")
+    fields = ("command", "args", "env", "cwd") if transport == "stdio" else ("url", "headers")
+    shared = {key: server.get(key) for key in ("auth", "oauth", "requestIdFormat")}
+    return json.dumps([transport, shared, [server.get(key) for key in fields]], sort_keys=True)
+
+
+def check_mcp_listed(rpc_out: Path, shipped_mcp: Path, list_json: Path) -> str:
+    shipped: dict[str, dict[str, Any]] = load_json(shipped_mcp)["mcpServers"]
+    config = Path(str(installed_entry(list_json, MCP_PLUGIN_ID).get("installPath", ""))) / ".mcp.json"
+    probe = mcp_probe(rpc_out)
+    servers: dict[str, dict[str, Any]] = {
+        name: value for name, value in probe["servers"].items() if name.startswith(f"{MCP_PACKAGE}:")
+    }
+    # Equivalent connections collapse onto the first definition (capability/index.ts dedupe).
+    owners: dict[str, str] = {}
+    shadowed: set[str] = set()
+    for name, server in shipped.items():
+        if owners.setdefault(connection(server), name) != name:
+            shadowed.add(f"{MCP_PACKAGE}:{name}")
+    expected = {f"{MCP_PACKAGE}:{name}" for name in shipped} - shadowed
+    stubs = {f"{MCP_PACKAGE}:{name}" for name, enabled in STUB_SERVERS.items() if enabled}
+    missing = sorted(expected - set(servers))
+    extra = sorted(set(servers) - expected - stubs)
+    if missing or extra:
+        raise SmokeError(f"{rpc_out}: discovered {sorted(servers)}; missing={missing} unexpected={extra}")
+    reported = {name for name in probe.get("shadowed", []) if name.startswith(f"{MCP_PACKAGE}:")}
+    if reported != shadowed:
+        raise SmokeError(f"{rpc_out}: shadowed {sorted(reported)}, expected {sorted(shadowed)}")
+    problems: list[str] = []
+    for name in sorted(expected):
+        found, source = servers[name], shipped[name.split(":", 1)[1]]
+        if found.get("provider") != "claude-plugins" or found.get("path") != str(config):
+            problems.append(f"{name}: from {found.get('provider')} {found.get('path')}, not {config}")
+        for key in ("args", "url", "env"):
+            if key in source and found.get(key) != source[key]:
+                problems.append(f"{name}: {key} {found.get(key)!r} != shipped {source[key]!r}")
+    if problems:
+        raise SmokeError(f"{rpc_out}: {problems[:6]}")
+    # The probe reports which servers survive the browser filter a session applies with the
+    # live browser.enabled setting (sdk.ts shouldFilterBrowserMCPForPrelude).
+    dropped = sorted(set(servers) - set(probe.get("browserKept", [])))
+    filtered = BROWSER_FILTERED if probe.get("browserEnabled") else set()
+    expected_dropped = sorted(f"{MCP_PACKAGE}:{name}" for name in filtered)
+    if dropped != expected_dropped:
+        raise SmokeError(f"{rpc_out}: browser filter drops {dropped}, expected {expected_dropped}")
+    xero = servers.get(f"{MCP_PACKAGE}:xero", {}).get("env")
+    return (
+        f"{len(expected)} servers discovered from {config}: {sorted(expected)}; "
+        f"shadowed by an equivalent connection: {sorted(shadowed)}; "
+        f"browser filter drops {dropped} (browser.enabled={probe.get('browserEnabled')}); "
+        f"{MCP_PACKAGE}:xero env {json.dumps(xero)}"
+    )
+
+
+def check_mcp_state(rpc_out: Path, server: str, state: str, tools: str) -> str:
+    """SERVER's source in the probe, and which minted tool names get_state's prompt carries.
+
+    TOOLS is a comma list (or `-`): a plain name must be in the prompt (the server started)
+    unless STATE is `absent`; a `!`-prefixed name (a prefix works too) must never be there.
+    """
+    servers: dict[str, dict[str, Any]] = mcp_probe(rpc_out)["servers"]
+    prompt = system_prompt(rpc_out)
+    wildcard = server.endswith(":*")
+    found = sorted(name for name in servers if name.startswith(server[:-1])) if wildcard else []
+    provider = {"plugin": "claude-plugins", "native": "native", "absent": None}.get(state, "?")
+    if provider == "?" or (wildcard and provider is not None):
+        raise SmokeError(f"unknown state {state!r} for {server}")
+    if provider is None and (found or server in servers):
+        raise SmokeError(f"{rpc_out}: {server} still loaded: {found or servers[server]}")
+    if provider is not None and servers.get(server, {}).get("provider") != provider:
+        raise SmokeError(f"{rpc_out}: {server} expected from {provider}, got {servers.get(server)}")
+    notes: list[str] = []
+    for tool in [] if tools == "-" else tools.split(","):
+        forbidden = tool.startswith("!") or provider is None
+        name = tool.removeprefix("!")
+        if forbidden == (name in prompt):
+            raise SmokeError(
+                f"{rpc_out}: {name} {'still' if forbidden else 'not'} in get_state's system prompt"
+                + ("" if forbidden else f" ({server} loaded but did not start)")
+            )
+        notes.append(f"no {name}" if forbidden else f"started: {name} in get_state")
+    where = "absent" if provider is None else f"from {provider}"
+    return f"{server} {where}" + "".join(f"; {note}" for note in notes)
 
 
 def bump(source_root: Path, version: str, files: list[str]) -> str:
@@ -192,6 +370,15 @@ COMMANDS: dict[str, tuple[int, Callable[[list[str]], str]]] = {
     "commands": (2, lambda a: check_commands(Path(a[0]), Path(a[1]))),
     "agents": (2, lambda a: check_agents(Path(a[0]), Path(a[1]))),
     "absent": (2, lambda a: check_absent(Path(a[0]), Path(a[1]))),
+    "mcp-installed": (
+        3,
+        lambda a: check_installed(Path(a[0]), Path(a[1]), a[2], MCP_PLUGIN_ID, MCP_PACKAGE_ROOT),
+    ),
+    "mcp-absent": (2, lambda a: check_absent(Path(a[0]), Path(a[1]), MCP_PACKAGE, MCP_PLUGIN_ID)),
+    "mcp-fixture": (1, lambda a: add_mcp_fixture(Path(a[0]))),
+    "mcp-stub": (1, lambda a: write_stub(Path(a[0]))),
+    "mcp-listed": (3, lambda a: check_mcp_listed(Path(a[0]), Path(a[1]), Path(a[2]))),
+    "mcp-state": (4, lambda a: check_mcp_state(Path(a[0]), a[1], a[2], a[3])),
 }
 
 

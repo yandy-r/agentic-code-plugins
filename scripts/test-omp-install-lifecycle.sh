@@ -346,7 +346,7 @@ log "PASS upgrade: a $next checkout re-exports, updates the marketplace and upgr
 ycc remove-project "$proj" "$repo" remove --target omp --only base --project
 assert_rc 0 'remove --project'
 has remove-project '[ok] omp plugin uninstall --scope project ycc@ycc' \
-  '[!!] kept marketplace ycc: ycc@ycc (user) still installed'
+  '[!!] kept marketplace ycc: ycc@ycc (user), ycc-mcp@ycc (user) still installed'
 ycc remove-user "$home" "$repo" remove --target omp --only base
 assert_rc 0 'remove'
 has remove-user '[ok] omp plugin uninstall --scope user ycc@ycc' '[ok] omp plugin marketplace remove ycc' \
