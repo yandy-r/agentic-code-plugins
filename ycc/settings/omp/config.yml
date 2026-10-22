@@ -3,5 +3,10 @@ modelRoles:
   default: 'anthropic/claude-fable-5-1:medium, openai/gpt-5.6-sol:high'
   slow: 'anthropic/claude-opus-5:high, openai/gpt-5.6-sol:high'
   task: 'anthropic/claude-opus-5:high, openai/gpt-5.6-sol:high'
+retry:
+  fallbackChains:
+    default: ['openai/gpt-5.6-sol']
+    slow: ['openai/gpt-5.6-sol']
+    task: ['openai/gpt-5.6-sol']
 tools:
   approvalMode: write

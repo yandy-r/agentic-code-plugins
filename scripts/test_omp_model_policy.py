@@ -103,6 +103,33 @@ class OmpModelPolicyTest(unittest.TestCase):
         snippet["modelRoles"]["slow"] = "anthropic/claude-opus-5:max"
         self.assert_error(self.errors(snippet=snippet), "modelRoles.slow", "claude-opus-5:max")
 
+    def test_p6_fallback_chains_follow_switch(self) -> None:
+        chains = self.snippet["retry"]["fallbackChains"]
+        self.assertEqual(chains, {role: ["openai/gpt-5.6-sol"] for role in self.omp["roles"]})
+
+        omp = copy.deepcopy(self.omp)
+        omp["fallbackChains"] = False
+        snippet = policy.expected_snippet(omp)
+        self.assertNotIn("retry", snippet)
+        self.assertEqual(self.errors(omp, snippet), [])
+        self.assert_error(self.errors(omp), "retry.fallbackChains", "fallbackChains is false")
+
+        omp["fallbackChains"] = "yes"
+        self.assert_error(self.errors(omp), "fallbackChains", "expected true or false", "'yes'")
+
+    def test_p6_fallback_chain_drift_or_same_model_rejected(self) -> None:
+        snippet = copy.deepcopy(self.snippet)
+        snippet["retry"]["fallbackChains"]["slow"] = ["openai/gpt-5.6-sol:high"]
+        self.assert_error(self.errors(snippet=snippet), "retry.fallbackChains", "gpt-5.6-sol:high")
+
+        snippet = copy.deepcopy(self.snippet)
+        snippet["retry"]["maxRetries"] = 5
+        self.assert_error(self.errors(snippet=snippet), "retry.maxRetries", "not a ycc-managed OMP key")
+
+        omp = copy.deepcopy(self.omp)
+        omp["subagent"]["model"] = omp["fallback"]["model"]
+        self.assert_error(self.errors(omp), "fallbackChains", "'slow'", "same model")
+
 
 if __name__ == "__main__":
     unittest.main()

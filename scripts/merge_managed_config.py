@@ -232,7 +232,9 @@ PROFILES: dict[str, dict[str, Any]] = {
         },
     },
     # OMP's user config.yml. Only these ycc-owned leaves are managed; other
-    # modelRoles entries and every other key stay the user's. A symlinked
+    # modelRoles and retry.fallbackChains entries and every other key (other
+    # retry.* settings included) stay the user's; each role's chain is one
+    # owned leaf. A symlinked
     # config.yml (dotfiles) is refused: atomic_write would replace the link.
     # The default-on ``dedupe`` group appends the ``<ns>/<name>`` aliases of
     # ledger-owned ycc skills that OMP also reads from ~/.agents, ~/.codex or
@@ -246,6 +248,7 @@ PROFILES: dict[str, dict[str, Any]] = {
         "groups": {
             "settings": [
                 {"path": ["modelRoles"], "policy": "map-entries"},
+                {"path": ["retry", "fallbackChains"], "policy": "map-entries"},
                 {"path": ["tools", "approvalMode"], "policy": "scalar"},
             ],
             "dedupe": [

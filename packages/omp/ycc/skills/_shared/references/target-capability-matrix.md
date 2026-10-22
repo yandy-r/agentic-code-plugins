@@ -451,7 +451,10 @@ call. Gaps: the root `.omp-plugin/marketplace.json` (relative `./packages/omp/<p
 is written only once a package is `listed` in `ycc/settings/packages.json`; none is, so there is
 no published OMP catalog, `--mode repo` is refused, and `--target all` skips omp until YAN-1180.
 `ycc-hooks` is excluded on OMP. Opt-in `--rules` symlinks `ycc/settings/rules/AGENTS.md` to
-`<agentDir>/AGENTS.md`, and `--settings` merges `modelRoles.{default,slow,task}` and
+`<agentDir>/AGENTS.md`, and `--settings` merges `modelRoles.{default,slow,task}`,
+`retry.fallbackChains.{default,slow,task}` (request-failure fallback to the bare fallback model,
+keeping the turn's thinking level; OMP also uses `default` for chat roles without a chain and
+single-model subagents, while `@slow`/`@task` subagents retry along the role's comma list) and
 `tools.approvalMode: write` into the user `<agentDir>/config.yml` (hash-owned per leaf; user edits
 win). Both are user scope only: `--project` with either is rejected. The default-on `dedupe` step
 writes the user `config.yml` `skills.ignoredSkills` (see SKILLS:omp), also with `--project`;

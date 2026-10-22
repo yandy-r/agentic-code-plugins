@@ -182,18 +182,24 @@ loaded.
 
 `ycc-rules@ycc` ships the `ycc/rules` families as 31 flat rules named
 `ycc-<family>-<stem>.md` (for example `ycc-common-security`,
-`ycc-golang-coding-style`). OMP scans plugin `rules/` flat and names each rule
-after its file stem.
+`ycc-golang-coding-style`), plus 5 `ycc-<family>-trigger.md` rules (golang,
+python, rust, typescript, web). OMP scans plugin `rules/` flat and names each
+rule after its file stem.
 
 - **Always on.** `ycc-common-security` and `ycc-common-git-workflow` are
   `alwaysApply` rules; their full bodies go into every main-session prompt.
-- **On demand.** Every other rule is a rulebook entry: a one-line
+- **On demand.** Every other non-trigger rule is a rulebook entry: a one-line
   `- <name> (<globs>): <description>` listing, with the body read through
   `rule://<name>` (for example `rule://ycc-python-testing`).
-- **Globs are advisory.** OMP shows a rule's `globs` in the listing but does
-  not select a rule by glob when a matching file is touched, unlike Cursor.
-  The `alwaysApply` rules above are still included. Language-rule parity is
-  partial.
+- **Glob-triggered.** Rulebook globs alone select nothing, so each
+  `ycc-<family>-trigger` is a TTSR rule gated on the family's globs and the
+  `edit`/`write` tools, with `interruptMode: never`. The first edit or write of
+  a matching file attaches a reminder listing that family's `rule://` rules
+  after the tool result, once per session (`ttsr.repeatMode: once`), and once
+  in each subagent that edits a matching file. Files written by shell tools
+  (`bash`, `eval`) do not trigger it. Disable one with
+  `ttsr.disabledRules: [ycc-python-trigger]`; `ttsr.enabled: false` turns all
+  TTSR rules, these included, off entirely.
 - **Override a rule.** Copy it under the same name to `<agentDir>/rules/`
   (user) or `<cwd>/.omp/rules/` (project) and edit the copy. Native rules
   outrank plugin rules, so your copy wins and survives ycc updates. OMP
@@ -253,16 +259,30 @@ modelRoles:
   default: 'anthropic/claude-fable-5-1:medium, openai/gpt-5.6-sol:high'
   slow: 'anthropic/claude-opus-5:high, openai/gpt-5.6-sol:high'
   task: 'anthropic/claude-opus-5:high, openai/gpt-5.6-sol:high'
+retry:
+  fallbackChains:
+    default: ['openai/gpt-5.6-sol']
+    slow: ['openai/gpt-5.6-sol']
+    task: ['openai/gpt-5.6-sol']
 tools:
   approvalMode: write
 ```
 
-Each role is an ordered list: OMP uses the first model that resolves (has a
-provider and credentials). The list covers model resolution only; it is not a
-retry chain when a request to the resolved model fails. ycc agents use `@slow`
-or `@task`, so these roles set their models. Other roles (`smol`, `plan`,
-custom roles) and every other key are left alone. ycc never writes
-`task.agentModelOverrides`.
+Each `modelRoles` entry is an ordered list: OMP uses the first model that
+resolves (has a provider and credentials). That list covers model resolution
+only. `retry.fallbackChains.<role>` is the request-failure fallback: when a
+request to the active model fails, OMP retries it on the next model in the
+chain. A chain entry has no thinking suffix, so a fallback keeps the failing
+turn's thinking level. `default` is the main chat session's chain; OMP also
+uses it for every chat role without its own chain (`smol`, `plan`, `commit`,
+custom roles) and for subagents with a single model pattern. Subagents on
+`@slow`/`@task` already retry along the role's comma list; the `slow`/`task`
+chains apply when the main session runs on that role. Set
+`retry.modelFallback: false` to stop OMP switching models. ycc agents use
+`@slow` or `@task`, so these roles set their models. Other `modelRoles`,
+other chains, other `retry.*` keys and every other key are never written.
+ycc never writes `task.agentModelOverrides`. The chains come from
+`targets.omp.fallbackChains` in `ycc/settings/models.json`.
 
 - **Ownership.** Each leaf is tracked by hash in
   `~/.config/ycc/managed-config-state.json`. A run prints one summary line,

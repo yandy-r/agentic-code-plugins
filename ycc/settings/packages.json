@@ -319,7 +319,7 @@
             "docs/research/yan-1175-omp-rules-settings/feature-spec.md"
           ],
           "gates": ["YAN-1178 live acceptance matrix passes on the real ycc tree"],
-          "notes": "Generated package under packages/omp/ycc-rules (omp >=18.12.2): 31 flat rules named ycc-<family>-<stem>, paths→globs, description kept, alwaysApply only when true. OMP lists globs as advisory (no auto-attach): language rules are rulebook entries read via rule://. Unlisted until YAN-1180."
+          "notes": "Generated package under packages/omp/ycc-rules (omp >=18.12.2): 31 flat rules named ycc-<family>-<stem>, paths→globs, description kept, alwaysApply only when true. Language rules are rulebook entries read via rule://; 5 description-less ycc-<family>-trigger TTSR rules (glob-gated edit/write, interruptMode never) attach them once per session and once per subagent that edits a matching file. Unlisted until YAN-1180."
         }
       }
     },
@@ -440,7 +440,7 @@
             "docs/research/yan-1175-omp-rules-settings/feature-spec.md"
           ],
           "gates": [],
-          "notes": "install.sh --target omp, user scope only: --rules links AGENTS.md into the omp agent dir; --settings merges ycc-owned modelRoles.{default,slow,task} and tools.approvalMode into config.yml (hash-owned; user edits and project config win). Rules ship natively in ycc-rules; the status line is unsupported."
+          "notes": "install.sh --target omp, user scope only: --rules links AGENTS.md into the omp agent dir; --settings merges ycc-owned modelRoles.{default,slow,task}, retry.fallbackChains.{default,slow,task} (bare fallback model, keeps the turn's thinking level; OMP also uses default for chat roles without a chain and single-model subagents) and tools.approvalMode into config.yml (hash-owned; user edits and project config win). Rules ship natively in ycc-rules; the status line is unsupported."
         }
       }
     }

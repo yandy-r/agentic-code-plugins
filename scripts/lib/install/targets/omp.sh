@@ -37,7 +37,8 @@ omp_intent_steps() {
 }
 
 # omp_config_groups — the one managed group in <agentDir>/config.yml
-# (modelRoles.{default,slow,task}, tools.approvalMode); config_groups_for_target
+# (modelRoles.{default,slow,task}, retry.fallbackChains.{default,slow,task},
+# tools.approvalMode); config_groups_for_target
 # filters by intent name, so it must be 'settings'.
 omp_config_groups() { echo "settings"; }
 
