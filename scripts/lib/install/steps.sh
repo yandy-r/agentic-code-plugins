@@ -473,7 +473,7 @@ preflight_step_support() {
     for step in ${valid_csv//,/ }; do
         step_enabled "${step}" || continue
         if [[ "${SCOPE}" == "project" ]] && ! step_allows_project "${target}" "${step}"; then
-            err "--project is not supported by step '${step}' for target '${target}' (project scope currently supports: mcp; omp: base)"
+            err "--project is not supported by step '${step}' for target '${target}' (project scope currently supports: mcp; omp: base; opencode: settings for catalog plugins)"
             err "  use --global, or select only project-capable steps with --only / --intent."
             exit 1
         fi

@@ -15,6 +15,12 @@ enabled plugin still uses is retained.
 
 ``narrow_profile`` records a selection on each entry rule of the entry groups
 as ``rule["selected"]``; every helper below reads it from there.
+
+A rule with ``leaf_rules: True`` is owned per leaf, not per entry:
+``expand_leaf_rules`` replaces it with one ``scalar`` rule per leaf of the
+source and of the recorded state under it. Two owners can then share one
+entry (the opencode catalog's ``agents.general.disabled`` beside the bundle's
+``agents.general.model``) and each removes only its own leaves.
 """
 
 from __future__ import annotations
@@ -103,6 +109,42 @@ def _value(data: Any, path: list[str]) -> Any:
             return None
         current = current[part]
     return current
+
+
+def _leaf_paths(path: list[str], value: Any) -> list[list[str]]:
+    if isinstance(value, dict) and value:
+        return [leaf for key, child in value.items() for leaf in _leaf_paths([*path, str(key)], child)]
+    return [path]
+
+
+def expand_leaf_rules(profile: dict[str, Any], source: dict[str, Any], owned: list[list[str]]) -> dict[str, Any]:
+    """Copy of ``profile`` whose ``leaf_rules`` rules become per-leaf scalar rules.
+
+    The leaves are those of the source under the rule path plus the ``owned``
+    state paths under it, so a leaf the source no longer sets can still be
+    removed. A rule with neither expands to no rules. Expanded rules are
+    ``owned_only``: remove takes a leaf back only on a recorded state hash,
+    never because the user's value happens to equal the source.
+    """
+
+    def expanded(rule: Rule) -> list[Rule]:
+        if not rule.get("leaf_rules"):
+            return [rule]
+        prefix = list(rule["path"])
+        value = _value(source, prefix)
+        paths = _leaf_paths(prefix, value) if isinstance(value, dict) and value else []
+        paths += [path for path in owned if len(path) > len(prefix) and path[: len(prefix)] == prefix]
+        return [
+            {"path": list(path), "policy": "scalar", "owned_only": True}
+            for path in dict.fromkeys(tuple(p) for p in paths)
+        ]
+
+    return {
+        **profile,
+        "groups": {
+            group: [leaf for rule in rules for leaf in expanded(rule)] for group, rules in profile["groups"].items()
+        },
+    }
 
 
 def available_entries(profile: dict[str, Any], groups: list[str], source: dict[str, Any]) -> list[str]:

@@ -1,0 +1,26 @@
+{
+  "plugins": {
+    "oh-my-opencode-slim": {
+      "package": "oh-my-opencode-slim@3.0.5",
+      "description": "Multi-agent orchestration preset for opencode",
+      "homepage": "https://github.com/alvinunreal/oh-my-opencode-slim",
+      "default": false,
+      "config_files": [
+        {
+          "source": "opencode-plugins/oh-my-opencode-slim.json",
+          "destination": "oh-my-opencode-slim.json"
+        }
+      ],
+      "managed_keys": {
+        "agents": {
+          "explore": { "disabled": true },
+          "general": { "disabled": true }
+        }
+      },
+      "notes": [
+        "slim enables LSP when no `lsp` key exists; ycc leaves `lsp` alone; set `\"lsp\": true` in opencode.json if you want it.",
+        "For background subagents and web search, add to your shell rc: `export OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true` and `export OPENCODE_ENABLE_EXA=1`."
+      ]
+    }
+  }
+}

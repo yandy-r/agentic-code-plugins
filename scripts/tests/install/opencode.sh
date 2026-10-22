@@ -51,7 +51,7 @@ echo "== install.sh --plugins: opencode =="
 
 home="$(new_home)"
 install_must_succeed "${home}" list plugins --target opencode
-if [[ "${INSTALL_OUT}" == $'@prevalentware/opencode-goal-plugin\n./ycc-sensitive-guard' ]]; then ok "list plugins --target opencode lists package names"; else ko "list plugins --target opencode lists package names" "${INSTALL_OUT}"; fi
+if [[ "${INSTALL_OUT}" == $'@prevalentware/opencode-goal-plugin\n./ycc-sensitive-guard\noh-my-opencode-slim' ]]; then ok "list plugins --target opencode lists package names, then catalog names";  else ko "list plugins --target opencode lists package names, then catalog names" "${INSTALL_OUT}"; fi
 
 home="$(new_home)"
 install_must_succeed "${home}" sync --target opencode --intent plugins --plugins @prevalentware/opencode-goal-plugin

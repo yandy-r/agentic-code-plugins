@@ -75,19 +75,20 @@ The generated `opencode.json` declares the bundle's shared OpenCode V2 plugins i
 | `@prevalentware/opencode-goal-plugin` | Goal mode — `/goal` commands, persistent goal state, and the goal tool suite |
 | `./ycc-sensitive-guard`               | Sensitive-file policy for restricted ycc specialists (see below)             |
 
-`--settings` installs the server-side half. The TUI half (sidebar goal indicator
-and command-palette entry) is read from the global `~/.config/opencode/cli.json`,
-which this repository does not manage. Install both halves on a new machine with:
+`--settings` installs the server-side half. On opencode v2.0.x the TUI half
+(sidebar goal indicator and command-palette entry) was read from the global
+`~/.config/opencode/cli.json`, which this repository does not manage. On opencode
+v2.1.1, `opencode plugin add` writes only the `opencode.json` `plugins` entry and
+the V2 CLI loads TUI halves from `opencode.json` (verified with the catalog's
+`oh-my-opencode-slim`). Install both halves on a new machine with:
 
 ```bash
 ./install.sh install --target opencode --settings --rules
 opencode2 plugin add @prevalentware/opencode-goal-plugin
 ```
 
-`opencode2 plugin add` writes the package into `~/.config/opencode/opencode.json`
-and `~/.config/opencode/cli.json`, and is idempotent. Verify with
-`opencode2 plugin list`. Use `opencode` instead of `opencode2` when the V2 binary
-is installed under that name.
+`opencode2 plugin add` is idempotent. Verify with `opencode2 plugin list`. Use
+`opencode` instead of `opencode2` when the V2 binary is installed under that name.
 
 The V2 `plugins` array is the correct key (the V1 singular `plugin` key is
 rejected). The plugin API spike ran on opencode **v2.0.29**, and the
@@ -114,6 +115,82 @@ plugin's version, the item the installer added is replaced in place instead of
 duplicated; an item with the same package name that you wrote yourself is kept
 with a warning (`--force` replaces it). See
 [Selecting Plugins](README.md#selecting-plugins).
+
+### Third-party plugins
+
+Besides the bundle plugins, ycc ships an opt-in catalog of pinned third-party
+opencode plugins in `ycc/settings/opencode-plugins.json`. Every entry is off by
+default: `--intent plugins` alone never installs one, and only `--plugins <name>`
+does. `ycc list plugins --target opencode` lists the catalog names after the
+bundle names.
+
+| Plugin                | Package                     | What ycc manages                                                                                                                 |
+| --------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `oh-my-opencode-slim` | `oh-my-opencode-slim@3.0.5` | the pinned `plugins` item, `agents.explore.disabled` and `agents.general.disabled`, and the companion `oh-my-opencode-slim.json` |
+
+```bash
+ycc sync   --target opencode --intent plugins --plugins oh-my-opencode-slim
+ycc remove --target opencode --intent plugins --plugins oh-my-opencode-slim --purge-cache
+```
+
+Sync merges, for each selected catalog plugin:
+
+- the exact-pinned `plugins` item;
+- the entry's managed keys. slim drops opencode's built-in `general` and `explore`
+  subagents unless the config declares them, and the ycc bundle declares their
+  models, so the catalog sets `agents.{general,explore}.disabled: true`;
+- its companion config files, copied beside `opencode.json` and owned by hash
+  (`opencode-plugin-files.json` beside the managed-config state). A file that
+  already equals ycc's copy is adopted; a companion you edited is kept with a
+  warning, and `--force` replaces it. When the catalog bumps a version, a
+  companion ycc wrote is updated in place.
+
+Each catalog plugin has its own ownership state, and it owns its managed keys
+per leaf. slim owns `agents.general.disabled`, while the bundle owns
+`agents.general.model` in the same entry. So installing or removing a catalog
+plugin never touches another catalog plugin or the bundle's leaves, and the
+bundle's own remove still takes its leaves back cleanly. A run of catalog names
+only leaves the bundle `plugins` items alone; a mixed selection
+(`--plugins ./ycc-sensitive-guard,oh-my-opencode-slim`) merges both.
+
+Sync then prints the plugin's manual follow-ups. ycc never automates them:
+
+- slim enables LSP when no `lsp` key exists. ycc leaves `lsp` alone; set
+  `"lsp": true` in `opencode.json` if you want it.
+- For background subagents and web search, add
+  `export OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true` and
+  `export OPENCODE_ENABLE_EXA=1` to your shell rc.
+
+Remove takes back the item and the managed leaves when they are unchanged since
+ycc wrote them. It deletes a companion only when ycc recorded writing it and the
+file is unchanged. It prints the rc lines (and `lsp`) you may delete. With
+`--plugins` it acts on the named catalog plugins; without it
+(`remove --intent plugins` or `--only settings`) it acts on every catalog
+plugin ycc recorded installing into that `opencode.json` and skips the rest, so
+a plugin you set up yourself keeps its item, its `agents` keys, its companion
+(even one identical to ycc's copy, such as slim's own installer output) and its
+cache. While `opencode.json` still loads the plugin
+(an item you wrote yourself, read as JSONC like opencode does), remove keeps
+its companion and its cache. `--purge-cache` (remove only) also deletes the
+plugin's opencode package cache under `${XDG_CACHE_HOME:-~/.cache}/opencode`:
+the V2 `npm/<pkg>@<spec>/`, the V1 `packages/<pkg>@<spec>/`, and the legacy
+`node_modules/<pkg>`. It refuses any path that resolves outside that directory.
+
+`--project` installs catalog plugins into the current project instead:
+`<project>/opencode.json`, with companions in `<project>/.opencode/` (where slim
+looks for its project override). Project scope takes catalog plugins only; it
+rejects bundle plugins, the `settings` group and a run without `--plugins`,
+because the bundle settings and the guard are global-only:
+
+```bash
+ycc sync   --target opencode --intent plugins --plugins oh-my-opencode-slim --project
+ycc remove --target opencode --intent plugins --plugins oh-my-opencode-slim --project
+```
+
+ycc does not run a plugin's upstream installer (slim's sets `lsp` and offers
+shell-rc exports) and writes no `tui.json`. `tui.json` (singular `plugin`) is the
+V1 layer, and on opencode v2.1.1 `opencode plugin add` writes only
+`opencode.json`, from which V2 also loads TUI halves. The bundle is V2-only.
 
 ### Sensitive-file guard
 

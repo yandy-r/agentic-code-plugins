@@ -43,8 +43,9 @@ mcps_names() {
 
 # plugins_names <target> — the plugin entries <target>'s plugins config group
 # manages: claude/codex 'name@marketplace' keys, opencode package names
-# (versions stripped). Marketplaces follow their plugins and are never listed.
-# Empty for targets without a plugins group.
+# (versions stripped), then the target's opt-in catalog names
+# (<t>_catalog_names, opencode). Marketplaces follow their plugins and are
+# never listed. Empty for targets without a plugins group.
 plugins_names() {
     [[ ",$("${1}_config_groups")," == *",plugins,"* ]] || return 0
     if [[ "$1" == codex ]] && codex_repository_native_enabled; then
@@ -55,6 +56,9 @@ plugins_names() {
     read -r profile src <<< "$(plugins_source "$1")"
     python3 "${CONFIG_MERGE_HELPER}" --profile "${profile}" --source "${src}" \
         --destination /dev/null --groups plugins --list-entries
+    if declare -F "${1}_catalog_names" >/dev/null; then
+        "${1}_catalog_names"
+    fi
 }
 
 # skills_names <target> / agents_names <target> — the selectable entries of

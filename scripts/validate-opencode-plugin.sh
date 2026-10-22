@@ -33,6 +33,10 @@ if REQUIRED_PLUGIN not in names:
     sys.exit(1)
 PY
 
+echo "== Third-party plugin catalog =="
+python3 -m json.tool "${REPO_ROOT}/ycc/settings/opencode-plugins.json" >/dev/null
+python3 "${REPO_ROOT}/scripts/opencode_plugin_catalog.py" validate
+
 echo "== AGENTS.md existence =="
 if [[ ! -f "${BUNDLE_ROOT}/AGENTS.md" ]]; then
   echo "MISSING ${BUNDLE_ROOT}/AGENTS.md" >&2
