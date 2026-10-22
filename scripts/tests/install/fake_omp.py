@@ -23,6 +23,8 @@ Environment:
   FAKE_OMP_REPO_CATALOG    directory that a git/GitHub marketplace source "clones" from
   FAKE_OMP_NO_NODE_MODULES when set, marketplace installs skip the node_modules runtime link (and
                            the node_modules dir) so a test can leave that residue path uncreated
+  FORCE_COLOR              colours `plugin marketplace list` like omp 18.12.6 (NO_COLOR does not win)
+  FAKE_OMP_COLOR           colours `plugin marketplace list` whatever the colour environment
 
 Unsupported commands exit 2 with a usage line on stderr.
 """
@@ -1638,13 +1640,21 @@ def cmd_marketplace(omp: Omp, targets: list[str]) -> int:
         err("Valid subcommands: add, remove, update, list")
         return 1
     marketplaces = omp.read_marketplaces()["marketplaces"]
+    # omp 18.12.6 colours this listing even when piped if FORCE_COLOR is set (NO_COLOR loses).
+    coloured = bool(os.environ.get("FORCE_COLOR") or os.environ.get("FAKE_OMP_COLOR"))
+
+    def sgr(on: int, off: int, text: str) -> str:
+        return f"\x1b[{on}m{text}\x1b[{off}m" if coloured else text
+
     if not marketplaces:
-        out("No marketplaces configured")
-        out("\nAdd one with: omp plugin marketplace add <source>")
+        out(sgr(2, 22, "No marketplaces configured"))
+        out(sgr(2, 22, ""))
+        out(sgr(2, 22, "Add one with: omp plugin marketplace add <source>"))
         return 0
-    out("Configured Marketplaces:\n")
+    out(sgr(1, 22, "Configured Marketplaces:"))
+    out(sgr(1, 22, ""))
     for entry in marketplaces:
-        out(f"  {entry['name']}  {entry['sourceUri']}")
+        out(f"  {sgr(36, 39, str(entry['name']))}  {sgr(2, 22, str(entry['sourceUri']))}")
     return 0
 
 
