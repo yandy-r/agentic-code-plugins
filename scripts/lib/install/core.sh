@@ -239,6 +239,7 @@ config_group_selection() {
             CONFIG_GROUPS="$(IFS=','; echo "${kept[*]:-}")"
             continue
         fi
+        # shellcheck disable=SC2034  # CONFIG_GROUP_ENTRIES is read by the target libs.
         CONFIG_GROUP_ENTRIES[${group}]="${selection}"
         narrowed+=("${group}")
         names+=("${selection}")

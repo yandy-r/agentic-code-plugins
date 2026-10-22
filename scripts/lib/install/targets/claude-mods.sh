@@ -142,7 +142,7 @@ remove_claude_mods() {
         local others
         others="$(claude_mods_still_enabled "$(selection_for_target mods claude)")"
         if [[ -n "${others}" ]]; then
-            info "kept the ${MODS_MARKETPLACE_NAME} marketplace: ${HOME}/.claude/settings.json still enables ${others//,/, }"
+            info "kept the ${MODS_MARKETPLACE_NAME} marketplace: ${HOME}/.claude/settings.json enabledPlugins still lists ${others//,/, }"
             return 0
         fi
     fi

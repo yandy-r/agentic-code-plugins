@@ -177,6 +177,7 @@ skip_unselectable_steps() {
             [[ "${step}" == "${group}" ]] || kept+=("${step}")
         done
         ONLY_STEPS=(${kept[@]+"${kept[@]}"})
+        # shellcheck disable=SC2034  # EXCLUSIVE_STEPS is read by steps.sh.
         EXCLUSIVE_STEPS=1
     done
 }
