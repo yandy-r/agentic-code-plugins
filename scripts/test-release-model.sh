@@ -585,14 +585,15 @@ test_template() {
 
 # ---------------------------------------------------------------------------
 
-# Generated Cursor/Codex/opencode copies must parse the same files as the
+# Generated Cursor/Codex/opencode/OMP copies must parse the same files as the
 # source: the generators rewrite ycc:<name> and /ycc:<name> references.
 test_generated_copies() {
   local copy repo out rc
   for copy in \
     "${REPO_ROOT}/packages/cursor/ycc/skills/_shared/scripts/release-state.sh" \
     "${REPO_ROOT}/.codex-plugin/ycc/shared/scripts/release-state.sh" \
-    "${REPO_ROOT}/.opencode-plugin/shared/scripts/release-state.sh"; do
+    "${REPO_ROOT}/.opencode-plugin/shared/scripts/release-state.sh" \
+    "${REPO_ROOT}/packages/omp/ycc/skills/_shared/scripts/release-state.sh"; do
     if [[ ! -f "$copy" ]]; then
       ko "generated copy exists: ${copy#"${REPO_ROOT}/"}" "run ./scripts/sync.sh"
       continue

@@ -100,6 +100,8 @@ expect_targets "OMP rules tests select omp and types (mypy files)" "omp types" s
 expect_targets "OMP model policy and tests select omp, config and types" "omp config types" \
     scripts/omp_model_policy.py scripts/test_omp_model_policy.py
 expect_targets "OMP rules/settings live harness selects omp" "omp" scripts/test-omp-rules-settings.sh
+expect_targets "OMP built-in command drift guard and tests select omp and types (mypy files)" "omp types" \
+    scripts/omp_builtin_commands.py scripts/test_omp_builtin_commands.py
 expect_targets "unrelated package output selects everything" "${ALL}" packages/other/ycc-mcp/mcp.json
 expect_targets "Cursor hook source selects everything" "${ALL}" ycc/settings/cursor/herdr-session-start.sh
 expect_targets "vendored Cursor schemas select cursor native and config" "cursor cursor-native config" scripts/vendor/cursor/plugin.schema.json

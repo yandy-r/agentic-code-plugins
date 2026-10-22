@@ -163,7 +163,7 @@ if grep -rqF '~''/.cursor/' "${REPO_ROOT}/packages/cursor/ycc/skills" 2>/dev/nul
 if grep -rqF '~''/.codex/' "${REPO_ROOT}/.codex-plugin/ycc/skills" 2>/dev/null; then pass "codex ~/.codex/ home rewrite preserved"; else fail "codex home rewrite lost"; fi
 
 # No generated bundle may contain the retired opencode root as a live default.
-if grep -rn 'config/opencode/worktrees' "${REPO_ROOT}/.opencode-plugin" "${REPO_ROOT}/.codex-plugin" "${REPO_ROOT}/packages/cursor" "${REPO_ROOT}/.agents-plugin" \
+if grep -rn 'config/opencode/worktrees' "${REPO_ROOT}/.opencode-plugin" "${REPO_ROOT}/.codex-plugin" "${REPO_ROOT}/packages/cursor" "${REPO_ROOT}/packages/omp" "${REPO_ROOT}/.agents-plugin" \
   | grep -v 'worktree-strategy.md' | grep -q .; then
   fail "retired .config/opencode/worktrees default still present in a bundle"
 else

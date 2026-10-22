@@ -44,7 +44,8 @@ COMMAND_NAME = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 # every top-level `name:` and `aliases:` entry in the builtin-*.ts registries and
 # seance.ts). Built-ins dispatch before file commands and parse the name up to the first
 # whitespace or colon, so the namespace must not be one of these, and no `ycc:<name>` may
-# equal one (the `force:` alias contains a colon).
+# equal one (the `force:` alias contains a colon). scripts/omp_builtin_commands.py checks
+# this pin against a live omp's RPC `get_available_commands` (validate.sh --only omp).
 OMP_BUILTIN_COMMANDS: frozenset[str] = frozenset(
     {
         "add-dir",

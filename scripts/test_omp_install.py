@@ -1080,6 +1080,22 @@ class OmpInstallTests(unittest.TestCase):
         self.assertFalse((self.project / ".omp/plugins").exists())
         self.assertFalse(omp_install.state_path().exists())
 
+    def test_partial_install_rollback_drops_a_claimed_path_the_run_did_not_create(self) -> None:
+        self.use_fixture()
+        with patch.dict(os.environ, {"FAKE_OMP_FAIL": "install:ycc-extra@ycc", "FAKE_OMP_NO_NODE_MODULES": "1"}):
+            self.refused("install", "--scope", "project", "--project-root", str(self.project))
+        self.assertIsNotNone(self.record("ycc", "project"))
+        self.assertFalse((self.project / ".omp/plugins/node_modules").exists())
+        self.assertEqual(
+            self.state()["project_residue"][str(self.project)],
+            [
+                ".omp",
+                ".omp/plugins",
+                ".omp/plugins/installed_plugins.json",
+                ".omp/plugins/omp-plugins.lock.json",
+            ],
+        )
+
     def test_failed_first_project_install_restores_the_residue_record_to_its_prior_state(self) -> None:
         with patch.dict(os.environ, {"FAKE_OMP_FAIL": "install"}):
             self.refused("install", "--scope", "project", "--project-root", str(self.project))
