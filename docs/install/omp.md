@@ -197,9 +197,10 @@ rule after its file stem.
   a matching file attaches a reminder listing that family's `rule://` rules
   after the tool result, once per session (`ttsr.repeatMode: once`), and once
   in each subagent that edits a matching file. Files written by shell tools
-  (`bash`, `eval`) do not trigger it. Disable one with
-  `ttsr.disabledRules: [ycc-python-trigger]`; `ttsr.enabled: false` turns all
-  TTSR rules, these included, off entirely.
+  (`bash`, `eval`) do not trigger it. `.ts`, `.tsx`, `.js` and `.jsx` files
+  match both the typescript and web globs, so both reminders attach. Disable
+  one with `ttsr.disabledRules: [ycc-python-trigger]`; `ttsr.enabled: false`
+  turns all TTSR rules, these included, off entirely.
 - **Override a rule.** Copy it under the same name to `<agentDir>/rules/`
   (user) or `<cwd>/.omp/rules/` (project) and edit the copy. Native rules
   outrank plugin rules, so your copy wins and survives ycc updates. OMP

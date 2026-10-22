@@ -77,11 +77,13 @@ flattens this tree into the `ycc-rules` OMP package, because OMP scans plugin
 - **Bodies.** Relative rule links become `rule://ycc-<family>-<stem>` URLs.
   Generation fails on `~/.claude` paths, Claude plugin-root variables or
   `/ycc:` command tokens.
-- **Advisory globs.** OMP lists `globs` next to each rule but does not select
-  rules by glob. Rules marked `alwaysApply: true` (above) are still included
-  automatically; language and web rules are on-demand rulebook entries read
-  via `rule://<name>`, so parity with Cursor is partial. Write descriptions
-  that say when to read the rule.
+- **Trigger rules.** OMP lists `globs` but does not select rules by glob, so
+  each family with `paths` also gets `ycc-<family>-trigger.md` (5 files): a
+  TTSR rule with the union of the family's globs, `condition: .*`,
+  `scope: [tool:edit, tool:write]` and `interruptMode: never`, and no
+  `description`. Its body links the family's rules. A source stem named
+  `trigger` fails generation. Language and web rules stay on-demand rulebook
+  entries; write descriptions that say when to read the rule.
 - **Override and disable.** Users override a rule by copying it under the same
   name to `<agentDir>/rules/` or `<cwd>/.omp/rules/`, or disable it with
   `ttsr.disabledRules`. See

@@ -19,6 +19,10 @@
   status line is **unsupported**. The package rows, required adapters 4 and 6 and the YAN-1175
   follow-up row record this; the evidence is in the
   [YAN-1175 feature spec](../../research/yan-1175-omp-rules-settings/feature-spec.md).
+- **Amendment (2026-10-22, YAN-1295, YAN-1296):** `ycc-rules` adds five `ycc-<family>-trigger`
+  TTSR rules (family globs, `edit`/`write` scope, `interruptMode: never`) that attach a family's
+  language rules after the first matching edit, so glob selection is no longer partial. `--settings`
+  also merges `retry.fallbackChains.{default,slow,task}` (the bare `targets.omp` fallback model).
 - **Date:** 2026-10-19
 - **Tracking:** Linear YAN-1165; GitHub [#365](https://github.com/yandy-r/ystack/issues/365)
 - **Evidence:** [OMP runtime contract spike](../spikes/omp-runtime-contract.md) and its harness
