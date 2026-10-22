@@ -36,7 +36,7 @@ def test_closures() -> None:
         ("ycc", "cursor", ("base", "commands", "settings")),
         ("ycc-hooks", "cursor", ("settings", "hooks")),
         ("ycc-hooks", "claude", ("settings", "rules", "hooks")),
-        ("ycc", "omp", ("base",)),
+        ("ycc", "omp", ("base", "dedupe")),
         ("ycc-mcp", "omp", ("base",)),
         ("ycc-rules", "omp", ("base",)),
     ):
@@ -51,7 +51,7 @@ def test_closures() -> None:
     assert "hooks" not in plan_install(MODEL, ("ycc-mcp",), ("cursor",)).targets[0].steps
     assert parse_packages("ycc,ycc-mcp,ycc") == ("ycc", "ycc-mcp")
     both = plan_install(MODEL, ("ycc", "ycc-mcp", "ycc-rules"), ("omp",)).targets[0]
-    assert (both.steps, both.skipped_components) == (("base",), ())
+    assert (both.steps, both.skipped_components) == (("base", "dedupe"), ())
 
 
 def test_rejections() -> None:

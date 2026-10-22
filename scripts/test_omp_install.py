@@ -25,8 +25,10 @@ from pathlib import Path
 from typing import Any, ClassVar
 from unittest.mock import patch
 
+import install_slices
 import omp_install
 from codex_install import inventory
+from generate_omp_packages import omp_mcp_bytes
 from omp_native_smoke import bump
 from package_install_plan import plan_install
 from package_model import PackageModelError, load_package_model
@@ -35,7 +37,14 @@ FAKE_OMP = Path(__file__).resolve().parent / "tests/install/fake_omp.py"
 REAL_BUILD_EXPORT: Callable[[Path], None] = omp_install.build_export
 FIXTURE = ("ycc", "ycc-extra")
 BUMPED = "9.9.9"
-READ_VERBS = ("omp --version", "omp config path", "omp plugin list --json", "omp plugin marketplace list")
+READ_VERBS = (
+    "omp --version",
+    "omp config path",
+    "omp plugin list --json",
+    "omp plugin marketplace list",
+    "omp config get enabledProviders --json",
+    "omp config get skills.ignoredSkills --json",
+)
 DRY_RUN_PREVIEW = re.compile(r"^omp plugin (install|uninstall)( --force)? --dry-run( |$)")
 Snapshot = dict[str, tuple[str, bytes]]
 
@@ -263,6 +272,23 @@ class OmpInstallTests(unittest.TestCase):
     def clear_log(self) -> None:
         self.log.unlink(missing_ok=True)
 
+    def agents_skill(self, name: str, *, owned: bool, relative: str = ".agents/skills", text: str = "mine") -> Path:
+        """A differing ``<relative>/<name>`` copy; ``owned`` records it in the slice ledger like install_slices."""
+        skill = self.home / relative / name / "SKILL.md"
+        skill.parent.mkdir(parents=True, exist_ok=True)
+        skill.write_text(text, encoding="utf-8")
+        if owned:
+            ledger = install_slices.state_path()
+            units = install_slices.load_state(ledger)
+            units.setdefault(str(self.home / relative), []).append(name)
+            install_slices.save_state(ledger, units)
+        return skill
+
+    def user_config(self, payload: dict[str, Any]) -> None:
+        path = self.fake_root / "agent/config.yml"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload), encoding="utf-8")
+
     def mutating(self) -> list[str]:
         return [
             line
@@ -428,7 +454,8 @@ class OmpInstallTests(unittest.TestCase):
                 entry = self.entry("ycc-mcp", scope)
                 assert entry is not None
                 config = Path(entry["installPath"]) / ".mcp.json"
-                self.assertEqual(config.read_bytes(), (omp_install.ROOT / "mcp-configs/mcp.json").read_bytes())
+                source = (omp_install.ROOT / "mcp-configs/mcp.json").read_bytes()
+                self.assertEqual(config.read_bytes(), omp_mcp_bytes(source))
                 self.assertIn("MCP servers from ycc-mcp start only after a reload or restart", result.out)
                 self.assertIn("/reload-plugins", result.out)
                 self.clear_log()
@@ -702,11 +729,12 @@ class OmpInstallTests(unittest.TestCase):
         legacy = self.entry("ycc", "user")
         assert legacy is not None
         self.assertFalse((Path(legacy["installPath"]) / ".omp-plugin/plugin.json").exists())
-        skill = next(path.name for path in sorted((omp_install.ROOT / "packages/omp/ycc/skills").iterdir()))
-        overlap = self.home / ".agents/skills" / skill / "SKILL.md"
-        overlap.parent.mkdir(parents=True)
-        overlap.write_text("mine", encoding="utf-8")
-        overlap_line = "[!!] ~/.agents/skills holds 1 ycc skills that OMP also loads"
+        skill = "plan"
+        self.agents_skill(skill, owned=True)
+        overlap_line = (
+            "[!!] OMP also loads 1 ycc skills from ~/.agents/skills as agents/<name>; "
+            "run ./install.sh install --target omp --only dedupe to hide them in OMP"
+        )
 
         preview = self.assert_dry_run(("migrate",))
         self.assertIn("[dry-run] would run: omp plugin uninstall --scope user ycc@ycc", preview.out)
@@ -736,7 +764,7 @@ class OmpInstallTests(unittest.TestCase):
         self.assertEqual([len(item["entries"]) for item in items], [1, 1, 1])
         self.assert_installed(("ycc", "ycc-mcp", "ycc-rules"), "user", self.model_version)
         self.assertEqual(self.marketplaces(), {"other": str(other), "ycc": str(exported)})
-        self.assertEqual(overlap.read_text(encoding="utf-8"), "mine")
+        self.assertEqual((self.home / ".agents/skills/plan/SKILL.md").read_text(encoding="utf-8"), "mine")
 
         self.clear_log()
         result = self.ok("migrate", "--apply")
@@ -900,6 +928,118 @@ class OmpInstallTests(unittest.TestCase):
         self.assertIn("swap interrupted", result.err)
         self.assertEqual(inventory(exported), previous)
         self.assertEqual(self.state()["export_inventory"], previous)
+
+    # -- coexistence (YAN-1176) ----------------------------------------------------------------
+
+    W1 = (
+        "[ok] OMP: hid 2 ycc duplicate skills (agents/…, codex/…) via skills.ignoredSkills in {cfg}; "
+        "./install.sh remove --target omp --only dedupe restores them"
+    )
+    W2 = (
+        "[!!] OMP also loads 1 ycc skills from ~/.agents/skills as agents/<name>; "
+        "run ./install.sh install --target omp --only dedupe to hide them in OMP"
+    )
+    W3 = (
+        "[!!] ~/.agents/skills/clean share ycc skill names but were not installed by ycc; "
+        "OMP lists them as agents/<name> (left as is)"
+    )
+    W4 = (
+        "[!!] enabledProviders includes claude: 1 ycc skills in ~/.claude/skills outrank the OMP package "
+        "(it shows as ycc/<name>); remove them with ./install.sh remove --target claude --intent skills, "
+        "or drop claude from enabledProviders"
+    )
+    W5 = (
+        "[!!] OMP also loads these skills; "
+        "run ./install.sh install --target omp --only dedupe to hide the ~/.agents copies in OMP"
+    )
+
+    def test_coexistence_plan_hides_only_ledger_owned_differing_copies(self) -> None:
+        self.agents_skill("plan", owned=True)
+        self.agents_skill("clean", owned=False)  # user-authored: never hidden
+        self.agents_skill("backport", owned=True, relative=".codex/skills")
+        self.agents_skill("blueprint", owned=True, relative=".config/opencode/skills")
+        shipped = (omp_install.ROOT / "packages/omp/ycc/skills/init/SKILL.md").read_text(encoding="utf-8")
+        self.agents_skill("init", owned=True, text=shipped)  # identical: OMP drops it silently
+        self.agents_skill("ycc-shared", owned=True)
+
+        plan = omp_install.coexistence_plan(("ycc",), frozenset())
+
+        self.assertEqual(plan.entries, ("agents/plan", "codex/backport", "opencode/blueprint"))
+        self.assertEqual(plan.unowned, {"~/.agents/skills": ("clean",)})
+        self.assertEqual(plan.claude, ())
+        destination = self.tmp / "dedupe.yml"
+        self.assertEqual(omp_install.coexistence_emit(("ycc",), destination), 3)
+        self.assertEqual(
+            json.loads(destination.read_text(encoding="utf-8")),
+            {"skills": {"ignoredSkills": ["agents/plan", "codex/backport", "opencode/blueprint"]}},
+        )
+
+    def test_coexistence_without_a_ledger_or_overlap_writes_nothing(self) -> None:
+        self.agents_skill("plan", owned=False)
+        destination = self.tmp / "dedupe.yml"
+
+        result = self.ok("coexistence", "--packages", "ycc", "--emit", str(destination))
+
+        self.assertEqual(result.out, "0\n")
+        self.assertFalse(destination.exists())
+
+    def test_coexistence_warnings_have_the_exact_text(self) -> None:
+        self.agents_skill("plan", owned=True)
+        self.agents_skill("backport", owned=True, relative=".codex/skills")
+        self.agents_skill("clean", owned=False)
+        cfg = str(self.fake_root / "agent/config.yml")
+
+        hidden = self.ok("coexistence", "--packages", "ycc", "--warn", "--hidden", cfg)
+        self.assertEqual(hidden.out.splitlines(), [self.W1.format(cfg=cfg), self.W3])
+
+        self.user_config({"skills": {"ignoredSkills": ["codex/*"]}})
+        skipped = self.ok("coexistence", "--packages", "ycc", "--warn")
+        self.assertEqual(skipped.out.splitlines(), [self.W2, self.W3])
+
+        self.user_config({"skills": {"ignoredSkills": ["agents/plan", "codex/backport"]}, "enabledProviders": ["*"]})
+        self.agents_skill("init", owned=True, relative=".claude/skills")
+        claude = self.ok("coexistence", "--packages", "ycc", "--warn")
+        self.assertEqual(claude.out.splitlines(), [self.W3, self.W4])
+
+    def test_coexistence_dry_run_never_runs_omp(self) -> None:
+        self.agents_skill("plan", owned=True)
+        self.clear_log()
+
+        result = self.ok("coexistence", "--packages", "ycc", "--warn", "--dry-run")
+
+        self.assertIn(self.W2, result.out)
+        self.assertIn("omp config get is not run", result.out)
+        self.assertEqual(self.calls(), [])
+
+    def test_agents_hint_only_when_omp_ycc_is_recorded_and_not_hidden(self) -> None:
+        self.agents_skill("plan", owned=True)
+        self.assertEqual(self.ok("coexistence", "--warn", "--if-installed").out, "")
+
+        self.install("user")
+        self.assertEqual(self.ok("coexistence", "--warn", "--if-installed").out, self.W5 + "\n")
+
+        self.user_config({"skills": {"ignoredSkills": ["agents/plan"]}})
+        self.assertEqual(self.ok("coexistence", "--warn", "--if-installed").out, "")
+
+    def test_project_remove_deletes_the_empty_omp_residue(self) -> None:
+        self.install("project")
+        self.assertTrue((self.project / ".omp/plugins/installed_plugins.json").is_file())
+
+        result = self.remove("project")
+
+        self.assertIn(f"[ok] removed the empty omp project state under {self.project / '.omp'}", result.out)
+        self.assertFalse((self.project / ".omp").exists())
+
+    def test_project_remove_keeps_a_pre_existing_omp_dir(self) -> None:
+        mine = self.project / ".omp/skills/plan/SKILL.md"
+        mine.parent.mkdir(parents=True)
+        mine.write_text("mine", encoding="utf-8")
+        self.install("project")
+
+        self.remove("project")
+
+        self.assertEqual(mine.read_text(encoding="utf-8"), "mine")
+        self.assertFalse((self.project / ".omp/plugins").exists())
 
     # -- rejection -----------------------------------------------------------------------------
 

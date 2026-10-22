@@ -63,7 +63,7 @@ _ycc() {
         --skills-home) mapfile -t COMPREPLY < <(compgen -W "agents native" -- "${cur}"); return ;;
         --intent) values="base skills agents commands settings rules mcp hooks plugins mods" ;;
         --package) [[ "${sub}" == "install" ]] && values="ycc ycc-mcp ycc-hooks ycc-rules" ;;
-        --only)   values="base skills agents commands settings rules mcp hooks mods" ;;
+        --only)   values="base dedupe skills agents commands settings rules mcp hooks mods" ;;
         --mode)   mapfile -t COMPREPLY < <(compgen -W "local repo" -- "${cur}"); return ;;
         --shell)  mapfile -t COMPREPLY < <(compgen -W "bash zsh fish" -- "${cur}"); return ;;
         --dir|--marketplace-source) mapfile -t COMPREPLY < <(compgen -d -- "${cur}"); return ;;

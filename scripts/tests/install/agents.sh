@@ -47,6 +47,15 @@ mkdir -p "${home}/.config/opencode/skills/backport"
 install_must_succeed "${home}" install --target agents
 out="${INSTALL_OUT}"
 assert_contains "${out}" "may list them twice" "agents install warns when opencode native skills already hold ycc entries"
+assert_not_contains "${out}" "OMP also loads these skills" "agents install prints no OMP hint when omp ycc is not installed"
+
+echo
+echo "== install.sh install: agents after omp prints the OMP dedupe hint (W5) =="
+
+home="$(new_home)"
+install_must_succeed "${home}" install --target omp --only base
+install_must_succeed "${home}" install --target agents
+assert_contains "${INSTALL_OUT}" "[!!] OMP also loads these skills; run ./install.sh install --target omp --only dedupe to hide the ~/.agents copies in OMP" "agents after omp prints W5"
 
 echo
 echo "== install.sh: --skills-home agents consolidates shared skills =="

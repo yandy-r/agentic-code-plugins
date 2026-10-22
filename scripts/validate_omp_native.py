@@ -15,8 +15,9 @@ output and need no omp binary. They mirror omp 18.12.x's own catalog parser
 - closure: the ycc root holds only manifests and skills/agents/commands; every source skill,
   agent and the shared stub ship; every command has its skill; every skill:// reference resolves;
 - MCP closure: an MCP-only root (ycc-mcp) holds only its manifests and `.mcp.json`, which is
-  byte-identical to mcp-configs/mcp.json, parses with an `mcpServers` object, and carries no
-  secret literal (credential keys hold only `${VAR}` placeholders);
+  byte-identical to generate_omp_packages.omp_mcp_bytes(mcp-configs/mcp.json) (YAN-1291: a
+  later http/sse duplicate connection carries `ycc-server=<name>`), parses with an `mcpServers`
+  object, and carries no secret literal (credential keys hold only `${VAR}` placeholders);
 - rules closure (YAN-1175): a rules-only root (ycc-rules) holds only its manifests and a flat
   `rules/` of regular `ycc-*.md` files (no subdirectories or symlinks) whose names and bytes
   equal generate_omp_rules' rendering of ycc/rules;
@@ -392,8 +393,13 @@ def mcp_closure_errors(root: Path, source_root: Path, package: Package) -> list[
     if config_path.is_symlink() or not config_path.is_file():
         return [*errors, f"{config_rel}: missing MCP configuration"]
     content = config_path.read_bytes()
-    if content != (source_root / generator.SOURCE_MCP_PATH).read_bytes():
-        errors.append(f"{config_rel}: must be byte-identical to {generator.SOURCE_MCP_PATH}")
+    try:
+        expected: bytes | None = generator.omp_mcp_bytes((source_root / generator.SOURCE_MCP_PATH).read_bytes())
+    except ValueError as exc:
+        errors.append(f"{generator.SOURCE_MCP_PATH}: {exc}")
+        expected = None
+    if expected is not None and content != expected:
+        errors.append(f"{config_rel}: must equal the OMP rendering of {generator.SOURCE_MCP_PATH}")
     try:
         config = load_mcp_config(content, config_rel.as_posix())
         audit_no_secret_literals(config, config_rel.as_posix())

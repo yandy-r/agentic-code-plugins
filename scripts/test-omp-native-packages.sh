@@ -39,8 +39,9 @@ is ignored; .claude-plugin + catalog + package.json bump upgrades), uninstall cl
 
 ycc-mcp (YAN-1173; skipped, and logged, when the catalog does not list it): --dry-run then
 install with a byte-identical cache; list (a probe extension calls omp's loadAllMCPConfigs:
-every server in the shipped .mcp.json is ycc-mcp:<server> unless an equivalent connection
-shadows it, the browser filter drops exactly playwright, unset ${VAR} env stays literal);
+every server in the shipped .mcp.json is ycc-mcp:<server> with none shadowed by an equivalent
+connection and a distinct OAuth credential id per distinct http/sse url (YAN-1291), the browser
+filter drops exactly playwright, unset ${VAR} env stays literal);
 start (a stdio stub's tool reaches RPC get_state); user mcp.json disabledServers hides a
 server and enabledServers revives one shipped with enabled: false; plugin disable/enable;
 a native user mcp.json entry with the same ycc-mcp:<server> name overrides the package;
@@ -294,15 +295,17 @@ rpc() {
 }
 # The MCP probe imports omp's own MCP config loader (mcp/config.ts loadAllMCPConfigs, the
 # function a session's MCP manager discovers with) and capability dedupe. It reports every
-# discovered server with its source, the servers left after the browser filter a session
-# applies (shouldFilterBrowserMCPForPrelude with the live browser.enabled setting; eval is a
-# default tool) and the servers an equivalent connection shadows.
+# discovered server with its source and OAuth credential id (mcp/oauth-flow.ts
+# mcpOAuthCredentialId, the auth-storage row an http/sse login lands in), the servers left
+# after the browser filter a session applies (shouldFilterBrowserMCPForPrelude with the live
+# browser.enabled setting; eval is a default tool) and the servers an equivalent connection shadows.
 cat >"$root/mcp-probe.ts" <<'EOF'
 export default async function (pi) {
   let d;
   try {
     const cfg = await import("@oh-my-pi/pi-coding-agent/mcp/config");
     const disc = await import("@oh-my-pi/pi-coding-agent/discovery");
+    const { mcpOAuthCredentialId } = await import("@oh-my-pi/pi-coding-agent/mcp/oauth-flow");
     const { Settings } = await import("@oh-my-pi/pi-coding-agent/config/settings");
     const { cfgBrowserEnabled } = await import("@oh-my-pi/pi-coding-agent/tools/browser/settings");
     const browserEnabled = cfgBrowserEnabled.get(Settings.instance);
@@ -316,6 +319,8 @@ export default async function (pi) {
       servers: Object.fromEntries(Object.entries(r.configs).map(([k, v]) => [k, {
         type: v.type, args: v.args, url: v.url, env: v.env, enabled: v.enabled,
         provider: r.sources[k]?.provider ?? null, path: r.sources[k]?.path ?? null }])),
+      credentialIds: Object.fromEntries(Object.entries(r.configs)
+        .filter(([, v]) => typeof v.url === "string").map(([k, v]) => [k, mcpOAuthCredentialId(v.url)])),
       browserKept: Object.keys(kept.configs),
       shadowed: all.all.filter(s => s._shadowed).map(s => s.name),
     });
@@ -409,7 +414,7 @@ if ((mcp_listed)); then
   check mcp-servers-nobrowser-proof mcp-listed "$root/logs/mcp-servers-nobrowser.stdout" "$shipped_mcp" "$root/logs/mcp-list.stdout"
   printf 'mcp:\n  startupTimeoutMs: 0\n' >"$omp_home/agent/config.yml"
   # shellcheck disable=SC2016 # literal ${VAR} placeholder in a log line
-  log 'PASS ycc-mcp list: omp discovers every shipped server as ycc-mcp:<server> from the install (linear-personal shadowed by linear); browser.enabled drops exactly playwright and browser.enabled: false keeps it; unset ${XERO_*} env stays literal'
+  log 'PASS ycc-mcp list: omp discovers every shipped server as ycc-mcp:<server> from the install, none shadowed, each http server with its own OAuth credential id; browser.enabled drops exactly playwright and browser.enabled: false keeps it; unset ${XERO_*} env stays literal'
 
   if ((public)); then
     log 'SKIP ycc-mcp start (--public): no fixture stub server; the shipped servers cannot connect offline'

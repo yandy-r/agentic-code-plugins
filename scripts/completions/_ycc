@@ -27,7 +27,7 @@ _ycc() {
     )
     local mode='--mode[marketplace source mode]:mode:(local repo)'
     local intent='--intent[what to sync]:intents:_values -s , intent base skills agents commands settings rules mcp hooks plugins mods'
-    local only='--only[run only these steps]:steps:_values -s , step base skills agents commands settings rules mcp hooks mods'
+    local only='--only[run only these steps]:steps:_values -s , step base dedupe skills agents commands settings rules mcp hooks mods'
     local package='--package[install package closures]:packages:_values -s , package ycc ycc-mcp ycc-hooks ycc-rules'
     local list_target='--target[targets to list for]:targets:_values -s , target claude cursor codex opencode agents omp all'
     # --<kind> selectors: one per kind from 'ycc list', names from 'ycc list <kind>'.

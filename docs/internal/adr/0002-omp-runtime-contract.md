@@ -123,7 +123,11 @@ the [spike, section 3](../spikes/omp-runtime-contract.md#3-component--verdict-ma
   and check them.
 - Users who already run Claude ycc see no duplicates by default, because foreign user sources are
   opt-in. Copies from the `install.sh` `agents` target in `~/.agents/skills` do load by default and
-  can duplicate native skills. Migration must detect them.
+  can duplicate native skills. Delivered (YAN-1176): `install --target omp` runs a default-on
+  `dedupe` step that adds hash-owned `agents/<name>`, `codex/<name>` and `opencode/<name>` entries
+  to the user `<agentDir>/config.yml` `skills.ignoredSkills`, only for skills ycc installed. The
+  entries hide OMP's alias alone, so other tools keep their copies, and `remove --target omp`
+  takes them back. Project config is never written.
 - `plugin-overrides.json` does not hide a marketplace install's skills, rules, agents, commands,
   or MCP, but it does filter the package's `omp.extensions` (verified live). The full per-project
   switch is `omp plugin disable --scope project`; installer docs must not offer overrides as a
@@ -135,20 +139,20 @@ the [spike, section 3](../spikes/omp-runtime-contract.md#3-component--verdict-ma
 
 ## Follow-up mapping
 
-| Issue    | Scope from this ADR                                                                                                                                                                                              |
-| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| YAN-1166 | Add the `omp` target, capability matrix, and package schema and inventory entries; floor `>=18.12.2`                                                                                                             |
-| YAN-1167 | Skill and `_shared` generation, body rewriter, invocation policy (`disable-model-invocation`)                                                                                                                    |
-| YAN-1168 | Optional `commands/` wrappers or a documented `/skill:<name>` entrypoint                                                                                                                                         |
-| YAN-1169 | Agent translator (tools, `@role` models, MCP names) under `.omp-plugin/plugin.json`                                                                                                                              |
-| YAN-1170 | Delivered: `.omp/worktrees` root (`OMPCODE`), `task` batch + `wait` dispatch, `question-policy.md`; never `isolated`                                                                                             |
-| YAN-1171 | `.omp-plugin/marketplace.json` and per-package tree generator; `ycc-all` omitted                                                                                                                                 |
-| YAN-1172 | Delivered: `install.sh --target omp` lifecycle using `omp plugin` (`--dry-run`, scopes, profile and XDG-aware paths)                                                                                             |
-| YAN-1173 | Delivered: `ycc-mcp` OMP package (native `.mcp.json`, secret-literal audit), installed by `install.sh --target omp`                                                                                              |
-| YAN-1174 | Delivered: hook verdicts (herdr native via herdr's integration, `WorktreeCreate` unsupported), `ycc-hooks` excluded on OMP, validator guards, opt-in herdr harness                                               |
-| YAN-1175 | Delivered: `ycc-rules` OMP package (flat `ycc-*` rules), `--rules` `AGENTS.md` link, opt-in `--settings` merge (`modelRoles`, `tools.approvalMode: write`), `models.json` `targets.omp`; status line unsupported |
-| YAN-1176 | Coexistence and dedupe with `~/.agents` and Claude opt-in, profiles, and the trust-model docs                                                                                                                    |
-| YAN-1177 | Validators, generator tests, and CI for the OMP tree                                                                                                                                                             |
-| YAN-1178 | Live acceptance matrix extending the spike harness (real ycc tree, network installs, older versions to lower the floor)                                                                                          |
-| YAN-1179 | Install, fallback, and migration docs, including the restart-after-install note                                                                                                                                  |
-| YAN-1180 | Release gate: list the OMP packages in a maintainer release                                                                                                                                                      |
+| Issue    | Scope from this ADR                                                                                                                                                                                                                                                     |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| YAN-1166 | Add the `omp` target, capability matrix, and package schema and inventory entries; floor `>=18.12.2`                                                                                                                                                                    |
+| YAN-1167 | Skill and `_shared` generation, body rewriter, invocation policy (`disable-model-invocation`)                                                                                                                                                                           |
+| YAN-1168 | Optional `commands/` wrappers or a documented `/skill:<name>` entrypoint                                                                                                                                                                                                |
+| YAN-1169 | Agent translator (tools, `@role` models, MCP names) under `.omp-plugin/plugin.json`                                                                                                                                                                                     |
+| YAN-1170 | Delivered: `.omp/worktrees` root (`OMPCODE`), `task` batch + `wait` dispatch, `question-policy.md`; never `isolated`                                                                                                                                                    |
+| YAN-1171 | `.omp-plugin/marketplace.json` and per-package tree generator; `ycc-all` omitted                                                                                                                                                                                        |
+| YAN-1172 | Delivered: `install.sh --target omp` lifecycle using `omp plugin` (`--dry-run`, scopes, profile and XDG-aware paths)                                                                                                                                                    |
+| YAN-1173 | Delivered: `ycc-mcp` OMP package (native `.mcp.json`, secret-literal audit), installed by `install.sh --target omp`                                                                                                                                                     |
+| YAN-1174 | Delivered: hook verdicts (herdr native via herdr's integration, `WorktreeCreate` unsupported), `ycc-hooks` excluded on OMP, validator guards, opt-in herdr harness                                                                                                      |
+| YAN-1175 | Delivered: `ycc-rules` OMP package (flat `ycc-*` rules), `--rules` `AGENTS.md` link, opt-in `--settings` merge (`modelRoles`, `tools.approvalMode: write`), `models.json` `targets.omp`; status line unsupported                                                        |
+| YAN-1176 | Delivered: default-on `dedupe` step (owned `skills.ignoredSkills` aliases), W1–W5 coexistence warnings, precedence and untrusted-project docs, `--project` residue cleanup; with YAN-1291 (`?ycc-server=<name>` on `linear-personal` in the OMP `ycc-mcp` package only) |
+| YAN-1177 | Validators, generator tests, and CI for the OMP tree                                                                                                                                                                                                                    |
+| YAN-1178 | Live acceptance matrix extending the spike harness (real ycc tree, network installs, older versions to lower the floor)                                                                                                                                                 |
+| YAN-1179 | Install, fallback, and migration docs, including the restart-after-install note                                                                                                                                                                                         |
+| YAN-1180 | Release gate: list the OMP packages in a maintainer release                                                                                                                                                                                                             |

@@ -95,6 +95,8 @@ validate_scope_owned_targets() {
         scripts/omp_install.py) echo "omp config" ;;
         scripts/test_omp_install.py) echo "omp config types" ;;
         scripts/test-omp-install-lifecycle.sh) echo "omp" ;;
+        # OMP coexistence with the other runtimes (YAN-1176): the opt-in live harness.
+        scripts/test-omp-coexistence.sh) echo "omp" ;;
         # OMP rules and model policy (YAN-1175): the rules flattener (feeds the ycc-rules
         # package, which the config target's real OMP export test builds) and the model
         # policy (imported by the agent generator and by validate-model-settings.py) also

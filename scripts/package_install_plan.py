@@ -16,7 +16,7 @@ from generate_codex_skills import plugin_output_path
 from package_model import PackageModel, PackageModelError, load_package_model
 
 TARGETS = ("claude", "cursor", "codex", "opencode", "agents", "omp")
-STEP_ORDER = ("base", "agents", "commands", "settings", "rules", "mcp", "hooks")
+STEP_ORDER = ("base", "dedupe", "agents", "commands", "settings", "rules", "mcp", "hooks")
 CARRIERS: dict[str, dict[str, str]] = {
     "claude": {
         "skills": "base",
@@ -159,6 +159,10 @@ def plan_install(
             warnings.append(f"{problem} — skipping target '{target}'")
             continue
         steps = {carriers[component] for component in components if component in carriers}
+        if target == "omp" and "skills" in components:
+            # The default-on dedupe step hides the ycc skills OMP also loads from
+            # other runtimes' dirs; only a package that ships skills can expose them.
+            steps.add("dedupe")
         units = (
             tuple(unit for unit in ("skills", "agents", "rules") if unit in components) if target == "cursor" else ()
         )

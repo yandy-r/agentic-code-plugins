@@ -289,10 +289,10 @@ class GenerateOmpPackagesTests(unittest.TestCase):
 
     # --- MCP package (YAN-1173) -------------------------------------------------------
 
-    def test_mcp_package_ships_the_source_bytes_and_lockstep_manifests(self) -> None:
+    def test_mcp_package_ships_the_omp_rendering_and_lockstep_manifests(self) -> None:
         self.generate()
         source = (self.root / gen.SOURCE_MCP_PATH).read_bytes()
-        self.assertEqual((self.root / MCP / gen.MCP_CONFIG).read_bytes(), source)
+        self.assertEqual((self.root / MCP / gen.MCP_CONFIG).read_bytes(), gen.omp_mcp_bytes(source))
         self.assertEqual(
             {path.relative_to(self.root / MCP).as_posix() for path in (self.root / MCP).rglob("*") if path.is_file()},
             {".omp-plugin/plugin.json", ".claude-plugin/plugin.json", "package.json", ".mcp.json"},
@@ -324,6 +324,74 @@ class GenerateOmpPackagesTests(unittest.TestCase):
         for path in (self.root / gen.OUTPUT_ROOT).rglob("*"):
             if path.is_file():
                 self.assertNotIn(SENTINEL.encode(), path.read_bytes(), path)
+
+    def test_omp_mcp_disambiguates_only_linear_personal_in_the_real_source(self) -> None:
+        source = (gen.REPO_ROOT / gen.SOURCE_MCP_PATH).read_bytes()
+        rendered = gen.omp_mcp_bytes(source)
+        before, after = json.loads(source)["mcpServers"], json.loads(rendered)["mcpServers"]
+        self.assertEqual(list(after), list(before))
+        self.assertEqual(after["linear-personal"]["url"], "https://mcp.linear.app/mcp?ycc-server=linear-personal")
+        after["linear-personal"]["url"] = before["linear-personal"]["url"]
+        self.assertEqual(after, before)
+        self.assertEqual(
+            [line for line in rendered.splitlines() if line not in source.splitlines()],
+            [b'      "url": "https://mcp.linear.app/mcp?ycc-server=linear-personal"'],
+        )
+        keys = {gen.mcp_connection_key(server) for server in json.loads(rendered)["mcpServers"].values()}
+        self.assertEqual(len(keys), len(after))
+
+    def test_omp_mcp_keeps_unique_sources_and_existing_queries(self) -> None:
+        unique = self.write_mcp_servers(
+            {
+                "a": {"type": "http", "url": "https://x.invalid/mcp"},
+                "b": {"type": "sse", "url": "https://x.invalid/mcp"},
+            }
+        )
+        self.assertIs(gen.omp_mcp_bytes(unique), unique)
+        query = self.write_mcp_servers(
+            {
+                "a": {"type": "http", "url": "https://x.invalid/mcp?team=1"},
+                "b": {"type": "http", "url": "https://x.invalid/mcp?team=1", "headers": {"X-Id": "${ID}"}},
+                "c": {"type": "http", "url": "https://x.invalid/mcp?team=1"},
+            }
+        )
+        servers = json.loads(gen.omp_mcp_bytes(query))["mcpServers"]
+        self.assertEqual(servers["b"]["url"], "https://x.invalid/mcp?team=1")
+        self.assertEqual(servers["b"]["headers"], {"X-Id": "${ID}"})
+        self.assertEqual(servers["c"]["url"], "https://x.invalid/mcp?team=1&ycc-server=c")
+        # omp's plugin loader drops requestIdFormat, so it never tells two connections apart.
+        request_id = self.write_mcp_servers(
+            {
+                "a": {"type": "http", "url": "https://x.invalid/mcp"},
+                "b": {"type": "http", "url": "https://x.invalid/mcp", "requestIdFormat": "string"},
+            }
+        )
+        servers = json.loads(gen.omp_mcp_bytes(request_id))["mcpServers"]
+        self.assertEqual(servers["b"]["url"], "https://x.invalid/mcp?ycc-server=b")
+
+    def test_omp_mcp_stdio_duplicate_fails_closed(self) -> None:
+        source = self.write_mcp_servers(
+            {"a": {"command": "npx", "args": ["-y", "x"]}, "b": {"command": "npx", "args": ["-y", "x"]}}
+        )
+        with self.assertRaisesRegex(ValueError, r"^b: same stdio connection as a; OMP would shadow it$"):
+            gen.omp_mcp_bytes(source)
+        with self.assertRaisesRegex(ValueError, "same stdio connection"):
+            self.output()
+
+    def test_omp_mcp_disambiguation_keeps_placeholders_literal(self) -> None:
+        headers = {"Authorization": "Bearer ${REMOTE_TOKEN}"}
+        source = self.write_mcp_servers(
+            {
+                "a": {"type": "http", "url": "https://x.invalid/${TENANT}/mcp", "headers": headers},
+                "b": {"type": "http", "url": "https://x.invalid/${TENANT}/mcp", "headers": headers},
+            }
+        )
+        with mock.patch.dict(os.environ, {"TENANT": SENTINEL, "REMOTE_TOKEN": SENTINEL}):
+            rendered = gen.omp_mcp_bytes(source)
+        self.assertNotIn(SENTINEL.encode(), rendered)
+        servers = json.loads(rendered)["mcpServers"]
+        self.assertEqual(servers["b"]["url"], "https://x.invalid/${TENANT}/mcp?ycc-server=b")
+        self.assertEqual(servers["b"]["headers"], headers)
 
     def test_secret_literals_in_the_mcp_source_fail_generation(self) -> None:
         cases: dict[str, dict[str, Any]] = {
@@ -365,13 +433,22 @@ class GenerateOmpPackagesTests(unittest.TestCase):
         config.write_bytes(config.read_bytes().replace(b"${XERO_CLIENT_SECRET}", b"hunter2"))
         (self.root / MCP / "skills").mkdir()
         errors = self.errors()
-        self.assert_has(errors, f"{MCP / gen.MCP_CONFIG}: must be byte-identical to mcp-configs/mcp.json")
+        self.assert_has(errors, f"{MCP / gen.MCP_CONFIG}: must equal the OMP rendering of mcp-configs/mcp.json")
         self.assert_has(errors, "XERO_CLIENT_SECRET looks like a secret literal")
         self.assert_has(errors, f"{MCP}/skills: unexpected entry outside the manifests and .mcp.json")
         config.unlink()
         self.assert_has(self.errors(), f"{MCP / gen.MCP_CONFIG}: missing MCP configuration")
         config.write_text("{not json", encoding="utf-8")
         self.assert_has(self.errors(), f"{MCP / gen.MCP_CONFIG}: invalid JSON")
+
+    def test_validator_reports_raw_source_bytes_as_mcp_drift(self) -> None:
+        self.generate()
+        source = (self.root / gen.SOURCE_MCP_PATH).read_bytes()
+        self.assertNotEqual(gen.omp_mcp_bytes(source), source)
+        (self.root / MCP / gen.MCP_CONFIG).write_bytes(source)
+        self.assertEqual(
+            self.errors(), [f"{MCP / gen.MCP_CONFIG}: must equal the OMP rendering of mcp-configs/mcp.json"]
+        )
 
     def test_deferring_ycc_drops_manifests_but_keeps_the_component_tree(self) -> None:
         self.generate()
