@@ -186,6 +186,8 @@ Seeded: skills under `~/.claude`, `~/.codex`, `~/.cursor`, `~/.agents`, and `~/.
 
 Foreign user-level sources are opt-in (`src/capability/index.ts:51-60`, `:356-373`; since 18.1.5, `CHANGELOG.md@v18.3.0:1200`). A Claude ycc install is therefore invisible to OMP by default. `~/.agents/skills` is on by default at priority 70, so `install.sh`'s `agents` target copies can duplicate a native OMP ycc install (§2.10).
 
+> **YAN-1176 (omp 18.12.5).** A differing same-name copy in `~/.agents/skills` loads as the alias `agents/<name>` next to the package skill. `skills.ignoredSkills` globs match that alias, so `install --target omp` now hides the ycc-installed aliases (`agents/`, `codex/`, `opencode/`) in the user `config.yml`; see `docs/install/omp.md` (Coexistence With Other Runtimes).
+
 ---
 
 ## 2. Upstream Contract (`v18.12.2`)
@@ -381,7 +383,7 @@ Also:
 - Normalization of Claude-cased agent `tools:` names is doc-sourced (§1.4).
 - ~~herdr acceptance of an OMP-originated `session_start` report, and whether herdr's API has a shutdown report.~~ Settled live (YAN-1174): herdr ships its own OMP integration (`herdr integration install omp`), records only `herdr:`-sourced session reports (a `ycc:omp` report is ignored), and a second `herdr:omp` reporter breaks its `seq` ordering. ycc ships no OMP reporter.
 - Whether to generate `commands/` wrappers for `/ycc:<name>` parity, or document `/skill:<name>`.
-- Dedupe policy when both `install.sh`'s `agents` target (`~/.agents/skills`) and the OMP ycc package are present (§1.8, §2.8).
+- ~~Dedupe policy when both `install.sh`'s `agents` target (`~/.agents/skills`) and the OMP ycc package are present (§1.8, §2.8).~~ Settled (YAN-1176): the OMP target's default-on `dedupe` step adds hash-owned `agents/<name>` (and `codex/`, `opencode/`) entries to the user `config.yml` `skills.ignoredSkills` for ycc-installed skills only. The agents copies stay on disk for other tools, and OMP loads them again under their bare names once the OMP package is disabled or removed. `remove --target omp --only dedupe` takes the entries back.
 - ~~Upgrade detection for `.omp-plugin`-only packages relies on the catalog `version` (§1.5).~~ Settled live on omp 18.12.3 by `scripts/test-omp-native-packages.sh` (YAN-1171): a bump only in `.omp-plugin/plugin.json` is ignored (`All marketplace plugins are up to date.`), and a lockstep bump of `.claude-plugin/plugin.json`, catalog entry and `package.json` upgrades. The generated root ships `.claude-plugin/plugin.json`, so that manifest decides.
 - The probe in §1.4 imports an internal omp module (`task/discovery`). If that path moves, the harness case fails loudly instead of passing silently.
 

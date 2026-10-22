@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import fnmatch
 import json
 import os
 import re
@@ -33,6 +34,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import install_slices
 from codex_install import guarded, inventory
 from generate_omp_packages import MIN_OMP_VERSION
 from merge_managed_config import atomic_write
@@ -49,6 +51,14 @@ MARKETPLACE_LINE = re.compile(r"^  (\S+)  (.+)$")
 HOME_REFUSAL = "--project at $HOME: omp project scope needs a project directory (cd into a project, or use --global)"
 REPO_REFUSAL = "--mode repo needs a listed OMP package (YAN-1180)"
 TRUST = "[!!] OMP has no trust prompt: installed plugin code runs with your user privileges."
+# The omp project state a project install may create; remove deletes only the paths ycc's install created.
+PROJECT_RESIDUE = (
+    ".omp",
+    ".omp/plugins",
+    ".omp/plugins/installed_plugins.json",
+    ".omp/plugins/omp-plugins.lock.json",
+    ".omp/plugins/node_modules",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -164,26 +174,198 @@ def package_version(root: Path, package: str) -> str:
     return version
 
 
-def agents_overlap(packages: tuple[str, ...]) -> int:
-    """Count ~/.agents/skills dirs named like a skill these packages ship (OMP loads both)."""
-    skills_home = Path.home() / ".agents/skills"
-    if not skills_home.is_dir():
-        return 0
-    names: set[str] = set()
+# ---------------------------------------------------------------------------
+# Coexistence (YAN-1176): ycc skills other targets put where OMP also reads them
+# ---------------------------------------------------------------------------
+
+# (home-relative skills dir, OMP alias namespace) that OMP can load beside the native package.
+COEXISTENCE_DIRS = ((".agents/skills", "agents"), (".codex/skills", "codex"), (".config/opencode/skills", "opencode"))
+CLAUDE_SKILLS = ".claude/skills"
+CLAUDE_PROVIDERS = frozenset({"claude", "*", "all"})
+DEDUPE_HINT = "./install.sh install --target omp --only dedupe"
+
+
+@dataclass(frozen=True)
+class CoexistencePlan:
+    """What OMP would load twice: owned aliases to hide, unowned copies and Claude opt-in overlaps."""
+
+    entries: tuple[str, ...]
+    owned: dict[str, tuple[str, ...]]
+    unowned: dict[str, tuple[str, ...]]
+    claude: tuple[str, ...]
+
+
+def package_skills(packages: tuple[str, ...]) -> dict[str, Path]:
+    """name → the package's SKILL.md for every skill the selected OMP packages ship (not ``_shared``)."""
+    skills: dict[str, Path] = {}
     for package in packages:
-        skills = ROOT / "packages/omp" / package / "skills"
-        if skills.is_dir():
-            names.update(path.name for path in skills.iterdir() if (path / "SKILL.md").is_file())
-    return sum(1 for path in skills_home.iterdir() if path.name in names and path.is_dir())
+        root = ROOT / "packages/omp" / package / "skills"
+        if root.is_dir():
+            for path in sorted(root.iterdir()):
+                if (path / "SKILL.md").is_file() and not path.name.startswith("_") and path.name != "ycc-shared":
+                    skills.setdefault(path.name, path / "SKILL.md")
+    return skills
 
 
-def warn_agents_overlap(packages: tuple[str, ...]) -> None:
-    count = agents_overlap(packages)
-    if count:
-        print(
-            f"[!!] ~/.agents/skills holds {count} ycc skills that OMP also loads; "
-            "remove them with ./install.sh remove --target agents --only base"
+def aliased(directory: Path, name: str, shipped: Path) -> bool:
+    """True when OMP would alias ``directory/name``: a skill there whose SKILL.md differs from ycc's.
+
+    Byte-identical copies are dropped silently by OMP, so they need neither an entry nor a warning.
+    """
+    skill = directory / name / "SKILL.md"
+    try:
+        return skill.is_file() and skill.read_bytes() != shipped.read_bytes()
+    except OSError:
+        return False
+
+
+def coexistence_plan(packages: tuple[str, ...], enabled_providers: frozenset[str]) -> CoexistencePlan:
+    """Classify every ycc-named skill OMP also reads, by the slice ledger (installed-units.json)."""
+    home = Path.home()
+    shipped = package_skills(packages)
+    ledger = install_slices.load_state(install_slices.state_path())
+    owned: dict[str, tuple[str, ...]] = {}
+    unowned: dict[str, tuple[str, ...]] = {}
+    for relative, namespace in COEXISTENCE_DIRS:
+        directory = home / relative
+        recorded = set(ledger.get(str(directory), []))
+        present = [name for name, source in shipped.items() if aliased(directory, name, source)]
+        mine = tuple(sorted(name for name in present if name in recorded))
+        theirs = tuple(sorted(name for name in present if name not in recorded))
+        if mine:
+            owned[namespace] = mine
+        if theirs:
+            unowned[f"~/{relative}"] = theirs
+    claude: tuple[str, ...] = ()
+    if enabled_providers & CLAUDE_PROVIDERS:
+        directory = home / CLAUDE_SKILLS
+        recorded = set(ledger.get(str(directory), []))
+        claude = tuple(
+            sorted(name for name, source in shipped.items() if name in recorded and aliased(directory, name, source))
         )
+    entries = tuple(sorted(f"{namespace}/{name}" for namespace, names in owned.items() for name in names))
+    return CoexistencePlan(entries, owned, unowned, claude)
+
+
+def ignored(entry: str, patterns: list[str]) -> bool:
+    return any(fnmatch.fnmatchcase(entry, pattern) for pattern in patterns)
+
+
+def omp_setting(key: str) -> Any:
+    """The user-level effective value of ``key`` (``omp config get --json`` from $HOME); None when unreadable."""
+    try:
+        return OmpCli().setting(key)
+    except (OSError, ValueError):
+        return None
+
+
+def string_list(value: Any) -> list[str]:
+    return [item for item in value if isinstance(item, str)] if isinstance(value, list) else []
+
+
+def coexistence_lines(plan: CoexistencePlan, pending: tuple[str, ...], hidden: str | None, dry_run: bool) -> list[str]:
+    """The W1–W4 lines for ``plan``; ``pending`` are entries not yet ignored, ``hidden`` the config just merged."""
+    lines: list[str] = []
+    if hidden is not None and plan.entries:
+        namespaces = ", ".join(f"{namespace}/…" for namespace in plan.owned)
+        verb = "[dry-run] OMP: would hide" if dry_run else "[ok] OMP: hid"
+        lines.append(
+            f"{verb} {len(plan.entries)} ycc duplicate skills ({namespaces}) via skills.ignoredSkills in {hidden}; "
+            "./install.sh remove --target omp --only dedupe restores them"
+        )
+    elif pending:
+        for relative, namespace in COEXISTENCE_DIRS:
+            count = sum(1 for entry in pending if entry.startswith(f"{namespace}/"))
+            if count:
+                lines.append(
+                    f"[!!] OMP also loads {count} ycc skills from ~/{relative} as {namespace}/<name>; "
+                    f"run {DEDUPE_HINT} to hide them in OMP"
+                )
+    for directory, names in plan.unowned.items():
+        namespace = next(ns for relative, ns in COEXISTENCE_DIRS if directory == f"~/{relative}")
+        lines.append(
+            f"[!!] {directory}/{', '.join(names)} share ycc skill names but were not installed by ycc; "
+            f"OMP lists them as {namespace}/<name> (left as is)"
+        )
+    if plan.claude:
+        lines.append(
+            f"[!!] enabledProviders includes claude: {len(plan.claude)} ycc skills in ~/{CLAUDE_SKILLS} outrank the "
+            "OMP package (it shows as ycc/<name>); remove them with ./install.sh remove --target claude --intent "
+            "skills, or drop claude from enabledProviders"
+        )
+    return lines
+
+
+def coexistence_warn(packages: tuple[str, ...], *, hidden: str | None = None, dry_run: bool = False) -> None:
+    """Print W1–W4. A dry-run never runs omp (``omp config get`` creates agent.db): settings read as []."""
+    if dry_run:
+        providers: list[str] = []
+        current: list[str] = []
+    else:
+        providers = string_list(omp_setting("enabledProviders"))
+        current = string_list(omp_setting("skills.ignoredSkills"))
+    plan = coexistence_plan(packages, frozenset(providers))
+    pending = tuple(entry for entry in plan.entries if not ignored(entry, current))
+    if dry_run and pending and hidden is None:
+        print("[dry-run] enabledProviders and skills.ignoredSkills read as [] (omp config get is not run)")
+    for line in coexistence_lines(plan, pending, hidden, dry_run):
+        print(line)
+
+
+def coexistence_emit(packages: tuple[str, ...], destination: Path) -> int:
+    """Write the dedupe merge source (``skills.ignoredSkills``) when there is anything to hide."""
+    plan = coexistence_plan(packages, frozenset())
+    if plan.entries:
+        # JSON is YAML: merge_managed_config reads this as the omp-config source.
+        atomic_write(destination, json.dumps({"skills": {"ignoredSkills": list(plan.entries)}}, indent=2) + "\n")
+    return len(plan.entries)
+
+
+def recorded_packages() -> tuple[str, ...]:
+    """Packages ycc recorded as installed (any scope) for the active omp profile; () when none or unknown."""
+    if not state_path().is_file() or shutil.which(omp_bin()) is None:
+        return ()
+    try:
+        state = load_state()
+        profile = state["profiles"].get(OmpCli().profile_key())
+    except (OSError, ValueError):
+        return ()
+    if profile is None:
+        return ()
+    return tuple(dict.fromkeys(str(record["package"]) for record in profile["installs"]))
+
+
+def recorded_elsewhere(except_scope: str, project_root: Path) -> list[str]:
+    """ycc installs recorded for the active profile, without the one at ``except_scope`` (this run's).
+
+    ``remove --target omp`` keeps the dedupe entries while any remain (a project removal must not
+    unhide duplicates the user install still exposes). A recorded project whose root no longer
+    exists does not count (as in ``remaining_installs``). Raises ValueError when the record is unreadable.
+    """
+    guarded(state_path())
+    if not state_path().exists():
+        return []
+    profile = load_state()["profiles"].get(OmpCli().profile_key())
+    if profile is None:
+        return []
+    excluded_root = str(project_root.resolve()) if except_scope == "project" else None
+    return [
+        f"{record['package']} ({record['scope']}{' ' + record['project_root'] if record.get('project_root') else ''})"
+        for record in profile["installs"]
+        if not (record["scope"] == except_scope and record.get("project_root") == excluded_root)
+        and not (record["scope"] == "project" and not Path(str(record.get("project_root") or "")).is_dir())
+    ]
+
+
+def coexistence_installed_hint() -> None:
+    """W5: the agents target ran while ycc is installed in OMP and its ~/.agents copies are not hidden."""
+    packages = recorded_packages()
+    if not packages:
+        return
+    plan = coexistence_plan(packages, frozenset())
+    current = string_list(omp_setting("skills.ignoredSkills"))
+    if any(entry.startswith("agents/") and not ignored(entry, current) for entry in plan.entries):
+        print(f"[!!] OMP also loads these skills; run {DEDUPE_HINT} to hide the ~/.agents copies in OMP")
 
 
 # ---------------------------------------------------------------------------
@@ -241,6 +423,17 @@ class OmpCli:
         ):
             raise ValueError("'omp plugin list --json' is not an object with 'npm' and 'marketplace' lists")
         return listing
+
+    def setting(self, key: str) -> Any:
+        """``config get <key> --json`` from $HOME: the user-level effective value (project config excluded)."""
+        output = self._query("config", "get", key, "--json", cwd=Path.home())
+        try:
+            payload = json.loads(output)
+        except json.JSONDecodeError as error:
+            raise ValueError(f"unparseable 'omp config get {key} --json' output ({error})") from error
+        if not isinstance(payload, dict) or payload.get("key") != key or "value" not in payload:
+            raise ValueError(f"unrecognized 'omp config get {key} --json' output")
+        return payload["value"]
 
     def marketplaces(self) -> dict[str, str]:
         """name → source from ``plugin marketplace list`` (text only, even with --json)."""
@@ -335,7 +528,14 @@ def linked_names(listing: dict[str, Any]) -> set[str]:
 
 
 def fresh_state() -> dict[str, Any]:
-    return {"version": 1, "export": None, "export_inventory": {}, "profiles": {}, "migrate_pending": {}}
+    return {
+        "version": 1,
+        "export": None,
+        "export_inventory": {},
+        "profiles": {},
+        "migrate_pending": {},
+        "project_residue": {},
+    }
 
 
 def load_state() -> dict[str, Any]:
@@ -351,6 +551,7 @@ def load_state() -> dict[str, Any]:
     state.setdefault("export_inventory", {})
     profiles = state.setdefault("profiles", {})
     pending = state.setdefault("migrate_pending", {})
+    residue = state.setdefault("project_residue", {})
     if not isinstance(profiles, dict) or not isinstance(state["export_inventory"], dict):
         raise ValueError(f"{path}: malformed profiles or export_inventory")
     if not isinstance(pending, dict) or not all(
@@ -358,6 +559,10 @@ def load_state() -> dict[str, Any]:
         for entries in pending.values()
     ):
         raise ValueError(f"{path}: malformed migrate_pending")
+    if not isinstance(residue, dict) or not all(
+        isinstance(paths, list) and all(isinstance(item, str) for item in paths) for paths in residue.values()
+    ):
+        raise ValueError(f"{path}: malformed project_residue")
     for key, profile in profiles.items():
         if not isinstance(profile, dict):
             raise ValueError(f"{path}: profile {key!r} must be an object")
@@ -387,7 +592,7 @@ def save_state(state: dict[str, Any]) -> None:
 
 
 def write_or_delete_state(state: dict[str, Any]) -> None:
-    if state["profiles"] or state.get("export") or state.get("migrate_pending"):
+    if state["profiles"] or state.get("export") or state.get("migrate_pending") or state.get("project_residue"):
         save_state(state)
     else:
         guarded(state_path())
@@ -613,7 +818,6 @@ def install(
         stale = mode == "local" and export_changed
         if dry_run:
             dry_run_install(steps, scope, cwd, source, exported, export_changed, marketplace_action, registered, stale)
-            warn_agents_overlap(packages)
             return
 
         # Mutations, ownership recorded before each create.
@@ -622,6 +826,12 @@ def install(
         swapped = False
         succeeded: list[dict[str, Any]] = []
         try:
+            if scope == "project" and record_root is not None and record_root not in state["project_residue"]:
+                # The omp project state this root lacks now is ycc's to delete once emptied on remove.
+                state["project_residue"][record_root] = [
+                    rel for rel in PROJECT_RESIDUE if not ((root / rel).exists() or (root / rel).is_symlink())
+                ]
+                save_state(state)
             if mode == "local" and staging is not None:
                 if export_changed:
                     if exported.exists():
@@ -679,7 +889,6 @@ def install(
                     "[ok] a project install shadows your user install here; "
                     f"omp plugin disable --scope project {selector(step.package)} returns to the user copy"
                 )
-        warn_agents_overlap(packages)
     finally:
         if staging is not None and staging.exists():
             shutil.rmtree(staging)
@@ -929,7 +1138,18 @@ def remove(scope: str, project_root: Path, *, dry_run: bool = False) -> None:
         state["export"] = None
         state["export_inventory"] = {}
     if not dry_run:
+        owned: frozenset[str] = frozenset()
+        if scope == "project" and record_root is not None:
+            owned = frozenset(state["project_residue"].get(record_root, ()))
+            if not any(
+                record["scope"] == "project" and record.get("project_root") == record_root
+                for kept in state["profiles"].values()
+                for record in kept["installs"]
+            ):
+                state["project_residue"].pop(record_root, None)
         write_or_delete_state(state)
+        if scope == "project" and acted:
+            remove_project_residue(root, owned)
     if not acted:
         print("[ok] nothing ycc-owned to remove for omp")
     if mutated:
@@ -937,6 +1157,55 @@ def remove(scope: str, project_root: Path, *, dry_run: bool = False) -> None:
             # omp GCs caches on uninstall too; recorded projects elsewhere may now dangle.
             check_dangling_projects(cli, profile)
         print("[ok] running omp sessions: run /reload-plugins (skills, commands, agents, MCP)")
+
+
+def json_equals(path: Path, expected: Any) -> bool:
+    try:
+        return bool(json.loads(path.read_text(encoding="utf-8")) == expected)
+    except (OSError, ValueError):
+        return False
+
+
+def remove_project_residue(root: Path, owned: frozenset[str]) -> None:
+    """Delete the empty ``.omp/plugins`` state ycc's project install created, after its last uninstall.
+
+    ``owned`` are the ``PROJECT_RESIDUE`` paths (relative to ``root``) absent before ycc's first
+    install there; anything else, including a legacy root with no ownership record, is kept. Of those,
+    only omp's exact empty forms go (registry ``{"version": 2, "plugins": {}}``, lock with empty
+    ``plugins`` and ``settings``, an empty ``node_modules/``), then the emptied dirs. Never $HOME's own.
+    """
+    omp_dir = root / ".omp"
+    plugins = omp_dir / "plugins"
+    if root.resolve() == Path.home().resolve() or omp_dir.is_symlink() or plugins.is_symlink() or not plugins.is_dir():
+        return
+    removed = False
+    registry = plugins / "installed_plugins.json"
+    if (
+        ".omp/plugins/installed_plugins.json" in owned
+        and registry.is_file()
+        and json_equals(registry, {"version": 2, "plugins": {}})
+    ):
+        registry.unlink()
+        removed = True
+    lock = plugins / "omp-plugins.lock.json"
+    if (
+        ".omp/plugins/omp-plugins.lock.json" in owned
+        and lock.is_file()
+        and json_equals(lock, {"plugins": {}, "settings": {}})
+    ):
+        lock.unlink()
+        removed = True
+    for directory in (plugins / "node_modules", plugins, omp_dir):
+        if (
+            directory.relative_to(root).as_posix() in owned
+            and directory.is_dir()
+            and not directory.is_symlink()
+            and not any(directory.iterdir())
+        ):
+            directory.rmdir()
+            removed = True
+    if removed:
+        print(f"[ok] removed the empty omp project state under {omp_dir}")
 
 
 def remaining_installs(
@@ -1151,7 +1420,8 @@ def apply_migrate(plan: MigratePlan | None, apply: bool) -> None:
                 del state["migrate_pending"][plan.profile_key]
             write_or_delete_state(state)
 
-    warn_agents_overlap(plan.packages)
+    # migrate has no dedupe step: report the overlap (W2–W4) so the user can run it.
+    coexistence_warn(plan.packages, dry_run=not apply)
     if not plan.links and not plan.retire_marketplace and not plan.owed:
         print("[ok] omp: nothing to migrate")
         return
@@ -1223,7 +1493,45 @@ def main(argv: list[str] | None = None) -> int:
     migrate_parser = commands.add_parser("migrate", help="retire legacy omp links and checkout-root marketplaces")
     migrate_parser.add_argument("--apply", action="store_true")
     migrate_parser.add_argument("--project-root", type=Path, default=Path.cwd())
+    coexistence_parser = commands.add_parser(
+        "coexistence", help="hide (--emit) or report (--warn) ycc skills OMP also loads from other runtimes' dirs"
+    )
+    coexistence_parser.add_argument("--packages", default="")
+    action = coexistence_parser.add_mutually_exclusive_group(required=True)
+    action.add_argument("--emit", type=Path, metavar="PATH", help="write the dedupe merge source; print the count")
+    action.add_argument("--warn", action="store_true", help="print the coexistence warnings")
+    coexistence_parser.add_argument("--hidden", metavar="CONFIG", help="with --warn: the dedupe step merged CONFIG")
+    coexistence_parser.add_argument(
+        "--if-installed", action="store_true", help="with --warn: only the agents-target hint, when OMP ycc is recorded"
+    )
+    coexistence_parser.add_argument("--dry-run", action="store_true")
+    recorded_parser = commands.add_parser(
+        "recorded", help="exit 0 if ycc keeps a recorded install in this profile besides one scope, else 3"
+    )
+    recorded_parser.add_argument("--except-scope", choices=SCOPES, required=True)
+    recorded_parser.add_argument("--project-root", type=Path, default=Path.cwd())
     args = parser.parse_args(argv)
+
+    if args.command == "coexistence":
+        try:
+            if args.if_installed:
+                coexistence_installed_hint()
+            elif args.emit is not None:
+                print(coexistence_emit(select_packages(args.packages), args.emit))
+            else:
+                coexistence_warn(select_packages(args.packages), hidden=args.hidden, dry_run=args.dry_run)
+        except (OSError, ValueError) as error:
+            print(f"[err] OMP coexistence check stopped: {error}", file=sys.stderr)
+            return 2
+        return 0
+    if args.command == "recorded":
+        try:
+            remaining = recorded_elsewhere(args.except_scope, args.project_root)
+        except (OSError, ValueError) as error:
+            print(f"[err] OMP install record unreadable: {error}", file=sys.stderr)
+            return 2
+        print("\n".join(remaining))
+        return 0 if remaining else 3
 
     if args.command == "available":
         try:

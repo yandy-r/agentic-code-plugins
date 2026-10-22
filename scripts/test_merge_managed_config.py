@@ -1229,6 +1229,126 @@ class OmpYamlMergeTest(MergeBase):
         self.assertNotIn("modelRoles", self.load(destination))
 
 
+class OmpDedupeMergeTest(MergeBase):
+    """The omp-config ``dedupe`` group: owned skills.ignoredSkills aliases (YAN-1176)."""
+
+    ALIASES = ["agents/backport", "agents/plan"]
+
+    def write_source(self, items: list[str] | None = None) -> Path:
+        source = self.tmp / "dedupe.src.yml"
+        payload = {"skills": {"ignoredSkills": items if items is not None else self.ALIASES}}
+        source.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+        return source
+
+    def merge(self, source: Path, destination: Path, groups: str = "dedupe", **kwargs: Any) -> Any:
+        return self.run_merge("omp-config", source, destination, groups, **kwargs)
+
+    def load(self, path: Path) -> Any:
+        return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+    def test_missing_destination_created_then_removed(self) -> None:
+        destination = self.tmp / "agent" / "config.yml"
+        source = self.write_source()
+
+        self.merge(source, destination)
+        self.assertEqual(self.load(destination), {"skills": {"ignoredSkills": self.ALIASES}})
+        self.merge(source, destination)  # idempotent
+        self.assertEqual(self.load(destination), {"skills": {"ignoredSkills": self.ALIASES}})
+
+        self.merge(source, destination, extra=("--remove",))
+        self.assertFalse(destination.exists())
+
+    def test_user_items_kept_in_order_and_survive_remove(self) -> None:
+        destination = self.tmp / "config.yml"
+        destination.write_text(
+            yaml.safe_dump({"skills": {"ignoredSkills": ["my-*", "agents/plan"]}, "theme": "dark"}), encoding="utf-8"
+        )
+        source = self.write_source()
+
+        self.merge(source, destination)
+        self.assertEqual(self.load(destination)["skills"]["ignoredSkills"], ["my-*", "agents/plan", "agents/backport"])
+
+        self.merge(source, destination, extra=("--remove",))
+        # agents/plan was the user's before ycc ran, so it stays.
+        self.assertEqual(
+            self.load(destination), {"skills": {"ignoredSkills": ["my-*", "agents/plan"]}, "theme": "dark"}
+        )
+
+    def test_settings_and_dedupe_groups_share_one_file(self) -> None:
+        destination = self.tmp / "config.yml"
+        settings = self.tmp / "settings.src.yml"
+        settings.write_text(yaml.safe_dump({"tools": {"approvalMode": "write"}}), encoding="utf-8")
+        source = self.write_source()
+
+        self.merge(settings, destination, groups="settings")
+        self.merge(source, destination)
+        self.assertEqual(
+            self.load(destination), {"tools": {"approvalMode": "write"}, "skills": {"ignoredSkills": self.ALIASES}}
+        )
+
+        self.merge(source, destination, extra=("--remove",))
+        self.assertEqual(self.load(destination), {"tools": {"approvalMode": "write"}})
+        self.merge(source, destination)
+        self.merge(settings, destination, groups="settings", extra=("--remove",))
+        self.assertEqual(self.load(destination), {"skills": {"ignoredSkills": self.ALIASES}})
+
+    def test_symlinked_destination_refused(self) -> None:
+        target = self.tmp / "dotfiles.yml"
+        target.write_text("theme: dark\n", encoding="utf-8")
+        destination = self.tmp / "config.yml"
+        destination.symlink_to(target)
+
+        result = self.merge(self.write_source(), destination, expect_success=False)
+
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(target.read_text(encoding="utf-8"), "theme: dark\n")
+        self.assertFalse(self.state.exists())
+
+    def test_rerun_takes_back_owned_items_the_source_dropped(self) -> None:
+        destination = self.tmp / "config.yml"
+        destination.write_text(yaml.safe_dump({"skills": {"ignoredSkills": ["my-*"]}}), encoding="utf-8")
+
+        self.merge(self.write_source(), destination)
+        self.merge(self.write_source(["agents/plan", "agents/clean"]), destination)
+        self.assertEqual(self.load(destination)["skills"]["ignoredSkills"], ["my-*", "agents/plan", "agents/clean"])
+
+        # agents/backport is no longer owned: re-adding it by hand survives remove.
+        destination.write_text(
+            yaml.safe_dump({"skills": {"ignoredSkills": ["my-*", "agents/plan", "agents/clean", "agents/backport"]}}),
+            encoding="utf-8",
+        )
+        self.merge(self.write_source([]), destination, extra=("--remove",))
+        self.assertEqual(self.load(destination), {"skills": {"ignoredSkills": ["my-*", "agents/backport"]}})
+
+    def test_remove_owning_nothing_never_reads_the_destination(self) -> None:
+        target = self.tmp / "dotfiles.yml"
+        target.write_text("skills: [unclosed\n", encoding="utf-8")
+        destination = self.tmp / "config.yml"
+        destination.symlink_to(target)
+
+        empty = self.tmp / "empty.src.yml"
+        empty.write_text("{}\n", encoding="utf-8")
+        result = self.merge(empty, destination, extra=("--remove",))
+
+        self.assertIn("nothing to remove", result.stdout)
+        self.assertTrue(destination.is_symlink())
+        self.assertEqual(target.read_text(encoding="utf-8"), "skills: [unclosed\n")
+        self.assertFalse(self.state.exists())
+
+    def test_remove_with_owned_items_still_refuses_a_symlink(self) -> None:
+        destination = self.tmp / "config.yml"
+        self.merge(self.write_source(), destination)
+        target = self.tmp / "dotfiles.yml"
+        destination.rename(target)
+        destination.symlink_to(target)
+        before = target.read_bytes()
+
+        result = self.merge(self.write_source([]), destination, extra=("--remove",), expect_success=False)
+
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(target.read_bytes(), before)
+
+
 class HookCommandPruneTestCase(MergeBase):
     COMMAND = {"type": "command", "command": "repo-hook", "timeout": 30}
     OTHER = {"type": "command", "command": "user-hook"}

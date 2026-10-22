@@ -330,7 +330,14 @@ calls `wait` until every owned job settles, because `-p`/JSON runs exit and drop
 results; `ask` exists only in the TUI and `--mode rpc-ui`, so `-p`, `--mode json`, `--mode rpc`
 and subagents take each skill's declared default from `question-policy.md`; `--team` is
 unsupported and fails closed. Per-skill status: `docs/internal/omp-workflow-semantics.md`.
-Source: ADR 0002; spike §3.
+Coexistence (YAN-1176): OMP also reads `~/.agents/skills` by default and lists a differing
+same-name copy as `agents/<name>`. The default-on `dedupe` step of `install.sh install --target
+omp` adds hash-owned `agents/<name>`, `codex/<name>` and `opencode/<name>` entries for
+ycc-installed skills to the user `<agentDir>/config.yml` `skills.ignoredSkills` (never project
+config), so each skill loads once from the package; `--only base` skips it and `remove --target
+omp --only dedupe` takes the entries back. With `enabledProviders` including `claude`, standalone
+`~/.claude/skills` copies outrank the package, and the installer warns.
+Source: ADR 0002; spike §3; `docs/install/omp.md` (Coexistence With Other Runtimes).
 
 **COMMANDS:omp**
 Partial: `scripts/generate_omp_commands.py` writes one thin command per public skill to
@@ -396,15 +403,19 @@ Same constraint as HOOKS.PreToolUse:omp. The closest OMP event is `session_stop`
 
 **MCP:omp**
 Partial: `scripts/generate_omp_packages.py` builds `packages/omp/ycc-mcp/` whose `.mcp.json` is
-the byte-for-byte copy of `mcp-configs/mcp.json`, after a secret-literal audit (credential keys
-must hold only `${VAR}` placeholders). `install.sh install --target omp` installs it as
+`mcp-configs/mcp.json` after a secret-literal audit (credential keys must hold only `${VAR}`
+placeholders). `install.sh install --target omp` installs it as
 `ycc-mcp@ycc` with `ycc@ycc` (see INSTALL_PATH:omp). OMP's plugin MCP loader reads it natively,
 names servers `ycc-mcp:<server>`, and expands `${VAR}` in `env`, `url` and `headers` at load
-(unset variables arrive literally). Gaps: live acceptance on the real tree is YAN-1178 and the
-catalog listing is YAN-1180, so it stays unlisted until both pass; `ycc-mcp:playwright` is
-dropped while `browser.enabled` is on; `ycc-mcp:linear-personal` shares `linear`'s URL and is
-shadowed as an equivalent connection; plugin timeouts below 1000 ms are ignored; per-server
-disable is the user `disabledServers` list, and `plugin-overrides.json` does not hide plugin MCP.
+(unset variables arrive literally). The generated `.mcp.json` differs from the source in one
+way (YAN-1291): a later http/sse server whose connection equals an earlier one gets
+`?ycc-server=<name>` on its URL, so `ycc-mcp:linear-personal` loads beside `ycc-mcp:linear`
+with its own OAuth login; the other targets keep the source URL. Gaps: live acceptance on the
+real tree is YAN-1178 and the catalog listing is YAN-1180, so it stays unlisted until both pass;
+`ycc-mcp:playwright` is dropped while `browser.enabled` is on; plugin timeouts below 1000 ms are
+ignored; per-server disable is the user `disabledServers` list, and `plugin-overrides.json` does
+not hide plugin MCP; with `enabledProviders` including `claude`, equivalent `~/.claude.json`
+servers shadow `ycc-mcp:*`.
 Source: spike §2.5, §3; `docs/install/omp.md` (MCP Servers).
 
 **INSTALL_PATH:omp**
@@ -424,8 +435,10 @@ no published OMP catalog, `--mode repo` is refused, and `--target all` skips omp
 `ycc-hooks` is excluded on OMP. Opt-in `--rules` symlinks `ycc/settings/rules/AGENTS.md` to
 `<agentDir>/AGENTS.md`, and `--settings` merges `modelRoles.{default,slow,task}` and
 `tools.approvalMode: write` into the user `<agentDir>/config.yml` (hash-owned per leaf; user edits
-win). Both are user scope only: `--project` with either is rejected. OMP has no trust prompt:
-installed plugin code runs in-process with full user privileges. Source: ADR 0002;
+win). Both are user scope only: `--project` with either is rejected. The default-on `dedupe` step
+writes the user `config.yml` `skills.ignoredSkills` (see SKILLS:omp), also with `--project`;
+`remove --project` also deletes the empty `.omp/plugins/` files omp leaves. OMP has no trust
+prompt: installed plugin code runs in-process with full user privileges. Source: ADR 0002;
 `docs/install/omp.md`.
 
 **DANGEROUS_MODE:omp**

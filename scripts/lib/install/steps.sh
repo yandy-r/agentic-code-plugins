@@ -20,7 +20,8 @@ source "${SCRIPT_DIR}/scripts/lib/install/packages.sh"
 # step_enabled <step> <target_valid_steps_csv>
 # Decides whether <step> should run for the current target.
 # - If --only was passed: run iff <step> is in the --only list.
-# - Else: 'base' always runs; 'settings'/'mcp' run only if their flag is set.
+# - Else: 'base' and 'dedupe' (omp) always run; 'settings'/'mcp' run only if
+#   their flag is set.
 # The target's valid steps are used for validation by validate_only_steps().
 step_enabled() {
     local step="$1"
@@ -43,6 +44,7 @@ step_enabled() {
     fi
     case "$step" in
         base)     return 0 ;;
+        dedupe)   return 0 ;;
         settings) [[ "${SETTINGS:-0}" == "1" ]] ;;
         rules)    [[ "${RULES:-0}" == "1" ]] ;;
         mcp)      [[ "${MCP:-0}" == "1" ]] ;;
@@ -428,6 +430,24 @@ resolve_skills_home() {
     info "skills → ~/.agents/skills; ${list} keep only their non-skill pieces"
 }
 
+# order_targets
+# When both agents and omp are in TARGETS, move agents to just before omp
+# (other targets keep their relative order) so omp's dedupe step sees the
+# ~/.agents/skills copies this run installs. agents_omp_hint relies on this.
+order_targets() {
+    [[ " ${TARGETS[*]:-} " == *" agents "* && " ${TARGETS[*]:-} " == *" omp "* ]] || return 0
+    local target
+    local -a ordered=()
+    for target in "${TARGETS[@]}"; do
+	case "${target}" in
+	    agents) ;;
+	    omp) ordered+=(agents omp) ;;
+	    *) ordered+=("${target}") ;;
+	esac
+    done
+    TARGETS=("${ordered[@]}")
+}
+
 # preflight_targets
 # Reject every invalid target/mode/--only combination before any target runs,
 # so a multi-target invocation never stops half-applied.
@@ -473,7 +493,7 @@ preflight_step_support() {
     for step in ${valid_csv//,/ }; do
         step_enabled "${step}" || continue
         if [[ "${SCOPE}" == "project" ]] && ! step_allows_project "${target}" "${step}"; then
-            err "--project is not supported by step '${step}' for target '${target}' (project scope currently supports: mcp; omp: base; opencode: settings for catalog plugins)"
+            err "--project is not supported by step '${step}' for target '${target}' (project scope currently supports: mcp; omp: base, dedupe; opencode: settings for catalog plugins)"
             err "  use --global, or select only project-capable steps with --only / --intent."
             exit 1
         fi

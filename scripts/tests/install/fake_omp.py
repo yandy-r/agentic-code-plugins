@@ -6,6 +6,8 @@ split, exit codes and on-disk layout of the real binary (checked against omp 18.
 
   omp --version                               omp/$FAKE_OMP_VERSION (default 18.12.3)
   omp [--profile N] config path               <root>/agent or <root>/profiles/N/agent
+  omp [--profile N] config get <key> --json   {"key","value","type","description"} from <agent>/config.yml
+                                              (array keys only: enabledProviders, skills.ignoredSkills, ...)
   omp [--profile N] plugin <action> ...       install uninstall upgrade enable disable list link
                                               doctor discover marketplace (add|remove|update|list)
 
@@ -1768,6 +1770,29 @@ def log_call(argv: list[str]) -> None:
             handle.write("omp " + " ".join(argv) + "\n")
 
 
+# The array settings the fake knows (omp 18.12.5 defaults them to []).
+CONFIG_ARRAYS = ("enabledProviders", "disabledProviders", "disabledExtensions", "skills.ignoredSkills")
+
+
+def config_get(agent: Path, key: str) -> int:
+    """``config get <key> --json``: the value from <agent>/config.yml (YAML; JSON parses too), else []."""
+    if key not in CONFIG_ARRAYS:
+        err(f"Unknown setting: {key}\n\nRun 'omp config list' to see available keys")
+        return 1
+    value: Any = []
+    path = agent / "config.yml"
+    if path.is_file():
+        import yaml  # lazy: only this action needs PyYAML
+
+        node: Any = yaml.safe_load(path.read_text(encoding="utf-8"))
+        for part in key.split("."):
+            node = node.get(part) if isinstance(node, dict) else None
+        if isinstance(node, list):
+            value = node
+    out(dumps({"key": key, "value": value, "type": "array", "description": ""}))
+    return 0
+
+
 def main(argv: list[str]) -> int:
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
@@ -1794,6 +1819,8 @@ def main(argv: list[str]) -> int:
         if action == "path":
             out(str(omp.config_root / "agent"))
             return 0
+        if action == "get" and len(rest) == 4 and rest[3] == "--json":
+            return config_get(omp.config_root / "agent", rest[2])
         if action is not None and action not in CONFIG_ACTIONS and not action.startswith("-"):
             err(f'error: Expected action to be one of: {", ".join(CONFIG_ACTIONS)}; got "{action}"\n\n{CONFIG_USAGE}')
             return 1

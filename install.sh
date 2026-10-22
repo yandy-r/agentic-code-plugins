@@ -146,10 +146,11 @@ plugins, mods):
     agents    base→base  skills→skills  everything else → no-op
               (both install ~/.agents/skills + ycc-shared/, the whole target;
               only the skills step is narrowed by --skills)
-    omp       base→base  plugins→base  settings→settings  rules→rules
+    omp       base→base,dedupe  plugins→base,dedupe  settings→settings  rules→rules
               skills, agents, commands, hooks, mcp, mods → no-op
               (the native packages ycc, ycc-mcp and ycc-rules carry skills, agents,
-              commands, MCP servers and rules; settings and rules are opt-in, user scope only)
+              commands, MCP servers and rules; dedupe is default-on and writes the user
+              config.yml; settings and rules are opt-in, user scope only)
 
 Remove ('remove' subcommand):
   Undoes what the selected steps installed, for every target and intent (same
@@ -165,10 +166,15 @@ Remove ('remove' subcommand):
                                 marketplace remove; cursor/opencode: the
                                 bundle entries from the synced dirs; codex:
                                 plugin links, plugin cache, custom agents
-                                and the marketplace.json entry; omp: the
+                                and the marketplace.json entry; omp: first,
+                                with the profile's last recorded install
+                                (also via --intent base/plugins), the dedupe
+                                skills.ignoredSkills entries; then the
                                 ycc-owned 'omp plugin' installs of the
-                                scope, then the ycc marketplace and export
-                                once nothing ycc-owned or foreign needs them.
+                                scope, the ycc marketplace and export once
+                                nothing ycc-owned or foreign needs them, and
+                                at --project the empty .omp/plugins files
+                                and dirs ycc's project install created.
     skills / agents / commands  the standalone entries ycc installed (or
                                 that are still identical to the bundle);
                                 never the plugin, never your own entries.
@@ -188,10 +194,11 @@ Scope (--project | --global, mutually exclusive):
   Without a flag, steps that support project scope use it; all others stay
   global. --project with a step lacking project support is an error. The
   project is the git toplevel of the current directory (else the directory).
-  Project-capable steps today: mcp (default project), omp base (opt-in:
-  only with an explicit --project; omp installs default to user scope), and
-  opencode settings for catalog plugins only (opt-in: <project>/opencode.json
-  plus companions in <project>/.opencode/).
+  Project-capable steps today: mcp (default project), omp base,dedupe
+  (opt-in: only with an explicit --project; omp installs default to user
+  scope; dedupe always writes the user config.yml), and opencode settings
+  for catalog plugins only (opt-in: <project>/opencode.json plus companions
+  in <project>/.opencode/).
 
     target    mcp --project                   mcp --global
     claude    <project>/.mcp.json             ~/.claude.json
@@ -488,7 +495,7 @@ Target steps:
                       install each skill into ~/.agents/skills/ (+ shared
                       helpers in ~/.agents/ycc-shared/). Foreign skills and
                       ~/.agents/plugins/ are never touched.
-  omp       base | settings | rules (needs omp >= 18.12.2 on PATH)
+  omp       base | dedupe | settings | rules (needs omp >= 18.12.2 on PATH)
             base:     generate + validate packages/omp, export them to
                       \${XDG_DATA_HOME:-~/.local/share}/ycc/omp-marketplace,
                       register that export as the omp marketplace 'ycc', then
@@ -497,8 +504,16 @@ Target steps:
                       ycc-rules@ycc (rules ycc-<family>-<stem>).
                       Ownership is recorded per omp profile in
                       ~/.config/ycc/omp-native-install.json; remove touches
-                      only what ycc installed. Legacy ycc skills in
-                      ~/.agents/skills are reported by 'migrate --target omp'.
+                      only what ycc installed.
+            dedupe:   default-on, user scope (also with --project). Append the
+                      agents/<name>, codex/<name> and opencode/<name> aliases of
+                      ycc skills the agents/codex/opencode targets installed
+                      (installed-units.json) to <agentDir>/config.yml
+                      skills.ignoredSkills, so OMP loads each ycc skill once.
+                      Hash-owned list items; user items and user-authored
+                      skills are never touched. --only base skips it (and
+                      prints the duplicates); remove --only dedupe takes the
+                      entries back.
             settings: opt-in, user scope only. MERGE the ycc-owned
                       modelRoles and tools.approvalMode leaves from
                       ycc/settings/omp/config.yml into <agentDir>/config.yml
@@ -810,9 +825,11 @@ if [[ -n "${PACKAGE}" ]]; then
     [[ "${TARGET}" == "all" ]] && PACKAGE_ALL_TARGETS_REQUESTED=1
     package_preflight_targets
     resolve_skills_home
+    order_targets
     run_package_targets
 else
     resolve_skills_home
+    order_targets
     preflight_targets
     action="sync"
     [[ "${COMMAND}" == "remove" ]] && action="remove"

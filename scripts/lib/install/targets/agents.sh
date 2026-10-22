@@ -75,6 +75,22 @@ agents_duplicate_hint() {
     if [[ ${#dup[@]} -gt 0 ]]; then
         warn "ycc skills also installed via ${dup[*]} — tools reading both that dir and ~/.agents/skills may list them twice (harmless)." >&2
     fi
+    agents_omp_hint
+}
+
+# agents_omp_hint — W5: OMP's native ycc package is recorded installed and OMP
+# would also load these ~/.agents copies; point at the omp dedupe step. Silent
+# when omp is absent, nothing is recorded, or the copies are already hidden.
+agents_omp_hint() {
+    [[ "${COMMAND}" == "remove" || "${DRY_RUN:-0}" == "1" ]] && return 0
+    # omp always runs after agents in one run (order_targets), so its dedupe
+    # step hides these copies or says so.
+    [[ " ${TARGETS[*]:-} " == *" omp "* ]] && return 0
+    local helper="${SCRIPT_DIR}/scripts/omp_install.py"
+    [[ -f "${helper}" ]] && command -v python3 >/dev/null 2>&1 || return 0
+    local line
+    line="$(python3 "${helper}" coexistence --warn --if-installed 2>/dev/null)" || return 0
+    [[ -z "${line}" ]] || printf '%s\n' "${line}" >&2
 }
 
 # ---------------------------------------------------------------------------

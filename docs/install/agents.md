@@ -63,6 +63,22 @@ Option 1 per target:
   the plugin (the plugin carries the skills).
 - settings, rules, MCP, and hooks are unchanged.
 
+### OMP
+
+OMP (oh-my-pi) also reads `~/.agents/skills` by default. With ycc installed on
+OMP, it lists each ycc skill copied here a second time as `agents/<name>`. The
+OMP target hides those copies inside OMP only, so the other tools keep them:
+`./install.sh install --target omp` does it by default (the `dedupe` step).
+When you install this target after OMP, the installer prints:
+
+```text
+[!!] OMP also loads these skills; run ./install.sh install --target omp --only dedupe to hide the ~/.agents copies in OMP
+```
+
+Run `./install.sh install --target omp --only dedupe` to hide them. Do not
+delete `~/.agents/skills` for OMP's sake. See
+[OMP coexistence](omp.md#coexistence-with-other-runtimes).
+
 ## Adding a target
 
 Each `scripts/lib/install/targets/<t>.sh` declares `<t>_reads_agents_skills`

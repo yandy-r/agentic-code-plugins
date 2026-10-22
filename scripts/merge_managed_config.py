@@ -85,7 +85,9 @@ STATE_PATH = Path(
 #   list-union   — append missing source values, preserve destination order.
 #                  Items this tool appended are recorded (by hash) so --remove
 #                  can take back exactly those; ``keep_empty`` keeps the key as
-#                  ``[]`` after removal for tools that require it.
+#                  ``[]`` after removal for tools that require it, and
+#                  ``prune_owned`` makes a merge also take back recorded items
+#                  the source no longer lists.
 #
 # Entry metadata (see managed_config_entries.py):
 #   item_key     — ``package`` | ``name``: list-union items are keyed, so
@@ -232,6 +234,11 @@ PROFILES: dict[str, dict[str, Any]] = {
     # OMP's user config.yml. Only these ycc-owned leaves are managed; other
     # modelRoles entries and every other key stay the user's. A symlinked
     # config.yml (dotfiles) is refused: atomic_write would replace the link.
+    # The default-on ``dedupe`` group appends the ``<ns>/<name>`` aliases of
+    # ledger-owned ycc skills that OMP also reads from ~/.agents, ~/.codex or
+    # opencode to skills.ignoredSkills; user items are kept, a re-run takes back
+    # the aliases it no longer emits, and --remove takes back only the items this
+    # tool appended.
     "omp-config": {
         "format": "yaml",
         "refuse_symlink": True,
@@ -240,6 +247,9 @@ PROFILES: dict[str, dict[str, Any]] = {
             "settings": [
                 {"path": ["modelRoles"], "policy": "map-entries"},
                 {"path": ["tools", "approvalMode"], "policy": "scalar"},
+            ],
+            "dedupe": [
+                {"path": ["skills", "ignoredSkills"], "policy": "list-union", "prune_owned": True},
             ],
         },
     },
@@ -706,7 +716,14 @@ def plan_merge(
                 )
                 conflicts.extend(f"{key}[{item}]" for item in keyed_conflicts)
             else:
-                merged = union_lists(current_list, source_items)
+                kept = current_list
+                if rule.get("prune_owned"):
+                    # Take back recorded items the source dropped; user items stay,
+                    # and items taken back are no longer owned.
+                    kept = [item for item in current_list if item in source_items or value_hash(item) not in previous]
+                    kept_hashes = {value_hash(item) for item in kept}
+                    previous = [digest for digest in previous if digest in kept_hashes]
+                merged = union_lists(kept, source_items)
                 added = [value_hash(item) for item in merged if item not in current_list]
                 owned = sorted({*previous, *added})
             # A missing destination path still needs the key written, even when
@@ -1766,6 +1783,28 @@ def run_remove(
     return 0
 
 
+def remove_owns_nothing(
+    profile_name: str, profile: dict[str, Any], groups: list[str], source_path: Path, destination_path: Path
+) -> bool:
+    """True when ``--remove`` has nothing to act on: no managed source leaf and no recorded state.
+
+    Without either, every remover returns "nothing to remove", so the destination need not be read.
+    """
+    try:
+        if collect_managed_leaves(profile, groups, load_source(source_path, profile)):
+            return False
+    except (MergeError, json.JSONDecodeError, tomllib.TOMLDecodeError):
+        return False
+    entry = load_state().get(f"{profile_name}:{destination_path}", {})
+    if not isinstance(entry, dict):
+        return True
+    rules = entry_policy_rules(profile, groups)
+    return not any(
+        key.startswith("/") and any(parse_pointer(key)[: len(rule["path"])] == rule["path"] for rule in rules)
+        for key in entry
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--profile", required=True, choices=sorted(PROFILES), help="Managed-key profile to apply")
@@ -1834,6 +1873,18 @@ def main() -> int:
     if not source_path.is_file():
         print(f"merge_managed_config: source not found: {source_path}", file=sys.stderr)
         return 1
+    # A removal that owns nothing (no source leaves, no recorded state under the
+    # selected rules) never reads or touches the destination, so a symlinked or
+    # unparseable config the tool never wrote cannot fail it.
+    if (
+        args.remove
+        and not args.prune_hook_commands
+        and not args.list_entries
+        and args.entries is None
+        and remove_owns_nothing(args.profile, profile, groups, source_path, destination_path)
+    ):
+        print(f"  [ok] nothing to remove: {destination_path} ({args.profile}: {', '.join(groups)})")
+        return 0
     # Cursor hooks also refuse symlinked parents. OMP refuses only a symlinked
     # config file (atomic_write would replace the link); a symlinked agent dir
     # or home (/home -> /var/home) is written through normally.

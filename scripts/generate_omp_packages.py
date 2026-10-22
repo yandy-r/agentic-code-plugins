@@ -8,10 +8,14 @@ Each included native OMP row becomes a package root at packages/omp/<key>/ carry
   and is the first manifest OMP reads for a relative source's install and upgrade version;
 - `package.json`: the unique runtime package name OMP links under `plugins/node_modules/`;
 - the component trees, staged through the existing generators (generate_omp_{skills,agents,commands});
-- for an MCP-only row (ycc-mcp), a root `.mcp.json` holding the exact bytes of mcp-configs/mcp.json.
-  OMP falls back to `<root>/.mcp.json` when no manifest declares `mcpServers` and names each
-  server `<package>:<server>`. The source is audited for secret literals first, and `${VAR}`
-  placeholders are never expanded here: OMP expands them when it starts a server.
+- for an MCP-only row (ycc-mcp), a root `.mcp.json` built from mcp-configs/mcp.json. OMP falls
+  back to `<root>/.mcp.json` when no manifest declares `mcpServers` and names each server
+  `<package>:<server>`. OMP keeps only the first of servers with an equivalent connection
+  (isSameMCPConnection), so a later http/sse server sharing an earlier one's connection gets
+  `ycc-server=<name>` appended to its url query (YAN-1291: its own endpoint and OAuth login);
+  a stdio duplicate fails closed. Unchanged sources keep their exact bytes. The result is
+  audited for secret literals, and `${VAR}` placeholders are never expanded here: OMP expands
+  them when it starts a server.
 - for a rules-only row (ycc-rules), a flat `rules/` tree of `ycc-<family>-<stem>.md` files rendered
   from ycc/rules by generate_omp_rules.
 
@@ -32,13 +36,15 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import stat
 import sys
 import tempfile
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode, urlsplit, urlunsplit
 
 from mcp_secret_audit import audit_no_secret_literals, load_mcp_config
 from package_model import Package, PackageModel, RuntimePackage, load_package_model
@@ -204,17 +210,99 @@ def is_mcp_package(package: Package) -> bool:
 
 
 def mcp_source(repo_root: Path = REPO_ROOT) -> bytes:
-    """The audited source bytes; parsed only to fail closed, never rewritten or expanded."""
+    """The audited source bytes; parsed only to fail closed, never expanded."""
     content = (repo_root / SOURCE_MCP_PATH).read_bytes()
     audit_no_secret_literals(load_mcp_config(content, SOURCE_MCP_PATH.as_posix()), SOURCE_MCP_PATH.as_posix())
     return content
+
+
+def mcp_transport(server: Mapping[str, Any]) -> str:
+    """omp's transport fallback: the declared `type`, else stdio with a command, http with a url."""
+    declared = server.get("type")
+    if isinstance(declared, str) and declared:
+        return declared
+    return "stdio" if server.get("command") else "http" if server.get("url") else "stdio"
+
+
+def mcp_connection_key(server: Mapping[str, Any]) -> str:
+    """The fields omp's isSameMCPConnection compares (capability/mcp.ts) for a plugin server, as a stable key.
+
+    auth and oauth always count; then url and headers for http/sse, or command, args, env and cwd
+    for stdio. requestIdFormat is left out: omp's plugin loader (discovery/claude-plugins.ts) drops it,
+    so every plugin server compares as the default. A plugin's stdio env is all-literal, so the
+    literal-key sets match whenever env does.
+    """
+    transport = mcp_transport(server)
+    fields = ("command", "args", "env", "cwd") if transport == "stdio" else ("url", "headers")
+    shared = [server.get("auth"), server.get("oauth")]
+    return json.dumps([transport, shared, [server.get(key) for key in fields]], sort_keys=True)
+
+
+def with_server_query(url: str, name: str) -> str:
+    parts = urlsplit(url)
+    marker = urlencode({"ycc-server": name})
+    return urlunsplit(parts._replace(query=f"{parts.query}&{marker}" if parts.query else marker))
+
+
+def omp_mcp_bytes(source: bytes) -> bytes:
+    """The OMP `.mcp.json`: every source server reachable under its own name (YAN-1291).
+
+    A later http/sse server whose connection equals an earlier one's gets `ycc-server=<name>`
+    appended to its url query; a stdio duplicate raises. Unchanged input returns `source`; a
+    changed url is patched in place so every other byte stays the source's, falling back to
+    `json.dumps(indent=2)` only when the patched text would not parse back to the same config.
+    """
+    where = SOURCE_MCP_PATH.as_posix()
+    config = load_mcp_config(source, where)
+    owners: dict[str, str] = {}
+    renamed: list[tuple[str, str, str]] = []
+    for name, server in config["mcpServers"].items():
+        if not isinstance(server, dict):
+            raise ValueError(f"{where}: {name}: server must be an object")
+        first = owners.get(mcp_connection_key(server))
+        if first is not None:
+            if mcp_transport(server) == "stdio":
+                raise ValueError(f"{name}: same stdio connection as {first}; OMP would shadow it")
+            url = server.get("url")
+            if not isinstance(url, str):
+                raise ValueError(f"{where}: {name}: {mcp_transport(server)} server without a url")
+            server["url"] = with_server_query(url, name)
+            renamed.append((name, url, server["url"]))
+            if mcp_connection_key(server) in owners:
+                raise ValueError(f"{name}: same connection as {owners[mcp_connection_key(server)]} after ycc-server")
+        owners[mcp_connection_key(server)] = name
+    if not renamed:
+        audit_no_secret_literals(config, where)
+        return source
+    content = patch_urls(source, renamed)
+    if content is None or load_mcp_config(content, where) != config:
+        content = (json.dumps(config, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+    audit_no_secret_literals(load_mcp_config(content, where), where)
+    return content
+
+
+def patch_urls(source: bytes, renamed: Iterable[tuple[str, str, str]]) -> bytes | None:
+    """Replace each renamed server's url literal in place; None when a literal cannot be found."""
+    text = source.decode("utf-8")
+    cursor = 0
+    for name, old, new in renamed:
+        server = re.compile(rf"{re.escape(json.dumps(name))}\s*:\s*\{{").search(text, cursor)
+        if server is None:
+            return None
+        url = re.compile(rf'"url"\s*:\s*({re.escape(json.dumps(old))})').search(text, server.end())
+        if url is None:
+            return None
+        literal = json.dumps(new, ensure_ascii=False)
+        text = text[: url.start(1)] + literal + text[url.end(1) :]
+        cursor = url.start(1) + len(literal)
+    return text.encode("utf-8")
 
 
 def mcp_payloads(packages: Iterable[Package], repo_root: Path = REPO_ROOT) -> dict[Path, Payload]:
     roots = [package_root(package) for package in packages if is_mcp_package(package)]
     if not roots:
         return {}
-    content = mcp_source(repo_root)
+    content = omp_mcp_bytes(mcp_source(repo_root))
     return {root / MCP_CONFIG: Payload(content) for root in roots}
 
 

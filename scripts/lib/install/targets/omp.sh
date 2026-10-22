@@ -12,21 +12,24 @@
 # The native OMP packages are delivered only through 'omp plugin' (marketplace
 # add + install/upgrade/uninstall); scripts/omp_install.py owns every omp call,
 # the ownership state and the dry-run previews. This file maps the installer's
-# flags onto that helper. The opt-in user-scope 'settings' (managed leaves in
-# <agentDir>/config.yml) and 'rules' (<agentDir>/AGENTS.md symlink) steps use
-# the shared merge_settings_config / link_rules_file helpers.
+# flags onto that helper. The default-on 'dedupe' step (owned skills.ignoredSkills
+# aliases of ycc skills OMP also reads from ~/.agents, ~/.codex or opencode) and
+# the opt-in user-scope 'settings' (managed leaves in <agentDir>/config.yml) and
+# 'rules' (<agentDir>/AGENTS.md symlink) steps use the shared
+# merge_settings_config / link_rules_file helpers.
 
 OMP_INSTALL_HELPER="${SCRIPT_DIR}/scripts/omp_install.py"
 
 # omp_valid_steps — comma-separated steps omp accepts for --only.
-omp_valid_steps() { echo "base,settings,rules"; }
+omp_valid_steps() { echo "base,dedupe,settings,rules"; }
 
 # omp_intent_steps <intent> — steps <intent> maps to; empty means no-op.
 omp_intent_steps() {
     case "$1" in
         # One native package carries skills, agents and commands together;
-        # plugin enablement is the 'omp plugin install' itself.
-        base|plugins) echo "base" ;;
+        # plugin enablement is the 'omp plugin install' itself. dedupe hides
+        # the duplicate ycc skills that install exposes.
+        base|plugins) echo "base,dedupe" ;;
         settings) echo "settings" ;;
         rules) echo "rules" ;;
         *) echo "" ;;
@@ -45,13 +48,15 @@ omp_supports_repo_mode() {
 }
 
 # OMP reads ~/.agents/skills too, but the native package cannot shed its skills,
-# so skills consolidation cannot apply; omp_install.py reports the overlap.
+# so skills consolidation cannot apply; the dedupe step hides ycc's own copies.
 omp_reads_agents_skills() { return 1; }
 
 # omp_project_steps — steps that honour --project (a project-scope install).
 # settings and rules stay user scope only: ycc never writes .omp/config.yml,
 # .omp/rules or .omp/AGENTS.md, so the generic gate rejects them with --project.
-omp_project_steps() { echo "base"; }
+# dedupe always writes the USER config.yml: the ~/.agents duplicate is
+# user-level, and a project install sees it too.
+omp_project_steps() { echo "base,dedupe"; }
 
 # omp_available_reason — empty when omp >= MIN_OMP_VERSION is on PATH, else the
 # helper's reason.
@@ -175,22 +180,80 @@ omp_rules_step() {
     link_rules_file "${src}" "${dest}"
 }
 
+# omp_dedupe_step <agent_dir> [--remove] — merge (or take back) the owned
+# skills.ignoredSkills aliases, then print the coexistence warnings (W1–W4).
+# The merge source is a temp file 'omp_install.py coexistence --emit' writes.
+# The merge also takes back owned aliases the emit no longer lists, and an
+# empty emit takes back every owned alias (nothing is read or written when ycc
+# owns none). A removal needs no source entries: list-union takes back exactly
+# the items it recorded.
+omp_dedupe_step() {
+    local agent_dir="$1" mode="${2:-}" dest tmp rc=0
+    dest="$(omp_config_dest "${agent_dir}")"
+    tmp="$(mktemp "${TMPDIR:-/tmp}/ycc-omp-dedupe.XXXXXX")"
+    # merge_settings_config can exit outright (missing helper/python3); the
+    # scoped EXIT trap still deletes <tmp> then.
+    trap 'rm -f "${tmp}"' EXIT
+    omp_dedupe_apply "${dest}" "${tmp}" "${mode}" || rc=$?
+    rm -f "${tmp}"
+    trap - EXIT
+    [[ ${rc} -eq 0 ]] || exit 1
+}
+
+# omp_dedupe_apply <dest> <tmp> [--remove] — omp_dedupe_step's body; its own
+# failures return non-zero so the caller deletes <tmp> before exiting.
+omp_dedupe_apply() {
+    local dest="$1" tmp="$2" mode="$3"
+    local -a extra=()
+    [[ "${DRY_RUN:-0}" == "1" ]] && extra+=(--dry-run)
+    if [[ "${mode}" == "--remove" ]]; then
+        printf '\n%somp: take back ycc skills.ignoredSkills entries from %s%s\n' "${BOLD}" "${dest}" "${NC}"
+        printf '{}\n' >"${tmp}" || return 1
+        merge_settings_config omp-config "${tmp}" "${dest}" dedupe --remove "${extra[@]}" || return 1
+        return 0
+    fi
+    printf '\n%somp: hide duplicate ycc skills via skills.ignoredSkills in %s (user scope)%s\n' "${BOLD}" "${dest}" "${NC}"
+    local count
+    count="$(python3 "${OMP_INSTALL_HELPER}" coexistence --packages "${PACKAGE:-}" --emit "${tmp}")" || return 1
+    if [[ "${count}" == "0" ]]; then
+        info "no ycc skills from other runtimes' dirs to hide"
+        # Aliases hidden by an earlier run whose ycc copies are gone come back.
+        printf '{}\n' >"${tmp}" || return 1
+        merge_settings_config omp-config "${tmp}" "${dest}" dedupe --remove "${extra[@]}" || return 1
+        omp_coexistence_warn || return 1
+        return 0
+    fi
+    merge_settings_config omp-config "${tmp}" "${dest}" dedupe "${extra[@]}" || return 1
+    omp_coexistence_warn --hidden "${dest}" || return 1
+}
+
+# omp_coexistence_warn [--hidden <config>] — W1 (with --hidden), else W2; W3, W4.
+omp_coexistence_warn() {
+    local -a command=(python3 "${OMP_INSTALL_HELPER}" coexistence --packages "${PACKAGE:-}" --warn "$@")
+    [[ "${DRY_RUN:-0}" == "1" ]] && command+=(--dry-run)
+    "${command[@]}" || return 1
+}
+
 # ---------------------------------------------------------------------------
 # omp sync (base: build the OMP packages, then install them natively)
 # ---------------------------------------------------------------------------
 sync_omp_target() {
     validate_only_steps "omp"
     local ran=0
-    if step_enabled base || step_enabled settings || step_enabled rules; then
+    if step_enabled base || step_enabled dedupe || step_enabled settings || step_enabled rules; then
         command -v python3 >/dev/null 2>&1 || { err "python3 is required but not found"; exit 1; }
     fi
     if step_enabled base; then
         sync_omp_base
         ran=1
     fi
-    if step_enabled settings || step_enabled rules; then
+    if step_enabled dedupe || step_enabled settings || step_enabled rules; then
         local agent_dir
         agent_dir="$(omp_agent_dir)" || exit 1
+        if step_enabled dedupe; then
+            omp_dedupe_step "${agent_dir}"
+            ran=1
+        fi
         if step_enabled settings; then
             omp_settings_step "${agent_dir}"
             ran=1
@@ -199,6 +262,10 @@ sync_omp_target() {
             omp_rules_step "${agent_dir}"
             ran=1
         fi
+    fi
+    # base without dedupe (--only base): still say what OMP loads twice (W2–W4).
+    if step_enabled base && ! step_enabled dedupe; then
+        omp_coexistence_warn || exit 1
     fi
     [[ ${ran} -eq 1 ]] || warn "omp target ran no steps"
     printf '\n%somp %s complete.%s\n' "${BOLD}" "${COMMAND}" "${NC}"
@@ -242,15 +309,49 @@ sync_omp_base() {
     run_native_omp_install install
 }
 
+# omp_dedupe_unneeded — true when, after this run's 'base' removal, ycc has no
+# recorded install left in the active omp profile (other scopes and projects
+# count). The scope being removed is excluded, so a dry-run, which leaves the
+# record untouched, reaches the same answer. 'recorded' exits 0 when installs
+# remain, 3 when none do, 2 on errors (the entries are then kept).
+omp_dedupe_unneeded() {
+    local rc=0
+    python3 "${OMP_INSTALL_HELPER}" recorded --except-scope "$(omp_scope)" \
+        --project-root "$(project_root)" >/dev/null || rc=$?
+    [[ ${rc} -eq 3 ]]
+}
+
 # ---------------------------------------------------------------------------
-# omp remove (base: uninstall the ycc-owned native installs; settings: strip the
-# unchanged ycc leaves; rules: drop the owned AGENTS.md symlink)
+# omp remove (base: uninstall the ycc-owned native installs, and take back the
+# dedupe entries; dedupe: only those entries; settings: strip the unchanged ycc
+# leaves; rules: drop the owned AGENTS.md symlink)
 # ---------------------------------------------------------------------------
 remove_omp_target() {
     validate_only_steps "omp"
     local ran=0
-    if step_enabled base || step_enabled settings || step_enabled rules; then
+    if step_enabled base || step_enabled dedupe || step_enabled settings || step_enabled rules; then
         command -v python3 >/dev/null 2>&1 || { err "python3 is required but not found"; exit 1; }
+    fi
+    # The dedupe entries go with the last ycc install of this profile (so
+    # 'remove --only base' restores the prior state, and removing a project
+    # install keeps them while the user install still needs them). Only a
+    # dedupe-only removal ('--only dedupe') takes them back unconditionally;
+    # with base (also '--intent base|plugins') the last-install rule decides.
+    # They go before the packages, so a refused config.yml stops the removal
+    # before anything changed.
+    local take_back=0
+    if step_enabled base; then
+        omp_dedupe_unneeded && take_back=1
+    elif step_enabled dedupe; then
+        take_back=1
+    fi
+    if [[ ${take_back} -eq 1 ]]; then
+        local dedupe_dir
+        dedupe_dir="$(omp_agent_dir)" || exit 1
+        omp_dedupe_step "${dedupe_dir}" --remove
+        ran=1
+    elif step_enabled base; then
+        info "omp: kept the skills.ignoredSkills entries (ycc is still installed in another omp scope)"
     fi
     if step_enabled base; then
         printf '\n%somp: remove native OMP packages (%s scope)%s\n' "${BOLD}" "$(omp_scope)" "${NC}"

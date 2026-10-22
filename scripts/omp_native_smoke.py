@@ -18,9 +18,10 @@ with a message on the first violation. Nothing here invokes omp or a model.
   mcp-stub       PATH                           write the stdio MCP stub (user override fixture)
   mcp-listed     RPC_OUT SHIPPED_MCP LIST_JSON  MCP probe (omp's loadAllMCPConfigs): every server in
                                                 SHIPPED_MCP is discovered as `ycc-mcp:<server>` from
-                                                the install unless an equivalent connection shadows
-                                                it; the browser filter drops exactly playwright when
-                                                browser.enabled; env placeholders arrive literally
+                                                the install with no ycc-mcp server shadowed and a
+                                                distinct OAuth credential id per distinct http url
+                                                (YAN-1291); the browser filter drops exactly playwright
+                                                when browser.enabled; env placeholders arrive literally
   mcp-state      RPC_OUT SERVER STATE TOOLS     SERVER (or `ycc-mcp:*`) is absent|plugin|native in
                                                 the MCP probe; TOOLS (comma list or -) are minted
                                                 tool names get_state's system prompt must carry
@@ -36,6 +37,8 @@ import sys
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
+
+from generate_omp_packages import mcp_connection_key
 
 PACKAGE = "ycc"
 PLUGIN_ID = "ycc@ycc"
@@ -264,14 +267,6 @@ def system_prompt(rpc_out: Path) -> str:
     raise SmokeError(f"{rpc_out}: no get_state response")
 
 
-def connection(server: dict[str, Any]) -> str:
-    """The fields omp's isSameMCPConnection compares (capability/mcp.ts), as a stable key."""
-    transport = server.get("type") or ("stdio" if server.get("command") else "http")
-    fields = ("command", "args", "env", "cwd") if transport == "stdio" else ("url", "headers")
-    shared = {key: server.get(key) for key in ("auth", "oauth", "requestIdFormat")}
-    return json.dumps([transport, shared, [server.get(key) for key in fields]], sort_keys=True)
-
-
 def check_mcp_listed(rpc_out: Path, shipped_mcp: Path, list_json: Path) -> str:
     shipped: dict[str, dict[str, Any]] = load_json(shipped_mcp)["mcpServers"]
     config = Path(str(installed_entry(list_json, MCP_PLUGIN_ID).get("installPath", ""))) / ".mcp.json"
@@ -279,21 +274,36 @@ def check_mcp_listed(rpc_out: Path, shipped_mcp: Path, list_json: Path) -> str:
     servers: dict[str, dict[str, Any]] = {
         name: value for name, value in probe["servers"].items() if name.startswith(f"{MCP_PACKAGE}:")
     }
-    # Equivalent connections collapse onto the first definition (capability/index.ts dedupe).
+    # Equivalent connections would collapse onto the first definition (capability/index.ts
+    # dedupe); the generator disambiguates them (YAN-1291), so the shipped config has none.
     owners: dict[str, str] = {}
-    shadowed: set[str] = set()
     for name, server in shipped.items():
-        if owners.setdefault(connection(server), name) != name:
-            shadowed.add(f"{MCP_PACKAGE}:{name}")
-    expected = {f"{MCP_PACKAGE}:{name}" for name in shipped} - shadowed
+        first = owners.setdefault(mcp_connection_key(server), name)
+        if first != name:
+            raise SmokeError(f"{shipped_mcp}: {name} has the same connection as {first}")
+    expected = {f"{MCP_PACKAGE}:{name}" for name in shipped}
     stubs = {f"{MCP_PACKAGE}:{name}" for name, enabled in STUB_SERVERS.items() if enabled}
     missing = sorted(expected - set(servers))
     extra = sorted(set(servers) - expected - stubs)
     if missing or extra:
         raise SmokeError(f"{rpc_out}: discovered {sorted(servers)}; missing={missing} unexpected={extra}")
-    reported = {name for name in probe.get("shadowed", []) if name.startswith(f"{MCP_PACKAGE}:")}
-    if reported != shadowed:
-        raise SmokeError(f"{rpc_out}: shadowed {sorted(reported)}, expected {sorted(shadowed)}")
+    shadowed = sorted(name for name in probe.get("shadowed", []) if name.startswith(f"{MCP_PACKAGE}:"))
+    if shadowed:
+        raise SmokeError(f"{rpc_out}: shadowed {shadowed}, expected none")
+    # Each distinct http url logs in to its own auth-storage row (mcp/oauth-flow.ts mcpOAuthCredentialId).
+    credential_ids: dict[str, str] = probe.get("credentialIds", {})
+    urls = {name: server["url"] for name, server in servers.items() if isinstance(server.get("url"), str)}
+    if set(credential_ids) & set(servers) != set(urls):
+        raise SmokeError(
+            f"{rpc_out}: credential ids for {sorted(set(credential_ids) & set(servers))}, urls {sorted(urls)}"
+        )
+    holders: dict[str, str] = {}
+    for name in sorted(urls):
+        holder = holders.setdefault(credential_ids[name], name)
+        if holder != name and urls[holder] != urls[name]:
+            raise SmokeError(f"{rpc_out}: {name} and {holder} share OAuth credential id {credential_ids[name]}")
+    if len(set(holders)) != len(set(urls.values())):
+        raise SmokeError(f"{rpc_out}: {len(set(holders))} credential ids for {len(set(urls.values()))} distinct urls")
     problems: list[str] = []
     for name in sorted(expected):
         found, source = servers[name], shipped[name.split(":", 1)[1]]
@@ -312,9 +322,11 @@ def check_mcp_listed(rpc_out: Path, shipped_mcp: Path, list_json: Path) -> str:
     if dropped != expected_dropped:
         raise SmokeError(f"{rpc_out}: browser filter drops {dropped}, expected {expected_dropped}")
     xero = servers.get(f"{MCP_PACKAGE}:xero", {}).get("env")
+    linear = {name: credential_ids[name] for name in sorted(urls) if name.startswith(f"{MCP_PACKAGE}:linear")}
     return (
         f"{len(expected)} servers discovered from {config}: {sorted(expected)}; "
-        f"shadowed by an equivalent connection: {sorted(shadowed)}; "
+        f"shadowed: {shadowed}; {len(set(holders))} OAuth credential ids for {len(urls)} http servers "
+        f"({json.dumps(linear)}); "
         f"browser filter drops {dropped} (browser.enabled={probe.get('browserEnabled')}); "
         f"{MCP_PACKAGE}:xero env {json.dumps(xero)}"
     )

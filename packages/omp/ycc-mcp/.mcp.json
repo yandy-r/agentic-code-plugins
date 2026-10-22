@@ -29,7 +29,7 @@
     },
     "linear-personal": {
       "type": "http",
-      "url": "https://mcp.linear.app/mcp"
+      "url": "https://mcp.linear.app/mcp?ycc-server=linear-personal"
     },
     "vercel": {
       "type": "http",
