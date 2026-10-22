@@ -353,6 +353,8 @@ assert_contains "${INSTALL_OUT}" "is dispatched only by" "consolidated skill dep
 home="$(new_home)"
 reject "remove --with-deps exits nonzero" "${home}" remove --target claude --intent skills --skills code-review --with-deps
 assert_contains "${REJECT_OUT}" "--with-deps is only valid with install or sync" "remove --with-deps is rejected"
+reject "--with-deps with only --commands off claude exits nonzero" "${home}" sync --target opencode --intent commands --commands clean --with-deps
+assert_contains "${REJECT_OUT}" "--commands seeds it on claude only" "--with-deps with only --commands is claude-only"
 reject "--with-deps without a selection exits nonzero" "${home}" sync --target claude --intent skills --with-deps
 assert_contains "${REJECT_OUT}" "--with-deps needs --skills or --agents" "--with-deps without --skills / --agents is rejected"
 

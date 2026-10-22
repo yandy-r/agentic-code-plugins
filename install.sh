@@ -875,6 +875,12 @@ if [[ ${#ONLY_STEPS[@]} -gt 0 ]]; then
 fi
 
 resolve_targets "${TARGET}"
+# Only claude's --commands (its skills) seed --with-deps; elsewhere it needs --skills / --agents.
+if [[ "${WITH_DEPS}" == "1" ]] && ! has_selection skills && ! has_selection agents \
+    && [[ " ${TARGETS[*]} " != *" claude "* ]]; then
+    err "--with-deps needs --skills or --agents (--commands seeds it on claude only)"
+    exit 1
+fi
 if [[ "${DRY_RUN}" == "1" ]]; then
     for target in "${TARGETS[@]}"; do
         if [[ "${target}" != "omp" ]]; then

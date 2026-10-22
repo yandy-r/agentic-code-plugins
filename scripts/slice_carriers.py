@@ -17,7 +17,7 @@ import sys
 import tempfile
 from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Protocol, TypeVar
+from typing import Optional, Protocol, TypeVar
 
 # Claude has no commands slice of its own: skills are the slash commands, so
 # 'commands' aliases 'skills' there. Wrappers an older ycc installed under this
@@ -25,7 +25,8 @@ from typing import Protocol, TypeVar
 LEGACY_COMMANDS_DEST = ".claude/commands"
 
 Rewrites = list[tuple[str, str]]
-Stage = Callable[[str, Path, Path, Rewrites, re.Pattern[str] | None], Path]
+# Optional, not ``X | None``: a runtime alias must evaluate on older python3.
+Stage = Callable[[str, Path, Path, Rewrites, Optional["re.Pattern[str]"]], Path]  # noqa: UP045
 
 
 class CarrierUnit(Protocol):
