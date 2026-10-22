@@ -26,6 +26,20 @@ import generate_omp_packages as gen  # noqa: E402
 GUARD_ROOT = gen.REPO_ROOT / gen.COMPONENT_ROOT
 NODE = shutil.which("node")
 
+
+def node_strips_types() -> bool:
+    """Node >= 22.6 accepts --experimental-strip-types; older Node cannot load the .ts guard."""
+    if NODE is None:
+        return False
+    probe = subprocess.run(
+        [NODE, "--no-warnings", "--experimental-strip-types", "-e", ""], capture_output=True, check=False
+    )
+    return probe.returncode == 0
+
+
+# CI must exercise the guard, so a missing capability there fails instead of skipping.
+NODE_READY = node_strips_types() or bool(os.environ.get("CI"))
+
 # Reads {guard, cases} on stdin; prints one JSON array of handler results.
 DRIVER = r"""
 import { readFileSync } from "node:fs";
@@ -49,7 +63,7 @@ def bash(agent: str, command: str) -> dict[str, Any]:
     return {"toolName": "bash", "input": {"command": command}, "agent": sub(agent)}
 
 
-@unittest.skipIf(NODE is None, "node is required")
+@unittest.skipUnless(NODE_READY, "node >= 22.6 with --experimental-strip-types is required")
 class ScopeGuardTest(unittest.TestCase):
     def run_cases(self, cases: list[dict[str, Any]], root: Path = GUARD_ROOT) -> list[dict[str, Any] | None]:
         assert NODE is not None
@@ -165,6 +179,9 @@ class ScopeGuardTest(unittest.TestCase):
                 bash(agent, "git -C show"),
                 bash(agent, "git -C * show"),
                 bash(agent, "git -C wt show && git -C wt push"),
+                # bash keeps a digit word before `&>` as an argument: this runs `git -C 2 push show`.
+                bash(agent, "git -C 2&>/dev/null push show"),
+                bash(agent, "git -C 2&>>/dev/null push show"),
             ]
         )
 
@@ -174,6 +191,11 @@ class ScopeGuardTest(unittest.TestCase):
     def test_find_exec_is_blocked_for_find_scoped_agents(self) -> None:
         self.assert_allowed([bash("architecture-analyst", "find . -name '*.py' | wc -l")])
         self.assert_blocked([bash("architecture-analyst", "find . -exec rm {} +")], "runs another command")
+
+    def test_digit_word_before_ampersand_redirect_stays_an_argument(self) -> None:
+        # `python3 2&>/dev/null -m mypy` runs the file `2`; only `2>`/`2<` name an fd.
+        self.assert_blocked([bash("review-fixer", "python3 2&>/dev/null -m mypy")], "outside the allowed prefixes")
+        self.assert_allowed([bash("review-fixer", "python3 -m mypy . 2>/dev/null &>/dev/null")])
 
     def test_mcp_blocked_for_agents_that_declared_none(self) -> None:
         reasons = self.assert_blocked(

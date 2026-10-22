@@ -22,8 +22,8 @@ destructive commands** and **never writes files** — it returns the report
 inline; the calling skill persists it and owns deletion.
 
 Tool scope: no `write` tool; `bash` is limited to `git`, `gh`, and `glab`,
-used only for the read-only queries below. OMP cannot enforce
-command scopes (any `bash` call has full shell access), so the MUST NOT
+used only for the read-only queries below. The OMP scope guard limits
+`bash` to these prefixes, but `git`, `gh` and `glab` can still mutate state, so the MUST NOT
 rules below are what keep the audit read-only.
 
 ## Responsibilities

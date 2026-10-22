@@ -300,7 +300,10 @@ class ShellParser {
 	/** `[n]>&m`, `[n]<&m`, `[n]>/dev/null`, `&>/dev/null` and `[n]<path`; everything else fails closed. */
 	#redirect(): void {
 		const src = this.#src;
-		if (this.#word !== null && !this.#quoted && FD.test(this.#word)) {
+		// bash reads a digit word as an fd only directly before `<` or `>`; before `&>`/`&>>` it
+		// stays an ordinary argument (`cmd 2&>/dev/null` runs `cmd 2`).
+		const opensWithAngle = src[this.#i] === "<" || src[this.#i] === ">";
+		if (opensWithAngle && this.#word !== null && !this.#quoted && FD.test(this.#word)) {
 			this.#word = null; // the fd number belongs to the redirection
 		} else {
 			this.#finishWord();

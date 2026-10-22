@@ -125,7 +125,8 @@ AGENT_SENTENCES: PathSentences = {
         (
             "Where a runtime cannot enforce\n"
             "command scopes (Codex projects any `Bash` as a writable sandbox), the MUST NOT",
-            "OMP cannot enforce\ncommand scopes (any `bash` call has full shell access), so the MUST NOT",
+            "The OMP scope guard limits\n`bash` to these prefixes, but `git`, `gh` and `glab` can still"
+            " mutate state, so the MUST NOT",
         ),
     ),
     "implementor": (
