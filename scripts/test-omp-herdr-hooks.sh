@@ -39,7 +39,7 @@ Cases:
                   exit within 3 s
   L7 duplicates   with ycc@ycc and ycc-mcp@ycc installed from a local marketplace fixture
                   (generate_omp_packages.py --export): only herdr:omp, one session+state pair
-                  per event, no ycc package with manifest.extensions
+                  per event, no ycc package extension carries a herdr reporter marker
   L8 real herdr   (--herdr-pane) an isolated herdr server runs omp in pane w1:p1; the pane
                   reports agent omp with a herdr:omp session, and a ycc:omp
                   report_agent_session leaves it unchanged
