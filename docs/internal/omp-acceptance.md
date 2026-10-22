@@ -72,14 +72,14 @@ and add `ycc-mcp:smoke` through a user `mcp.json` override.
 
 None of these is a release blocker for v6.1.0.
 
-| Cell                                       | Status   | Reason                                                                                                                                                                      |
-| ------------------------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| macOS (`omp-darwin-*`)                     | not run  | No macOS host was available. The harnesses need bubblewrap (Linux only) or `--allow-env-i`. Follow-up: run them on a macOS CI runner.                                       |
-| Windows (`omp-windows-*.exe`)              | not run  | `install.sh` and the harnesses are Bash and no Windows host was available. Follow-up: decide and document Windows support for `--target omp`.                               |
-| Linux arm64 and musl builds                | not run  | No such host. The packages hold no native code, so the result is expected to match x64 `[INFERENCE]`.                                                                       |
-| Public fork install (`--public URL --ref`) | deferred | No ref lists the OMP packages yet (`listed: false`). It runs in the YAN-1180 release gate after the listing flip.                                                           |
-| Real-model workflow runs                   | not run  | No model credentials are used. The scripted model proves loading and tool plumbing, not workflow reasoning. Per-skill headless behaviour is in `omp-workflow-semantics.md`. |
-| Interactive TUI prompts                    | via RPC  | The same approval path is driven through `--mode rpc` `extension_ui_request` frames. The TUI renderer is not exercised.                                                     |
+| Cell                                       | Status      | Reason                                                                                                                                                                                                                    |
+| ------------------------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| macOS (`omp-darwin-*`)                     | not run     | No macOS host was available. The harnesses need bubblewrap (Linux only) or `--allow-env-i`. Follow-up: run them on a macOS CI runner.                                                                                     |
+| Windows (`omp-windows-*.exe`)              | unsupported | `install.sh` and the harnesses are Bash and no Windows host was available. Decision (YAN-1556): native Windows is unsupported, WSL 2 expected but unverified; see [Platform Support](../install/omp.md#platform-support). |
+| Linux arm64 and musl builds                | not run     | No such host. The packages hold no native code, so the result is expected to match x64 `[INFERENCE]`.                                                                                                                     |
+| Public fork install (`--public URL --ref`) | deferred    | No ref lists the OMP packages yet (`listed: false`). It runs in the YAN-1180 release gate after the listing flip.                                                                                                         |
+| Real-model workflow runs                   | not run     | No model credentials are used. The scripted model proves loading and tool plumbing, not workflow reasoning. Per-skill headless behaviour is in `omp-workflow-semantics.md`.                                               |
+| Interactive TUI prompts                    | via RPC     | The same approval path is driven through `--mode rpc` `extension_ui_request` frames. The TUI renderer is not exercised.                                                                                                   |
 
 ## Harness fixes made during this run
 

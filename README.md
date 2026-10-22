@@ -154,10 +154,11 @@ Or enable in `~/.claude/settings.json`:
 }
 ```
 
-OMP (oh-my-pi, `omp >= 18.12.2`) is pre-release: its `ycc` and `ycc-mcp`
-packages are unlisted until YAN-1180, so install them from a checkout with
-`./install.sh install --target omp` (add `--project` for this project only,
-`--dry-run` to preview). See [`docs/install/omp.md`](docs/install/omp.md).
+OMP (oh-my-pi, `omp >= 18.12.2`) is pre-release: its `ycc`, `ycc-mcp` and
+`ycc-rules` packages are unlisted until YAN-1180, so install them from a
+checkout with `./install.sh install --target omp` (add `--project` for this
+project only, `--dry-run` to preview; native Windows is unsupported, use WSL 2).
+See [`docs/install/omp.md`](docs/install/omp.md).
 
 For local development installs, generated compatibility bundles, model defaults,
 and desktop app notes, use the dedicated install guides. Recommended sync form:

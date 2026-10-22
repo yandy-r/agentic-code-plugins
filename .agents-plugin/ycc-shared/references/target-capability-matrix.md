@@ -459,8 +459,12 @@ single-model subagents, while `@slow`/`@task` subagents retry along the role's c
 win). Both are user scope only: `--project` with either is rejected. The default-on `dedupe` step
 writes the user `config.yml` `skills.ignoredSkills` (see SKILLS:omp), also with `--project`;
 `remove --project` also deletes the empty `.omp/plugins/` files omp leaves. OMP has no trust
-prompt: installed plugin code runs in-process with full user privileges. Source: ADR 0002;
-`docs/install/omp.md`.
+prompt: installed plugin code runs in-process with full user privileges. Platforms (YAN-1556):
+live acceptance covers Linux x86_64 only; macOS, Linux arm64/musl and WSL 2 are expected but
+unverified, and native Windows (including Git Bash/MSYS) is unsupported: `install.sh` and the OMP
+harnesses are Bash and use Bash 4+ features, `--rules` needs a symlink, and no Windows host has
+run them. Source: ADR 0002;
+`docs/install/omp.md` (Platform Support); `docs/internal/omp-acceptance.md`.
 
 **DANGEROUS_MODE:omp**
 Unsupported. ycc ships no mapping for `--dangerously-skip-permissions`. OMP's default
