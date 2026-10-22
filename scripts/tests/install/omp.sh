@@ -227,8 +227,11 @@ config="$(cat "$(omp_agent "${home}")/config.yml" 2>/dev/null)"
 assert_contains "${config}" "approvalMode: write" "omp --settings writes tools.approvalMode"
 for role in default slow task; do
     assert_contains "${config}" "  ${role}: " "omp --settings writes modelRoles.${role}"
+    assert_contains "${config}" "    ${role}:
+    - openai/gpt-5.6-sol" "omp --settings writes retry.fallbackChains.${role}"
 done
-assert_contains "${INSTALL_OUT}" "applied 4 managed update(s)" "omp --settings reports the merged leaves"
+assert_not_contains "${config}" "- openai/gpt-5.6-sol:" "omp --settings writes bare chain entries (the turn's thinking level carries over)"
+assert_contains "${INSTALL_OUT}" "applied 7 managed update(s)" "omp --settings reports the merged leaves"
 assert_not_contains "$(omp_log "${home}")" "omp plugin" "omp --settings makes no omp plugin call"
 
 # I2: a user edit to a managed leaf survives a re-run.
@@ -312,6 +315,7 @@ config="$(cat "${agent}/config.yml" 2>/dev/null)"
 assert_contains "${config}" "slow: openai/gpt-5.6-sol:low" "omp remove keeps the user-edited leaf"
 assert_not_contains "${config}" "approvalMode" "omp remove drops the unchanged approvalMode leaf"
 assert_not_contains "${config}" "default:" "omp remove drops the unchanged modelRoles.default leaf"
+assert_not_contains "${config}" "fallbackChains" "omp remove drops the unchanged retry.fallbackChains leaves"
 if [[ ! -e "${agent}/AGENTS.md" && ! -L "${agent}/AGENTS.md" ]]; then ok "omp remove unlinks AGENTS.md"; else ko "omp remove unlinks AGENTS.md"; fi
 assert_not_contains "$(omp_log "${home}")" "omp plugin" "omp settings/rules remove makes no omp plugin call"
 

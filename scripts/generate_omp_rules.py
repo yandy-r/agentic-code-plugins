@@ -5,6 +5,13 @@ OMP scans <plugin>/rules/*.{md,mdc} non-recursively and names a rule by its
 file stem, so the nested source tree is flattened. Frontmatter keeps
 `description`, maps `paths` to `globs`, and emits `alwaysApply` only when it is
 true (globs are then dropped). Relative rule links become rule:// URLs.
+
+Rulebook globs are advisory, so every non-common family with globs also gets a
+ycc-<family>-trigger.md TTSR rule: `condition: .*` scoped to edit/write tool
+streams on the family's globs with `interruptMode: never`, which attaches a
+reminder listing the family's rules after the first matching edit or write.
+Triggers carry no `description`, so with `ttsr.enabled: false` they stay out of
+the rulebook instead of becoming listing entries.
 Source of truth: ycc/rules/. Every policy violation fails closed.
 """
 
@@ -31,9 +38,11 @@ SRC_DIR = REPO_ROOT / "ycc/rules"
 DST_DIR = REPO_ROOT / "packages/omp/ycc-rules/rules"
 RULE_PREFIX = "ycc-"
 SOURCE_KEYS = frozenset({"description", "paths", "alwaysApply"})
-OUTPUT_KEYS = ("description", "alwaysApply", "globs")
+OUTPUT_KEYS = ("description", "alwaysApply", "globs", "condition", "scope", "interruptMode")
 FORBIDDEN = ("~/.claude", "CLAUDE_PLUGIN_ROOT", "/ycc:")
 COMMON_FAMILY = "common"
+TRIGGER_STEM = "trigger"
+TRIGGER_SCOPE = ["tool:edit", "tool:write"]
 
 # [text](target) where target has no whitespace; images excluded by the lookbehind.
 _LINK_RE = re.compile(r"(?<!!)\[([^\]]*)\]\(([^)\s]+)\)")
@@ -106,6 +115,30 @@ def dump_frontmatter(data: Mapping[str, object]) -> str:
     return f"---\n{text}\n---\n"
 
 
+def trigger_rule(family: str, members: list[tuple[str, Mapping[str, object]]]) -> str | None:
+    """Render the TTSR trigger for one family from its (rule name, frontmatter) pairs, or None without globs."""
+    globs: list[str] = []
+    for _name, data in members:
+        member_globs = data.get("globs")
+        for glob in member_globs if isinstance(member_globs, list) else []:
+            if isinstance(glob, str) and glob not in globs:
+                globs.append(glob)
+    if not globs:
+        return None
+    frontmatter: dict[str, object] = {
+        "globs": globs,
+        "condition": ".*",
+        "scope": list(TRIGGER_SCOPE),
+        "interruptMode": "never",
+    }
+    lines = [f"# ycc {family} rules", "", "You edited a matching file. Read and apply these ycc rules:", ""]
+    for name, data in members:
+        stem = name.removesuffix(".md")
+        description = " ".join(str(data["description"]).split())
+        lines.append(f"- [{stem}](rule://{stem}): {description}")
+    return dump_frontmatter(frontmatter) + "\n" + "\n".join(lines) + "\n"
+
+
 def build_rules(src: Path = SRC_DIR) -> dict[str, str]:
     """Return {flat file name: rendered rule text} for every shippable rule under src."""
     if not src.is_dir():
@@ -128,6 +161,7 @@ def build_rules(src: Path = SRC_DIR) -> dict[str, str]:
     names = set(sources)
     rendered: dict[str, str] = {}
     always: list[tuple[Path, int]] = []
+    families: dict[str, list[tuple[str, Mapping[str, object]]]] = {}
     for name, rel in sources.items():
         _has_fm, data, body = parse_frontmatter((src / rel).read_text(encoding="utf-8"))
         frontmatter = rule_frontmatter(rel, data, body)
@@ -139,6 +173,7 @@ def build_rules(src: Path = SRC_DIR) -> dict[str, str]:
         if frontmatter.get("alwaysApply") is True:
             always.append((rel, len(body_out.splitlines())))
         rendered[name] = text
+        families.setdefault(rel.parts[0], []).append((name, frontmatter))
 
     if len(always) > ALWAYS_APPLY_MAX_RULES:
         listed = ", ".join(str(rel) for rel, _ in always)
@@ -146,6 +181,17 @@ def build_rules(src: Path = SRC_DIR) -> dict[str, str]:
     total = sum(lines for _, lines in always)
     if total > ALWAYS_APPLY_MAX_BODY_LINES:
         raise ValueError(f"alwaysApply bodies too large: {total} > {ALWAYS_APPLY_MAX_BODY_LINES} lines")
+
+    for family, members in families.items():
+        if family == COMMON_FAMILY:
+            continue
+        trigger = trigger_rule(family, members)
+        if trigger is None:
+            continue
+        name = f"{RULE_PREFIX}{family}-{TRIGGER_STEM}.md"
+        if name in rendered:
+            raise ValueError(f"{name}: trigger name collides with source rule {sources[name]}")
+        rendered[name] = trigger
     return rendered
 
 

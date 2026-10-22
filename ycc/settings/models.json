@@ -1,5 +1,5 @@
 {
-  "$comment": "Declared preferred main/sub-agent models and effort levels per runtime target. GENERATOR-CONSUMED entries: targets.opencode (scripts/generate_opencode_plugin.py, scripts/generate_opencode_agents.py), targets.cursor.subagent (scripts/generate_cursor_agents.py) and targets.omp (scripts/omp_model_policy.py -> scripts/generate_omp_agents.py agentModels; the managed snippet ycc/settings/omp/config.yml must equal its roles). The Claude and Codex entries are DOCUMENTATION of values maintained directly in their native config files (ycc/settings/settings.json and .codex-plugin/config/config.toml), because those files are user-editable configs rather than generated artifacts; scripts/validate-model-settings.py checks that they and targets.omp stay consistent with this file. opencode, cursor and omp values are placeholders (placeholder: true): the usable catalog depends on the provider subscriptions and plan each machine has, and Cursor additionally gates subagent models by plan/admin policy.",
+  "$comment": "Declared preferred main/sub-agent models and effort levels per runtime target. GENERATOR-CONSUMED entries: targets.opencode (scripts/generate_opencode_plugin.py, scripts/generate_opencode_agents.py), targets.cursor.subagent (scripts/generate_cursor_agents.py) and targets.omp (scripts/omp_model_policy.py -> scripts/generate_omp_agents.py agentModels; the managed snippet ycc/settings/omp/config.yml must equal its roles and, with fallbackChains: true, per-role retry.fallbackChains to the fallback model). The Claude and Codex entries are DOCUMENTATION of values maintained directly in their native config files (ycc/settings/settings.json and .codex-plugin/config/config.toml), because those files are user-editable configs rather than generated artifacts; scripts/validate-model-settings.py checks that they and targets.omp stay consistent with this file. opencode, cursor and omp values are placeholders (placeholder: true): the usable catalog depends on the provider subscriptions and plan each machine has, and Cursor additionally gates subagent models by plan/admin policy.",
   "targets": {
     "claude": {
       "config": "ycc/settings/settings.json",
@@ -130,6 +130,7 @@
         "slow": "subagent",
         "task": "subagent"
       },
+      "fallbackChains": true,
       "agentModels": {
         "opus": "@slow",
         "sonnet": "@task",

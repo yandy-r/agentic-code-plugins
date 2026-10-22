@@ -21,14 +21,17 @@ on 127.0.0.1:9 (spike-null/null-model, spike-null/null-two); no prompt is ever s
 sessions (omp --mode rpc --no-session --no-title) are read through get_state.
 
 L1  --plugin-dir packages/omp/ycc-rules: <generic-rules> holds the ycc-common-security and
-    ycc-common-git-workflow bodies, <domain-rules> lists every other rule (Go globs shown),
-    no hooks rule; after ./install.sh install --target omp --settings the same rules load
-    from the installed ycc-rules@ycc export with no --plugin-dir.
+    ycc-common-git-workflow bodies, <domain-rules> lists every other rule (Go globs shown)
+    except the ycc-<family>-trigger TTSR rules, no hooks rule; after ./install.sh install
+    --target omp --settings the same rules load from the installed ycc-rules@ycc export with
+    no --plugin-dir.
+L1T omp ttsr test -r ycc-python-trigger.md: fires on edit/write of *.py, not on a *.go path,
+    the read tool or assistant text.
 L2  A project <cwd>/.omp/rules/ycc-common-security.md replaces the package body at that cwd;
     the package body returns from a subdirectory.
 L3  install --target omp --settings (YCC_INSTALL_SKIP_BUILD=1, YCC_MANAGED_CONFIG_STATE in the
-    sandbox): omp config get shows the managed modelRoles and tools.approvalMode, a seeded
-    user key survives; an edited modelRoles.slow survives a re-run.
+    sandbox): omp config get shows the managed modelRoles, retry.fallbackChains and
+    tools.approvalMode, a seeded user key survives; an edited modelRoles.slow survives a re-run.
 L4  A project .omp/config.yml (modelRoles.default: spike-null/null-two, tools.approvalMode:
     always-ask) beats the managed user values; both revert from a non-project cwd.
 --keep    Retain the sandbox and transcript (always retained when a check fails).
@@ -227,7 +230,8 @@ def rule_files(rules_dir):
 
 
 def rules(state_path, rules_dir):
-    """Every package rule loads: alwaysApply bodies in <generic-rules>, the rest listed in <domain-rules>."""
+    """Every package rule loads: alwaysApply bodies in <generic-rules>, the rest listed in <domain-rules>;
+    TTSR trigger rules (a `condition`) stay out of both."""
     text = prompt(state_path)
     generic, domain = block(text, "generic-rules"), block(text, "domain-rules")
     files = rule_files(rules_dir)
@@ -237,18 +241,34 @@ def rules(state_path, rules_dir):
         if name not in files or not files[name][0].get("alwaysApply"):
             fail(f"{name} is missing or not alwaysApply")
     always = sorted(name for name, (front, _) in files.items() if front.get("alwaysApply") is True)
+    triggers = sorted(name for name, (front, _) in files.items() if "condition" in front)
+    if triggers != [f"ycc-{f}-trigger" for f in ("golang", "python", "rust", "typescript", "web")]:
+        fail(f"trigger rules {triggers}")
+    if any(name in generic or name in domain for name in triggers):
+        fail("a TTSR trigger rule leaked into <generic-rules> or <domain-rules>")
     for name in always:
         if files[name][1] not in generic:
             fail(f"<generic-rules> lacks the {name} body")
     listed = dict(re.findall(r"^- (ycc-[\w-]+) \(([^)]*)\):", domain, re.M))
-    expected = sorted(set(files) - set(always))
+    expected = sorted(set(files) - set(always) - set(triggers))
     if sorted(listed) != expected:
         fail(f"<domain-rules> lists {sorted(listed)}, expected {expected}")
     go = listed.get("ycc-golang-coding-style")
     if go != "**/*.go, **/go.mod, **/go.sum":
         fail(f"ycc-golang-coding-style globs {go!r}")
     return (f"{len(always)} always rules in <generic-rules> ({', '.join(always)}), "
-            f"{len(listed)} in <domain-rules> incl. ycc-golang-coding-style ({go}), no hooks rule")
+            f"{len(listed)} in <domain-rules> incl. ycc-golang-coding-style ({go}), no hooks rule, "
+            f"{len(triggers)} TTSR triggers kept out of the prompt")
+
+
+def ttsr(path, name, expected):
+    """`omp ttsr test --json` triggered NAME ('yes') or did not ('no')."""
+    report = json.loads(Path(path).read_text())
+    hit = name in {rule["name"] for rule in report["triggered"]}
+    if hit != (expected == "yes"):
+        fail(f"{name} triggered={hit} for source={report['source']} tool={report.get('tool')} "
+             f"path={report.get('filePath')}, expected {expected}")
+    return f"{name} {'fires' if hit else 'silent'} on {report['source']}:{report.get('tool')} {report.get('filePath')}"
 
 
 def shadow(state_path, rules_dir, marker, shadowed):
@@ -292,6 +312,11 @@ def roles(source, path, overrides_json="{}"):
     return config(path, json.dumps(expected))
 
 
+def chains(source, path):
+    """omp config get retry.fallbackChains --json equals the managed source chains."""
+    return config(path, json.dumps(yaml.safe_load(Path(source).read_text())["retry"]["fallbackChains"]))
+
+
 def edit(config_path, key, value):
     data = yaml.safe_load(Path(config_path).read_text())
     data["modelRoles"][key] = value
@@ -316,7 +341,8 @@ def installed(list_path, *plugin_ids):
 
 COMMANDS = {
     "rules": rules, "shadow": shadow, "model": model, "config": config, "roles": roles,
-    "edit": edit, "seeded": seeded, "installed": installed,
+    "chains": chains,
+    "edit": edit, "seeded": seeded, "installed": installed, "ttsr": ttsr,
 }
 print(COMMANDS[sys.argv[1]](*sys.argv[2:]))
 PY
@@ -363,6 +389,19 @@ rpc l1-plugin-dir "$home" "${null[@]}" --plugin-dir "$rules_pkg"
 check l1-proof rules "$(state l1-plugin-dir)" "$rules_pkg/rules"
 log 'PASS L1 (plugin-dir): packages/omp/ycc-rules loads; alwaysApply bodies in <generic-rules>, the rest on demand in <domain-rules>'
 
+# --- L1T. A trigger fires only on edit/write of a matching path (no model needed) -----------
+trigger=$rules_pkg/rules/ycc-python-trigger.md
+for probe in edit:src/x.py:yes write:a/b/x.pyi:yes edit:src/x.go:no read:src/x.py:no; do
+  IFS=: read -r tool path want <<<"$probe"
+  o "l1t-$tool-${path//\//_}" "$home" ttsr test --json -r "$trigger" --source tool --tool "$tool" --path "$path" 'x = 1'
+  assert_rc 0 "ttsr test $probe"
+  check "l1t-$tool-${path//\//_}-proof" ttsr "$(state "l1t-$tool-${path//\//_}")" ycc-python-trigger "$want"
+done
+o l1t-text "$home" ttsr test --json -r "$trigger" --source text --path src/x.py 'x = 1'
+assert_rc 0 'ttsr test text'
+check l1t-text-proof ttsr "$(state l1t-text)" ycc-python-trigger no
+log 'PASS L1T: ycc-python-trigger fires on edit/write of *.py/*.pyi only'
+
 # --- L2. A project rule shadows the package rule at its cwd only ------------------------------
 mkdir -p "$proj/.omp/rules"
 cat >"$proj/.omp/rules/ycc-common-security.md" <<'EOF'
@@ -395,6 +434,9 @@ log 'PASS L1 (install): ./install.sh install --target omp loads the same rules f
 o l3-roles "$home" config get modelRoles --json
 assert_rc 0 'config get modelRoles'
 check l3-roles-proof roles "$managed_src" "$(state l3-roles)"
+o l3-chains "$home" config get retry.fallbackChains --json
+assert_rc 0 'config get retry.fallbackChains'
+check l3-chains-proof chains "$managed_src" "$(state l3-chains)"
 o l3-approval "$home" config get tools.approvalMode
 assert_rc 0 'config get tools.approvalMode'
 value l3-approval write
@@ -407,7 +449,7 @@ has l3-rerun '[!!] kept your local value at /modelRoles/slow'
 o l3-roles-after "$home" config get modelRoles --json
 assert_rc 0 'config get modelRoles (after re-run)'
 check l3-kept roles "$managed_src" "$(state l3-roles-after)" '{"slow": "spike-null/null-two"}'
-log 'PASS L3: --settings writes the managed modelRoles and tools.approvalMode, keeps user keys, and a re-run keeps the edited modelRoles.slow'
+log 'PASS L3: --settings writes the managed modelRoles, retry.fallbackChains and tools.approvalMode, keeps user keys, and a re-run keeps the edited modelRoles.slow'
 
 # --- L4. Project .omp/config.yml beats the managed user values -------------------------------
 cat >"$proj/.omp/config.yml" <<'EOF'

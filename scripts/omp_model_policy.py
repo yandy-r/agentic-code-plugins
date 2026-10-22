@@ -2,7 +2,8 @@
 """OMP model policy: `targets.omp` in ycc/settings/models.json and the managed snippet.
 
 `targets.omp` declares ycc's OMP model intent: `main`/`subagent`/`fallback` models, the
-OMP roles ycc manages (`roles`) and the Claude agent-model aliases (`agentModels`).
+OMP roles ycc manages (`roles`), whether each role gets a request-failure chain to the
+fallback model (`fallbackChains`) and the Claude agent-model aliases (`agentModels`).
 generate_omp_agents.py reads `agentModels`; validate-model-settings.py checks the whole
 entry plus ycc/settings/omp/config.yml, the snippet `install.sh --settings` merges into
 the user `config.yml`.
@@ -31,13 +32,13 @@ THINKING = ("off", "minimal", "low", "medium", "high", "xhigh", "max", "auto", "
 # A full `provider/model` reference; bare ids and empty halves are rejected.
 SELECTOR = re.compile(r"^[a-z0-9][a-z0-9-]*/[A-Za-z0-9][A-Za-z0-9._-]*$")
 # Leaves ycc may own in the user config.yml.
-SNIPPET_KEYS = frozenset({("modelRoles",), ("tools", "approvalMode")})
+SNIPPET_KEYS = frozenset({("modelRoles",), ("retry", "fallbackChains"), ("tools", "approvalMode")})
 APPROVAL_MODE = "write"
 # `roles` values: which declared model a managed role resolves to.
 ROLE_TARGETS = ("main", "subagent")
 # Roles `roles` must declare, with the target each must use.
 REQUIRED_ROLES = {"default": "main"}
-REQUIRED_KEYS = ("config", "main", "subagent", "fallback", "roles", "agentModels")
+REQUIRED_KEYS = ("config", "main", "subagent", "fallback", "roles", "fallbackChains", "agentModels")
 
 
 def load_omp(models_path: Path = MODELS_PATH) -> dict[str, Any]:
@@ -56,12 +57,25 @@ def role_selector(omp: Mapping[str, Any], ref: str) -> str:
     return f"{primary['model']}:{primary['effort']}, {fallback['model']}:{fallback['effort']}"
 
 
+def fallback_selector(omp: Mapping[str, Any]) -> str:
+    """Bare `<fallback.model>`, the single entry of every managed retry chain.
+
+    OMP keeps the failing turn's thinking level for a bare chain entry; an explicit
+    `:<effort>` suffix would replace it (e.g. push a low-effort role to high).
+    """
+    return str(omp["fallback"]["model"])
+
+
 def expected_snippet(omp: Mapping[str, Any]) -> dict[str, Any]:
     """The managed config.yml content `targets.omp` implies."""
-    return {
+    snippet: dict[str, Any] = {
         "modelRoles": {role: role_selector(omp, ref) for role, ref in omp["roles"].items()},
-        "tools": {"approvalMode": APPROVAL_MODE},
     }
+    if omp["fallbackChains"]:
+        # retry.fallbackChains.<role>: models tried when a request to the active model fails.
+        snippet["retry"] = {"fallbackChains": {role: [fallback_selector(omp)] for role in omp["roles"]}}
+    snippet["tools"] = {"approvalMode": APPROVAL_MODE}
+    return snippet
 
 
 def agent_model_map(models_path: Path = MODELS_PATH) -> dict[str, str | None]:
@@ -107,6 +121,26 @@ def _roles_errors(roles: object) -> list[str]:
             errors.append(f"{label}.{role}: unknown OMP role (built-in roles: {', '.join(BUILTIN_ROLES)})")
         if ref not in ROLE_TARGETS:
             errors.append(f"{label}.{role}: expected one of {', '.join(ROLE_TARGETS)}, got {ref!r}")
+    return errors
+
+
+def _fallback_chains_errors(omp: Mapping[str, Any]) -> list[str]:
+    label = f"{MODELS_LABEL}.fallbackChains"
+    switch = omp["fallbackChains"]
+    if not isinstance(switch, bool):
+        return [f"{label}: expected true or false, got {switch!r}"]
+    roles = omp["roles"]
+    fallback = omp["fallback"]
+    if not switch or not isinstance(roles, dict) or not isinstance(fallback, dict):
+        return []
+    errors: list[str] = []
+    for role, ref in roles.items():
+        primary = omp.get(ref) if ref in ROLE_TARGETS else None
+        if isinstance(primary, dict) and primary.get("model") == fallback.get("model"):
+            errors.append(
+                f"{label}: role {role!r} already uses the fallback model {fallback.get('model')!r}; "
+                "its retry chain would retry the same model"
+            )
     return errors
 
 
@@ -158,6 +192,9 @@ def _snippet_errors(snippet: object, expected: Mapping[str, Any] | None, config_
     if expected is None or errors:
         return errors
     for key in sorted(set(expected) | set(snippet)):
+        if key == "retry" and key not in expected:
+            errors.append(f"{config_label}: retry.fallbackChains is set but {MODELS_LABEL}.fallbackChains is false")
+            continue
         want = expected.get(key)
         got = snippet.get(key)
         if isinstance(want, dict) and isinstance(got, dict):
@@ -183,6 +220,7 @@ def omp_model_errors(omp: object, snippet: object, used_agent_models: set[str]) 
     for name in ("main", "subagent", "fallback"):
         errors.extend(_model_errors(omp, name))
     errors.extend(_roles_errors(omp["roles"]))
+    errors.extend(_fallback_chains_errors(omp))
     errors.extend(_agent_models_errors(omp["agentModels"], omp["roles"], used_agent_models))
     # Only derive the expected snippet from a valid entry; otherwise the drift report is noise.
     expected = None if errors else expected_snippet(omp)

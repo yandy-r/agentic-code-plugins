@@ -973,9 +973,19 @@ class OmpYamlMergeTest(MergeBase):
         "task": "anthropic/claude-opus-5:high, openai/gpt-5.6-sol:high",
     }
 
-    def write_source(self, roles: dict[str, str] | None = None, approval: str = "write") -> Path:
+    CHAINS = {role: ["openai/gpt-5.6-sol"] for role in ("default", "slow", "task")}
+
+    def write_source(
+        self,
+        roles: dict[str, str] | None = None,
+        approval: str = "write",
+        chains: dict[str, list[str]] | None = None,
+    ) -> Path:
         source = self.tmp / "config.src.yml"
-        payload = {"modelRoles": roles or self.ROLES, "tools": {"approvalMode": approval}}
+        payload: dict[str, Any] = {"modelRoles": roles or self.ROLES}
+        if chains is not None:
+            payload["retry"] = {"fallbackChains": chains}
+        payload["tools"] = {"approvalMode": approval}
         source.write_text("# Managed by ystack\n" + yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
         return source
 
@@ -1045,6 +1055,38 @@ class OmpYamlMergeTest(MergeBase):
             {"modelRoles": {"smol": "openai/gpt-5.6-mini", "slow": "openai/gpt-5.6-sol:xhigh"}},
         )
         self.assertIn("kept your local value at /modelRoles/slow", result.stdout)
+
+    def test_m8_fallback_chains_owned_per_role(self) -> None:
+        destination = self.tmp / "config.yml"
+        user_retry = {"maxRetries": 5, "fallbackChains": {"smol": ["openai/gpt-5.6-mini"]}}
+        destination.write_text(yaml.safe_dump({"retry": user_retry}, sort_keys=False), encoding="utf-8")
+        source = self.write_source(chains=self.CHAINS)
+
+        self.merge(source, destination)
+
+        retry = self.load(destination)["retry"]
+        self.assertEqual(retry["maxRetries"], 5)
+        self.assertEqual(retry["fallbackChains"], {**user_retry["fallbackChains"], **self.CHAINS})
+
+        edited = self.load(destination)
+        edited["retry"]["fallbackChains"]["slow"] = ["anthropic/claude-fable-5-1:high", "openai/gpt-5.6-sol:high"]
+        destination.write_text(yaml.safe_dump(edited, sort_keys=False), encoding="utf-8")
+        updated = {**self.CHAINS, "default": ["openai/gpt-5.7"], "slow": ["openai/gpt-5.7"]}
+        source = self.write_source(chains=updated)
+
+        result = self.merge(source, destination)
+
+        chains = self.load(destination)["retry"]["fallbackChains"]
+        self.assertEqual(chains["slow"], edited["retry"]["fallbackChains"]["slow"])
+        self.assertEqual(chains["default"], ["openai/gpt-5.7"])
+        self.assertIn("kept your local value at /retry/fallbackChains/slow", result.stdout)
+
+        self.merge(source, destination, force=True)
+        self.assertEqual(self.load(destination)["retry"]["fallbackChains"]["slow"], ["openai/gpt-5.7"])
+
+        self.merge(source, destination, extra=("--remove",))
+
+        self.assertEqual(self.load(destination), {"retry": user_retry})
 
     def test_m5_symlinked_destination_refused_without_writes(self) -> None:
         target = self.tmp / "dotfiles-config.yml"

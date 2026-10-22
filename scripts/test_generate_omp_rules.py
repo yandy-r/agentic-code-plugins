@@ -24,7 +24,7 @@ EXPECTED_NAMES = sorted(
         *(
             f"ycc-{lang}-{stem}.md"
             for lang in ("golang", "python", "rust", "typescript")
-            for stem in ("coding-style", "patterns", "security", "testing")
+            for stem in ("coding-style", "patterns", "security", "testing", "trigger")
         ),
         "ycc-web-coding-style.md",
         "ycc-web-design-quality.md",
@@ -32,6 +32,7 @@ EXPECTED_NAMES = sorted(
         "ycc-web-performance.md",
         "ycc-web-security.md",
         "ycc-web-testing.md",
+        "ycc-web-trigger.md",
     ]
 )
 
@@ -65,10 +66,10 @@ class FixtureTest(unittest.TestCase):
 
 
 class RealTreeTest(unittest.TestCase):
-    def test_r1_real_tree_yields_31_flat_rules(self) -> None:
+    def test_r1_real_tree_yields_31_flat_rules_and_5_triggers(self) -> None:
         built = rules.build_rules()
         self.assertEqual(sorted(built), EXPECTED_NAMES)
-        self.assertEqual(len(built), 31)
+        self.assertEqual(len(built), 36)
 
     def test_r1_write_tree_emits_only_flat_rules_and_prunes_stale(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -139,6 +140,33 @@ class TransformTest(FixtureTest):
         for stem in ("a", "b", "c"):
             self.put(f"common/{stem}.md", rule(alwaysApply=True))
         with self.assertRaisesRegex(ValueError, "too many alwaysApply rules: 3 > 2"):
+            rules.build_rules(self.src)
+
+    def test_r7_trigger_per_glob_family_with_union_globs(self) -> None:
+        self.put("rust/coding-style.md", rule(description="Use when editing Rust; apply style.", paths=["**/*.rs"]))
+        self.put("rust/hooks.md", rule(paths=["**/build.rs"]))
+        self.put("rust/security.md", rule(paths=["**/*.rs", "**/Cargo.toml"]))
+        self.put("common/security.md", rule(alwaysApply=True))
+        self.put("common/testing.md", rule())
+        built = rules.build_rules(self.src)
+
+        self.assertNotIn("ycc-common-trigger.md", built)
+        text = built["ycc-rust-trigger.md"]
+        keys, data = frontmatter(text)
+        self.assertEqual(keys, ["globs", "condition", "scope", "interruptMode"], "no description: no rulebook entry")
+        self.assertEqual(data["globs"], ["**/*.rs", "**/Cargo.toml"], "skipped hooks.md globs must not leak")
+        self.assertEqual(
+            (data["condition"], data["scope"], data["interruptMode"]), (".*", ["tool:edit", "tool:write"], "never")
+        )
+        self.assertIn(
+            "[ycc-rust-coding-style](rule://ycc-rust-coding-style): Use when editing Rust; apply style.", text
+        )
+        self.assertIn("rule://ycc-rust-security", text)
+        self.assertNotIn("hooks", text)
+
+    def test_r7_trigger_name_collision_fails(self) -> None:
+        self.put("python/trigger.md", rule(paths=["**/*.py"]))
+        with self.assertRaisesRegex(ValueError, "ycc-python-trigger.md: trigger name collides with source rule"):
             rules.build_rules(self.src)
 
 

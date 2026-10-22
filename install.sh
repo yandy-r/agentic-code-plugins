@@ -262,7 +262,8 @@ Options:
                         opencode — opencode.json
                         cursor   — cli-config.json (CLI model preference)
                         omp      — <agentDir>/config.yml (modelRoles,
-                                   tools.approvalMode; user scope)
+                                   retry.fallbackChains, tools.approvalMode;
+                                   user scope)
   --rules             Additive: SYMLINK rules files so edits flow across
                       systems (this is the old --settings behavior for rules).
                       Refuses to replace a real rules file without --force;
@@ -548,8 +549,9 @@ Target steps:
                       prints the duplicates); remove --only dedupe takes the
                       entries back.
             settings: opt-in, user scope only. MERGE the ycc-owned
-                      modelRoles and tools.approvalMode leaves from
-                      ycc/settings/omp/config.yml into <agentDir>/config.yml
+                      modelRoles, retry.fallbackChains and tools.approvalMode
+                      leaves from ycc/settings/omp/config.yml into
+                      <agentDir>/config.yml
                       (needs PyYAML); local edits are kept unless --force.
             rules:    opt-in, user scope only. symlink
                       ycc/settings/rules/AGENTS.md into <agentDir>/.
