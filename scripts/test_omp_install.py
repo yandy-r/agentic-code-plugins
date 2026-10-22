@@ -1056,6 +1056,35 @@ class OmpInstallTests(unittest.TestCase):
         self.assertFalse((self.project / ".omp/plugins/omp-plugins.lock.json").exists())
         self.assertFalse(omp_install.state_path().exists())
 
+    def test_project_remove_after_a_partial_install_rollback_deletes_the_residue_ycc_created(self) -> None:
+        self.use_fixture()
+        mine = self.project / ".omp/skills/plan/SKILL.md"
+        mine.parent.mkdir(parents=True)
+        mine.write_text("mine", encoding="utf-8")
+        with patch.dict(os.environ, {"FAKE_OMP_FAIL": "install:ycc-extra@ycc"}):
+            self.refused("install", "--scope", "project", "--project-root", str(self.project))
+        self.assertIsNotNone(self.record("ycc", "project"))
+        self.assertEqual(
+            self.state()["project_residue"][str(self.project)],
+            [
+                ".omp/plugins",
+                ".omp/plugins/installed_plugins.json",
+                ".omp/plugins/omp-plugins.lock.json",
+                ".omp/plugins/node_modules",
+            ],
+        )
+
+        self.remove("project")
+
+        self.assertEqual(mine.read_text(encoding="utf-8"), "mine")
+        self.assertFalse((self.project / ".omp/plugins").exists())
+        self.assertFalse(omp_install.state_path().exists())
+
+    def test_failed_first_project_install_restores_the_residue_record_to_its_prior_state(self) -> None:
+        with patch.dict(os.environ, {"FAKE_OMP_FAIL": "install"}):
+            self.refused("install", "--scope", "project", "--project-root", str(self.project))
+        self.assertFalse(omp_install.state_path().exists())
+
     def test_recorded_ignores_a_project_whose_root_was_deleted(self) -> None:
         self.install("project")
         self.install("user")

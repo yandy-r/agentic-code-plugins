@@ -861,6 +861,7 @@ def install(
         except BaseException:
             rollback(
                 state_snapshot=snapshot,
+                live_residue=state["project_residue"],
                 profile_key=profile_key,
                 succeeded=succeeded,
                 created_marketplace=created_marketplace,
@@ -1002,6 +1003,7 @@ def apply_step(
 def rollback(
     *,
     state_snapshot: dict[str, Any],
+    live_residue: dict[str, list[str]],
     profile_key: str,
     succeeded: list[dict[str, Any]],
     created_marketplace: bool,
@@ -1011,7 +1013,11 @@ def rollback(
     exported: Path,
     home: Path,
 ) -> None:
-    """Undo only what this run created; the failing item's record reverts, earlier successes stay."""
+    """Undo only what this run created; the failing item's record reverts, earlier successes stay.
+
+    A kept project install keeps the residue record written for its root, so remove can still
+    delete the ``.omp`` state ycc created there; with no success the record reverts with the rest.
+    """
     if created_marketplace:
         try:
             run("plugin", "marketplace", "remove", MARKETPLACE, cwd=home)
@@ -1034,6 +1040,9 @@ def rollback(
                 existing.update(record)
             else:
                 profile["installs"].append(record)
+            root = record.get("project_root")
+            if record["scope"] == "project" and root in live_residue:
+                restored["project_residue"].setdefault(root, copy.deepcopy(live_residue[root]))
     write_or_delete_state(restored)
 
 
