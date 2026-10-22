@@ -206,7 +206,12 @@ run_target() {
     local -a only_saved=(${ONLY_STEPS[@]+"${ONLY_STEPS[@]}"})
     local exclusive_saved="${EXCLUSIVE_STEPS:-0}"
     skip_unselectable_steps "${target}"
+    # --with-deps extends the selection for this target only (select.sh).
+    local skills_saved="${SELECTION[skills]:-}" agents_saved="${SELECTION[agents]:-}"
+    expand_with_deps "${target}"
     "${fn}"
+    SELECTION[skills]="${skills_saved}"
+    SELECTION[agents]="${agents_saved}"
     ONLY_STEPS=(${only_saved[@]+"${only_saved[@]}"})
     EXCLUSIVE_STEPS="${exclusive_saved}"
 }

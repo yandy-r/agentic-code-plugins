@@ -5,7 +5,9 @@
 # step, --plugins / --hooks for the settings step's plugins / hooks config
 # groups), and 'list [<kind>]' prints them. install keeps '--hooks' as its
 # boolean "also run the hooks step" flag, so --hooks selects only on
-# sync/remove (install.sh's parser decides).
+# sync/remove (install.sh's parser decides). --with-deps (install/sync)
+# extends a --skills / --agents selection per target with its ycc:<name>
+# dependencies the target ships (expand_with_deps, called by run_target).
 #
 # Adding a kind: append it to SELECTABLE_KINDS, add its registry rows below
 # and define a '<kind>_names <target>' adapter (names the repo ships for
@@ -154,6 +156,52 @@ kind_step_selected() {
     target_runs_step "$2" "${SELECTION_STEP[$1]}" || return 1
     [[ -n "${SELECTION_GROUP[$1]:-}" ]] || return 0
     target_merges_group "$2" "${SELECTION_GROUP[$1]}"
+}
+
+# expand_with_deps <target> — under --with-deps, append to SELECTION[skills] /
+# SELECTION[agents] the ycc:<name> dependencies of <target>'s selected names
+# that <target> ships and lacks (or that ycc owns): install_slices.py closure.
+# Only a kind with a selection whose step runs (claude skills: the skills or
+# commands step) is extended. Called by run_target after intent mapping,
+# which restores the selection after the target runs.
+expand_with_deps() {
+    [[ "${WITH_DEPS:-0}" == "1" ]] || return 0
+    local target="$1" kind names line added name
+    local -a seeds=()
+    for kind in skills agents; do
+        # Claude skills are its commands: its skills slice installs the union of
+        # --skills and --commands (slice_selection_kinds), so both seed the walk.
+        if [[ "${target}" == claude && "${kind}" == skills ]]; then
+            local -a union=()
+            read -r -a union <<< "$(slice_selection_kinds claude skills)"
+            names=""
+            for line in ${union[@]+"${union[@]}"}; do
+                names+="${names:+,}$(selection_for_target "${line}" claude)"
+            done
+            names="${names#,}"
+            names="${names%,}"
+        else
+            if ! has_selection "${kind}" || ! step_enabled "${kind}"; then continue; fi
+            names="$(selection_for_target "${kind}" "${target}")"
+        fi
+        [[ -n "${names}" ]] && seeds+=("--${kind}" "${names}")
+    done
+    [[ ${#seeds[@]} -gt 0 ]] || return 0
+    local output
+    output="$(python3 "${SLICE_HELPER}" closure --target "${target}" "${seeds[@]}")" \
+        || { err "${target}: --with-deps dependency lookup failed"; exit 1; }
+    while IFS=$'\t' read -r kind added; do
+        [[ -n "${added}" ]] || continue
+        local -a fresh=()
+        for name in ${added//,/ }; do
+            [[ ",${SELECTION[${kind}]:-}," == *",${name},"* ]] && continue
+            SELECTION[${kind}]+="${SELECTION[${kind}]:+,}${name}"
+            fresh+=("${name}")
+        done
+        [[ ${#fresh[@]} -gt 0 ]] || continue
+        line="${fresh[*]}"
+        info "${target}: --with-deps adds ${SELECTION_NOUNS[${kind}]}: ${line// /, }"
+    done <<< "${output}"
 }
 
 # skip_unselectable_steps <target> — after run_target's step mapping: a

@@ -36,9 +36,9 @@ Usage: $(basename "$0") <command> [options]
 
 Commands:
   install     Initial setup: base step plus opt-in steps (flags below).
-              $(basename "$0") install --target <targets> [--mode <mode>] [--settings] [--rules] [--mcp] [--hooks] [--only <steps>] [--package <ids>] [--mcps <servers>] [--skills <names>] [--agents <names>] [--commands <names>] [--plugins <names>] [--mods <names>] [--project|--global] [--force] [--dry-run]
+              $(basename "$0") install --target <targets> [--mode <mode>] [--settings] [--rules] [--mcp] [--hooks] [--only <steps>] [--package <ids>] [--mcps <servers>] [--skills <names>] [--agents <names>] [--commands <names>] [--plugins <names>] [--mods <names>] [--with-deps] [--project|--global] [--force] [--dry-run]
   sync        Sync what you name, nothing else.
-              $(basename "$0") sync --target <targets> --intent <intents> [--mcps <servers>] [--skills <names>] [--agents <names>] [--commands <names>] [--plugins <names>] [--mods <names>] [--hooks <events>] [--mode <mode>] [--project|--global] [--force] [--dry-run]
+              $(basename "$0") sync --target <targets> --intent <intents> [--mcps <servers>] [--skills <names>] [--agents <names>] [--commands <names>] [--plugins <names>] [--mods <names>] [--hooks <events>] [--with-deps] [--mode <mode>] [--project|--global] [--force] [--dry-run]
   remove      Strip installer-managed config.
               $(basename "$0") remove --target <targets> (--only <steps> | --intent <intents>) [--mcps <servers>] [--skills <names>] [--agents <names>] [--commands <names>] [--plugins <names>] [--mods <names>] [--hooks <events>] [--project|--global] [--force] [--purge-cache] [--dry-run]
   migrate     Preview a global native-package migration (no writes by default).
@@ -87,6 +87,7 @@ step-flag form used for first-time setup.
   $(basename "$0") sync --target claude,codex --intent skills,agents
   $(basename "$0") sync --target claude,codex --intent agents --agents implementor,code-reviewer
   $(basename "$0") sync --target opencode --intent skills,commands --skills clean --commands clean
+  $(basename "$0") sync --target claude --intent skills,agents --skills code-review --agents implementor --with-deps
   $(basename "$0") sync --target opencode --intent plugins --plugins oh-my-opencode-slim
 
 Intents (valid: base, skills, agents, commands, settings, rules, mcp, hooks,
@@ -370,6 +371,13 @@ Options:
   --purge-cache       remove only, opencode: also delete the opencode package
                       cache (~/.cache/opencode npm/, packages/, node_modules/)
                       of each catalog plugin removed from opencode.json.
+  --with-deps         install / sync only, with --skills or --agents: per
+                      target, also select the ycc:<name> dependencies of the
+                      selected skills/agents (transitively) that the target
+                      ships. Extends only kinds that already have a selection
+                      and whose step runs; skips dependencies available from
+                      elsewhere (the ycc plugin, your own entries) unless ycc
+                      owns them. Prints '<target>: --with-deps adds ...'.
   --dry-run           install / sync / remove, omp target only (every resolved
                       target must be omp). Previews every 'omp plugin' call
                       (omp's own --dry-run where it has one) and the planned
@@ -620,6 +628,8 @@ HOOKS=0
 FORCE=0
 # Read by targets/opencode-catalog.sh (remove only).
 PURGE_CACHE=0
+# Read by select.sh (expand_with_deps; install/sync only).
+WITH_DEPS=0
 EXCLUSIVE_STEPS=0
 ONLY_STEPS=()
 INTENTS=()
@@ -731,6 +741,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         --dry-run)  DRY_RUN=1; shift ;;
         --purge-cache) PURGE_CACHE=1; shift ;;
+        --with-deps) WITH_DEPS=1; shift ;;
         --project|--global)
             if [[ -n "${SCOPE}" && "${SCOPE}" != "${1#--}" ]]; then
                 err "--project and --global are mutually exclusive"
@@ -786,6 +797,17 @@ if [[ "${COMMAND}" == "remove" ]]; then
 elif [[ "${PURGE_CACHE}" == "1" ]]; then
     err "--purge-cache is only valid with 'remove'"
     exit 1
+fi
+
+if [[ "${WITH_DEPS}" == "1" ]]; then
+    if [[ "${COMMAND}" == "remove" ]]; then
+        err "--with-deps is only valid with install or sync"
+        exit 1
+    fi
+    if ! has_selection skills && ! has_selection agents; then
+        err "--with-deps needs --skills or --agents"
+        exit 1
+    fi
 fi
 
 if [[ -n "${PACKAGE}" ]]; then
