@@ -78,6 +78,9 @@ validate_scope_owned_targets() {
         scripts/generate_omp_agents.py | scripts/generate-omp-agents.sh | scripts/validate-omp-agents.sh) echo "omp" ;;
         scripts/generate_omp_commands.py | scripts/generate-omp-commands.sh | scripts/validate-omp-commands.sh) echo "omp" ;;
         scripts/test_generate_omp_skills.py | scripts/test_generate_omp_agents.py | scripts/test_generate_omp_commands.py) echo "omp types" ;;
+        # Live-omp drift guard for the built-in command pin (skips without omp) and its tests.
+        scripts/omp_builtin_commands.py) echo "omp" ;;
+        scripts/test_omp_builtin_commands.py) echo "omp types" ;;
         # OMP native packages: generator and policy (typed, so they also select `types`; the
         # install helper imports both, so they also select `config` for its tests), wrappers,
         # golden tests, and the opt-in live harness with its smoke driver.

@@ -18,7 +18,8 @@
 #   - inventory  validates ycc skill frontmatter, the shared inventory, the formatter bundle and
 #                plan-workflow regressions and per-runtime worktree roots (scripts/test-worktree-roots.sh)
 #   - omp        checks generated OMP skill, agent and command drift (bytes and modes), content policy and golden
-#                tests, plus native package manifests, catalog listing, lockstep versions and closure
+#                tests, plus native package manifests, catalog listing, lockstep versions and closure, and the
+#                built-in command pin against a live omp (warns and skips when omp is absent)
 #   - json       validates .claude-plugin/marketplace.json plus ycc/.claude-plugin/plugin.json
 #   - claude     tests the generated hidden Claude package generator
 #   - *-native   checks generated native package drift, runtime policies and fixtures;
@@ -273,6 +274,9 @@ run_target() {
             "${REPO_ROOT}/scripts/validate-omp-commands.sh" || fail "validate-omp-commands.sh"
             echo "== test: omp commands generator =="
             python3 "${REPO_ROOT}/scripts/test_generate_omp_commands.py" || fail "test_generate_omp_commands.py"
+	    echo "== validate: omp built-in command pin (live omp; skips when absent) =="
+	    python3 "${REPO_ROOT}/scripts/test_omp_builtin_commands.py" || fail "test_omp_builtin_commands.py"
+	    python3 "${REPO_ROOT}/scripts/omp_builtin_commands.py" || fail "omp_builtin_commands.py"
             echo "== test: omp rules flattener =="
             python3 "${REPO_ROOT}/scripts/test_generate_omp_rules.py" || fail "test_generate_omp_rules.py"
             echo "== validate: omp native packages and catalog =="

@@ -21,6 +21,8 @@ Environment:
                            `✘ Failed to <verb> <target>: Error: injected failure`. Verbs are the
                            plugin actions, or marketplace-add / marketplace-remove / marketplace-update
   FAKE_OMP_REPO_CATALOG    directory that a git/GitHub marketplace source "clones" from
+  FAKE_OMP_NO_NODE_MODULES when set, marketplace installs skip the node_modules runtime link (and
+                           the node_modules dir) so a test can leave that residue path uncreated
 
 Unsupported commands exit 2 with a usage line on stderr.
 """
@@ -654,9 +656,10 @@ class Omp:
         self, scope: str, name: str, target: Path, version: str, enabled: bool | None, prior: tuple[Any, Any] | None
     ) -> None:
         link = self.runtime_path(scope, name)
-        link.parent.mkdir(parents=True, exist_ok=True)
-        remove_path(link)
-        os.symlink(target, link, target_is_directory=True)
+        if not os.environ.get("FAKE_OMP_NO_NODE_MODULES"):
+            link.parent.mkdir(parents=True, exist_ok=True)
+            remove_path(link)
+            os.symlink(target, link, target_is_directory=True)
         lock_path = self.lock_path(scope)
         lock = self.read_lock(lock_path)
         previous = lock["plugins"].get(name)

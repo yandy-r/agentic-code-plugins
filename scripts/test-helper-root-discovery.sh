@@ -98,6 +98,7 @@ BUNDLE_SPECS=(
   "codex|.codex-plugin/ycc|shared/scripts/report-bundle-drift.sh|skills/hooks-workflow/scripts/build-hook-config.sh"
   "opencode|.opencode-plugin|shared/scripts/report-bundle-drift.sh|skills/hooks-workflow/scripts/build-hook-config.sh"
   "agents|.agents-plugin|ycc-shared/scripts/report-bundle-drift.sh|skills/hooks-workflow/scripts/build-hook-config.sh"
+  "omp|packages/omp/ycc|skills/_shared/scripts/report-bundle-drift.sh|skills/hooks-workflow/scripts/build-hook-config.sh"
   "opencode-npm|packages/opencode/ycc-opencode|shared/scripts/report-bundle-drift.sh|skills/hooks-workflow/scripts/build-hook-config.sh"
 )
 
