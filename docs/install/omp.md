@@ -12,12 +12,50 @@ model roles and approval default.
 ## Prerequisites
 
 - `omp` 18.12.2 or newer on `PATH` (`omp --version`). The installer stops
-  with `omp >= 18.12.2 is required for --target omp` otherwise.
-- `python3` on `PATH`.
+  with `omp >= 18.12.2 is required for --target omp` otherwise. The live
+  acceptance run passed on 18.12.2 and 18.12.6.
+- Bash 4 or newer. Some `install.sh` paths (`--intent`, selection flags) use
+  `mapfile` and associative arrays, which macOS's `/bin/bash` 3.2 lacks; put
+  a newer `bash` (for example Homebrew's) first on `PATH`.
+- `python3` with PyYAML (`python3 -c 'import yaml'`). Every omp step imports
+  it; without it the installer stops before any write or `omp` call with
+  `--target omp needs PyYAML for python3; install it with: python3 -m pip install --user pyyaml`.
 - A checkout of this repository.
 
 OMP has no trust prompt: installed plugin code runs with your user privileges.
-Install only from a checkout you trust.
+Install only from a checkout you trust (see
+[Security And Trust](#security-and-trust)).
+
+## Platform Support
+
+| Platform                       | Status                 | Notes                                                                                              |
+| ------------------------------ | ---------------------- | -------------------------------------------------------------------------------------------------- |
+| Linux x86_64                   | Supported, tested      | Every live acceptance row passed (see [Known Limitations](#known-limitations)).                    |
+| Linux arm64, musl              | Expected, not verified | The packages hold no native code; `install.sh` needs only Bash 4, `python3` with PyYAML and `omp`. |
+| macOS                          | Expected, not verified | Needs Bash 4+ ahead of `/bin/bash` on `PATH`. The live harnesses have not run on macOS yet.        |
+| Windows: WSL 2                 | Expected, not verified | Run `install.sh` and the Linux `omp` build inside WSL; it then behaves as Linux.                   |
+| Windows: native, Git Bash/MSYS | Unsupported            | See below.                                                                                         |
+
+Native Windows is unsupported for `install.sh --target omp` (decided in
+YAN-1556): `install.sh` and every OMP test harness are Bash scripts, `--rules`
+links `AGENTS.md` with a symlink, and no Windows host has run them. Use WSL 2
+with the Linux `omp` build. A WSL install belongs to the WSL `omp`; a Windows
+`omp.exe` keeps its own, separate plugin state.
+
+## Package IDs
+
+| Package id      | Ships                                                                               | Installed by default |
+| --------------- | ----------------------------------------------------------------------------------- | -------------------- |
+| `ycc@ycc`       | 50 skills, `/ycc:<skill>` commands, 55 task agents, the agent scope guard extension | yes                  |
+| `ycc-mcp@ycc`   | MCP servers as `ycc-mcp:<server>`                                                   | yes                  |
+| `ycc-rules@ycc` | 31 `ycc-<family>-<stem>` rules and 5 `ycc-<family>-trigger` rules                   | yes                  |
+| `ycc-hooks`     | Excluded on OMP: ycc ships no OMP hooks                                             | no                   |
+| `ycc-all`       | Excluded on OMP: OMP does not read plugin dependencies                              | no                   |
+
+The three packages share one lockstep version (`omp plugin list` shows it).
+`@ycc` names the marketplace: the export `install.sh` registers. A `ycc`
+marketplace pointing at the checkout root is an older setup; see
+[Migrate From Older Installs](#migrate-from-older-installs).
 
 ## Quick Start
 
@@ -658,6 +696,127 @@ Codex, Cursor and opencode may read their skills from there.
 `migrate --target all` does not include OMP; run `migrate --target omp`
 separately. Combined with other targets (`--target claude,omp`), every omp
 refusal happens in the shared preflight, before any target changes.
+
+## Migrate From Another ycc Target
+
+OMP gets its own packages; you do not convert a Claude, Codex, Cursor,
+opencode or `agents` install into an OMP one. Install OMP beside them:
+
+```bash
+./install.sh install --target omp            # + --settings --rules if wanted
+omp skill list >/dev/null                    # stderr empty: no duplicates
+```
+
+- **Keep the other runtimes.** The `dedupe` step hides the copies OMP would
+  load from `~/.agents/skills`, `~/.codex/skills` and
+  `~/.config/opencode/skills`; the other tools keep reading them. See
+  [Coexistence With Other Runtimes](#coexistence-with-other-runtimes).
+- **Claude skills.** OMP reads `~/.claude/skills` only when
+  `enabledProviders` lists `claude`; then they outrank the package (W4).
+  Either drop `claude` from `enabledProviders` or run
+  `./install.sh remove --target claude --intent skills`.
+- **Leave another runtime.** Remove that target first (for example
+  `./install.sh remove --target agents --only skills`), then re-run
+  `./install.sh install --target omp` so `dedupe` takes back the entries whose
+  copies are gone.
+- **Global instructions and models do not carry over.** OMP reads
+  `<agentDir>/AGENTS.md` and `<agentDir>/config.yml`, not the other tools'
+  files; use `--rules` and `--settings`.
+- **MCP logins do not carry over.** OMP keeps OAuth tokens in its own
+  `agent.db`; sign in again with `/mcp reauth ycc-mcp:<server>`.
+
+## Uninstall Everything
+
+```bash
+./install.sh remove --target omp --only base --project   # in each project that has one
+./install.sh remove --target omp --only base             # user scope (+ dedupe entries)
+./install.sh remove --target omp --intent settings,rules # --settings / --rules leaves
+```
+
+Run it once per OMP profile you installed into. Each command removes only what
+ycc recorded; packages, settings or `AGENTS.md` files you created stay. Then run
+`/reload-plugins` or restart running omp sessions; the scope guard extension
+unloads only on restart. `omp plugin list` should no longer show any
+`@ycc` package, and `~/.config/ycc/omp-native-install.json` holds no install
+for the profile.
+
+## Security And Trust
+
+- **No trust prompt.** OMP loads plugin extensions and hooks in-process and
+  starts plugin MCP servers, all with your user privileges. Install only from
+  a checkout you trust; `install.sh` exports the packages from that checkout.
+- **What ycc runs.** `ycc@ycc` ships one extension, the agent scope guard,
+  which only restricts ycc subagents (see [Agent Scope](#agent-scope)). ycc
+  ships no hooks. `ycc-mcp@ycc` connects to the http servers and starts the
+  stdio servers listed in its `.mcp.json`; some stdio servers run `npx`, which
+  downloads their npm package on first start. Disable any you do not want
+  (see [MCP Servers](#mcp-servers)).
+- **Secrets.** Generated files hold `${VAR}` placeholders only. Values come
+  from your environment; OAuth tokens stay in omp's `agent.db`.
+- **Scope guard limits.** The guard is a guard rail for ycc agents, not a
+  sandbox. It does not cover the main session or non-ycc agents, and
+  `--no-extensions` or a package loaded through `omp --plugin-dir` turns it
+  off. Task subagents run as `yolo` whatever `tools.approvalMode` says.
+- **Untrusted repositories.** A project's `.omp/` can add extensions, hooks
+  and MCP servers and override your user settings. Open one with the overlay
+  in [Untrusted Projects](#untrusted-projects).
+- **Settings writes.** `--settings` and `--rules` touch only the user
+  `<agentDir>`, never project files; a symlinked `config.yml` is never
+  written through.
+
+## Troubleshooting
+
+| Symptom                                                                                       | Fix                                                                                                                                                                             |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `omp >= 18.12.2 is required for --target omp`                                                 | Install or upgrade omp; the next line names the reason (for example `omp not found on PATH`).                                                                                   |
+| `--target omp needs PyYAML for python3; …`                                                    | `python3 -m pip install --user pyyaml`.                                                                                                                                         |
+| `--project at $HOME: omp project scope needs a project directory …`                           | `cd` into a project, or drop `--project`.                                                                                                                                       |
+| `omp needs a listed OMP package (YAN-1180)` (with `--mode repo`)                              | Use the default `--mode local` until the packages are listed.                                                                                                                   |
+| `unrecognized 'omp plugin marketplace list' output`                                           | `FORCE_COLOR` is set, so omp colours its output; run the installer with `env -u FORCE_COLOR ./install.sh …`.                                                                    |
+| `runtime package <pkg> is linked (omp plugin link); run ./install.sh migrate --target omp`    | Run `./install.sh migrate --target omp --apply`.                                                                                                                                |
+| `marketplace ycc has a different source (…); retained …`                                      | Another `ycc` marketplace is registered. Inspect it with `omp plugin marketplace list`; migrate or `omp plugin marketplace remove ycc` if it is not yours to keep.              |
+| `<export> exists but is not the recorded ycc export; rerun with --force to replace it`        | The export directory was edited or not made by ycc. Re-run with `--force`.                                                                                                      |
+| `[!!] <pkg>@ycc … the export changed but its version did not …`                               | You regenerated packages without a version bump; re-run with `--force`.                                                                                                         |
+| `[!!] <pkg>@ycc project install at <root> lost its cache (omp GC); repair: …`                 | Run the printed `cd <root> && <checkout>/install.sh install --target omp --project`.                                                                                            |
+| `[!!] <pkg>@ycc is already installed (<scope>) and not recorded as ycc-owned; left untouched` | You installed it yourself; ycc will not take it over. Uninstall it with `omp plugin uninstall`, then re-run.                                                                    |
+| `/ycc:<skill>` or agents missing in a running session                                         | `/reload-plugins`, or restart; restart after a `ycc` install or update so the scope guard loads.                                                                                |
+| A skill shows as `agents/<name>` or `ycc/<name>`                                              | See [Warnings](#warnings): W2 means run `--only dedupe`; W4 means Claude skills outrank the package.                                                                            |
+| `ycc-mcp:<server>` gets `${VAR}` literally or fails to start                                  | Export the variable before starting omp; use `/mcp list` to see what loaded.                                                                                                    |
+| `ycc-mcp:playwright` is missing                                                               | omp drops it while `browser.enabled` is on; set `browser.enabled: false`.                                                                                                       |
+| A ycc agent's command fails with `ycc scope guard`                                            | Working as intended: the agent may run only its declared prefixes. Run the command from the main session.                                                                       |
+| `-p` refuses shell commands after `--settings`                                                | `approvalMode: write` prompts for exec tools and fails closed without a UI; pass `--approval-mode yolo` for trusted automation.                                                 |
+| `…/omp-native-install.json: expected a version 1 JSON object` (or `malformed …`)              | `~/.config/ycc/omp-native-install.json` is damaged. Move it aside; ycc then treats existing installs as foreign and leaves them, so uninstall them with `omp plugin uninstall`. |
+
+Installer errors print as `[err] native OMP install stopped: <message>` (or
+`[err] native OMP migration stopped: …`); every refusal happens before any
+change. Add `--dry-run` to see each `omp` call before it runs.
+
+## Known Limitations
+
+- **Pre-release, unlisted.** The OMP packages are not in a published catalog
+  until YAN-1180, so `install.sh` from a checkout is the only install path;
+  `--mode repo`, public fork installs and `--target all` exclude OMP.
+- **Platforms.** Only Linux x86_64 has live acceptance evidence; macOS, Linux
+  arm64/musl and WSL are not yet run, and native Windows is unsupported (see
+  [Platform Support](#platform-support)).
+- **No hooks, no status line.** OMP never runs ycc's shell hooks;
+  `WorktreeCreate` has no OMP event; there is no command-backed status line.
+  herdr reporting is herdr's own integration.
+- **No `--dangerously-skip-permissions` mapping.** Subagents always run as
+  `yolo`; project config can override the approval mode.
+- **Headless questions.** `ask` exists only in the TUI and `--mode rpc-ui`;
+  `-p`, `--mode json`, `--mode rpc` and subagents take each skill's declared
+  default. `--team` is unsupported and fails closed. Per-skill status:
+  [`omp-workflow-semantics.md`](../internal/omp-workflow-semantics.md).
+- **Rule triggers** fire only on `edit`/`write`, not on files written through
+  `bash` or `eval`.
+- **User-scope settings only.** `--settings` and `--rules` never write
+  project `.omp/` files.
+- **Upgrades are version-keyed.** Same-version content changes need
+  `--force`.
+- **Verification scope.** Live acceptance used a scripted model: it proves
+  loading and tool plumbing, not workflow reasoning on real models. Evidence:
+  [`omp-acceptance.md`](../internal/omp-acceptance.md).
 
 ## Profiles And XDG
 
