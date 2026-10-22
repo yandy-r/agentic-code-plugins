@@ -135,7 +135,8 @@ def probe(omp: str) -> list[dict[str, Any]]:
         work = root / "work"
         work.mkdir()
         env = {
-            "PATH": "/usr/local/bin:/usr/bin:/bin",
+            # The omp directory first: an npm/bun install is a shim that needs its runtime alongside.
+            "PATH": os.pathsep.join((str(Path(omp).resolve().parent), "/usr/local/bin", "/usr/bin", "/bin")),
             "LANG": "C.UTF-8",
             "TERM": "dumb",
             "NO_COLOR": "1",
