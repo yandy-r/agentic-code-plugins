@@ -443,8 +443,9 @@ ycc list plugins --target claude
 | codex    | `[plugins."name@mkt"]` table names                            | that table in `~/.codex/config.toml`                                                                                                            |
 | opencode | `plugins` package names (version dropped), then catalog names | that `plugins` item (`./ycc-sensitive-guard` also ships or removes its guard directory); a catalog name installs that opt-in third-party plugin |
 
-- Entries not named are left alone, along with their state. `settings` and
-  `hooks` keys in the same run stay whole:
+- Entries not named are left alone, along with their state. `settings` keys in
+  the same run stay whole, and so do `hooks` keys unless `--hooks` narrows them
+  (see [Selecting Mods And Hook Events](#selecting-mods-and-hook-events)):
   `--intent settings,plugins --plugins x` still merges every managed setting.
 - Marketplaces follow their plugins and are never listed or selected on their
   own (`--plugins claude-plugins-official` is an unknown name). `remove`
@@ -465,6 +466,47 @@ ycc list plugins --target claude
   and its companion config, plus printed manual follow-ups. See
   [Third-party plugins](opencode.md#third-party-plugins).
 
+### Selecting Mods And Hook Events
+
+On claude, `--mods <names>` and `--hooks <events>` (comma-separated) narrow the
+`mods` step and the `hooks` config group the same way `--plugins` narrows
+plugins. Other targets have no mods step or hooks group, so `ycc list mods` and
+`ycc list hooks` print nothing for them:
+
+```bash
+ycc list mods --target claude                   # what --mods accepts (status-bar)
+ycc list hooks --target claude                  # what --hooks accepts (WorktreeCreate)
+ycc sync    --target claude --intent mods --mods status-bar
+ycc install --target claude --only mods --mods status-bar
+ycc remove  --target claude --intent mods --mods status-bar
+ycc sync    --target claude --intent hooks --hooks WorktreeCreate
+ycc remove  --target claude --intent hooks --hooks WorktreeCreate
+```
+
+- `--mods` registers the `ycc-mods` marketplace and installs only the named
+  mods; the sideload warning checks only those. `remove --mods` uninstalls
+  only the named mods and keeps the `ycc-mods` marketplace (and says why)
+  while another `*@ycc-mods` key is still listed in `enabledPlugins` in
+  `~/.claude/settings.json` (enabled or not).
+  Without `--mods`, `remove` uninstalls every mod and the marketplace.
+- `--hooks` selects whole hook **events** (`settings.json` `hooks` keys), not
+  individual scripts. Only the named events are merged or removed; the other
+  managed events keep their entries and ownership state. Sync with `--hooks`
+  still creates (or keeps) the `~/.claude/hooks` directory link; a selective
+  `remove` keeps that link while any managed hook event outside the selection
+  is still recorded, and unlinks it once none remains.
+- `--hooks` is a selector only on `sync` and `remove`. On `install` it stays
+  the boolean "also run the hooks step" flag and takes no value.
+- `--mods` needs the `mods` step (`--intent mods`, `--only mods`); `--hooks`
+  needs the `hooks` config group (for example `--intent hooks`). Another
+  target whose `hooks` step has no hook-event selection (cursor) skips that
+  step with a warning instead of running it whole. Unknown names,
+  or a run where no selected target has the step, stop before anything is
+  written.
+- Shell completion offers the names after `--mods` and after `sync` /
+  `remove` `--hooks`, narrowed to the `--target` already on the command line;
+  install's `--hooks` completes no value.
+
 ### Removing Installed Config
 
 ```bash
@@ -479,7 +521,8 @@ ycc list plugins --target claude
 `remove` undoes any intent on any target, using the same intent → step mapping
 as `sync` (an intent a target does not support is reported and skipped). It
 requires `--only` or `--intent`, and rejects `--mode` and the additive
-`--settings`/`--rules`/`--mcp`/`--hooks` flags. Only what the installer owns is
+`--settings`/`--rules`/`--mcp` flags (there `--hooks <events>` selects hook
+events). Only what the installer owns is
 taken back:
 
 | Step / intent                  | What `remove` does                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -490,7 +533,7 @@ taken back:
 | claude statusline script       | Removed while identical to the repo copy; an edited copy needs `--force`.                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `base`                         | claude: `claude plugin uninstall ycc@ycc` + marketplace remove. cursor / opencode: the bundle's entries in the synced dirs (your own skills stay). codex: plugin links, plugin cache, custom agents, marketplace entry. omp: the recorded `ycc@ycc` and `ycc-mcp@ycc` installs for the scope, then the `ycc` marketplace and export once unused.                                                                                                                              |
 | `skills`, `agents`, `commands` | Removes the standalone entries ycc recorded (or that are still identical to the bundle). Never the plugin, never your own entries without `--force`. On claude, `commands` retires only the recorded legacy `~/.claude/commands/` wrappers.                                                                                                                                                                                                                                   |
-| `mods` (claude)                | Uninstalls each mod and the `ycc-mods` marketplace.                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `mods` (claude)                | Uninstalls each mod and the `ycc-mods` marketplace. With `--mods`, only the named mods; the marketplace stays while another ycc mod is still listed in `enabledPlugins`.                                                                                                                                                                                                                                                                                                      |
 
 - Cursor `hooks` removes the owned session script in `~/.cursor/hooks/` and the managed `sessionStart` entries in `~/.cursor/hooks.json`.
 - A managed value you edited is kept with a warning; `--force` removes it.

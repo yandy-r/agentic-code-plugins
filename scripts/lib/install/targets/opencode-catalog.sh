@@ -24,8 +24,8 @@ opencode_catalog() {
 }
 
 # opencode_catalog_names — catalog plugin names, one per line. plugins_names
-# lists them after the bundle names; plugins_selection splits them off into
-# PLUGINS_CATALOG_SELECT so the bundle merge only sees bundle names.
+# lists them after the bundle names; config_group_selection splits them off
+# into PLUGINS_CATALOG_SELECT so the bundle merge only sees bundle names.
 opencode_catalog_names() {
     opencode_catalog names
 }
@@ -85,7 +85,7 @@ opencode_catalog_run_names() {
 }
 
 # opencode_catalog_sync — merge, ship companions and print notes for each
-# selected catalog plugin (after plugins_selection, opencode_settings_paths).
+# selected catalog plugin (after config_group_selection, opencode_settings_paths).
 opencode_catalog_sync() {
     local names name tmp rc=0
     names="$(opencode_catalog_run_names sync)"

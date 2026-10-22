@@ -40,9 +40,12 @@ complete -c ycc -n $isr -l target -x -a '(__ycc_csv "claude cursor codex opencod
 complete -c ycc -n $isr -l skills-home -x -a 'agents native' -d 'Duplicate-skills choice'
 complete -c ycc -n $sr -l intent -x -a '(__ycc_csv "base skills agents commands settings rules mcp hooks plugins mods")' -d Intents
 # --<kind> selectors: one per kind from 'ycc list', names from 'ycc list <kind>'.
+# On install, --hooks is the boolean "also link hooks" step flag (below).
 set -l kinds (ycc list 2>/dev/null)
 for kind in $kinds
-    complete -c ycc -n $isr -l $kind -x -a "(__ycc_list_names $kind)" -d "Only these $kind"
+    set -l cond $isr
+    test $kind = hooks; and set cond $sr
+    complete -c ycc -n $cond -l $kind -x -a "(__ycc_list_names $kind)" -d "Only these $kind"
 end
 complete -c ycc -n "__fish_seen_subcommand_from list; and not __fish_seen_subcommand_from $kinds" -a "$kinds" -d 'Selectable kind'
 complete -c ycc -n '__fish_seen_subcommand_from list list-mcps' -l target -x -a '(__ycc_csv "claude cursor codex opencode agents omp all")' -d Targets

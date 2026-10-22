@@ -15,7 +15,7 @@ _ycc_list_names() {
 
 _ycc() {
     local _ycc_cmd="${words[1]}"
-    local -a common kinds selectors
+    local -a common kinds selectors install_selectors
     common=(
         '--target[targets to sync]:targets:_values -s , target claude cursor codex opencode agents omp all'
         '--skills-home[resolve duplicate skills]:dir:(agents native)'
@@ -35,6 +35,8 @@ _ycc() {
     kinds=(${(f)"$(${_ycc_cmd} list 2>/dev/null)"})
     for kind in "${kinds[@]}"; do
         selectors+=("--${kind}[only these ${kind}]:${kind}:_ycc_list_names ${kind}")
+        # install keeps --hooks as its boolean "also link hooks" step flag.
+        [[ "${kind}" == hooks ]] || install_selectors+=("${selectors[-1]}")
     done
 
     if (( CURRENT == 2 )); then
@@ -76,7 +78,7 @@ _ycc() {
             _arguments '--shell[shell]:shell:(bash zsh fish)' '--install[install for the shell]' '--force[replace existing]' '--help[show help]'
             ;;
         install)
-            _arguments "${common[@]}" "${mode}" "${package}" "${only}" "${selectors[@]}" \
+            _arguments "${common[@]}" "${mode}" "${package}" "${only}" "${install_selectors[@]}" \
                 '--settings[also merge settings]' '--rules[also link rules]' \
                 '--mcp[also merge MCP servers]' '--hooks[also link hooks]'
             ;;

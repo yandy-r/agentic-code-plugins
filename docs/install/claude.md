@@ -108,6 +108,18 @@ Use `--only` when you want exactly one step or a small set of steps:
 ./install.sh install --target claude --only hooks
 ```
 
+Narrow the mods step or the managed hook events to named items with `--mods`
+and (on `sync` / `remove` only) `--hooks`; `install --hooks` stays the boolean
+"also run the hooks step" flag:
+
+```bash
+./install.sh sync   --target claude --intent mods --mods status-bar
+./install.sh sync   --target claude --intent hooks --hooks WorktreeCreate
+./install.sh remove --target claude --intent hooks --hooks WorktreeCreate
+```
+
+See [Selecting Mods And Hook Events](README.md#selecting-mods-and-hook-events).
+
 Rules symlinks stop rather than overwrite an existing real rules file; pass
 `--force` when you intentionally want to replace it. Structured config files
 merge instead, so `--force` there only resolves conflicts on managed keys you

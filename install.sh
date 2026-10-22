@@ -36,11 +36,11 @@ Usage: $(basename "$0") <command> [options]
 
 Commands:
   install     Initial setup: base step plus opt-in steps (flags below).
-              $(basename "$0") install --target <targets> [--mode <mode>] [--settings] [--rules] [--mcp] [--hooks] [--only <steps>] [--package <ids>] [--mcps <servers>] [--skills <names>] [--agents <names>] [--commands <names>] [--plugins <names>] [--project|--global] [--force] [--dry-run]
+              $(basename "$0") install --target <targets> [--mode <mode>] [--settings] [--rules] [--mcp] [--hooks] [--only <steps>] [--package <ids>] [--mcps <servers>] [--skills <names>] [--agents <names>] [--commands <names>] [--plugins <names>] [--mods <names>] [--project|--global] [--force] [--dry-run]
   sync        Sync what you name, nothing else.
-              $(basename "$0") sync --target <targets> --intent <intents> [--mcps <servers>] [--skills <names>] [--agents <names>] [--commands <names>] [--plugins <names>] [--mode <mode>] [--project|--global] [--force] [--dry-run]
+              $(basename "$0") sync --target <targets> --intent <intents> [--mcps <servers>] [--skills <names>] [--agents <names>] [--commands <names>] [--plugins <names>] [--mods <names>] [--hooks <events>] [--mode <mode>] [--project|--global] [--force] [--dry-run]
   remove      Strip installer-managed config.
-              $(basename "$0") remove --target <targets> (--only <steps> | --intent <intents>) [--mcps <servers>] [--skills <names>] [--agents <names>] [--commands <names>] [--plugins <names>] [--project|--global] [--force] [--purge-cache] [--dry-run]
+              $(basename "$0") remove --target <targets> (--only <steps> | --intent <intents>) [--mcps <servers>] [--skills <names>] [--agents <names>] [--commands <names>] [--plugins <names>] [--mods <names>] [--hooks <events>] [--project|--global] [--force] [--purge-cache] [--dry-run]
   migrate     Preview a global native-package migration (no writes by default).
               $(basename "$0") migrate --target claude|codex|cursor|omp|all [--apply] [--marketplace-source <dir>]
               all resolves only claude,codex,cursor (run omp separately; it needs
@@ -51,7 +51,7 @@ Commands:
   completion  Print or install shell completion.
               $(basename "$0") completion [--shell bash|zsh|fish] [--install [--force]]
   list        Print the selectable kinds, or the names a kind takes (for --<kind>).
-              $(basename "$0") list [<kind>] [--target <targets>]   (e.g. list mcps, list skills, list agents, list commands, list plugins; list-mcps is an alias)
+              $(basename "$0") list [<kind>] [--target <targets>]   (e.g. list mcps, list skills, list agents, list commands, list plugins, list mods, list hooks; list-mcps is an alias)
 
 A command is required; a bare '$(basename "$0") install --target ...' is rejected.
 
@@ -82,6 +82,8 @@ step-flag form used for first-time setup.
   $(basename "$0") sync --target codex,claude,opencode --intent mcp
   $(basename "$0") sync --target opencode --intent mcp --mcps github,linear
   $(basename "$0") sync --target claude --intent mods
+  $(basename "$0") sync --target claude --intent mods --mods status-bar
+  $(basename "$0") sync --target claude --intent hooks --hooks WorktreeCreate
   $(basename "$0") sync --target claude,codex --intent skills,agents
   $(basename "$0") sync --target claude,codex --intent agents --agents implementor,code-reviewer
   $(basename "$0") sync --target opencode --intent skills,commands --skills clean --commands clean
@@ -313,8 +315,9 @@ Options:
                       claude enabledPlugins 'name@marketplace' keys plus the
                       marketplaces they use, codex [plugins."name@mkt"]
                       tables, opencode plugins items by package name (no
-                      version). settings/hooks keys in the same run stay
-                      whole. Requires the plugins group (--intent plugins, or
+                      version). settings keys in the same run stay whole,
+                      and so do hooks keys unless --hooks narrows them.
+                      Requires the plugins group (--intent plugins, or
                       install --only settings); not with --package.
                       Marketplaces follow their plugins; remove keeps one
                       while an enabled plugin still uses it. A target that
@@ -327,6 +330,24 @@ Options:
                       remove without --plugins takes back every catalog
                       plugin ycc installed.
                       Names: '$(basename "$0") list plugins'
+  --mods <names>      Comma-separated claude mods (ycc-mods marketplace
+                      plugins): the mods step installs (or uninstalls) only
+                      these. Requires the mods step (--intent mods / --only
+                      mods); claude only. remove --mods keeps the ycc-mods
+                      marketplace while another '<mod>@ycc-mods' key is still
+                      in ~/.claude/settings.json enabledPlugins.
+                      Names: '$(basename "$0") list mods'
+  --hooks <events>    sync/remove only (install --hooks is the boolean flag
+                      below): comma-separated hook events (e.g.
+                      WorktreeCreate) — the settings step merges (or removes)
+                      only these in the hooks config group; unselected
+                      managed events and their ownership state stay
+                      untouched. Requires the hooks group (--intent hooks).
+                      remove keeps the ~/.claude/hooks link while a managed
+                      event outside the selection remains. A target whose
+                      hooks step has no hook-event selection (cursor) skips
+                      that step with a warning.
+                      Names: '$(basename "$0") list hooks'
   --project           Scope-capable steps (today: mcp) write into the current
                       project. Default when neither flag is given. omp base
                       installs at omp's project scope only with an explicit
@@ -335,9 +356,11 @@ Options:
                       --plugins <catalog names>): <project>/opencode.json and
                       <project>/.opencode/.
   --global            Scope-capable steps write into user-global config.
-  --hooks             Additive: also run the target's 'hooks' step.
-                      Currently supported by the claude target only; silently
-                      ignored by targets without hook support. Mode-agnostic.
+  --hooks             install only: additive, also run the target's 'hooks'
+                      step. Currently supported by the claude target only;
+                      silently ignored by targets without hook support.
+                      Mode-agnostic. On sync/remove, --hooks <events> selects
+                      hook events (above).
   --force             Let repo-managed config values win over local edits, and
                       replace real rules files with repo symlinks when needed.
                       Unknown/unmanaged config keys are never removed.
@@ -370,7 +393,8 @@ Options:
                                  proceed as requested).
   --intent <intents>  'sync' / 'remove' subcommands only. Comma-separated intents (see
                       above). Cannot be combined with --only or the additive
-                      --settings/--rules/--mcp/--hooks flags.
+                      --settings/--rules/--mcp flags (--hooks <events> here
+                      selects hook events).
   --package <ids>     'install' only. Comma-separated ids from the package model:
                       ycc, ycc-mcp, ycc-hooks (Claude and Cursor), ycc-rules (Cursor and omp);
                       omp: ycc, ycc-mcp, ycc-rules (ycc-hooks excluded: herdr
@@ -690,7 +714,21 @@ while [[ $# -gt 0 ]]; do
         --mcp)      MCP=1; shift ;;
         --settings) SETTINGS=1; shift ;;
         --rules)    RULES=1; shift ;;
-        --hooks)    HOOKS=1; shift ;;
+        --hooks)
+            # install: boolean "also run the hooks step"; sync/remove (which
+            # reject that flag): the --hooks <events> selector.
+            if [[ "${COMMAND}" == "install" ]]; then
+                HOOKS=1
+                shift
+                continue
+            fi
+            if [[ $# -lt 2 || "$2" == --* ]]; then
+                err "--hooks requires a comma-separated list of ${SELECTION_NOUNS[hooks]} on ${COMMAND} (install --hooks is the boolean step flag)"
+                exit 1
+            fi
+            parse_selection hooks "$2"
+            shift 2
+            ;;
         --dry-run)  DRY_RUN=1; shift ;;
         --purge-cache) PURGE_CACHE=1; shift ;;
         --project|--global)
@@ -731,9 +769,10 @@ if [[ -z "${TARGET}" ]]; then
 fi
 
 if [[ "${COMMAND}" == "remove" ]]; then
-    # remove never guesses: say exactly what to remove.
-    if [[ "${SETTINGS}" == "1" || "${RULES}" == "1" || "${MCP}" == "1" || "${HOOKS}" == "1" ]]; then
-        err "remove does not accept --settings, --rules, --mcp, or --hooks (use --only or --intent)"
+    # remove never guesses: say exactly what to remove. (--hooks is the
+    # hook-event selector here, never the install-only boolean.)
+    if [[ "${SETTINGS}" == "1" || "${RULES}" == "1" || "${MCP}" == "1" ]]; then
+        err "remove does not accept --settings, --rules, or --mcp (use --only or --intent)"
         exit 1
     fi
     if [[ "${MODE_SET}" == "1" ]]; then
@@ -761,8 +800,8 @@ if [[ -n "${PACKAGE}" ]]; then
 fi
 
 if [[ ${#INTENTS[@]} -gt 0 && "${COMMAND}" != "install" ]]; then
-    if [[ ${#ONLY_STEPS[@]} -gt 0 || "${SETTINGS}" == "1" || "${RULES}" == "1" || "${MCP}" == "1" || "${HOOKS}" == "1" ]]; then
-        err "${COMMAND} --intent cannot be combined with --only, --settings, --rules, --mcp, or --hooks"
+    if [[ ${#ONLY_STEPS[@]} -gt 0 || "${SETTINGS}" == "1" || "${RULES}" == "1" || "${MCP}" == "1" ]]; then
+        err "${COMMAND} --intent cannot be combined with --only, --settings, --rules, or --mcp"
         exit 1
     fi
 

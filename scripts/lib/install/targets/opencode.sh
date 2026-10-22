@@ -160,13 +160,13 @@ sync_opencode_target() {
         # Merge managed keys only: per-machine model overrides, provider
         # credentials and unknown keys in the user's opencode.json are kept.
         # Project scope (opencode_preflight) carries catalog plugins only.
-        plugins_selection opencode "$(config_groups_for_target opencode)"
-        if [[ -n "${PLUGINS_GROUPS}" ]]; then
+        config_group_selection opencode "$(config_groups_for_target opencode)"
+        if [[ -n "${CONFIG_GROUPS}" ]]; then
             merge_settings_config \
                 "opencode-config" \
                 "${OPENCODE_PLUGIN_DIR}/opencode.json" \
                 "${OPENCODE_SETTINGS_FILE}" \
-                "${PLUGINS_GROUPS}" "${PLUGINS_SELECT[@]}"
+                "${CONFIG_GROUPS}" "${CONFIG_SELECT[@]}"
         fi
         # The managed `plugins` group loads "./ycc-sensitive-guard"; ship that
         # directory with it (unless 'base' mirrored it above) so the entry
@@ -217,12 +217,12 @@ remove_opencode_target() {
     if step_enabled settings; then
         opencode_settings_paths
         printf '\n%sopencode: remove managed config (%s)%s\n' "${BOLD}" "${OPENCODE_SETTINGS_FILE}" "${NC}"
-        plugins_selection opencode "$(config_groups_for_target opencode)"
+        config_group_selection opencode "$(config_groups_for_target opencode)"
         # Catalog first: its leaves (agents.<x>.disabled) sit inside bundle-owned
         # agents entries, which the bundle remove only takes back whole.
         opencode_catalog_remove
         remove_settings "opencode-config" "${OPENCODE_PLUGIN_DIR}/opencode.json" \
-            "${OPENCODE_SETTINGS_FILE}" "${PLUGINS_GROUPS}" "${PLUGINS_SELECT[@]}"
+            "${OPENCODE_SETTINGS_FILE}" "${CONFIG_GROUPS}" "${CONFIG_SELECT[@]}"
         # The guard plugin goes with the `plugins` entry that loads it; an
         # entry kept as a local edit still loads it, so the directory stays.
         if opencode_guard_selected && ! step_enabled base \
@@ -248,10 +248,10 @@ remove_opencode_target() {
 
 # opencode_guard_selected — true when this settings run merges (or removes)
 # the bundle's "./ycc-sensitive-guard" plugins entry: the plugins group runs
-# (PLUGINS_GROUPS, set by plugins_selection) and --plugins, if given, names it.
+# (CONFIG_GROUPS, set by config_group_selection) and --plugins, if given, names it.
 opencode_guard_selected() {
-    [[ ",${PLUGINS_GROUPS}," == *",plugins,"* ]] || return 1
-    [[ ${#PLUGINS_SELECT[@]} -eq 0 || ",${PLUGINS_SELECT[-1]}," == *",./ycc-sensitive-guard,"* ]]
+    [[ ",${CONFIG_GROUPS}," == *",plugins,"* ]] || return 1
+    [[ -z "${CONFIG_GROUP_ENTRIES[plugins]:-}" || ",${CONFIG_GROUP_ENTRIES[plugins]}," == *",./ycc-sensitive-guard,"* ]]
 }
 
 # opencode_config_loads_guard <opencode.json> — true when its `plugins` list

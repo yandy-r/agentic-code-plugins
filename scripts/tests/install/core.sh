@@ -45,8 +45,14 @@ out="$(run_install "${home}" sync --target claude --intent settings --only setti
 assert_contains "${out}" "cannot be combined with --only" "sync rejects --only"
 
 home="$(new_home)"
-out="$(run_install "${home}" sync --target claude --intent settings --hooks)"
+out="$(run_install "${home}" sync --target claude --intent settings --mcp)"
 assert_contains "${out}" "cannot be combined with --only" "sync rejects additive flags"
+out="$(run_install "${home}" sync --target claude --intent settings --hooks)"
+assert_contains "${out}" "--hooks requires a comma-separated list of hook events on sync (install --hooks is the boolean step flag)" "sync --hooks is the hook-event selector (needs a value)"
+out="$(run_install "${home}" sync --target claude --intent hooks --hooks --force)"
+assert_contains "${out}" "--hooks requires a comma-separated list of hook events on sync" "sync --hooks never swallows a following flag"
+out="$(run_install "${home}" remove --hooks --target claude --intent hooks)"
+assert_contains "${out}" "--hooks requires a comma-separated list of hook events on remove" "remove --hooks never swallows --target"
 
 home="$(new_home)"
 out="$(run_install "${home}" install --target claude --intent settings)"
