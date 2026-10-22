@@ -100,6 +100,8 @@ expect_targets "OMP rules tests select omp and types (mypy files)" "omp types" s
 expect_targets "OMP model policy and tests select omp, config and types" "omp config types" \
     scripts/omp_model_policy.py scripts/test_omp_model_policy.py
 expect_targets "OMP rules/settings live harness selects omp" "omp" scripts/test-omp-rules-settings.sh
+expect_targets "OMP scripted-session driver selects omp and types" "omp types" scripts/omp_scripted_smoke.py
+expect_targets "OMP scripted-session live harness selects omp" "omp" scripts/test-omp-scripted-sessions.sh
 expect_targets "OMP built-in command drift guard selects omp and types" "omp types" scripts/omp_builtin_commands.py
 expect_targets "OMP built-in command drift tests select omp and types (mypy files)" "omp types" \
     scripts/test_omp_builtin_commands.py

@@ -110,6 +110,8 @@ validate_scope_owned_targets() {
         scripts/omp_model_policy.py) echo "omp config" ;;
         scripts/test_omp_model_policy.py) echo "omp config types" ;;
         scripts/test-omp-rules-settings.sh) echo "omp" ;;
+        # OMP scripted-model live sessions (YAN-1178): the typed driver and its opt-in harness.
+        scripts/omp_scripted_smoke.py | scripts/test-omp-scripted-sessions.sh) echo "omp" ;;
 
         # Install docs contain model-validated public package identifiers; the OMP hook-verdict
         # check (validate_omp_native.py) also reads the OMP install doc, the ADR and the spike.

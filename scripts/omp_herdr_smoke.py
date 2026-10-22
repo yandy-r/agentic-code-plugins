@@ -20,8 +20,8 @@ ships no OMP hook code. These subcommands prove that against real `omp --mode rp
   assert-stall REC SESSION HOLD            L5 stalled socket: ready, bounded exit
   assert-cancel REC SESSION                L6 stdin close with a stalled socket: exit within 3 s
   assert-single-source REC SESSION         L7 only herdr:omp, one session+state pair per event
-  assert-no-extensions LIST_JSON           L7 no ycc package in `plugin list --json` ships
-                                           manifest.extensions
+  assert-no-extensions LIST_JSON           L7 no extension a ycc package in `plugin list --json`
+                                           ships carries a herdr reporter marker
   herdr-pane SOCKET PANE OUT               L8 real herdr: pane reports herdr:omp; a ycc:omp
                                            report_agent_session leaves agent_session unchanged
 """
@@ -38,7 +38,6 @@ import subprocess
 import sys
 import threading
 import time
-from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -423,41 +422,43 @@ def assert_single_source(rec: Path, session_json: Path) -> str:
     return f"L7 ok: {len(items)} requests, all {SOURCE}, exactly one session+state pair for each of {events} events"
 
 
-def walk(node: Any) -> Iterator[tuple[str, Any]]:
-    if isinstance(node, dict):
-        for key, value in node.items():
-            yield key, value
-            yield from walk(value)
-    elif isinstance(node, list):
-        for value in node:
-            yield from walk(value)
+# Markers a herdr session reporter needs (the socket env and the RPC method it calls).
+REPORTER_MARKERS = ("HERDR_SOCKET_PATH", "report_agent_session", "herdr")
 
 
 def assert_no_extensions(list_json: Path) -> str:
+    """No ycc package ships a herdr reporter. Extensions are allowed (ycc@ycc ships the
+    YAN-1250 scope guard) only when no shipped extension source carries a reporter marker."""
     listing = load_json(list_json)
     if not isinstance(listing, dict):
         raise SmokeError(f"{list_json}: not a plugin listing")
     seen: list[str] = []
+    extensions: list[str] = []
     for group in ("npm", "marketplace"):
         for item in listing.get(group) or []:
             name = str(item.get("id") or item.get("name") or "")
             if not name.split("@", 1)[0].startswith("ycc"):
                 continue
             seen.append(name)
-            hits = [value for key, value in walk(item) if key == "extensions" and value]
             for entry in item.get("entries") or []:
                 install = entry.get("installPath")
                 manifest = Path(str(install)) / "package.json" if install else None
                 if manifest is None or not manifest.is_file():
                     raise SmokeError(f"L7: {name} entry has no installed package.json: {entry}")
                 omp_field = load_json(manifest).get("omp")
-                if isinstance(omp_field, dict) and omp_field.get("extensions"):
-                    hits.append(omp_field["extensions"])
-            if hits:
-                raise SmokeError(f"L7: {name} ships manifest.extensions {hits}")
+                declared = omp_field.get("extensions") if isinstance(omp_field, dict) else None
+                for rel in declared or []:
+                    source = (manifest.parent / str(rel)).resolve()
+                    if not source.is_relative_to(manifest.parent.resolve()) or not source.is_file():
+                        raise SmokeError(f"L7: {name} declares a missing or escaping extension {rel!r}")
+                    text = source.read_text(encoding="utf-8")
+                    found = [marker for marker in REPORTER_MARKERS if marker in text]
+                    if found:
+                        raise SmokeError(f"L7: {name} extension {rel} carries herdr reporter markers {found}")
+                    extensions.append(f"{name}:{rel}")
     if not any(name.split("@", 1)[0] == "ycc" for name in seen):
         raise SmokeError(f"L7: ycc@ycc is not installed in {list_json} (saw {seen})")
-    return f"L7 ok: installed {seen}; no listing or installed package.json carries omp.extensions"
+    return f"L7 ok: installed {seen}; extensions {extensions or 'none'} carry no herdr reporter marker"
 
 
 # --- herdr pane -----------------------------------------------------------------------------
