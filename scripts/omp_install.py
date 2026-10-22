@@ -725,6 +725,10 @@ def check_dangling_projects(cli: OmpCli, profile: dict[str, Any]) -> None:
             )
 
 
+def present(path: Path) -> bool:
+    return path.exists() or path.is_symlink()
+
+
 def install(
     packages_csv: str,
     scope: str,
@@ -827,13 +831,18 @@ def install(
         moved_out = False
         swapped = False
         succeeded: list[dict[str, Any]] = []
+        unconfirmed: list[str] = []
         try:
-            if scope == "project" and record_root is not None and record_root not in state["project_residue"]:
-                # The omp project state this root lacks now is ycc's to delete once emptied on remove.
-                state["project_residue"][record_root] = [
-                    rel for rel in PROJECT_RESIDUE if not ((root / rel).exists() or (root / rel).is_symlink())
-                ]
-                save_state(state)
+            if scope == "project" and record_root is not None:
+                # The omp project state this root lacks now is ycc's to delete once emptied on remove;
+                # a later install adds what is missing again to the root's existing record. Owned entries
+                # absent now (left by a killed run) are unconfirmed too, kept only if this run creates them.
+                owned = state["project_residue"].setdefault(record_root, [])
+                added = [rel for rel in PROJECT_RESIDUE if rel not in owned and not present(root / rel)]
+                unconfirmed = [rel for rel in owned if not present(root / rel)] + added
+                if added or record_root not in snapshot["project_residue"]:
+                    owned.extend(added)
+                    save_state(state)
             if mode == "local" and staging is not None:
                 if export_changed:
                     if exported.exists():
@@ -862,6 +871,7 @@ def install(
             rollback(
                 state_snapshot=snapshot,
                 live_residue=state["project_residue"],
+                unconfirmed=unconfirmed,
                 profile_key=profile_key,
                 succeeded=succeeded,
                 created_marketplace=created_marketplace,
@@ -874,7 +884,14 @@ def install(
             backup = None
             raise
 
-        if drop_pending(state, profile_key, scope, record_root):
+        pruned = False
+        if unconfirmed and record_root is not None:
+            # Paths claimed but never created stay unowned; the user may create them later.
+            owned = state["project_residue"][record_root]
+            kept = [rel for rel in owned if rel not in unconfirmed or present(root / rel)]
+            pruned = kept != owned
+            owned[:] = kept
+        if drop_pending(state, profile_key, scope, record_root) or pruned:
             save_state(state)
         for step in steps:
             if step.disabled and step.action != "unowned":
@@ -1004,6 +1021,7 @@ def rollback(
     *,
     state_snapshot: dict[str, Any],
     live_residue: dict[str, list[str]],
+    unconfirmed: list[str],
     profile_key: str,
     succeeded: list[dict[str, Any]],
     created_marketplace: bool,
@@ -1015,8 +1033,10 @@ def rollback(
 ) -> None:
     """Undo only what this run created; the failing item's record reverts, earlier successes stay.
 
-    A kept project install keeps the residue record written for its root, so remove can still
-    delete the ``.omp`` state ycc created there; with no success the record reverts with the rest.
+    A kept project install keeps the residue record written or extended for its root, merged into the
+    restored one, so remove can still delete the ``.omp`` state ycc created there; ``unconfirmed``
+    entries (absent when the run started) that still do not exist are dropped. With no success the
+    record reverts with the rest.
     """
     if created_marketplace:
         try:
@@ -1041,8 +1061,12 @@ def rollback(
             else:
                 profile["installs"].append(record)
             root = record.get("project_root")
-            if record["scope"] == "project" and root in live_residue:
-                restored["project_residue"].setdefault(root, copy.deepcopy(live_residue[root]))
+            if record["scope"] == "project" and isinstance(root, str) and root in live_residue:
+                merged = restored["project_residue"].get(root, [])
+                merged += [rel for rel in live_residue[root] if rel not in merged]
+                restored["project_residue"][root] = [
+                    rel for rel in merged if rel not in unconfirmed or present(Path(root) / rel)
+                ]
     write_or_delete_state(restored)
 
 
@@ -1180,8 +1204,8 @@ def json_equals(path: Path, expected: Any) -> bool:
 def remove_project_residue(root: Path, owned: frozenset[str]) -> None:
     """Delete the empty ``.omp/plugins`` state ycc's project install created, after its last uninstall.
 
-    ``owned`` are the ``PROJECT_RESIDUE`` paths (relative to ``root``) absent before ycc's first
-    install there; anything else, including a legacy root with no ownership record, is kept. Of those,
+    ``owned`` are the ``PROJECT_RESIDUE`` paths (relative to ``root``) absent when a ycc install there
+    started and created by it; anything else, including a legacy root with no ownership record, is kept. Of those,
     only omp's exact empty forms go (registry ``{"version": 2, "plugins": {}}``, lock with empty
     ``plugins`` and ``settings``, an empty ``node_modules/``), then the emptied dirs. Never $HOME's own.
     """

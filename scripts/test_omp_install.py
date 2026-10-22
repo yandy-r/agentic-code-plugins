@@ -1085,6 +1085,81 @@ class OmpInstallTests(unittest.TestCase):
             self.refused("install", "--scope", "project", "--project-root", str(self.project))
         self.assertFalse(omp_install.state_path().exists())
 
+    def user_skill_and_empty_registry(self) -> Path:
+        """A root whose ``.omp`` and registry predate ycc: the first install records only lock and node_modules."""
+        mine = self.project / ".omp/skills/plan/SKILL.md"
+        mine.parent.mkdir(parents=True)
+        mine.write_text("mine", encoding="utf-8")
+        write_json(self.project / ".omp/plugins/installed_plugins.json", {"version": 2, "plugins": {}})
+        return mine
+
+    def test_a_later_project_install_extends_the_residue_record_with_what_it_recreates(self) -> None:
+        mine = self.user_skill_and_empty_registry()
+        self.install("project")
+        shutil.rmtree(self.project / ".omp/plugins")
+
+        self.install("project")
+
+        self.assertEqual(
+            self.state()["project_residue"][str(self.project)],
+            [
+                ".omp/plugins/omp-plugins.lock.json",
+                ".omp/plugins/node_modules",
+                ".omp/plugins",
+                ".omp/plugins/installed_plugins.json",
+            ],
+        )
+        self.remove("project")
+        self.assertEqual(mine.read_text(encoding="utf-8"), "mine")
+        self.assertFalse((self.project / ".omp/plugins").exists())
+
+    def test_a_partial_later_project_install_keeps_the_extended_residue_record(self) -> None:
+        self.use_fixture()
+        mine = self.user_skill_and_empty_registry()
+        self.install("project")
+        shutil.rmtree(self.project / ".omp/plugins")
+
+        with patch.dict(os.environ, {"FAKE_OMP_FAIL": "install:ycc-extra@ycc"}):
+            self.refused("install", "--scope", "project", "--project-root", str(self.project))
+
+        self.assertEqual(
+            self.state()["project_residue"][str(self.project)],
+            [
+                ".omp/plugins/omp-plugins.lock.json",
+                ".omp/plugins/node_modules",
+                ".omp/plugins",
+                ".omp/plugins/installed_plugins.json",
+            ],
+        )
+        self.remove("project")
+        self.assertEqual(mine.read_text(encoding="utf-8"), "mine")
+        self.assertFalse((self.project / ".omp/plugins").exists())
+
+    def test_a_later_project_install_never_claims_a_path_the_user_created_between_installs(self) -> None:
+        self.user_skill_and_empty_registry()
+        self.install("project")
+        shutil.rmtree(self.project / ".omp/plugins")
+        registry = self.project / ".omp/plugins/installed_plugins.json"
+        write_json(registry, {"version": 2, "plugins": {}})
+
+        self.install("project")
+
+        self.assertEqual(
+            self.state()["project_residue"][str(self.project)],
+            [".omp/plugins/omp-plugins.lock.json", ".omp/plugins/node_modules"],
+        )
+        self.remove("project")
+        self.assertEqual(json.loads(registry.read_text(encoding="utf-8")), {"version": 2, "plugins": {}})
+
+    def test_a_no_op_project_install_drops_an_owned_path_it_did_not_recreate(self) -> None:
+        self.install("project")
+        shutil.rmtree(self.project / ".omp/plugins/node_modules")
+
+        self.install("project")
+
+        self.assertNotIn(".omp/plugins/node_modules", self.state()["project_residue"][str(self.project)])
+        self.assertFalse((self.project / ".omp/plugins/node_modules").exists())
+
     def test_recorded_ignores_a_project_whose_root_was_deleted(self) -> None:
         self.install("project")
         self.install("user")
