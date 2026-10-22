@@ -1041,6 +1041,30 @@ class OmpInstallTests(unittest.TestCase):
         self.assertEqual(mine.read_text(encoding="utf-8"), "mine")
         self.assertFalse((self.project / ".omp/plugins").exists())
 
+    def test_project_remove_keeps_a_pre_existing_empty_omp_registry(self) -> None:
+        registry = self.project / ".omp/plugins/installed_plugins.json"
+        write_json(registry, {"version": 2, "plugins": {}})
+        self.install("project")
+        self.assertEqual(
+            self.state()["project_residue"][str(self.project)],
+            [".omp/plugins/omp-plugins.lock.json", ".omp/plugins/node_modules"],
+        )
+
+        self.remove("project")
+
+        self.assertEqual(json.loads(registry.read_text(encoding="utf-8")), {"version": 2, "plugins": {}})
+        self.assertFalse((self.project / ".omp/plugins/omp-plugins.lock.json").exists())
+        self.assertFalse(omp_install.state_path().exists())
+
+    def test_recorded_ignores_a_project_whose_root_was_deleted(self) -> None:
+        self.install("project")
+        self.install("user")
+        self.assertEqual(self.omp("recorded", "--except-scope", "user", "--project-root", str(self.home)).code, 0)
+
+        shutil.rmtree(self.project)
+
+        self.assertEqual(self.omp("recorded", "--except-scope", "user", "--project-root", str(self.home)).code, 3)
+
     # -- rejection -----------------------------------------------------------------------------
 
     def test_every_non_included_omp_row_is_rejected_with_the_model_reason(self) -> None:

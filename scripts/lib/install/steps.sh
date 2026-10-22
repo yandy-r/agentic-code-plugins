@@ -430,6 +430,24 @@ resolve_skills_home() {
     info "skills → ~/.agents/skills; ${list} keep only their non-skill pieces"
 }
 
+# order_targets
+# When both agents and omp are in TARGETS, move agents to just before omp
+# (other targets keep their relative order) so omp's dedupe step sees the
+# ~/.agents/skills copies this run installs. agents_omp_hint relies on this.
+order_targets() {
+    [[ " ${TARGETS[*]:-} " == *" agents "* && " ${TARGETS[*]:-} " == *" omp "* ]] || return 0
+    local target
+    local -a ordered=()
+    for target in "${TARGETS[@]}"; do
+	case "${target}" in
+	    agents) ;;
+	    omp) ordered+=(agents omp) ;;
+	    *) ordered+=("${target}") ;;
+	esac
+    done
+    TARGETS=("${ordered[@]}")
+}
+
 # preflight_targets
 # Reject every invalid target/mode/--only combination before any target runs,
 # so a multi-target invocation never stops half-applied.

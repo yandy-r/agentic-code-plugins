@@ -51,6 +51,14 @@ MARKETPLACE_LINE = re.compile(r"^  (\S+)  (.+)$")
 HOME_REFUSAL = "--project at $HOME: omp project scope needs a project directory (cd into a project, or use --global)"
 REPO_REFUSAL = "--mode repo needs a listed OMP package (YAN-1180)"
 TRUST = "[!!] OMP has no trust prompt: installed plugin code runs with your user privileges."
+# The omp project state a project install may create; remove deletes only the paths ycc's install created.
+PROJECT_RESIDUE = (
+    ".omp",
+    ".omp/plugins",
+    ".omp/plugins/installed_plugins.json",
+    ".omp/plugins/omp-plugins.lock.json",
+    ".omp/plugins/node_modules",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -331,7 +339,8 @@ def recorded_elsewhere(except_scope: str, project_root: Path) -> list[str]:
     """ycc installs recorded for the active profile, without the one at ``except_scope`` (this run's).
 
     ``remove --target omp`` keeps the dedupe entries while any remain (a project removal must not
-    unhide duplicates the user install still exposes). Raises ValueError when the record is unreadable.
+    unhide duplicates the user install still exposes). A recorded project whose root no longer
+    exists does not count (as in ``remaining_installs``). Raises ValueError when the record is unreadable.
     """
     guarded(state_path())
     if not state_path().exists():
@@ -344,6 +353,7 @@ def recorded_elsewhere(except_scope: str, project_root: Path) -> list[str]:
         f"{record['package']} ({record['scope']}{' ' + record['project_root'] if record.get('project_root') else ''})"
         for record in profile["installs"]
         if not (record["scope"] == except_scope and record.get("project_root") == excluded_root)
+        and not (record["scope"] == "project" and not Path(str(record.get("project_root") or "")).is_dir())
     ]
 
 
@@ -518,7 +528,14 @@ def linked_names(listing: dict[str, Any]) -> set[str]:
 
 
 def fresh_state() -> dict[str, Any]:
-    return {"version": 1, "export": None, "export_inventory": {}, "profiles": {}, "migrate_pending": {}}
+    return {
+        "version": 1,
+        "export": None,
+        "export_inventory": {},
+        "profiles": {},
+        "migrate_pending": {},
+        "project_residue": {},
+    }
 
 
 def load_state() -> dict[str, Any]:
@@ -534,6 +551,7 @@ def load_state() -> dict[str, Any]:
     state.setdefault("export_inventory", {})
     profiles = state.setdefault("profiles", {})
     pending = state.setdefault("migrate_pending", {})
+    residue = state.setdefault("project_residue", {})
     if not isinstance(profiles, dict) or not isinstance(state["export_inventory"], dict):
         raise ValueError(f"{path}: malformed profiles or export_inventory")
     if not isinstance(pending, dict) or not all(
@@ -541,6 +559,10 @@ def load_state() -> dict[str, Any]:
         for entries in pending.values()
     ):
         raise ValueError(f"{path}: malformed migrate_pending")
+    if not isinstance(residue, dict) or not all(
+        isinstance(paths, list) and all(isinstance(item, str) for item in paths) for paths in residue.values()
+    ):
+        raise ValueError(f"{path}: malformed project_residue")
     for key, profile in profiles.items():
         if not isinstance(profile, dict):
             raise ValueError(f"{path}: profile {key!r} must be an object")
@@ -570,7 +592,7 @@ def save_state(state: dict[str, Any]) -> None:
 
 
 def write_or_delete_state(state: dict[str, Any]) -> None:
-    if state["profiles"] or state.get("export") or state.get("migrate_pending"):
+    if state["profiles"] or state.get("export") or state.get("migrate_pending") or state.get("project_residue"):
         save_state(state)
     else:
         guarded(state_path())
@@ -804,6 +826,12 @@ def install(
         swapped = False
         succeeded: list[dict[str, Any]] = []
         try:
+            if scope == "project" and record_root is not None and record_root not in state["project_residue"]:
+                # The omp project state this root lacks now is ycc's to delete once emptied on remove.
+                state["project_residue"][record_root] = [
+                    rel for rel in PROJECT_RESIDUE if not ((root / rel).exists() or (root / rel).is_symlink())
+                ]
+                save_state(state)
             if mode == "local" and staging is not None:
                 if export_changed:
                     if exported.exists():
@@ -1110,9 +1138,18 @@ def remove(scope: str, project_root: Path, *, dry_run: bool = False) -> None:
         state["export"] = None
         state["export_inventory"] = {}
     if not dry_run:
+        owned: frozenset[str] = frozenset()
+        if scope == "project" and record_root is not None:
+            owned = frozenset(state["project_residue"].get(record_root, ()))
+            if not any(
+                record["scope"] == "project" and record.get("project_root") == record_root
+                for kept in state["profiles"].values()
+                for record in kept["installs"]
+            ):
+                state["project_residue"].pop(record_root, None)
         write_or_delete_state(state)
         if scope == "project" and acted:
-            remove_project_residue(root)
+            remove_project_residue(root, owned)
     if not acted:
         print("[ok] nothing ycc-owned to remove for omp")
     if mutated:
@@ -1129,10 +1166,12 @@ def json_equals(path: Path, expected: Any) -> bool:
         return False
 
 
-def remove_project_residue(root: Path) -> None:
-    """Delete the empty ``.omp/plugins`` state omp leaves in a project after its last uninstall.
+def remove_project_residue(root: Path, owned: frozenset[str]) -> None:
+    """Delete the empty ``.omp/plugins`` state ycc's project install created, after its last uninstall.
 
-    Only omp's exact empty forms go (registry ``{"version": 2, "plugins": {}}``, lock with empty
+    ``owned`` are the ``PROJECT_RESIDUE`` paths (relative to ``root``) absent before ycc's first
+    install there; anything else, including a legacy root with no ownership record, is kept. Of those,
+    only omp's exact empty forms go (registry ``{"version": 2, "plugins": {}}``, lock with empty
     ``plugins`` and ``settings``, an empty ``node_modules/``), then the emptied dirs. Never $HOME's own.
     """
     omp_dir = root / ".omp"
@@ -1141,15 +1180,28 @@ def remove_project_residue(root: Path) -> None:
         return
     removed = False
     registry = plugins / "installed_plugins.json"
-    if registry.is_file() and json_equals(registry, {"version": 2, "plugins": {}}):
+    if (
+        ".omp/plugins/installed_plugins.json" in owned
+        and registry.is_file()
+        and json_equals(registry, {"version": 2, "plugins": {}})
+    ):
         registry.unlink()
         removed = True
     lock = plugins / "omp-plugins.lock.json"
-    if lock.is_file() and json_equals(lock, {"plugins": {}, "settings": {}}):
+    if (
+        ".omp/plugins/omp-plugins.lock.json" in owned
+        and lock.is_file()
+        and json_equals(lock, {"plugins": {}, "settings": {}})
+    ):
         lock.unlink()
         removed = True
     for directory in (plugins / "node_modules", plugins, omp_dir):
-        if directory.is_dir() and not directory.is_symlink() and not any(directory.iterdir()):
+        if (
+            directory.relative_to(root).as_posix() in owned
+            and directory.is_dir()
+            and not directory.is_symlink()
+            and not any(directory.iterdir())
+        ):
             directory.rmdir()
             removed = True
     if removed:

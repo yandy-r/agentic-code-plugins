@@ -173,7 +173,8 @@ Remove ('remove' subcommand):
                                 ycc-owned 'omp plugin' installs of the
                                 scope, the ycc marketplace and export once
                                 nothing ycc-owned or foreign needs them, and
-                                at --project the empty .omp/plugins residue.
+                                at --project the empty .omp/plugins files
+                                and dirs ycc's project install created.
     skills / agents / commands  the standalone entries ycc installed (or
                                 that are still identical to the bundle);
                                 never the plugin, never your own entries.
@@ -824,9 +825,11 @@ if [[ -n "${PACKAGE}" ]]; then
     [[ "${TARGET}" == "all" ]] && PACKAGE_ALL_TARGETS_REQUESTED=1
     package_preflight_targets
     resolve_skills_home
+    order_targets
     run_package_targets
 else
     resolve_skills_home
+    order_targets
     preflight_targets
     action="sync"
     [[ "${COMMAND}" == "remove" ]] && action="remove"

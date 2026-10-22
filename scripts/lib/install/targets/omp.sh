@@ -191,13 +191,17 @@ omp_dedupe_step() {
     local agent_dir="$1" mode="${2:-}" dest tmp rc=0
     dest="$(omp_config_dest "${agent_dir}")"
     tmp="$(mktemp "${TMPDIR:-/tmp}/ycc-omp-dedupe.XXXXXX")"
+    # merge_settings_config can exit outright (missing helper/python3); the
+    # scoped EXIT trap still deletes <tmp> then.
+    trap 'rm -f "${tmp}"' EXIT
     omp_dedupe_apply "${dest}" "${tmp}" "${mode}" || rc=$?
     rm -f "${tmp}"
+    trap - EXIT
     [[ ${rc} -eq 0 ]] || exit 1
 }
 
-# omp_dedupe_apply <dest> <tmp> [--remove] — omp_dedupe_step's body; every
-# failure returns non-zero so the caller always deletes <tmp> first.
+# omp_dedupe_apply <dest> <tmp> [--remove] — omp_dedupe_step's body; its own
+# failures return non-zero so the caller deletes <tmp> before exiting.
 omp_dedupe_apply() {
     local dest="$1" tmp="$2" mode="$3"
     local -a extra=()
@@ -227,7 +231,7 @@ omp_dedupe_apply() {
 omp_coexistence_warn() {
     local -a command=(python3 "${OMP_INSTALL_HELPER}" coexistence --packages "${PACKAGE:-}" --warn "$@")
     [[ "${DRY_RUN:-0}" == "1" ]] && command+=(--dry-run)
-    "${command[@]}" || exit 1
+    "${command[@]}" || return 1
 }
 
 # ---------------------------------------------------------------------------
@@ -261,7 +265,7 @@ sync_omp_target() {
     fi
     # base without dedupe (--only base): still say what OMP loads twice (W2–W4).
     if step_enabled base && ! step_enabled dedupe; then
-        omp_coexistence_warn
+        omp_coexistence_warn || exit 1
     fi
     [[ ${ran} -eq 1 ]] || warn "omp target ran no steps"
     printf '\n%somp %s complete.%s\n' "${BOLD}" "${COMMAND}" "${NC}"

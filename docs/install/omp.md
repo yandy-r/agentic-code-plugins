@@ -558,10 +558,12 @@ It never takes over an install ycc did not create.
 `remove` uninstalls only the installs ycc recorded for that scope. When no
 recorded ycc install is left in the profile, it first takes back the `dedupe`
 entries ycc added to the user `config.yml`; `--only dedupe` takes back only
-the entries. With `--project`, it also deletes the empty
-`.omp/plugins/` files omp leaves behind (`installed_plugins.json`,
-`omp-plugins.lock.json` and `node_modules/`, only while they hold nothing),
-then `.omp/` when it is empty. The `ycc` marketplace and the export are
+the entries. With `--project`, it also deletes the empty `.omp/plugins/`
+files omp leaves behind (`installed_plugins.json`, `omp-plugins.lock.json`
+and `node_modules/`, only while they hold nothing), then `.omp/plugins/` and
+`.omp/` when they are empty, but only the ones ycc's first project install
+there created: anything that existed before it (or that a pre-upgrade ycc
+install did not record) is kept. The `ycc` marketplace and the export are
 removed only when nothing else still uses them; otherwise the installer
 prints `kept marketplace ycc: <reason>`. When the
 `ycc` marketplace now points somewhere ycc did not register (a fork with the

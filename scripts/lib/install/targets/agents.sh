@@ -83,7 +83,8 @@ agents_duplicate_hint() {
 # when omp is absent, nothing is recorded, or the copies are already hidden.
 agents_omp_hint() {
     [[ "${COMMAND}" == "remove" || "${DRY_RUN:-0}" == "1" ]] && return 0
-    # The omp target of this same run hides them (its dedupe step) or says so.
+    # omp always runs after agents in one run (order_targets), so its dedupe
+    # step hides these copies or says so.
     [[ " ${TARGETS[*]:-} " == *" omp "* ]] && return 0
     local helper="${SCRIPT_DIR}/scripts/omp_install.py"
     [[ -f "${helper}" ]] && command -v python3 >/dev/null 2>&1 || return 0

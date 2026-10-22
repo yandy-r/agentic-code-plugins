@@ -326,11 +326,21 @@ install_must_succeed "${home}" install --target agents
 agent="$(omp_agent "${home}")"
 mkdir -p "${agent}"
 printf 'skills:\n  ignoredSkills:\n  - my-*\n' > "${agent}/config.yml"
-# --dry-run previews the merge and writes nothing.
-install_must_succeed "${home}" install --target omp --dry-run
+# --dry-run previews the merge and writes nothing. A dry-run never asks omp for
+# its agent dir (it assumes ${PI_CODING_AGENT_DIR:-~/.omp/agent}), so point it
+# at the fake agent dir. --only dedupe: the base step's helper keys its record
+# by 'omp config path' even in a dry-run.
+cp "${agent}/config.yml" "${home}/config.before"
+state="${home}/.config/ycc/managed-config-state.json"
+state_before="$(cat "${state}" 2>/dev/null || echo '<absent>')"
+# The agents install above may already have logged omp calls; start clean.
+: > "${home}/claude-calls.log"
+PI_CODING_AGENT_DIR="${agent}" install_must_succeed "${home}" install --target omp --only dedupe --dry-run
 assert_contains "${INSTALL_OUT}" "would set /skills/ignoredSkills" "omp dedupe dry-run previews the merge"
 assert_contains "${INSTALL_OUT}" "[dry-run] OMP: would hide" "omp dedupe dry-run reports the planned hide"
-if [[ "$(cat "${agent}/config.yml")" == "$(printf 'skills:\n  ignoredSkills:\n  - my-*')" ]]; then ok "omp dedupe dry-run leaves config.yml unchanged"; else ko "omp dedupe dry-run leaves config.yml unchanged" "$(cat "${agent}/config.yml")"; fi
+if cmp -s "${home}/config.before" "${agent}/config.yml"; then ok "omp dedupe dry-run leaves config.yml unchanged"; else ko "omp dedupe dry-run leaves config.yml unchanged" "$(cat "${agent}/config.yml")"; fi
+if [[ "$(cat "${state}" 2>/dev/null || echo '<absent>')" == "${state_before}" ]]; then ok "omp dedupe dry-run leaves the managed-config state unchanged"; else ko "omp dedupe dry-run leaves the managed-config state unchanged"; fi
+assert_not_contains "$(omp_log "${home}")" "omp config path" "omp dedupe dry-run never runs omp config path"
 install_must_succeed "${home}" install --target omp
 config="$(cat "${agent}/config.yml")"
 assert_contains "${config}" "agents/backport" "omp dedupe hides agents/backport"
@@ -351,6 +361,13 @@ assert_contains "${INSTALL_OUT}" "${w5}" "agents after omp prints W5"
 # remove --only base (the last install) takes the entries back too.
 install_must_succeed "${home}" install --target omp --only dedupe
 assert_contains "$(cat "${agent}/config.yml")" "agents/backport" "omp --only dedupe hides again"
+# Remove dry-runs preview the take-back and leave config.yml as it is.
+cp "${agent}/config.yml" "${home}/config.before"
+for only in dedupe base; do
+    PI_CODING_AGENT_DIR="${agent}" install_must_succeed "${home}" remove --target omp --only "${only}" --dry-run
+    assert_contains "${INSTALL_OUT}" "would remove /skills/ignoredSkills" "omp remove --only ${only} dry-run previews the take-back"
+    if cmp -s "${home}/config.before" "${agent}/config.yml"; then ok "omp remove --only ${only} dry-run leaves config.yml unchanged"; else ko "omp remove --only ${only} dry-run leaves config.yml unchanged" "$(cat "${agent}/config.yml")"; fi
+done
 install_must_succeed "${home}" remove --target omp --only base
 if [[ "$(cat "${agent}/config.yml")" == "$(printf 'skills:\n  ignoredSkills:\n  - my-*')" ]]; then ok "omp remove --only base restores config.yml"; else ko "omp remove --only base restores config.yml" "$(cat "${agent}/config.yml")"; fi
 
@@ -360,6 +377,12 @@ install_must_succeed "${home}" install --target agents
 install_must_succeed "${home}" install --target omp --only base
 assert_contains "${INSTALL_OUT}" "ycc skills from ~/.agents/skills as agents/<name>; run ./install.sh install --target omp --only dedupe to hide them in OMP" "omp --only base prints W2"
 if [[ ! -e "$(omp_agent "${home}")/config.yml" ]]; then ok "omp --only base writes no config.yml"; else ko "omp --only base writes no config.yml"; fi
+
+# --target omp,agents in one run: agents runs first, so dedupe hides its copies.
+home="$(new_home)"
+install_must_succeed "${home}" install --target omp,agents
+assert_contains "$(cat "$(omp_agent "${home}")/config.yml" 2>/dev/null)" "agents/backport" "omp,agents in one run hides this run's ~/.agents copies"
+assert_not_contains "${INSTALL_OUT}" "${w5}" "omp,agents in one run prints no W5"
 
 # --package ycc runs dedupe like the default install.
 home="$(new_home)"
