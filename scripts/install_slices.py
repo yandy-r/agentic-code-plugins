@@ -17,8 +17,6 @@ slice ships are never touched.
 from __future__ import annotations
 
 import argparse
-import filecmp
-import hashlib
 import json
 import os
 import re
@@ -28,7 +26,9 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from slice_selection import legacy_wrapper_pick, plan_run, print_dependency_warnings, print_selectable
+from slice_carriers import delete_entry, exists, retire_legacy_commands, same_entry, strict_unit
+from slice_deps import print_closure, print_dependency_warnings
+from slice_selection import legacy_wrapper_pick, plan_run, print_selectable
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SLICES = ("skills", "agents", "commands", "hooks")
@@ -49,11 +49,6 @@ class Unit:
     # the entire slice before changing any entry (including symlink ancestors).
     strict: bool = False
 
-
-# Claude has no commands slice of its own: skills are the slash commands, so
-# 'commands' aliases 'skills' there. Wrappers an older ycc installed under this
-# directory are retired by ownership (see retire_legacy_commands).
-LEGACY_COMMANDS_DEST = ".claude/commands"
 
 SPECS: dict[tuple[str, str], tuple[Unit, ...]] = {
     ("claude", "skills"): (Unit("ycc/skills", ".claude/skills"),),
@@ -233,119 +228,10 @@ def stage(
     return staged
 
 
-def same_entry(a: Path, b: Path) -> bool:
-    """True when two files or trees have identical names and contents."""
-    if a.is_symlink() or b.is_symlink():
-        return a.is_symlink() and b.is_symlink() and os.readlink(a) == os.readlink(b)
-    if a.is_file() and b.is_file():
-        return filecmp.cmp(a, b, shallow=False)
-    if not (a.is_dir() and b.is_dir()):
-        return False
-    cmp = filecmp.dircmp(a, b)
-    if cmp.left_only or cmp.right_only or cmp.funny_files:
-        return False
-    _, mismatch, errors = filecmp.cmpfiles(a, b, cmp.common_files, shallow=False)
-    if mismatch or errors:
-        return False
-    return all(same_entry(a / d, b / d) for d in cmp.common_dirs)
-
-
-def delete_entry(path: Path) -> None:
-    if path.is_dir() and not path.is_symlink():
-        shutil.rmtree(path)
-    else:
-        path.unlink()
-
-
-def exists(path: Path) -> bool:
-    return path.exists() or path.is_symlink()
-
-
-def entry_hash(path: Path) -> str:
-    """Fingerprint the bytes and executable bit of strict carrier files."""
-    return hashlib.sha256(path.read_bytes() + str(path.stat().st_mode & 0o111).encode()).hexdigest()
-
-
-def strict_unit(unit: Unit, ctx: Context, install: bool, pick: frozenset[str] | None = None) -> int:
-    """Plan all ownership decisions before mutating a Cursor carrier directory.
-
-    With pick, only those entries are checked and changed: install merges state
-    and hashes (never prunes), remove takes back only picked owned entries.
-    """
-    dest = ctx.home / unit.dest
-    key = str(dest)
-    for parent in (dest, *dest.parents):
-        if parent.is_symlink():
-            print(f"[err] refusing symlinked Cursor carrier destination: {parent}", file=sys.stderr)
-            return 1
-        if parent == ctx.home:
-            break
-    entries = {name: src for name, src in shipped_entries(unit).items() if pick is None or name in pick}
-    owned = set(ctx.state.get(key, []))
-    scope = owned if pick is None else owned & pick
-    with tempfile.TemporaryDirectory() as tmp:
-        staging = Path(tmp)
-        skills_dir = ctx.skills_dir or ctx.home / ".cursor/skills"
-        rewrites = [("${CURSOR_PLUGIN_ROOT}/skills/", f"{skills_dir}/")] if unit.dest == ".cursor/commands" else []
-        if install and unit.dest == ".cursor/commands" and not ctx.skills_pending:
-            missing = [name for name in entries if not (skills_dir / Path(name).stem / "SKILL.md").is_file()]
-            if missing:
-                print(
-                    f"[err] Cursor commands require installed skills at {skills_dir}: {', '.join(missing)}; "
-                    "run install.sh install --target cursor --only skills,commands first",
-                    file=sys.stderr,
-                )
-                return 1
-        staged = {name: stage(name, src, staging, rewrites, None) for name, src in entries.items()}
-        actions: list[str] = []
-        for name in sorted((set(entries) | scope) if install else scope):
-            if not name or Path(name).name != name or name in {".", ".."}:
-                print("[err] invalid Cursor carrier ownership state", file=sys.stderr)
-                return 1
-            target = dest / name
-            if exists(target):
-                wanted = staged.get(name)
-                plain = target.is_file() and not target.is_symlink()
-                matches = wanted is not None and plain and same_entry(wanted, target)
-                recorded = ctx.hashes.get(str(target))
-                unchanged = target.is_file() and not target.is_symlink() and recorded == entry_hash(target)
-                if not (matches and install or unchanged or ctx.force):
-                    print(
-                        f"[err] Cursor carrier ownership collision: {target}; "
-                        "not owned or locally edited (use --force)",
-                        file=sys.stderr,
-                    )
-                    return 1
-                actions.append(name)
-            elif install and name in entries:
-                actions.append(name)
-        if ctx.dry_run:
-            return 0
-        if install:
-            dest.mkdir(parents=True, exist_ok=True)
-        for name in actions:
-            target = dest / name
-            if exists(target):
-                delete_entry(target)
-            ctx.hashes.pop(str(target), None)
-            if install and name in staged:
-                shutil.move(str(staged[name]), str(target))
-                ctx.hashes[str(target)] = entry_hash(target)
-        left = sorted((owned - scope) | set(entries)) if install else sorted(owned - scope)
-        if left:
-            ctx.state[key] = left
-        else:
-            ctx.state.pop(key, None)
-        if not install and dest.is_dir() and not any(dest.iterdir()):
-            dest.rmdir()
-    print(f"[ok] Cursor {unit.dest} {'installed' if install else 'removed'}")
-    return 0
-
-
 def install_unit(unit: Unit, ctx: Context, pick: frozenset[str] | None = None) -> int:
     """Install the unit's entries; with pick, only those names, merging state and pruning nothing."""
     if unit.strict:
-        return strict_unit(unit, ctx, True, pick)
+        return strict_unit(unit, ctx, True, pick, shipped_entries, stage)
     dest = ctx.home / unit.dest
     key = str(dest)
     owned = set(ctx.state.get(key, []))
@@ -386,7 +272,7 @@ def install_unit(unit: Unit, ctx: Context, pick: frozenset[str] | None = None) -
 def remove_unit(unit: Unit, ctx: Context, pick: frozenset[str] | None = None) -> int:
     """Remove the unit's entries; with pick, only those names (state drops only them)."""
     if unit.strict:
-        return strict_unit(unit, ctx, False, pick)
+        return strict_unit(unit, ctx, False, pick, shipped_entries, stage)
     dest = ctx.home / unit.dest
     key = str(dest)
     owned = set(ctx.state.get(key, []))
@@ -426,53 +312,11 @@ def remove_unit(unit: Unit, ctx: Context, pick: frozenset[str] | None = None) ->
     return 0
 
 
-def retire_legacy_commands(ctx: Context, pick: frozenset[str] | None = None) -> None:
-    """Delete the command wrappers ycc recorded under ~/.claude/commands.
-
-    Only names recorded in installed-units.json go (with pick, only those of
-    them); foreign or unrecorded entries (even with --force) stay, and the
-    directory goes only when this leaves it empty.
-    """
-    dest = ctx.home / LEGACY_COMMANDS_DEST
-    key = str(dest)
-    removed = 0
-    left: list[str] = []
-    for name in ctx.state.get(key, []):
-        if name in ("", ".", "..") or Path(name).name != name:
-            continue  # state is user-editable; a recorded name is a plain entry
-        if pick is not None and name not in pick:
-            left.append(name)
-            continue
-        target = dest / name
-        if not exists(target):
-            continue
-        # ycc only ever wrote wrapper files; a directory here is user data.
-        if not (target.is_symlink() or target.is_file()):
-            print(f"[!!]  kept {target}: not a ycc wrapper file")
-            continue
-        try:
-            target.unlink()
-            removed += 1
-        except OSError as err:
-            print(f"[!!]  could not retire {target}: {err}", file=sys.stderr)
-            left.append(name)
-    if left:
-        ctx.state[key] = left
-    else:
-        ctx.state.pop(key, None)
-    if not removed:
-        return
-    print(f"[ok]  retired {removed} legacy command wrapper{'' if removed == 1 else 's'} from {dest}")
-    if not dest.is_symlink() and dest.is_dir() and not any(dest.iterdir()):
-        dest.rmdir()
-        print(f"[ok]  removed empty directory {dest}")
-
-
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("action", choices=("install", "remove", "list"))
+    parser.add_argument("action", choices=("install", "remove", "list", "closure"))
     parser.add_argument("--target", required=True, choices=sorted({t for t, _ in SPECS}))
-    parser.add_argument("--slice", required=True, choices=SLICES)
+    parser.add_argument("--slice", choices=SLICES, help="Required except for 'closure'")
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--entries", help="Comma-separated names to install or remove (see 'list'); helpers follow")
     parser.add_argument(
@@ -489,8 +333,18 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Preflight only: skills are scheduled in the same installer run",
     )
+    parser.add_argument("--skills", help="closure: comma-separated selected skills")
+    parser.add_argument("--agents", help="closure: comma-separated selected agents")
     args = parser.parse_args(argv)
 
+    if args.action == "closure":
+        if args.slice is not None:
+            parser.error("--slice does not apply to 'closure'")
+        return print_closure(args, REPO_ROOT, SPECS, shipped_entries, Path.home(), load_state(state_path()))
+    if args.skills is not None or args.agents is not None:
+        parser.error("--skills/--agents apply to 'closure' only; use --entries")
+    if args.slice is None:
+        parser.error("the following arguments are required: --slice")
     if args.action == "list":
         return print_selectable(args, SPECS, shipped_entries)
     install = args.action == "install"

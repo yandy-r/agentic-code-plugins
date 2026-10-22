@@ -59,6 +59,7 @@ complete -c ycc -n $inst -l hooks -d 'Also link hooks'
 complete -c ycc -n $isr -l project -d 'Write into the current project'
 complete -c ycc -n $isr -l global -d 'Write into user-global config'
 complete -c ycc -n '__fish_seen_subcommand_from remove' -l purge-cache -d 'Also delete the opencode package cache of removed catalog plugins'
+complete -c ycc -n $is -l with-deps -d 'Also select ycc: dependencies of --skills/--agents'
 complete -c ycc -n $isr -l dry-run -d 'Preview omp calls without writing (omp only)'
 complete -c ycc -n '__fish_seen_subcommand_from migrate' -l target -x -a '(__ycc_csv "claude codex cursor omp all")' -d Targets
 complete -c ycc -n '__fish_seen_subcommand_from migrate' -l apply -d 'Apply migration (default: dry-run)'

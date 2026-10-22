@@ -288,6 +288,42 @@ class SelectionTest(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertNotIn("dispatched only", out)
 
+    def closure(self, *args: str) -> dict[str, list[str]]:
+        rc, out, _ = self.run_cli("closure", "--target", "claude", *args)
+        self.assertEqual(rc, 0)
+        lines = [line.split("\t") for line in out.splitlines()]
+        return {kind: [n for n in names.split(",") if n] for kind, names in lines}
+
+    def test_closure_adds_missing_dependencies_only(self) -> None:
+        added = self.closure("--skills", "code-review", "--agents", "implementor")
+        self.assertEqual(list(added), ["skills", "agents"])
+        self.assertIn("code-reviewer", added["agents"])
+        self.assertIn("review-fix", added["skills"])
+        self.assertNotIn("code-review", added["skills"])
+        self.assertNotIn("implementor", added["agents"])
+        self.assertEqual(added["skills"], sorted(added["skills"]))
+        self.assertFalse(self.state_file.exists(), "closure is read-only")
+        self.assertEqual(list(self.closure("--skills", "code-review")), ["skills"])
+
+    def test_closure_skips_foreign_entries_keeps_owned(self) -> None:
+        review_fix = self.home / ".claude/skills/review-fix"
+        review_fix.mkdir(parents=True)
+        added = self.closure("--skills", "code-review", "--agents", "implementor")
+        self.assertNotIn("review-fix", added["skills"])
+        # Skipped, but still walked: review-fixer is reachable only through review-fix.
+        self.assertIn("review-fixer", added["agents"])
+        self.state_file.parent.mkdir(parents=True)
+        units = {"units": {str(review_fix.parent): ["review-fix"]}}
+        self.state_file.write_text(json.dumps(units), encoding="utf-8")
+        self.assertIn("review-fix", self.closure("--skills", "code-review")["skills"])
+
+    def test_closure_adds_nothing_with_plugin(self) -> None:
+        plugins = self.home / ".claude/plugins/installed_plugins.json"
+        plugins.parent.mkdir(parents=True)
+        plugins.write_text('{"plugins": {"ycc@ycc": []}}', encoding="utf-8")
+        added = self.closure("--skills", "code-review", "--agents", "implementor")
+        self.assertEqual(added, {"skills": [], "agents": []})
+
 
 if __name__ == "__main__":
     unittest.main()

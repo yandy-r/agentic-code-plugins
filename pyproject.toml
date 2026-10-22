@@ -53,4 +53,9 @@ files = [
   "scripts/test_omp_model_policy.py",
   "scripts/opencode_plugin_catalog.py",
   "scripts/test_opencode_plugin_catalog.py",
+  "scripts/install_slices.py",
+  "scripts/slice_selection.py",
+  "scripts/slice_deps.py",
+  "scripts/slice_carriers.py",
+  "scripts/test_install_slices_select.py",
 ]

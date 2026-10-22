@@ -103,8 +103,8 @@ _ycc() {
             completion) words="--shell --install --force --help" ;;
             list)       words="--target --help"; [[ ${_ycc_cword} -eq 2 ]] && words+=" ${kinds}" ;;
             list-mcps)  words="--target --help" ;;
-            install)    words="--target --package --only --mode --skills-home --settings --rules --mcp --hooks --project --global --force --dry-run --help${selectors}" ;;
-            sync)       words="--target --intent --mode --skills-home --project --global --force --dry-run --help${selectors}" ;;
+            install)    words="--target --package --only --mode --skills-home --settings --rules --mcp --hooks --with-deps --project --global --force --dry-run --help${selectors}" ;;
+            sync)       words="--target --intent --mode --skills-home --with-deps --project --global --force --dry-run --help${selectors}" ;;
             remove)     words="--target --only --intent --project --global --force --purge-cache --dry-run --help${selectors}" ;;
             migrate)    words="--target --apply --marketplace-source --help" ;;
             *)          words="" ;;

@@ -80,10 +80,12 @@ _ycc() {
         install)
             _arguments "${common[@]}" "${mode}" "${package}" "${only}" "${install_selectors[@]}" \
                 '--settings[also merge settings]' '--rules[also link rules]' \
-                '--mcp[also merge MCP servers]' '--hooks[also link hooks]'
+                '--mcp[also merge MCP servers]' '--hooks[also link hooks]' \
+                '--with-deps[also select ycc dependencies of --skills/--agents]'
             ;;
         sync)
-            _arguments "${common[@]}" "${mode}" "${intent}" "${selectors[@]}"
+            _arguments "${common[@]}" "${mode}" "${intent}" "${selectors[@]}" \
+                '--with-deps[also select ycc dependencies of --skills/--agents]'
             ;;
         remove)
             _arguments "${common[@]}" "${only}" "${intent}" "${selectors[@]}" \

@@ -2,7 +2,7 @@
 # install.sh tests — --skills / --agents / --commands selection of the
 # standalone skills, agents and commands slices on every target: narrowing
 # (never pruning), helpers ride along, 'base' stays whole, preflight errors,
-# --skills-home agents, paired-skill warnings, remove.
+# --skills-home agents, paired-skill warnings, remove, --with-deps.
 #
 # Runs alone (bash scripts/tests/install/slices-select.sh) or from scripts/test-install-sync.sh.
 # shellcheck source=scripts/tests/install/lib.sh
@@ -322,5 +322,40 @@ assert_not_contains "${INSTALL_OUT}" "but not installed" "claude commands (the s
 home="$(new_home)"
 install_must_succeed "${home}" sync --target claude --intent agents,commands --agents review-fixer --commands clean
 assert_contains "${INSTALL_OUT}" "'review-fixer' is dispatched only by" "claude --commands narrows the same run's skills for agent warnings"
+
+echo
+echo "== install.sh --with-deps =="
+
+home="$(new_home)"
+install_must_succeed "${home}" sync --target claude --intent skills,agents --skills code-review --agents implementor --with-deps
+if [[ -d "${home}/.claude/skills/code-review" && -d "${home}/.claude/skills/review-fix" ]]; then ok "--with-deps installs the selected skill and its skill dependencies"; else ko "--with-deps installs the selected skill and its skill dependencies" "$(entries "${home}/.claude/skills")"; fi
+if [[ -f "${home}/.claude/agents/code-reviewer.md" && -f "${home}/.claude/agents/implementor.md" ]]; then ok "--with-deps installs the selected agent and the referenced agents"; else ko "--with-deps installs the selected agent and the referenced agents" "$(entries "${home}/.claude/agents")"; fi
+assert_contains "${INSTALL_OUT}" "claude: --with-deps adds" "--with-deps reports what it adds"
+# Only the claude deprecation notice may warn; no dependency warning remains.
+warnings="$(grep -F '[!!]' <<< "${INSTALL_OUT}" | grep -vF 'deprecated: claude native packages' || true)"
+if [[ -z "${warnings}" ]]; then ok "--with-deps leaves no dependency warning"; else ko "--with-deps leaves no dependency warning" "${warnings}"; fi
+home="$(new_home)"
+install_must_succeed "${home}" sync --target claude --intent skills,agents --skills code-review --with-deps
+assert_not_contains "${INSTALL_OUT}" "is referenced by" "--with-deps with the whole agents slice warns about nothing"
+home="$(new_home)"
+install_must_succeed "${home}" sync --target claude --intent skills,commands --skills go-patterns --commands code-review --with-deps
+assert_contains "${INSTALL_OUT}" "claude: --with-deps adds skills:" "--with-deps follows claude --commands (its skills)"
+assert_not_contains "${INSTALL_OUT}" "skill 'review-fix' is referenced by" "--with-deps resolves the --commands skill's skill references"
+# Commands step only: the added skills still install (they go to --commands).
+home="$(new_home)"
+install_must_succeed "${home}" sync --target claude --intent commands --commands code-review --with-deps
+if [[ -d "${home}/.claude/skills/review-fix" ]]; then ok "--with-deps installs claude --commands dependencies without the skills step"; else ko "--with-deps installs claude --commands dependencies without the skills step" "$(entries "${home}/.claude/skills")"; fi
+# Consolidated skills (~/.agents/skills) are not cursor's to install: they keep warning.
+home="$(new_home)"
+install_must_succeed "${home}" sync --target cursor --skills-home agents --intent skills,agents --skills go-patterns --agents review-fixer --with-deps
+assert_not_contains "${INSTALL_OUT}" "cursor: --with-deps adds skills" "--with-deps does not claim consolidated skills"
+assert_contains "${INSTALL_OUT}" "is dispatched only by" "consolidated skill dependencies still warn"
+home="$(new_home)"
+reject "remove --with-deps exits nonzero" "${home}" remove --target claude --intent skills --skills code-review --with-deps
+assert_contains "${REJECT_OUT}" "--with-deps is only valid with install or sync" "remove --with-deps is rejected"
+reject "--with-deps with only --commands off claude exits nonzero" "${home}" sync --target opencode --intent commands --commands clean --with-deps
+assert_contains "${REJECT_OUT}" "--commands seeds it on claude only" "--with-deps with only --commands is claude-only"
+reject "--with-deps without a selection exits nonzero" "${home}" sync --target claude --intent skills --with-deps
+assert_contains "${REJECT_OUT}" "--with-deps needs --skills or --agents" "--with-deps without --skills / --agents is rejected"
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then install_tests_finish; fi
