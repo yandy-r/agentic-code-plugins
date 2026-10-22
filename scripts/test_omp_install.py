@@ -550,7 +550,7 @@ class OmpInstallTests(unittest.TestCase):
 
     def test_force_color_install_and_remove_parse_the_marketplace_list(self) -> None:
         """YAN-1558: FORCE_COLOR makes omp colour the piped list; install and remove still parse it."""
-        with patch.dict(os.environ, {"FORCE_COLOR": "1", "CLICOLOR_FORCE": "1"}):
+        with patch.dict(os.environ, {"FORCE_COLOR": "1"}):
             self.install("user")
             self.assertEqual(self.marketplaces(), {"ycc": str(omp_install.export_dir())})
             self.remove("user")

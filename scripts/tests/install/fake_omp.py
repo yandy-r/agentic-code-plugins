@@ -1641,7 +1641,7 @@ def cmd_marketplace(omp: Omp, targets: list[str]) -> int:
         return 1
     marketplaces = omp.read_marketplaces()["marketplaces"]
     # omp 18.12.6 colours this listing even when piped if FORCE_COLOR is set (NO_COLOR loses).
-    coloured = bool(os.environ.get("FORCE_COLOR") or os.environ.get("FAKE_OMP_COLOR"))
+    coloured = os.environ.get("FORCE_COLOR", "") not in ("", "0", "false") or bool(os.environ.get("FAKE_OMP_COLOR"))
 
     def sgr(on: int, off: int, text: str) -> str:
         return f"\x1b[{on}m{text}\x1b[{off}m" if coloured else text

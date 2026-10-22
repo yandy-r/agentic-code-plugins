@@ -50,9 +50,9 @@ SCOPES = ("user", "project")
 RESTART_COMPONENTS = frozenset({"hooks", "extensions", "agents"})
 NO_MARKETPLACES = ("No marketplaces configured", "", "Add one with: omp plugin marketplace add <source>")
 MARKETPLACE_LINE = re.compile(r"^  (\S+)  (.+)$")
-# omp colours piped output when FORCE_COLOR is set (it beats NO_COLOR), so queries drop the
-# force switches and strip any SGR sequence that still slips through before parsing.
-FORCE_COLOR_VARS = ("FORCE_COLOR", "CLICOLOR_FORCE")
+# omp colours piped output when FORCE_COLOR is set (it beats NO_COLOR), so queries drop it
+# and strip any SGR sequence that still slips through before parsing.
+FORCE_COLOR_VARS = ("FORCE_COLOR",)
 ANSI_SGR = re.compile(r"\x1b\[[0-9;]*m")
 HOME_REFUSAL = "--project at $HOME: omp project scope needs a project directory (cd into a project, or use --global)"
 REPO_REFUSAL = "--mode repo needs a listed OMP package (YAN-1180)"
