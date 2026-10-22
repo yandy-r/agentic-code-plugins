@@ -1,0 +1,360 @@
+{
+  "schemaVersion": 1,
+  "mcpNamespaces": [
+    "ycc-mcp"
+  ],
+  "agents": {
+    "ansible-automation-expert": {
+      "bash": [],
+      "mcp": []
+    },
+    "api-docs-expert": {
+      "bash": [],
+      "mcp": []
+    },
+    "api-documenter": {
+      "bash": [
+        "ls",
+        "find",
+        "tree",
+        "wc",
+        "test",
+        "mkdir"
+      ],
+      "mcp": []
+    },
+    "architect": {
+      "bash": [],
+      "mcp": []
+    },
+    "architecture-analyst": {
+      "bash": [
+        "ls",
+        "find",
+        "tree",
+        "wc",
+        "test",
+        "mkdir"
+      ],
+      "mcp": []
+    },
+    "backport-conflict-resolver": {
+      "bash": [
+        "git -C * show",
+        "git -C * diff",
+        "git -C * log",
+        "git -C * status",
+        "git -C * ls-files",
+        "git -C * rev-parse",
+        "git -C * merge-base",
+        "git -C * blame"
+      ],
+      "mcp": []
+    },
+    "cloudflare-architect": {
+      "bash": [],
+      "mcp": []
+    },
+    "cloudflare-developer": {
+      "bash": null,
+      "mcp": []
+    },
+    "code-architect": {
+      "bash": [],
+      "mcp": []
+    },
+    "code-documenter": {
+      "bash": [
+        "ls",
+        "find",
+        "wc",
+        "test"
+      ],
+      "mcp": []
+    },
+    "code-explorer": {
+      "bash": [],
+      "mcp": []
+    },
+    "code-finder": {
+      "bash": [],
+      "mcp": []
+    },
+    "code-reviewer": {
+      "bash": [],
+      "mcp": []
+    },
+    "code-simplifier": {
+      "bash": null,
+      "mcp": []
+    },
+    "codebase-advisor": {
+      "bash": [],
+      "mcp": []
+    },
+    "codebase-research-analyst": {
+      "bash": null,
+      "mcp": [
+        {
+          "server": "context7",
+          "tool": "resolve-library-id"
+        },
+        {
+          "server": "context7",
+          "tool": "query-docs"
+        }
+      ]
+    },
+    "db-modifier": {
+      "bash": [
+        "psql",
+        "supabase",
+        "ls",
+        "test"
+      ],
+      "mcp": []
+    },
+    "docs-git-committer": {
+      "bash": null,
+      "mcp": []
+    },
+    "documentation-writer": {
+      "bash": null,
+      "mcp": []
+    },
+    "feature-researcher": {
+      "bash": null,
+      "mcp": [
+        {
+          "server": "context7",
+          "tool": "resolve-library-id"
+        },
+        {
+          "server": "context7",
+          "tool": "query-docs"
+        }
+      ]
+    },
+    "feature-writer": {
+      "bash": [
+        "ls",
+        "find",
+        "tree",
+        "wc",
+        "test",
+        "mkdir"
+      ],
+      "mcp": []
+    },
+    "frontend-ui-developer": {
+      "bash": null,
+      "mcp": []
+    },
+    "git-cleanup": {
+      "bash": [
+        "git",
+        "gh",
+        "glab"
+      ],
+      "mcp": []
+    },
+    "go-api-architect": {
+      "bash": [],
+      "mcp": []
+    },
+    "go-expert-architect": {
+      "bash": [],
+      "mcp": []
+    },
+    "implementor": {
+      "bash": null,
+      "mcp": []
+    },
+    "library-docs-writer": {
+      "bash": [],
+      "mcp": [
+        {
+          "server": "context7",
+          "tool": "resolve-library-id"
+        },
+        {
+          "server": "context7",
+          "tool": "query-docs"
+        }
+      ]
+    },
+    "nextjs-ux-ui-expert": {
+      "bash": [],
+      "mcp": []
+    },
+    "nodejs-backend-architect": {
+      "bash": [],
+      "mcp": []
+    },
+    "nodejs-backend-developer": {
+      "bash": null,
+      "mcp": []
+    },
+    "planner": {
+      "bash": [],
+      "mcp": []
+    },
+    "pr-comment-fixer": {
+      "bash": [
+        "pnpm typecheck",
+        "pnpm tsc",
+        "yarn typecheck",
+        "npx tsc --noEmit",
+        "bun test",
+        "bun run typecheck",
+        "cargo check",
+        "go vet ./...",
+        "pytest",
+        "python -m mypy",
+        "python3 -m mypy"
+      ],
+      "mcp": []
+    },
+    "practices-researcher": {
+      "bash": [],
+      "mcp": []
+    },
+    "project-file-cleaner": {
+      "bash": [],
+      "mcp": []
+    },
+    "prp-researcher": {
+      "bash": [
+        "ls",
+        "cat",
+        "test",
+        "git"
+      ],
+      "mcp": []
+    },
+    "python-developer": {
+      "bash": null,
+      "mcp": []
+    },
+    "python-expert-architect": {
+      "bash": [],
+      "mcp": []
+    },
+    "readme-generator": {
+      "bash": [
+        "ls",
+        "find",
+        "tree",
+        "wc",
+        "test",
+        "mkdir"
+      ],
+      "mcp": []
+    },
+    "release-fix-applier": {
+      "bash": [
+        "ls",
+        "test",
+        "pnpm typecheck",
+        "pnpm tsc",
+        "yarn typecheck",
+        "npx tsc --noEmit",
+        "bun test",
+        "bun run typecheck",
+        "cargo check",
+        "go vet ./...",
+        "pytest",
+        "python -m mypy",
+        "python3 -m mypy",
+        "npm run build",
+        "pnpm build",
+        "yarn build",
+        "bun run build",
+        "cargo build",
+        "go build ./..."
+      ],
+      "mcp": []
+    },
+    "releaser": {
+      "bash": [],
+      "mcp": []
+    },
+    "research-specialist": {
+      "bash": [],
+      "mcp": []
+    },
+    "reverse-proxy-architect": {
+      "bash": [],
+      "mcp": []
+    },
+    "review-fixer": {
+      "bash": [
+        "ls",
+        "test",
+        "git diff",
+        "git status",
+        "git log",
+        "pnpm typecheck",
+        "pnpm tsc",
+        "yarn typecheck",
+        "npx tsc --noEmit",
+        "bun test",
+        "bun run typecheck",
+        "cargo check",
+        "go vet ./...",
+        "pytest",
+        "python -m mypy",
+        "python3 -m mypy"
+      ],
+      "mcp": []
+    },
+    "root-cause-analyzer": {
+      "bash": [],
+      "mcp": []
+    },
+    "rust-build-resolver": {
+      "bash": null,
+      "mcp": []
+    },
+    "rust-expert-architect": {
+      "bash": [],
+      "mcp": []
+    },
+    "rust-reviewer": {
+      "bash": [],
+      "mcp": []
+    },
+    "sql-database-architect": {
+      "bash": [],
+      "mcp": []
+    },
+    "sql-database-developer": {
+      "bash": null,
+      "mcp": []
+    },
+    "systems-engineering-expert": {
+      "bash": [],
+      "mcp": []
+    },
+    "terraform-architect": {
+      "bash": [],
+      "mcp": []
+    },
+    "terraform-developer": {
+      "bash": null,
+      "mcp": []
+    },
+    "test-strategy-planner": {
+      "bash": [],
+      "mcp": []
+    },
+    "typescript-developer": {
+      "bash": null,
+      "mcp": []
+    },
+    "typescript-expert-architect": {
+      "bash": [],
+      "mcp": []
+    }
+  }
+}

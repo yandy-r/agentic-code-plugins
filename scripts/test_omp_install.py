@@ -381,7 +381,8 @@ class OmpInstallTests(unittest.TestCase):
         self.assertEqual(state["export_inventory"], inventory(exported))
         self.assertEqual(state["profiles"][self.profile_key()]["marketplace"], {"name": "ycc", "source": str(exported)})
         self.assertIn(omp_install.TRUST, result.out)
-        self.assertIn("[ok] running omp sessions: run /reload-plugins", result.out)
+        # A package with agents ships the scope guard extension, which OMP loads only at session start.
+        self.assertIn(omp_install.restart_line(packages), result.out)
         shadow = "[ok] a project install shadows your user install here"
         self.assertEqual(shadow in result.out, scope == "project")
 
@@ -445,7 +446,7 @@ class OmpInstallTests(unittest.TestCase):
         self.assertEqual(packages, ("ycc", "ycc-mcp", "ycc-rules"))
         self.lifecycle(packages, "user", self.model_version)
 
-    def test_ycc_mcp_installs_its_mcp_config_and_asks_for_a_reload(self) -> None:
+    def test_ycc_mcp_installs_its_mcp_config(self) -> None:
         for scope in omp_install.SCOPES:
             with self.subTest(scope=scope):
                 self.clear_log()
@@ -456,8 +457,7 @@ class OmpInstallTests(unittest.TestCase):
                 config = Path(entry["installPath"]) / ".mcp.json"
                 source = (omp_install.ROOT / "mcp-configs/mcp.json").read_bytes()
                 self.assertEqual(config.read_bytes(), omp_mcp_bytes(source))
-                self.assertIn("MCP servers from ycc-mcp start only after a reload or restart", result.out)
-                self.assertIn("/reload-plugins", result.out)
+                self.assertIn("[!!] restart running omp sessions", result.out)
                 self.clear_log()
                 self.remove(scope)
                 self.assertIn(f"omp plugin uninstall --scope {scope} ycc-mcp@ycc", self.calls())

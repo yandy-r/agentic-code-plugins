@@ -219,7 +219,7 @@
             "docs/research/yan-1174-omp-hooks-extension/feature-spec.md"
           ],
           "gates": [],
-          "notes": "Excluded: herdr ships its own OMP integration (herdr integration install omp), which reports the session and agent state; a ycc reporter is ignored by herdr (non-herdr source) or corrupts herdr's ordering (herdr:omp). WorktreeCreate has no OMP event. ycc ships no OMP hooks or extensions (YAN-1174)."
+          "notes": "Excluded: herdr ships its own OMP integration (herdr integration install omp), which reports the session and agent state; a ycc reporter is ignored by herdr (non-herdr source) or corrupts herdr's ordering (herdr:omp). WorktreeCreate has no OMP event. ycc ships no OMP hooks (YAN-1174); its only OMP extension is the agent scope guard inside the ycc package (YAN-1250)."
         }
       }
     },

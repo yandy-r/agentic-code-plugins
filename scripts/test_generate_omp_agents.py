@@ -152,6 +152,22 @@ class ShellScopeTest(FixtureTestCase):
         self.assertEqual(list(frontmatter), ["name", "description", "model"])
         self.assertNotIn(omp.SHELL_SCOPE_HEADING, body)
 
+    def test_scope_data_is_the_source_of_the_prompt_section(self) -> None:
+        self.generate()
+        scopes = omp.agent_scopes(src_root=self.agents, mcp_path=self.mcp)
+        self.assertEqual(
+            scopes["demo-agent"],
+            {"bash": ["ls", "git -C * show"], "mcp": [{"server": "context7", "tool": "query-docs"}]},
+        )
+        self.assertEqual(scopes["helper"], {"bash": None, "mcp": []})
+        _, body = self.output("demo-agent")
+        self.assertTrue(body.endswith(omp.shell_scope_section(scopes["demo-agent"]["bash"])))
+
+    def test_no_tools_key_is_unrestricted_scope(self) -> None:
+        write(self.agents / "helper-file.md", HELPER_AGENT.replace("tools:\n  - Read\n  - Bash\n  - Bash(git:*)\n", ""))
+        scopes = omp.agent_scopes(src_root=self.agents, mcp_path=self.mcp)
+        self.assertEqual(scopes["helper"], {"bash": None, "mcp": None})
+
 
 class BodyTest(FixtureTestCase):
     def test_namespace_and_tool_wording_rewritten(self) -> None:

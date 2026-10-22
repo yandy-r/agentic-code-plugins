@@ -155,10 +155,15 @@ class SourceAgent:
 
 @dataclass(frozen=True)
 class ToolPlan:
-    """OMP tools for one agent plus the shell prefixes it may run, if scoped."""
+    """OMP tools for one agent plus the scope the ycc OMP scope guard enforces for it.
+
+    `bash` lists the allowed shell prefixes (empty: no shell); None means unrestricted (plain
+    `Bash`). `mcp` lists the declared (server, tool) pairs (empty: no MCP tool).
+    """
 
     tools: list[str]
-    shell_scope: list[str]
+    bash: list[str] | None
+    mcp: list[tuple[str, str]]
 
 
 def _rel(stem: str) -> Path:
@@ -214,19 +219,22 @@ def agent_aliases(agents: list[SourceAgent]) -> dict[str, str]:
 
 
 def map_tools(raw: object, rel: Path, mcp_servers: frozenset[str]) -> ToolPlan:
-    """Claude `tools` list -> OMP tool IDs (D3) plus scoped shell prefixes (D4)."""
+    """Claude `tools` list -> OMP tool IDs (D3) plus the scoped shell prefixes and MCP tools (D4)."""
     if not isinstance(raw, list) or not all(isinstance(entry, str) for entry in raw):
         raise OmpGenerationError(f"{rel}: 'tools' must be a YAML list of strings")
     tools: list[str] = []
     scopes: list[str] = []
+    mcp_tools: list[tuple[str, str]] = []
     plain_bash = False
     for entry in raw:
         mcp = _MCP_TOOL.match(entry)
         if mcp:
-            # OMP mounts MCP tools additively, so the entry is checked and omitted.
-            if mcp.group("server") not in mcp_servers:
-                server = mcp.group("server")
+            # OMP mounts every MCP tool in every agent; the scope guard allows only these.
+            server = mcp.group("server")
+            if server not in mcp_servers:
                 raise OmpGenerationError(f"{rel}: tool '{entry}' names MCP server '{server}', not in ycc-mcp")
+            if (server, mcp.group("tool")) not in mcp_tools:
+                mcp_tools.append((server, mcp.group("tool")))
             continue
         scoped = _SCOPED_BASH.match(entry)
         if scoped:
@@ -241,7 +249,7 @@ def map_tools(raw: object, rel: Path, mcp_servers: frozenset[str]) -> ToolPlan:
         if tool not in tools:
             tools.append(tool)
     # Plain `Bash` already grants every command; a scope list would be misleading.
-    return ToolPlan(tools, [] if plain_bash else scopes)
+    return ToolPlan(tools, None if plain_bash else scopes, mcp_tools)
 
 
 def map_model(frontmatter: Mapping[str, Any], rel: Path) -> str | None:
@@ -256,20 +264,30 @@ def map_model(frontmatter: Mapping[str, Any], rel: Path) -> str | None:
 
 
 def shell_scope_section(prefixes: list[str]) -> str:
-    """The D4 prompt-level replacement for Claude's command-scoped `Bash(<prefix>:*)`."""
+    """The prompt form of the shell scope the ycc OMP scope guard enforces (D4)."""
     wildcard = " (`*` stands for one argument)" if any("*" in prefix for prefix in prefixes) else ""
     lines = [
         SHELL_SCOPE_HEADING,
         "",
-        "OMP cannot restrict `bash` to specific commands, so this scope is a hard rule you enforce",
-        f"yourself. Run `bash` only for commands that start with one of these prefixes{wildcard}:",
+        "The ycc scope guard, an OMP extension in the ycc package, blocks every `bash` call outside",
+        f"this scope. Run `bash` only for commands that start with one of these prefixes{wildcard}:",
         "",
         *(f"- `{prefix}`" for prefix in prefixes),
         "",
-        "Every command in a pipeline, `&&`/`||`/`;` chain, or subshell must match a prefix too. If the",
-        "task needs any other command, do not run it; say which command you need in your report.",
+        "Every command in a pipeline, `&&`/`||`/`;` chain, subshell or `{ }` group must match a prefix",
+        "too. The guard also blocks what it cannot verify: `$` expansions, command substitution,",
+        "backticks, here-documents, leading `VAR=value` assignments and output redirection other than",
+        "to `/dev/null`. If the task needs any other command, do not retry it in another form; say",
+        "which command you need in your report.",
     ]
     return "\n".join(lines) + "\n"
+
+
+def scope_entry(plan: ToolPlan | None) -> dict[str, Any]:
+    """One agent's agent-scopes.json entry; None (no `tools` key) is unrestricted."""
+    if plan is None:
+        return {"bash": None, "mcp": None}
+    return {"bash": plan.bash, "mcp": [{"server": server, "tool": tool} for server, tool in plan.mcp]}
 
 
 def _omp_tool(name: str) -> str:
@@ -378,12 +396,11 @@ def claude_tool_residue(text: str) -> list[str]:
 def transform_agent(
     agent: SourceAgent,
     catalog: Catalog,
-    mcp_servers: frozenset[str],
+    plan: ToolPlan | None,
     sentences: tuple[tuple[str, str], ...] = (),
 ) -> str:
     """Render one OMP agent file."""
     rel = _rel(agent.stem)
-    plan = map_tools(agent.frontmatter.get("tools", []), rel, mcp_servers) if "tools" in agent.frontmatter else None
     model = map_model(agent.frontmatter, rel)
 
     def rewrite(text: str) -> str:
@@ -402,9 +419,34 @@ def transform_agent(
     body = rewrite(apply_path_sentences(agent.body, rel, sentences, "AGENT_SENTENCES"))
     for line in claude_tool_residue(output["description"] + "\n" + body):
         raise OmpGenerationError(f"{rel}: Claude tool name left after OMP rewrites: {line}")
-    if plan is not None and plan.shell_scope:
-        body = body.rstrip("\n") + "\n\n" + shell_scope_section(plan.shell_scope)
+    if plan is not None and plan.bash:
+        body = body.rstrip("\n") + "\n\n" + shell_scope_section(plan.bash)
     return dump_frontmatter(output) + body
+
+
+def tool_plans(agents: list[SourceAgent], mcp_servers: frozenset[str]) -> dict[str, ToolPlan | None]:
+    """Agent file stem -> its ToolPlan (None without a `tools` key): the one source of agent scope."""
+    return {
+        agent.stem: (
+            map_tools(agent.frontmatter["tools"], _rel(agent.stem), mcp_servers)
+            if "tools" in agent.frontmatter
+            else None
+        )
+        for agent in agents
+    }
+
+
+def agent_scopes(*, src_root: Path | None = None, mcp_path: Path | None = None) -> dict[str, dict[str, Any]]:
+    """agent-scopes.json `agents`: lowercased agent name (OMP's ctx.agent.name) -> scope_entry."""
+    agents = load_source_agents(SRC_AGENTS_DIR if src_root is None else src_root)
+    plans = tool_plans(agents, load_mcp_servers() if mcp_path is None else load_mcp_servers(mcp_path))
+    scopes: dict[str, dict[str, Any]] = {}
+    for agent in agents:
+        key = str(agent.frontmatter["name"]).strip().lower()
+        if key in scopes:
+            raise OmpGenerationError(f"{_rel(agent.stem)}: agent name '{key}' collides case-insensitively")
+        scopes[key] = scope_entry(plans[agent.stem])
+    return dict(sorted(scopes.items()))
 
 
 def write_tree(
@@ -427,10 +469,10 @@ def write_tree(
     for stem in sorted(set(sentences) - {agent.stem for agent in agents}):
         raise OmpGenerationError(f"{_rel(stem)}: listed in AGENT_SENTENCES but missing from ycc/agents")
     catalog = build_catalog(SRC_SKILLS_DIR if skills_root is None else skills_root, agent_aliases(agents))
-    mcp_servers = load_mcp_servers() if mcp_path is None else load_mcp_servers(mcp_path)
+    plans = tool_plans(agents, load_mcp_servers() if mcp_path is None else load_mcp_servers(mcp_path))
 
     outputs = {
-        Path(f"{agent.stem}.md"): transform_agent(agent, catalog, mcp_servers, sentences.get(agent.stem, ()))
+        Path(f"{agent.stem}.md"): transform_agent(agent, catalog, plans[agent.stem], sentences.get(agent.stem, ()))
         for agent in agents
     }
 

@@ -90,7 +90,29 @@ After an install or update, run `/reload-plugins` in running omp sessions (or
 restart them) to pick up skills, commands, agents and MCP servers. Rules and
 `AGENTS.md` load at session start: use `/new` or restart. Settings reload
 live. A package that ships hooks or extensions needs a session restart; the
-installer says so when it applies.
+installer says so when it applies. `ycc` ships the agent scope guard
+extension (see [Agent Scope](#agent-scope)), so a `ycc` install or update asks
+for a restart.
+
+## Agent Scope
+
+The `ycc` package ships one OMP extension, the agent scope guard
+(`extensions/scope-guard.ts`, with its data in `extensions/agent-scopes.json`).
+It only acts in ycc subagents. The main session and other agents are not
+affected.
+
+- **Shell.** An agent with command-scoped `Bash(<prefix>:*)` tools may run
+  only commands where every pipeline, chain, subshell and `{ }` group segment
+  starts with one of its prefixes. Commands the guard cannot verify are
+  blocked: `$` expansions, command substitution, here-documents, output
+  redirection other than `/dev/null`, leading `VAR=value` and `find -exec`.
+- **MCP.** An agent that declares no MCP tools cannot call any. One that
+  declares some (such as `library-docs-writer` with context7) can call only
+  those, directly or through `write xd://`.
+
+A blocked call returns a tool error that names the segment and the allowed
+prefixes. The guard loads from installed packages only: `omp --plugin-dir`
+does not load plugin extensions, and `--no-extensions` turns it off.
 
 ## MCP Servers
 
@@ -304,7 +326,8 @@ ycc never writes `yolo`, `bash.patterns` or per-tool `allow`/`deny`.
 ## Status Line
 
 Unsupported. OMP has no command-backed status line, so ycc's
-`statusline-command.sh` has no OMP form, and ycc ships no OMP extension.
+`statusline-command.sh` has no OMP form; the only ycc OMP extension is the
+agent scope guard.
 OMP's built-in status line already shows the model, path and git state;
 customize it with the `statusLine.*` keys (`omp config list`).
 

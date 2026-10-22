@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Tests for the YAN-1174 OMP hook policies in scripts/validate_omp_native.py.
+"""Tests for the YAN-1174 / YAN-1250 OMP code-surface policies in scripts/validate_omp_native.py.
 
-hook_surface_errors keeps every OMP package root free of code surfaces (ycc ships no OMP hooks or
-extensions; herdr reporting is herdr's own integration); hook_verdict_errors keeps the hook
-inventory, HOOK_VERDICTS, the spike §3 matrix and the OMP docs in agreement.
+hook_surface_errors keeps every OMP package root free of code surfaces except the ycc agent scope
+guard (ycc ships no OMP hooks; herdr reporting is herdr's own integration); hook_verdict_errors keeps
+the hook inventory, HOOK_VERDICTS, the spike §3 matrix and the OMP docs in agreement.
 """
 
 from __future__ import annotations
@@ -64,21 +64,46 @@ class OmpHookPolicyTests(unittest.TestCase):
     # --- code-surface guard (D2-D5) ---------------------------------------------------
 
     def test_package_json_extensions_rejected(self) -> None:
-        for payload, key in (
-            ({"omp": {"extensions": ["./x.ts"]}}, "omp.extensions"),
-            ({"pi": {"extensions": ["./x.ts"]}}, "pi.extensions"),
-            ({"hooks": "./hooks"}, "hooks"),
-            ({"tools": ["./t.ts"]}, "tools"),
+        mcp = gen.OUTPUT_ROOT / "ycc-mcp"
+        for root, payload, key in (
+            (mcp, {"omp": {"extensions": ["./x.ts"]}}, "omp.extensions"),
+            (gen.COMPONENT_ROOT, {"pi": {"extensions": ["./x.ts"]}}, "pi.extensions"),
+            (gen.COMPONENT_ROOT, {"hooks": "./hooks"}, "hooks"),
+            (gen.COMPONENT_ROOT, {"tools": ["./t.ts"]}, "tools"),
         ):
             with self.subTest(key=key):
-                path = self.write(gen.COMPONENT_ROOT / gen.PACKAGE_JSON, {"name": "ycc", **payload})
+                path = self.write(root / gen.PACKAGE_JSON, {"name": root.name, **payload})
                 errors = self.surface()
-                self.assert_has(
-                    errors, f"{gen.COMPONENT_ROOT / gen.PACKAGE_JSON}#{key}: ycc OMP packages ship no hooks"
-                )
+                self.assert_has(errors, f"{root / gen.PACKAGE_JSON}#{key}: ycc OMP packages ship no hooks")
                 self.assert_has(errors, "herdr reporting is herdr's own integration")
                 path.unlink()
         self.assertEqual(self.surface(), [])
+
+    def write_guard(self) -> None:
+        self.write(gen.COMPONENT_ROOT / "agents/planner.md")
+        self.write(gen.COMPONENT_ROOT / gen.PACKAGE_JSON, {"name": "ycc", "omp": {"extensions": gen.EXTENSION_ENTRIES}})
+        self.write(gen.COMPONENT_ROOT / gen.SCOPE_GUARD, (REPO_ROOT / gen.SCOPE_GUARD_TEMPLATE).read_text("utf-8"))
+        self.write(gen.COMPONENT_ROOT / gen.AGENT_SCOPES, {"schemaVersion": gen.SCOPE_SCHEMA_VERSION, "agents": {}})
+
+    def test_ycc_scope_guard_is_the_only_allowed_extension(self) -> None:
+        self.write_guard()
+        self.assertEqual(self.surface(), [])
+        guard = gen.COMPONENT_ROOT / gen.EXTENSION_DIR
+        self.write(guard / "extra.ts")
+        self.assert_has(self.surface(), f"{guard / 'extra.ts'}: ycc OMP packages ship no hooks")
+        (self.root / guard / "extra.ts").unlink()
+        self.write(gen.COMPONENT_ROOT / gen.SCOPE_GUARD, "export default function () {}\n")
+        self.assert_has(self.surface(), f"must equal {gen.SCOPE_GUARD_TEMPLATE}")
+        self.write(gen.COMPONENT_ROOT / gen.PACKAGE_JSON, {"name": "ycc", "omp": {"extensions": ["./x.ts"]}})
+        self.assert_has(self.surface(), "#omp.extensions: must be exactly")
+
+    def test_agents_never_ship_without_their_guard(self) -> None:
+        self.write_guard()
+        self.write(gen.COMPONENT_ROOT / gen.PACKAGE_JSON, {"name": "ycc"})
+        (self.root / gen.COMPONENT_ROOT / gen.AGENT_SCOPES).unlink()
+        errors = self.surface()
+        self.assert_has(errors, "#omp.extensions: missing; ycc agents must not ship without the scope guard")
+        self.assert_has(errors, f"{gen.COMPONENT_ROOT / gen.AGENT_SCOPES}: missing scope guard file")
 
     def test_manifest_hooks_key_rejected(self) -> None:
         self.write(gen.COMPONENT_ROOT / gen.OMP_MANIFEST, {"name": "ycc", "hooks": "./h"})

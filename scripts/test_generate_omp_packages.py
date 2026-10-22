@@ -97,14 +97,19 @@ class GenerateOmpPackagesTests(unittest.TestCase):
         return content
 
     def output(
-        self, model: PackageModel | None = None, **kwargs: bool
+        self, model: PackageModel | None = None, *, include_unlisted: bool = False
     ) -> tuple[dict[Path, gen.Payload], tuple[Path, ...]]:
         return gen.build_output(
-            model or self.model, VERSION, AUTHOR, components=fake_components, repo_root=self.root, **kwargs
+            model or self.model,
+            VERSION,
+            AUTHOR,
+            components=fake_components,
+            repo_root=self.root,
+            include_unlisted=include_unlisted,
         )
 
-    def generate(self, model: PackageModel | None = None, **kwargs: bool) -> set[Path]:
-        output, roots = self.output(model, **kwargs)
+    def generate(self, model: PackageModel | None = None, *, include_unlisted: bool = False) -> set[Path]:
+        output, roots = self.output(model, include_unlisted=include_unlisted)
         return gen.write_payloads(self.root, output, roots, dry_run=False)
 
     def read(self, rel: Path) -> Any:
@@ -125,6 +130,18 @@ class GenerateOmpPackagesTests(unittest.TestCase):
         for manifest in gen.MANIFESTS:
             self.assertTrue((self.root / YCC / manifest).is_file(), manifest)
         self.assertEqual(self.errors(), [])
+
+    def test_ycc_ships_the_scope_guard_declared_in_package_json(self) -> None:
+        self.generate()
+        self.assertEqual(self.read(YCC / gen.PACKAGE_JSON)["omp"], {"extensions": gen.EXTENSION_ENTRIES})
+        self.assertEqual(
+            (self.root / YCC / gen.SCOPE_GUARD).read_bytes(), (gen.REPO_ROOT / gen.SCOPE_GUARD_TEMPLATE).read_bytes()
+        )
+        scopes = self.read(YCC / gen.AGENT_SCOPES)
+        self.assertEqual(scopes["mcpNamespaces"], ["ycc-mcp"])
+        self.assertEqual(scopes["agents"]["git-cleanup"], {"bash": ["git", "gh", "glab"], "mcp": []})
+        for manifest in (MCP, RULES):
+            self.assertNotIn("omp", self.read(manifest / gen.PACKAGE_JSON))
 
     def test_listed_package_catalog_holds_exactly_the_listed_rows(self) -> None:
         listed = with_omp(self.model, "ycc", listed=True)
