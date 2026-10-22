@@ -170,7 +170,8 @@ def live_omp() -> str | None:
     if version_key(version) < version_key(MIN_OMP_VERSION):
         print(f"[warn] {version.strip()} is older than {MIN_OMP_VERSION}: skipping the built-in command drift check")
         return None
-    return omp
+    # Absolute, not resolved (a shim keeps its name): the probe runs in a temp cwd.
+    return os.path.abspath(omp)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
