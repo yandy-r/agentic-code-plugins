@@ -341,6 +341,15 @@ home="$(new_home)"
 install_must_succeed "${home}" sync --target claude --intent skills,commands --skills go-patterns --commands code-review --with-deps
 assert_contains "${INSTALL_OUT}" "claude: --with-deps adds skills:" "--with-deps follows claude --commands (its skills)"
 assert_not_contains "${INSTALL_OUT}" "skill 'review-fix' is referenced by" "--with-deps resolves the --commands skill's skill references"
+# Commands step only: the added skills still install (they go to --commands).
+home="$(new_home)"
+install_must_succeed "${home}" sync --target claude --intent commands --commands code-review --with-deps
+if [[ -d "${home}/.claude/skills/review-fix" ]]; then ok "--with-deps installs claude --commands dependencies without the skills step"; else ko "--with-deps installs claude --commands dependencies without the skills step" "$(entries "${home}/.claude/skills")"; fi
+# Consolidated skills (~/.agents/skills) are not cursor's to install: they keep warning.
+home="$(new_home)"
+install_must_succeed "${home}" sync --target cursor --skills-home agents --intent skills,agents --skills go-patterns --agents review-fixer --with-deps
+assert_not_contains "${INSTALL_OUT}" "cursor: --with-deps adds skills" "--with-deps does not claim consolidated skills"
+assert_contains "${INSTALL_OUT}" "is dispatched only by" "consolidated skill dependencies still warn"
 home="$(new_home)"
 reject "remove --with-deps exits nonzero" "${home}" remove --target claude --intent skills --skills code-review --with-deps
 assert_contains "${REJECT_OUT}" "--with-deps is only valid with install or sync" "remove --with-deps is rejected"

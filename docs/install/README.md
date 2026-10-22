@@ -264,10 +264,11 @@ ycc sync --target cursor --intent skills,commands --skills clean,plan --commands
   installed. Agents meant to be dispatched only by a skill (`review-fixer`,
   `releaser`, ...) warn when none of their dispatching skills is available.
   Warnings never fail the run.
-- `--with-deps` (`install` / `sync` only, with `--skills` or `--agents`) adds
-  those dependencies instead of warning about them. Per target, before it
-  runs, the installer walks the `ycc:<name>` references of the selected
-  skills and agents transitively and adds every one that target ships:
+- `--with-deps` (`install` / `sync` only, with `--skills` or `--agents`, or
+  `--commands` on claude) adds those dependencies instead of warning about
+  them. Per target, before it runs, the installer walks the `ycc:<name>`
+  references of the selected skills and agents transitively and adds every
+  one that target ships:
 
   ```bash
   ycc sync --target claude --intent skills,agents --skills code-review --agents implementor --with-deps
@@ -275,9 +276,11 @@ ycc sync --target cursor --intent skills,commands --skills clean,plan --commands
 
   - It extends only kinds that already have a selection and whose step runs
     on that target. On claude, `--commands` names are skills, so they seed
-    the skills walk too. A kind without a selection already installs whole; a
-    step that does not run is never turned on, and its references keep
-    warning.
+    the skills walk too, and the added skills install with whichever of
+    `--skills` / `--commands` that run uses. A kind without a selection
+    already installs whole; a step that does not run is never turned on, and
+    its references keep warning. Skills consolidated into `~/.agents/skills`
+    (`--skills-home agents`) are not extended and keep warning.
   - Dependencies already available elsewhere (the installed ycc plugin, your
     own unrecorded entries, `~/.agents/skills` for targets that read it) are
     skipped unless ycc owns them, so a sync refreshes ycc-owned ones and never

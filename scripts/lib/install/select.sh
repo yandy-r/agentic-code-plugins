@@ -158,22 +158,24 @@ kind_step_selected() {
     target_merges_group "$2" "${SELECTION_GROUP[$1]}"
 }
 
-# expand_with_deps <target> — under --with-deps, append to SELECTION[skills] /
-# SELECTION[agents] the ycc:<name> dependencies of <target>'s selected names
+# expand_with_deps <target> — under --with-deps, extend <target>'s --skills /
+# --agents selection with the ycc:<name> dependencies of its selected names
 # that <target> ships and lacks (or that ycc owns): install_slices.py closure.
-# Only a kind with a selection whose step runs (claude skills: the skills or
-# commands step) is extended. Called by run_target after intent mapping,
-# which restores the selection after the target runs.
+# Only a kind with a selection whose step runs is extended. Claude's skills
+# slice installs the --skills / --commands union (slice_selection_kinds): both
+# seed the walk, and the added skills go to the kind that slice reads. Skills
+# consolidated into ~/.agents/skills are not this target's to install, so they
+# keep warning. Called by run_target, which restores the selection after.
 expand_with_deps() {
     [[ "${WITH_DEPS:-0}" == "1" ]] || return 0
     local target="$1" kind names line added name
     local -a seeds=()
+    local -A into=([skills]=skills [agents]=agents)
     for kind in skills agents; do
-        # Claude skills are its commands: its skills slice installs the union of
-        # --skills and --commands (slice_selection_kinds), so both seed the walk.
         if [[ "${target}" == claude && "${kind}" == skills ]]; then
             local -a union=()
             read -r -a union <<< "$(slice_selection_kinds claude skills)"
+            [[ " ${union[*]:-} " == *" skills "* ]] || into[skills]=commands
             names=""
             for line in ${union[@]+"${union[@]}"}; do
                 names+="${names:+,}$(selection_for_target "${line}" claude)"
@@ -182,20 +184,22 @@ expand_with_deps() {
             names="${names%,}"
         else
             if ! has_selection "${kind}" || ! step_enabled "${kind}"; then continue; fi
+            [[ "${kind}" == skills ]] && skills_consolidated "${target}" && continue
             names="$(selection_for_target "${kind}" "${target}")"
         fi
         [[ -n "${names}" ]] && seeds+=("--${kind}" "${names}")
     done
     [[ ${#seeds[@]} -gt 0 ]] || return 0
-    local output
+    local output dest
     output="$(python3 "${SLICE_HELPER}" closure --target "${target}" "${seeds[@]}")" \
         || { err "${target}: --with-deps dependency lookup failed"; exit 1; }
     while IFS=$'\t' read -r kind added; do
         [[ -n "${added}" ]] || continue
+        dest="${into[${kind}]}"
         local -a fresh=()
         for name in ${added//,/ }; do
-            [[ ",${SELECTION[${kind}]:-}," == *",${name},"* ]] && continue
-            SELECTION[${kind}]+="${SELECTION[${kind}]:+,}${name}"
+            [[ ",${SELECTION[${dest}]:-}," == *",${name},"* ]] && continue
+            SELECTION[${dest}]+="${SELECTION[${dest}]:+,}${name}"
             fresh+=("${name}")
         done
         [[ ${#fresh[@]} -gt 0 ]] || continue

@@ -371,7 +371,8 @@ Options:
   --purge-cache       remove only, opencode: also delete the opencode package
                       cache (~/.cache/opencode npm/, packages/, node_modules/)
                       of each catalog plugin removed from opencode.json.
-  --with-deps         install / sync only, with --skills or --agents: per
+  --with-deps         install / sync only, with --skills or --agents (or
+                      --commands on claude): per
                       target, also select the ycc:<name> dependencies of the
                       selected skills/agents (transitively) that the target
                       ships. Extends only kinds that already have a selection
@@ -804,8 +805,9 @@ if [[ "${WITH_DEPS}" == "1" ]]; then
         err "--with-deps is only valid with install or sync"
         exit 1
     fi
-    if ! has_selection skills && ! has_selection agents; then
-        err "--with-deps needs --skills or --agents"
+    # Claude's --commands are skills, so they also seed the walk there.
+    if ! has_selection skills && ! has_selection agents && ! has_selection commands; then
+        err "--with-deps needs --skills or --agents (or --commands on claude)"
         exit 1
     fi
 fi
