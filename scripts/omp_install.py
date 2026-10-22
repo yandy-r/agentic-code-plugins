@@ -45,7 +45,9 @@ ROOT = Path(__file__).resolve().parent.parent
 REPOSITORY = "https://github.com/yandy-r/ystack.git"
 MARKETPLACE = "ycc"
 SCOPES = ("user", "project")
-RESTART_COMPONENTS = frozenset({"hooks", "extensions"})
+# OMP loads extensions only at session start (`/reload-plugins` skips them). A package with OMP
+# agents ships the ycc scope guard extension (YAN-1250), so running sessions must restart too.
+RESTART_COMPONENTS = frozenset({"hooks", "extensions", "agents"})
 NO_MARKETPLACES = ("No marketplaces configured", "", "Add one with: omp plugin marketplace add <source>")
 MARKETPLACE_LINE = re.compile(r"^  (\S+)  (.+)$")
 HOME_REFUSAL = "--project at $HOME: omp project scope needs a project directory (cd into a project, or use --global)"

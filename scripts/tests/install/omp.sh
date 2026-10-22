@@ -35,7 +35,7 @@ if [[ -f "$(omp_export "${home}")/packages/omp/ycc-rules/.omp-plugin/plugin.json
 else
     ko "omp export ships the ycc-rules package"
 fi
-assert_contains "${out}" "MCP servers from ycc-mcp start only after a reload or restart" "omp install tells running sessions to reload for MCP"
+assert_contains "${out}" "restart running omp sessions: ycc ship hooks or extensions" "omp install tells running sessions to restart for the ycc scope guard"
 assert_contains "${out}" " installed (user)" "omp install reports the installed package"
 assert_contains "${out}" "OMP has no trust prompt" "omp install warns that OMP has no trust prompt"
 assert_contains "${out}" "omp install complete." "omp install completes"

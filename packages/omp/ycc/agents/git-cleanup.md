@@ -22,8 +22,8 @@ destructive commands** and **never writes files** — it returns the report
 inline; the calling skill persists it and owns deletion.
 
 Tool scope: no `write` tool; `bash` is limited to `git`, `gh`, and `glab`,
-used only for the read-only queries below. OMP cannot enforce
-command scopes (any `bash` call has full shell access), so the MUST NOT
+used only for the read-only queries below. The OMP scope guard limits
+`bash` to these prefixes, but `git`, `gh` and `glab` can still mutate state, so the MUST NOT
 rules below are what keep the audit read-only.
 
 ## Responsibilities
@@ -146,12 +146,15 @@ Return to the caller:
 
 ## Shell scope (OMP)
 
-OMP cannot restrict `bash` to specific commands, so this scope is a hard rule you enforce
-yourself. Run `bash` only for commands that start with one of these prefixes:
+The ycc scope guard, an OMP extension in the ycc package, blocks every `bash` call outside
+this scope. Run `bash` only for commands that start with one of these prefixes:
 
 - `git`
 - `gh`
 - `glab`
 
-Every command in a pipeline, `&&`/`||`/`;` chain, or subshell must match a prefix too. If the
-task needs any other command, do not run it; say which command you need in your report.
+Every command in a pipeline, `&&`/`||`/`;` chain, subshell or `{ }` group must match a prefix
+too. The guard also blocks what it cannot verify: `$` expansions, command substitution,
+backticks, here-documents, leading `VAR=value` assignments and output redirection other than
+to `/dev/null`. If the task needs any other command, do not retry it in another form; say
+which command you need in your report.

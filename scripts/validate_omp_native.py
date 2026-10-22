@@ -12,8 +12,9 @@ output and need no omp binary. They mirror omp 18.12.x's own catalog parser
 - manifests: `.omp-plugin/plugin.json`, `.claude-plugin/plugin.json` and package.json per
   included row, each named after the package key, with the lockstep version that the catalog
   entry and metadata also carry; unique, valid runtime package names;
-- closure: the ycc root holds only manifests and skills/agents/commands; every source skill,
-  agent and the shared stub ship; every command has its skill; every skill:// reference resolves;
+- closure: the ycc root holds only manifests, skills/agents/commands and the scope guard; every
+  source skill, agent and the shared stub ship; every command has its skill; every skill://
+  reference resolves;
 - MCP closure: an MCP-only root (ycc-mcp) holds only its manifests and `.mcp.json`, which is
   byte-identical to generate_omp_packages.omp_mcp_bytes(mcp-configs/mcp.json) (YAN-1291: a
   later http/sse duplicate connection carries `ycc-server=<name>`), parses with an `mcpServers`
@@ -21,12 +22,14 @@ output and need no omp binary. They mirror omp 18.12.x's own catalog parser
 - rules closure (YAN-1175): a rules-only root (ycc-rules) holds only its manifests and a flat
   `rules/` of regular `ycc-*.md` files (no subdirectories or symlinks) whose names and bytes
   equal generate_omp_rules' rendering of ycc/rules;
-- code surfaces (YAN-1174): no OMP root ships hooks, extensions or tools. ycc ships no OMP
-  hooks: herdr session reporting is herdr's own integration (`herdr integration install omp`)
-  and WorktreeCreate has no OMP event (ADR 0002). A package.json `extensions`/`hooks`/`tools`
-  key (top level or under `omp`/`pi`), the same keys in a plugin manifest, a top-level
-  hooks/, extensions/ or tools/ directory, any hooks.json, and any JS/TS module outside
-  skills/ are rejected;
+- code surfaces (YAN-1174, YAN-1250): the only OMP code is the ycc agent scope guard. The ycc
+  package.json must declare exactly `omp.extensions: ["./extensions/scope-guard.ts"]` (agents never
+  ship without their guard), and `extensions/` must hold exactly scope-guard.ts (the template
+  bytes) and agent-scopes.json. ycc ships no OMP hooks: herdr session reporting is herdr's own
+  integration (`herdr integration install omp`) and WorktreeCreate has no OMP event (ADR 0002).
+  Any other package.json `extensions`/`hooks`/`tools` key (top level or under `omp`/`pi`), the
+  same keys in a plugin manifest, a top-level hooks/, extensions/ or tools/ directory, any
+  hooks.json, and any JS/TS module outside skills/ are rejected;
 - hook verdicts (YAN-1174, checkout only): every ycc lifecycle-hook source and registration
   has an entry in HOOK_VERDICTS and no entry is stale; the spike dossier's §3 matrix row for
   each entry holds its verdict token; no OMP contract doc promises a ycc herdr shim.
@@ -50,7 +53,9 @@ from package_model import Package, PackageModel, load_package_model
 NAME_SEGMENT = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$")
 MAX_NAME_LENGTH = 64
 RUNTIME_PACKAGE_NAME = re.compile(r"^(?:@[a-zA-Z0-9][a-zA-Z0-9._~-]*/)?[a-zA-Z0-9][a-zA-Z0-9._~-]*$")
-ROOT_ENTRIES = frozenset({".omp-plugin", ".claude-plugin", "package.json", *generator.COMPONENT_DIRS})
+ROOT_ENTRIES = frozenset(
+    {".omp-plugin", ".claude-plugin", "package.json", *generator.COMPONENT_DIRS, generator.EXTENSION_DIR.name}
+)
 MCP_ROOT_ENTRIES = frozenset({".omp-plugin", ".claude-plugin", "package.json", generator.MCP_CONFIG.name})
 RULES_ROOT_ENTRIES = frozenset({".omp-plugin", ".claude-plugin", "package.json", generator.RULES_DIR.name})
 SKILL_REF = re.compile(r"skill://([A-Za-z0-9][A-Za-z0-9-]*)(/[^\s`'\"()\[\]|,;<>]*)?")
@@ -62,8 +67,10 @@ CODE_SURFACE_KEYS = frozenset({"extensions", "hooks", "tools"})
 CODE_SURFACE_DIRS = frozenset({"hooks", "extensions", "tools"})
 CODE_SUFFIXES = (".ts", ".js", ".mjs", ".cjs")
 CODE_SURFACE_MESSAGE = (
-    "ycc OMP packages ship no hooks or extensions (herdr reporting is herdr's own integration; ADR 0002)"
+    "ycc OMP packages ship no hooks or extensions besides the ycc agent scope guard "
+    "(herdr reporting is herdr's own integration; ADR 0002)"
 )
+GUARD_FILES = frozenset({generator.SCOPE_GUARD, generator.AGENT_SCOPES})
 PLUGIN_MANIFESTS = (Path(".omp-plugin/plugin.json"), Path(".claude-plugin/plugin.json"))
 
 # Every ycc lifecycle-hook registration -> (OMP verdict token, row anchor in the spike §3 matrix).
@@ -208,24 +215,64 @@ def inactive_root_errors(root: Path, model: PackageModel, packages: tuple[Packag
     return errors
 
 
-def code_key_errors(rel: Path, payload: dict[str, Any], *, nested: bool) -> list[str]:
+def code_key_errors(rel: Path, payload: dict[str, Any], *, nested: bool, guard: bool = False) -> list[str]:
     keys = [key for key in sorted(CODE_SURFACE_KEYS) if key in payload]
+    errors: list[str] = []
     if nested:
         for scope in ("omp", "pi"):
             section = payload.get(scope)
-            if isinstance(section, dict):
-                keys.extend(f"{scope}.{key}" for key in sorted(CODE_SURFACE_KEYS) if key in section)
-    return [f"{rel}#{key}: {CODE_SURFACE_MESSAGE}" for key in keys]
+            if not isinstance(section, dict):
+                continue
+            for key in sorted(CODE_SURFACE_KEYS):
+                if key not in section:
+                    continue
+                if guard and scope == "omp" and key == "extensions":
+                    if section[key] != generator.EXTENSION_ENTRIES:
+                        errors.append(f"{rel}#omp.extensions: must be exactly {generator.EXTENSION_ENTRIES}")
+                    continue
+                keys.append(f"{scope}.{key}")
+    if guard and not (isinstance(payload.get("omp"), dict) and "extensions" in payload["omp"]):
+        errors.append(f"{rel}#omp.extensions: missing; ycc agents must not ship without the scope guard")
+    return [*errors, *(f"{rel}#{key}: {CODE_SURFACE_MESSAGE}" for key in keys)]
+
+
+def scope_guard_errors(root: Path) -> list[str]:
+    """The ycc root ships exactly the generated scope guard, with the template's bytes."""
+    base = root / generator.COMPONENT_ROOT
+    errors: list[str] = []
+    for rel in sorted(GUARD_FILES):
+        path = base / rel
+        if path.is_symlink() or not path.is_file():
+            errors.append(f"{generator.COMPONENT_ROOT / rel}: missing scope guard file")
+    template = generator.REPO_ROOT / generator.SCOPE_GUARD_TEMPLATE
+    guard = base / generator.SCOPE_GUARD
+    if guard.is_file() and guard.read_bytes() != template.read_bytes():
+        errors.append(
+            f"{generator.COMPONENT_ROOT / generator.SCOPE_GUARD}: must equal {generator.SCOPE_GUARD_TEMPLATE}"
+        )
+    scopes = base / generator.AGENT_SCOPES
+    if scopes.is_file():
+        try:
+            payload = load_object(scopes)
+        except ValueError as exc:
+            errors.append(str(exc))
+        else:
+            if payload.get("schemaVersion") != generator.SCOPE_SCHEMA_VERSION or not isinstance(
+                payload.get("agents"), dict
+            ):
+                errors.append(f"{generator.COMPONENT_ROOT / generator.AGENT_SCOPES}: malformed scope data")
+    return errors
 
 
 def hook_surface_errors(root: Path, model: PackageModel) -> list[str]:
-    """No OMP package root may carry anything OMP loads as code (extensions, hooks, tools)."""
+    """No OMP package root may carry code OMP loads (extensions, hooks, tools) besides the scope guard."""
     errors: list[str] = []
     roots = dict.fromkeys((*generator.native_package_roots(model.packages), generator.COMPONENT_ROOT))
     for package_root in roots:
         base = root / package_root
         if not base.is_dir():
             continue
+        guarded = package_root == generator.COMPONENT_ROOT
         manifests = ((generator.PACKAGE_JSON, True), *((manifest, False) for manifest in PLUGIN_MANIFESTS))
         for manifest, nested in manifests:
             if not (base / manifest).is_file():
@@ -235,14 +282,24 @@ def hook_surface_errors(root: Path, model: PackageModel) -> list[str]:
             except ValueError as exc:
                 errors.append(f"{package_root / manifest}: {exc}")
                 continue
-            errors.extend(code_key_errors(package_root / manifest, payload, nested=nested))
+            errors.extend(code_key_errors(package_root / manifest, payload, nested=nested, guard=guarded and nested))
+        if guarded and (base / "agents").is_dir():
+            errors.extend(scope_guard_errors(root))
         for entry in sorted(base.iterdir()):
-            if entry.is_dir() and entry.name in CODE_SURFACE_DIRS:
+            if (
+                entry.is_dir()
+                and entry.name in CODE_SURFACE_DIRS
+                and not (guarded and entry.name == generator.EXTENSION_DIR.name)
+            ):
                 errors.append(f"{package_root / entry.name}: {CODE_SURFACE_MESSAGE}")
         for path in sorted(base.rglob("*")):
-            if not path.is_file():
+            if not path.is_file() and not path.is_symlink():
                 continue
             rel = path.relative_to(base)
+            if guarded and rel.parts[0] == generator.EXTENSION_DIR.name:
+                if rel not in GUARD_FILES or path.is_symlink():
+                    errors.append(f"{package_root / rel}: {CODE_SURFACE_MESSAGE}")
+                continue
             if rel.parts[0] in CODE_SURFACE_DIRS:
                 continue  # reported once as a directory above
             if path.name == "hooks.json" or (path.suffix in CODE_SUFFIXES and rel.parts[0] != "skills"):
@@ -344,7 +401,7 @@ def closure_errors(root: Path, source_root: Path, *, has_manifests: bool) -> lis
     rel = generator.COMPONENT_ROOT
     if not package_root.is_dir():
         return [f"{rel}: missing package root"]
-    allowed = ROOT_ENTRIES if has_manifests else frozenset(generator.COMPONENT_DIRS)
+    allowed = ROOT_ENTRIES if has_manifests else frozenset((*generator.COMPONENT_DIRS, generator.EXTENSION_DIR.name))
     for entry in sorted(package_root.iterdir()):
         if entry.name not in allowed:
             errors.append(f"{rel / entry.name}: unexpected entry outside the component trees and manifests")

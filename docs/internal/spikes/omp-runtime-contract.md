@@ -22,7 +22,7 @@ Verdict key: **native** (works as shipped for Claude Code), **adapter** (works o
    - `WorktreeCreate` (`worktree-create.sh`) is **unsupported**. OMP has no worktree-creation event.
    - herdr session reporting is **native (herdr-owned)**: herdr's own `herdr integration install omp` extension reports the session and agent state, and ycc ships no OMP reporter (YAN-1174, verified live). (The Claude-side `ycc/settings/hooks/herdr-agent-state.sh` is installed and managed by herdr itself and is not registered by ycc.)
 3. **Packages.**
-   - `ycc`, `ycc-mcp`, and `ycc-rules` become OMP packages. `ycc-hooks` is **excluded** on OMP (YAN-1174): ycc ships no OMP hooks or extensions. `ycc-rules` ships 31 flat `ycc-<family>-<stem>.md` rules; OMP `globs` are advisory, so language-rule parity is **partial** (YAN-1175).
+   - `ycc`, `ycc-mcp`, and `ycc-rules` become OMP packages. `ycc-hooks` is **excluded** on OMP (YAN-1174): ycc ships no OMP hooks. The `ycc` package's only extension is the agent scope guard (YAN-1250). `ycc-rules` ships 31 flat `ycc-<family>-<stem>.md` rules; OMP `globs` are advisory, so language-rule parity is **partial** (YAN-1175).
    - `installer-fallback` delivers `AGENTS.md` (`install.sh --rules`) and an opt-in user `config.yml` merge (`install.sh --settings`); the status line is **unsupported** (YAN-1175).
    - `ycc-all` is a **fallback**: the marketplace does not resolve dependencies, so users install the parts separately.
 4. **Agents, skills, rules.** These are **adapter** surfaces.
@@ -298,7 +298,7 @@ Also:
   - Project-scope installs, project overrides, and project-level foreign configs load without a prompt.
   - Plugin MCP stdio servers were spawned at `--mode rpc` session start with no confirmation.
 
-**Trust model for ycc:** installing or enabling an OMP ycc package grants full user privileges to every extension, tool, and MCP command it ships. ycc ships no OMP extensions or tools (YAN-1174), so today that is the `ycc-mcp` MCP commands. Each of those must therefore be side-effect-free at load, must not read secrets beyond its declared `env` placeholders, and must fail closed when its external dependency (a token) is absent. Install docs must say so, because no OMP prompt will.
+**Trust model for ycc:** installing or enabling an OMP ycc package grants full user privileges to every extension, tool, and MCP command it ships. ycc ships no OMP tools; its one extension is the `ycc` package's agent scope guard (YAN-1250), which only reads its bundled `agent-scopes.json` and blocks calls. Beyond that, the surface is the `ycc-mcp` MCP commands. Each of those must therefore be side-effect-free at load, must not read secrets beyond its declared `env` placeholders, and must fail closed when its external dependency (a token) is absent. Install docs must say so, because no OMP prompt will.
 
 ### 2.11 Landing versions
 

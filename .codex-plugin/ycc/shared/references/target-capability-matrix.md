@@ -364,18 +364,35 @@ Partial: `scripts/generate_omp_agents.py` generates every agent as an OMP task a
 `packages/omp/ycc/agents/`, and it loads via `omp --plugin-dir`. `name` and `description` are kept.
 Tools map to OMP IDs (`WebSearch` → `web_search`, `WebFetch` → `read`, `NotebookEdit` → `edit`).
 Claude tool names in agent prose are rewritten the same way, but only in tool contexts; fenced
-code and other code spans stay verbatim. An `mcp__<server>__*` entry is dropped only when
-`<server>` is configured in `mcp-configs/mcp.json`; an unknown server fails generation. OMP
-mounts every MCP tool in every agent, including agents that listed none (such as the read-only
-auditors), and cannot restrict MCP tools per agent. Models map to roles from `ycc/settings/models.json`
+code and other code spans stay verbatim. An `mcp__<server>__<tool>` entry must name a server
+configured in `mcp-configs/mcp.json` (an unknown server fails generation) and is not a frontmatter
+tool: OMP mounts every MCP tool in every agent. Models map to roles from `ycc/settings/models.json`
 `targets.omp.agentModels`: `opus` → `@slow`, `sonnet` → `@task`, and `inherit` emits no `model:`.
 `@slow` and `@task` resolve through the user's `modelRoles`, which `install.sh --target omp --settings`
 can set (opt-in). `color` is dropped. Generation fails on any
 other key, tool or model. It also fails on OMP's reserved session names (`main`, `sub`) and on
 names that would shadow OMP's bundled agents (`task`, `sonic`, `scout`, `reviewer`,
-`security-reviewer`, `seance`). OMP has no command-scoped shell permission, so `Bash(<cmd>:*)`
-becomes `bash` plus a `## Shell scope (OMP)` prompt section.
-Subagents run with `approvalMode: yolo`, so that scope is a prompt rule, not enforced. OMP drops
+`security-reviewer`, `seance`). Agent tool scope is enforced (YAN-1250): the generator renders each
+agent's `Bash(<prefix>:*)` prefixes and `mcp__*` tools once, into
+`packages/omp/ycc/extensions/agent-scopes.json`, and the scope guard extension beside it
+(`extensions/scope-guard.ts`, declared in the package's `package.json` `omp.extensions`) reads that
+file at load. Its `tool_call` handler acts only when `ctx.agent.kind` is `sub` and `ctx.agent.name`
+is a ycc agent; the main session and other agents pass through. A scoped agent's `bash` command is
+split into every pipeline, `&&`/`||`/`;`/`&`/newline chain, `( )` subshell and `{ }` group segment,
+and each must match a prefix token by token after quote removal (`*` is exactly one argument). The
+guard fails closed on `$` expansions, command substitution, backticks, process substitution,
+here-documents, output redirection other than `/dev/null`, leading `VAR=value`, unbalanced quotes
+or groups, and `find -exec`; wrappers such as `sudo`, `env`, `xargs` or `bash -c` are blocked unless
+a prefix names them. The same data renders the agent's `## Shell scope (OMP)` prompt section. MCP
+calls (`mcp__*`, top-level or through `write xd://mcp__*`, which OMP re-emits as a nested
+`tool_call`) are blocked for agents that declared none and limited to the declared
+`<server>`/`ycc-mcp:<server>` tools otherwise; `mcp://` resource reads are blocked for agents with a
+declared MCP list. Plain `Bash` keeps full shell access. Limits: an allowed prefix trusts that
+command's own options (`git -c`, `gh api`); MCP resources read through a server's native URI scheme
+are not caught; the guard loads only from an installed package (`install.sh --target omp`, `omp
+plugin install` or `link`), not from `omp --plugin-dir`, and not under `--no-extensions`; OMP
+loads extensions at session start, so a running session needs a restart. Verified live on omp
+18.12.5 (`ctx.agent` since 18.12.2) with a scripted model provider. OMP drops
 agent `model:` only for Claude-dialect roots (a `.claude-plugin/plugin.json` without an
 `.omp-plugin/plugin.json`). The generated `packages/omp/ycc` root ships `.omp-plugin/plugin.json`,
 so it keeps agent `model:` both under `--plugin-dir` and as a marketplace install (YAN-1171).
@@ -393,7 +410,8 @@ Source: ADR 0002.
 Unsupported. OMP never runs shell hooks or `hooks/hooks.json`; hooks load only as TypeScript
 `ExtensionAPI` factories (`pi.on` events such as `tool_call`, `tool_result`, `session_stop`).
 ycc ships no OMP hooks; herdr session reporting is herdr's own integration (`herdr integration install omp`)
-and `WorktreeCreate` has no OMP event (YAN-1174). Source: ADR 0002; spike §2.4.
+and `WorktreeCreate` has no OMP event (YAN-1174). The one ycc OMP extension is the agent scope guard
+(`tool_call`, see AGENTS:omp); it ports no Claude hook. Source: ADR 0002; spike §2.4.
 
 **HOOKS.PostToolUse:omp**
 Same constraint as HOOKS.PreToolUse:omp. The closest OMP event is `tool_result`.

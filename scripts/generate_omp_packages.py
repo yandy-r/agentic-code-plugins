@@ -18,13 +18,19 @@ Each included native OMP row becomes a package root at packages/omp/<key>/ carry
   them when it starts a server.
 - for a rules-only row (ycc-rules), a flat `rules/` tree of `ycc-<family>-<stem>.md` files rendered
   from ycc/rules by generate_omp_rules.
-
+- for the ycc row, the agent scope guard (YAN-1250): `extensions/scope-guard.ts`, copied from
+  scripts/omp_templates/scope-guard.ts, and `extensions/agent-scopes.json`, the per-agent shell
+  prefixes and MCP tools generate_omp_agents renders from ycc/agents (the same data renders each
+  agent's `## Shell scope (OMP)` section). package.json declares it in `omp.extensions`, so OMP
+  loads it at session start and blocks out-of-scope `bash` and MCP calls in ycc subagents. Both
+  files ship with the component trees, so the agents never ship without their guard.
 All manifests and the catalog entry carry the lockstep version from the model's version source.
 
 Selection keys on runtime == "omp" and mechanism == "native". Only included rows are emitted,
 and only the {skills, agents, commands, shared}, {mcp} and {rules} component sets have emitters
 here; an included or listed row with any other set fails closed. Hooks never get an OMP emitter
-(herdr's own integration; ADR 0002, YAN-1174); rules ship flat in `ycc-rules` (YAN-1175).
+(herdr's own integration; ADR 0002, YAN-1174); the scope guard is the one OMP extension ycc
+ships; rules ship flat in `ycc-rules` (YAN-1175).
 The root `.omp-plugin/marketplace.json` is written only when a row is listed and holds exactly
 the listed rows with fork-safe relative sources; otherwise it is removed. `--export DIR` writes
 a repository-shaped tree outside the checkout whose catalog also lists unlisted included rows,
@@ -84,6 +90,13 @@ COMPONENT_DIRS = ("skills", "agents", "commands")
 # generate_omp_{skills,agents,commands} write one tree, always under this package root.
 WORKFLOW_PACKAGE = "ycc"
 COMPONENT_ROOT = OUTPUT_ROOT / WORKFLOW_PACKAGE
+# The agent scope guard (YAN-1250), shipped beside the component trees in the ycc root.
+EXTENSION_DIR = Path("extensions")
+SCOPE_GUARD = EXTENSION_DIR / "scope-guard.ts"
+AGENT_SCOPES = EXTENSION_DIR / "agent-scopes.json"
+SCOPE_GUARD_TEMPLATE = Path("scripts/omp_templates/scope-guard.ts")
+SCOPE_SCHEMA_VERSION = 1
+EXTENSION_ENTRIES = [f"./{SCOPE_GUARD.as_posix()}"]
 
 
 @dataclass(frozen=True)
@@ -96,6 +109,7 @@ class Payload:
 
 
 ComponentSource = Callable[[Path], dict[Path, Payload]]
+GuardSource = Callable[[Path, list[str]], dict[Path, Payload]]
 
 
 def omp_runtime(package: Package) -> RuntimePackage | None:
@@ -198,9 +212,15 @@ def manifest_payloads(packages: Iterable[Package], version: str, author: dict[st
         manifest = {"name": package.key, "version": version, "description": package.description, "author": author}
         output[root / OMP_MANIFEST] = json_payload(manifest)
         output[root / CLAUDE_MANIFEST] = json_payload(manifest)
-        output[root / PACKAGE_JSON] = json_payload(
-            {"name": package.key, "version": version, "description": package.description, "private": True}
-        )
+        package_json: dict[str, Any] = {
+            "name": package.key,
+            "version": version,
+            "description": package.description,
+            "private": True,
+        }
+        if package.key == WORKFLOW_PACKAGE:
+            package_json["omp"] = {"extensions": EXTENSION_ENTRIES}
+        output[root / PACKAGE_JSON] = json_payload(package_json)
     return output
 
 
@@ -340,6 +360,21 @@ def component_payloads(root: Path) -> dict[Path, Payload]:
         }
 
 
+def scope_guard_payloads(root: Path, mcp_namespaces: list[str]) -> dict[Path, Payload]:
+    """The scope guard extension and the agent scope data it enforces (YAN-1250)."""
+    import generate_omp_agents as agents
+
+    scopes = {
+        "schemaVersion": SCOPE_SCHEMA_VERSION,
+        "mcpNamespaces": mcp_namespaces,
+        "agents": agents.agent_scopes(),
+    }
+    return {
+        root / SCOPE_GUARD: Payload((REPO_ROOT / SCOPE_GUARD_TEMPLATE).read_bytes()),
+        root / AGENT_SCOPES: json_payload(scopes),
+    }
+
+
 def build_output(
     model: PackageModel,
     version: str,
@@ -347,12 +382,15 @@ def build_output(
     *,
     include_unlisted: bool = False,
     components: ComponentSource = component_payloads,
+    guard: GuardSource = scope_guard_payloads,
     repo_root: Path = REPO_ROOT,
 ) -> tuple[dict[Path, Payload], tuple[Path, ...]]:
     """Resolve the complete expected output and owned roots before any write.
 
-    The ycc component trees are always expected: the sibling generators write them
-    unconditionally, so a deferred ycc row only loses its manifests and catalog entry.
+    The ycc component trees and their scope guard are always expected: the sibling generators
+    write the trees unconditionally, so a deferred ycc row only loses its manifests and catalog
+    entry. OMP names a plugin MCP server `<package>:<server>`, so every modeled MCP package key is
+    a namespace the guard accepts in front of a declared server.
     """
     roots = tuple(dict.fromkeys((COMPONENT_ROOT, *native_package_roots(model.packages))))
     selected = native_packages(model.packages)
@@ -360,6 +398,7 @@ def build_output(
     output.update(mcp_payloads(selected, repo_root))
     output.update(rules_payloads(selected, repo_root))
     output.update(components(COMPONENT_ROOT))
+    output.update(guard(COMPONENT_ROOT, sorted(package.key for package in model.packages if is_mcp_package(package))))
     catalog = build_marketplace(model.packages, version, author, include_unlisted=include_unlisted)
     if catalog is not None:
         output[MARKETPLACE_PATH] = json_payload(catalog)
