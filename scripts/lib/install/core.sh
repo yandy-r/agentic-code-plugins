@@ -176,8 +176,9 @@ remove_settings() {
 }
 
 # plugins_source <target> — echo "<merge profile> <source file>" for the
-# settings file that carries <target>'s plugins config group (legacy codex
-# layout; the native codex route lists through codex_install.py).
+# settings file that carries <target>'s plugins (and claude's hooks) config
+# group (legacy codex layout; the native codex route lists through
+# codex_install.py).
 plugins_source() {
     case "$1" in
         claude)   echo "claude-settings ${SCRIPT_DIR}/ycc/settings/settings.json" ;;
@@ -187,51 +188,67 @@ plugins_source() {
     esac
 }
 
-# plugins_selection <target> <groups> — apply --plugins to one settings merge.
-# Sets PLUGINS_GROUPS to <groups>, minus 'plugins' when <target> manages none
-# of the selected plugins (warns), and PLUGINS_SELECT to the helper arguments
-# narrowing only the plugins group (empty without --plugins or without the
-# group, so settings/hooks in the same run always stay whole). A target with
-# an opt-in plugin catalog (<t>_catalog_names, opencode) gets its selected
-# catalog names split off into PLUGINS_CATALOG_SELECT; a selection of catalog
-# names only drops the bundle 'plugins' group without a warning.
-plugins_selection() {
-    local target="$1"
-    PLUGINS_GROUPS="$2"
-    PLUGINS_SELECT=()
+# config_group_selection <target> <groups> — apply every config-group
+# selector (select.sh SELECTION_GROUP kinds: --plugins, --hooks) to one
+# settings merge. Sets:
+#   CONFIG_GROUPS          <groups>, minus each narrowed group <target>
+#                          manages none of the selected names for (warns);
+#   CONFIG_GROUP_ENTRIES   [<group>]=<csv> of the names kept per narrowed group;
+#   CONFIG_SELECT          helper arguments narrowing only those groups (one
+#                          --entry-groups g1,g2 --entries <union>; plugin keys
+#                          and hook event names never collide), empty when
+#                          nothing is narrowed, so the other groups in the
+#                          same run always stay whole;
+#   PLUGINS_CATALOG_SELECT the selected opt-in catalog plugins of a target
+#                          with <t>_catalog_names (opencode), split off the
+#                          bundle merge; a selection of catalog names only
+#                          drops the bundle 'plugins' group without a warning.
+declare -gA CONFIG_GROUP_ENTRIES=()
+config_group_selection() {
+    local target="$1" kind group selection name
+    local -a narrowed=() names=() kept=()
+    CONFIG_GROUPS="$2"
+    CONFIG_SELECT=()
+    CONFIG_GROUP_ENTRIES=()
     PLUGINS_CATALOG_SELECT=""
-    has_selection plugins || return 0
-    [[ ",${PLUGINS_GROUPS}," == *",plugins,"* ]] || return 0
-    local selection
-    selection="$(selection_for_target plugins "${target}")"
-    if [[ -n "${selection}" ]] && declare -F "${target}_catalog_names" >/dev/null; then
-        local -a catalog=() bundle=()
-        local name
-        mapfile -t catalog < <("${target}_catalog_names")
-        for name in ${selection//,/ }; do
-            if [[ " ${catalog[*]} " == *" ${name} "* ]]; then
-                PLUGINS_CATALOG_SELECT+="${PLUGINS_CATALOG_SELECT:+,}${name}"
-            else
-                bundle+=("${name}")
-            fi
-        done
-        selection="$(IFS=','; echo "${bundle[*]:-}")"
-    fi
-    if [[ -z "${selection}" ]]; then
-        [[ -n "${PLUGINS_CATALOG_SELECT}" ]] \
-            || warn "none of the selected plugins ($(selection_for plugins | tr ',' ' ')) is managed for ${target} — skipping its plugins group"
-        local -a kept=()
-        local group
-        for group in ${PLUGINS_GROUPS//,/ }; do
-            [[ "${group}" == plugins ]] || kept+=("${group}")
-        done
-        local IFS=','
-        PLUGINS_GROUPS="${kept[*]:-}"
-        return 0
-    fi
-    # shellcheck disable=SC2034  # PLUGINS_SELECT is read by the target libs.
-    PLUGINS_SELECT=(--entry-groups plugins --entries "${selection}")
-    info "Plugins: ${selection//,/, }"
+    for kind in "${SELECTABLE_KINDS[@]}"; do
+        group="${SELECTION_GROUP[${kind}]:-}"
+        [[ -n "${group}" ]] || continue
+        has_selection "${kind}" || continue
+        [[ ",${CONFIG_GROUPS}," == *",${group},"* ]] || continue
+        selection="$(selection_for_target "${kind}" "${target}")"
+        if [[ "${kind}" == plugins && -n "${selection}" ]] && declare -F "${target}_catalog_names" >/dev/null; then
+            local -a catalog=() bundle=()
+            mapfile -t catalog < <("${target}_catalog_names")
+            for name in ${selection//,/ }; do
+                if [[ " ${catalog[*]} " == *" ${name} "* ]]; then
+                    PLUGINS_CATALOG_SELECT+="${PLUGINS_CATALOG_SELECT:+,}${name}"
+                else
+                    bundle+=("${name}")
+                fi
+            done
+            selection="$(IFS=','; echo "${bundle[*]:-}")"
+        fi
+        if [[ -z "${selection}" ]]; then
+            [[ "${kind}" == plugins && -n "${PLUGINS_CATALOG_SELECT}" ]] \
+                || warn "none of the selected ${SELECTION_NOUNS[${kind}]} ($(selection_for "${kind}" | tr ',' ' ')) is managed for ${target} — skipping its ${group} group"
+            kept=()
+            for name in ${CONFIG_GROUPS//,/ }; do
+                [[ "${name}" == "${group}" ]] || kept+=("${name}")
+            done
+            CONFIG_GROUPS="$(IFS=','; echo "${kept[*]:-}")"
+            continue
+        fi
+        # shellcheck disable=SC2034  # CONFIG_GROUP_ENTRIES is read by the target libs.
+        CONFIG_GROUP_ENTRIES[${group}]="${selection}"
+        narrowed+=("${group}")
+        names+=("${selection}")
+        info "${SELECTION_NOUNS[${kind}]^}: ${selection//,/, }"
+    done
+    [[ ${#narrowed[@]} -gt 0 ]] || return 0
+    local IFS=','
+    # shellcheck disable=SC2034  # CONFIG_SELECT is read by the target libs.
+    CONFIG_SELECT=(--entry-groups "${narrowed[*]}" --entries "${names[*]}")
 }
 
 # ---------------------------------------------------------------------------

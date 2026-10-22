@@ -1,8 +1,11 @@
 # shellcheck shell=bash
 # select.sh — item selection: --<kind> <names> narrows a step to the named
 # items (--mcps for the mcp step, --skills / --agents / --commands for the
-# standalone skills / agents / commands slices, --plugins for the settings
-# step's plugins config group), and 'list [<kind>]' prints them.
+# standalone skills / agents / commands slices, --mods for the claude mods
+# step, --plugins / --hooks for the settings step's plugins / hooks config
+# groups), and 'list [<kind>]' prints them. install keeps '--hooks' as its
+# boolean "also run the hooks step" flag, so --hooks selects only on
+# sync/remove (install.sh's parser decides).
 #
 # Adding a kind: append it to SELECTABLE_KINDS, add its registry rows below
 # and define a '<kind>_names <target>' adapter (names the repo ships for
@@ -16,20 +19,22 @@
 # config_groups_for_target from steps.sh, and PACKAGE / INTENTS / CLI_NAME at
 # call time.
 
-SELECTABLE_KINDS=(mcps skills agents commands plugins)
-declare -gA SELECTION_STEP=([mcps]=mcp [skills]=skills [agents]=agents [commands]=commands [plugins]=settings)
-declare -gA SELECTION_NOUN=([mcps]="MCP server" [skills]=skill [agents]=agent [commands]=command [plugins]=plugin)
-declare -gA SELECTION_NOUNS=([mcps]="MCP servers" [skills]=skills [agents]=agents [commands]=commands [plugins]=plugins)
+SELECTABLE_KINDS=(mcps skills agents commands plugins mods hooks)
+declare -gA SELECTION_STEP=([mcps]=mcp [skills]=skills [agents]=agents [commands]=commands [plugins]=settings [mods]=mods [hooks]=settings)
+declare -gA SELECTION_NOUN=([mcps]="MCP server" [skills]=skill [agents]=agent [commands]=command [plugins]=plugin [mods]=mod [hooks]="hook event")
+declare -gA SELECTION_NOUNS=([mcps]="MCP servers" [skills]=skills [agents]=agents [commands]=commands [plugins]=plugins [mods]=mods [hooks]="hook events")
 declare -gA SELECTION_STEP_HINT=(
     [mcps]="sync/remove --intent mcp, install --mcp or --only mcp"
     [skills]="it narrows the standalone skills slice; use --intent skills or --only skills"
     [agents]="it narrows the standalone agents slice; use --intent agents or --only agents"
     [commands]="it narrows the standalone commands slice; use --intent commands or --only commands"
     [plugins]="it narrows the plugins config group; use --intent plugins, or install --only settings"
+    [mods]="claude only; use --intent mods or --only mods"
+    [hooks]="it narrows the hooks config group; use sync/remove --intent hooks"
 )
 # SELECTION_GROUP[<kind>] — the managed config group (config_groups_for_target)
 # a kind narrows; unset for kinds that narrow a whole step.
-declare -gA SELECTION_GROUP=([plugins]=plugins)
+declare -gA SELECTION_GROUP=([plugins]=plugins [hooks]=hooks)
 # SELECTION[<kind>] — the names given with --<kind>, comma-separated.
 declare -gA SELECTION=()
 
@@ -59,6 +64,25 @@ plugins_names() {
     if declare -F "${1}_catalog_names" >/dev/null; then
         "${1}_catalog_names"
     fi
+}
+
+# mods_names <target> — the mods claude's mods step installs (the ycc-mods
+# marketplace's plugins); other targets have no mods step.
+mods_names() {
+    [[ "$1" == claude ]] || return 0
+    mods_plugin_names
+}
+
+# hooks_names <target> — the hook events <target>'s hooks config group
+# manages (claude: settings.json 'hooks' keys such as WorktreeCreate).
+# Selection is per event, not per hook script. Empty for targets without a
+# hooks group; the group shares the plugins group's settings source.
+hooks_names() {
+    [[ ",$("${1}_config_groups")," == *",hooks,"* ]] || return 0
+    local profile src
+    read -r profile src <<< "$(plugins_source "$1")"
+    python3 "${CONFIG_MERGE_HELPER}" --profile "${profile}" --source "${src}" \
+        --destination /dev/null --groups hooks --list-entries
 }
 
 # skills_names <target> / agents_names <target> — the selectable entries of
@@ -130,6 +154,32 @@ kind_step_selected() {
     target_runs_step "$2" "${SELECTION_STEP[$1]}" || return 1
     [[ -n "${SELECTION_GROUP[$1]:-}" ]] || return 0
     target_merges_group "$2" "${SELECTION_GROUP[$1]}"
+}
+
+# skip_unselectable_steps <target> — after run_target's step mapping: a
+# SELECTION_GROUP kind whose group is also a step (--hooks: the hooks step)
+# cannot narrow that step on a target without the config group (cursor's
+# hooks step has no hook-event selection), so the step is dropped with a
+# warning instead of running whole. Rewrites ONLY_STEPS (exclusive mode).
+skip_unselectable_steps() {
+    local target="$1" kind group step
+    local -a kept=()
+    for kind in "${SELECTABLE_KINDS[@]}"; do
+        group="${SELECTION_GROUP[${kind}]:-}"
+        [[ -n "${group}" ]] || continue
+        has_selection "${kind}" || continue
+        [[ ",$(valid_steps_for_target "${target}")," == *",${group},"* ]] || continue
+        step_enabled "${group}" || continue
+        [[ ",$("${target}_config_groups")," == *",${group},"* ]] && continue
+        warn "${target} has no ${SELECTION_NOUN[${kind}]// /-} selection — skipping its ${group} step"
+        kept=()
+        for step in "${ONLY_STEPS[@]}"; do
+            [[ "${step}" == "${group}" ]] || kept+=("${step}")
+        done
+        ONLY_STEPS=(${kept[@]+"${kept[@]}"})
+        # shellcheck disable=SC2034  # EXCLUSIVE_STEPS is read by steps.sh.
+        EXCLUSIVE_STEPS=1
+    done
 }
 
 # target_runs_step <target> <step> — true when the run executes <step> on

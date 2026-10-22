@@ -192,7 +192,8 @@ config_groups_for_target() {
 }
 
 # run_target <target> <function>
-# Configure intent mapping (sync mode only), then run the target.
+# Configure intent mapping (sync mode only), drop steps a --<kind> selection
+# cannot narrow on <target> (select.sh), then run the target.
 run_target() {
     local target="$1"
     local fn="$2"
@@ -201,7 +202,13 @@ run_target() {
     elif [[ ${#INTENTS[@]} -gt 0 ]]; then
         configure_intents_for_target "${target}"
     fi
+    # --only steps are shared by every target: the skip must not leak.
+    local -a only_saved=(${ONLY_STEPS[@]+"${ONLY_STEPS[@]}"})
+    local exclusive_saved="${EXCLUSIVE_STEPS:-0}"
+    skip_unselectable_steps "${target}"
     "${fn}"
+    ONLY_STEPS=(${only_saved[@]+"${only_saved[@]}"})
+    EXCLUSIVE_STEPS="${exclusive_saved}"
 }
 
 # ---------------------------------------------------------------------------

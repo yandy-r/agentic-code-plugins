@@ -68,9 +68,11 @@ _ycc() {
         --shell)  mapfile -t COMPREPLY < <(compgen -W "bash zsh fish" -- "${cur}"); return ;;
         --dir|--marketplace-source) mapfile -t COMPREPLY < <(compgen -d -- "${cur}"); return ;;
         --*)
-            # --<kind> selectors: names from 'ycc list <kind>'.
+            # --<kind> selectors: names from 'ycc list <kind>'. On install,
+            # --hooks is the boolean "also run the hooks step" and takes no value.
             kind="${prev#--}"
-            [[ "${sub}" != list && " ${kinds} " == *" ${kind} "* ]] && values="$(_ycc_list "${kind}")"
+            [[ "${sub}" == install && "${kind}" == hooks ]] && kind=""
+            [[ -n "${kind}" && "${sub}" != list && " ${kinds} " == *" ${kind} "* ]] && values="$(_ycc_list "${kind}")"
             ;;
     esac
 
@@ -88,7 +90,11 @@ _ycc() {
     fi
 
     local words selectors=""
-    for kind in ${kinds}; do selectors+=" --${kind}"; done
+    for kind in ${kinds}; do
+        # install already offers --hooks as its boolean step flag.
+        [[ "${sub}" == install && "${kind}" == hooks ]] && continue
+        selectors+=" --${kind}"
+    done
     if [[ ${_ycc_cword} -eq 1 ]]; then
         words="install sync remove migrate cli completion list list-mcps"
     else

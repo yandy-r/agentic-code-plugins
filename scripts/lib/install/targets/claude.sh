@@ -5,7 +5,11 @@
 #   claude_supports_repo_mode, claude_reads_agents_skills, sync_claude_target, remove_claude_target
 #
 # Sourced by install.sh (never run directly); inherits SCRIPT_DIR and the
-# shared helpers from core.sh / steps.sh / bundle.sh.
+# shared helpers from core.sh / steps.sh / bundle.sh. The mods step lives in
+# claude-mods.sh.
+
+# shellcheck source=scripts/lib/install/targets/claude-mods.sh
+source "${SCRIPT_DIR}/scripts/lib/install/targets/claude-mods.sh"
 
 # claude_valid_steps — comma-separated steps Claude accepts for --only.
 claude_valid_steps() { echo "base,skills,agents,commands,settings,rules,mcp,hooks,mods"; }
@@ -119,7 +123,7 @@ claude_ycc_plugin_installed() {
 
 # Remove 'local-ycc-plugins' detritus from earlier (broken) versions of the
 # installer that wrote to the wrong files with the wrong schema.
-# ponytail: the inline Python here and in warn_sideloaded_mods stays inline;
+# ponytail: the inline Python here (and in claude-mods.sh) stays inline;
 # move it to a tested scripts/*.py helper if it grows or gains branches.
 cleanup_claude_local_orphans() {
     local files=("${HOME}/.claude.json" "${HOME}/.claude/settings.local.json")
@@ -168,90 +172,6 @@ PY
 }
 
 # ---------------------------------------------------------------------------
-# Claude mods (ycc/mods)
-# ---------------------------------------------------------------------------
-# Mods are Claude Code plugins whose hooks module (hooks/hooks.json
-# "modules") hooks into Claude Code itself. They ship from their own local
-# marketplace, 'ycc-mods', so each one installs, enables and uninstalls like
-# any plugin, in the CLI and the desktop app alike. The marketplace is a
-# directory source: Claude Code loads each mod in place from ycc/mods/<name>,
-# so edits apply on /reload-plugins.
-MODS_MARKETPLACE_NAME="ycc-mods"
-
-# mods_plugin_names — echo one mod name per line from the mods marketplace.
-mods_plugin_names() {
-    python3 - "${SCRIPT_DIR}/ycc/mods/.claude-plugin/marketplace.json" <<'PY'
-import json
-import sys
-
-with open(sys.argv[1], encoding="utf-8") as f:
-    for plugin in json.load(f).get("plugins", []):
-        print(plugin["name"])
-PY
-}
-
-# warn_sideloaded_mods — a mod also listed in CLAUDE_CODE_PLUGIN_DIRS (the
-# per-machine sideload a mod is usually developed under) would load twice.
-warn_sideloaded_mods() {
-    local settings="${HOME}/.claude/settings.json"
-    [[ -f "${settings}" ]] || return 0
-    local dirs
-    dirs="$(python3 - "${settings}" <<'PY' 2>/dev/null || true
-import json
-import sys
-
-try:
-    with open(sys.argv[1], encoding="utf-8") as f:
-        env = json.load(f).get("env") or {}
-except (OSError, ValueError):
-    sys.exit(0)
-print(env.get("CLAUDE_CODE_PLUGIN_DIRS", "") if isinstance(env, dict) else "")
-PY
-)"
-    [[ -n "${dirs}" ]] || return 0
-    local name
-    while IFS= read -r name; do
-        if [[ "${dirs}" == *"/${name}"* ]]; then
-            warn "env.CLAUDE_CODE_PLUGIN_DIRS in ${settings} also loads a '${name}' folder (${dirs})."
-            warn "Remove that entry, or '${name}' loads twice once the ${MODS_MARKETPLACE_NAME} plugin is enabled."
-        fi
-    done < <(mods_plugin_names)
-}
-
-# install_claude_mods — register the ycc-mods marketplace (local checkout)
-# and install every mod it lists at user scope.
-install_claude_mods() {
-    command -v claude >/dev/null 2>&1 || {
-        err "'claude' CLI is required but not found in PATH"
-        exit 1
-    }
-    command -v python3 >/dev/null 2>&1 || { err "python3 is required but not found"; exit 1; }
-    command -v realpath >/dev/null 2>&1 || { err "realpath is required but not found"; exit 1; }
-
-    local mods_root
-    mods_root="$(realpath "${SCRIPT_DIR}/ycc/mods")"
-    [[ -f "${mods_root}/.claude-plugin/marketplace.json" ]] || {
-        err "mods marketplace not found: ${mods_root}/.claude-plugin/marketplace.json"
-        exit 1
-    }
-
-    info "Running: claude plugin marketplace add ${mods_root} --scope user"
-    claude plugin marketplace add "${mods_root}" --scope user
-
-    local name count=0
-    while IFS= read -r name; do
-        [[ -n "${name}" ]] || continue
-        info "Running: claude plugin install ${name}@${MODS_MARKETPLACE_NAME} --scope user"
-        claude plugin install "${name}@${MODS_MARKETPLACE_NAME}" --scope user \
-            || warn "plugin install returned non-zero for '${name}' — check 'claude plugin list'"
-        count=$((count + 1))
-    done < <(mods_plugin_names)
-    info "Installed ${count} mod(s) from ${mods_root}"
-
-    warn_sideloaded_mods
-}
-
-# ---------------------------------------------------------------------------
 # Claude target (settings + mcp; no base)
 # ---------------------------------------------------------------------------
 sync_claude_target() {
@@ -274,13 +194,13 @@ sync_claude_target() {
         # Structured merge keeps CLI-written marketplace entries and local
         # machine preferences while updating repo-managed model, hook and
         # plugin keys. This is safe even when 'base' ran in the same invocation.
-        plugins_selection claude "$(config_groups_for_target claude)"
-        if [[ -n "${PLUGINS_GROUPS}" ]]; then
+        config_group_selection claude "$(config_groups_for_target claude)"
+        if [[ -n "${CONFIG_GROUPS}" ]]; then
             merge_settings_config \
                 "claude-settings" \
                 "${SCRIPT_DIR}/ycc/settings/settings.json" \
                 "${HOME}/.claude/settings.json" \
-                "${PLUGINS_GROUPS}" "${PLUGINS_SELECT[@]}"
+                "${CONFIG_GROUPS}" "${CONFIG_SELECT[@]}"
         fi
         if [[ ${#INTENTS[@]} -eq 0 ]] || intent_requested settings; then
             copy_settings_file "${SCRIPT_DIR}/ycc/settings/statusline-command.sh" "${HOME}/.claude/statusline-command.sh"
@@ -366,22 +286,48 @@ require_claude_cli() {
     command -v claude >/dev/null 2>&1 || { err "'claude' CLI is required but not found in PATH"; exit 1; }
 }
 
+# claude_hooks_still_managed — true when remove --hooks leaves a managed hook
+# event outside the selection recorded in the managed-config ownership state
+# for ~/.claude/settings.json: those events still run scripts from the
+# ~/.claude/hooks link. False without --hooks (the whole group goes).
+claude_hooks_still_managed() {
+    has_selection hooks || return 1
+    local state="${YCC_MANAGED_CONFIG_STATE:-${XDG_CONFIG_HOME:-${HOME}/.config}/ycc/managed-config-state.json}"
+    [[ -f "${state}" ]] || return 1
+    # Key the state like merge_managed_config.py: expanduser'd Path, so a
+    # trailing slash in HOME cannot miss the recorded entry.
+    python3 - "${state}" "${HOME}/.claude/settings.json" "$(selection_for hooks)" <<'PY'
+import json
+import pathlib
+import sys
+
+path, selected = sys.argv[1], set(sys.argv[3].split(","))
+key = f"claude-settings:{pathlib.Path(sys.argv[2]).expanduser()}"
+try:
+    with open(path, encoding="utf-8") as f:
+        entry = json.load(f).get(key) or {}
+except (OSError, ValueError, AttributeError):
+    sys.exit(1)
+events = {p.split("/")[2] for p in entry if isinstance(p, str) and p.startswith("/hooks/") and len(p.split("/")) > 2}
+sys.exit(0 if events - selected else 1)
+PY
+}
+
 remove_claude_target() {
     validate_only_steps "claude"
     local claude_dir="${HOME}/.claude"
 
     if step_enabled mods; then
         printf '\n%sClaude: uninstall mods + the ycc-mods marketplace%s\n' "${BOLD}" "${NC}"
-        require_claude_cli
-        local name
-        while IFS= read -r name; do
-            [[ -n "${name}" ]] && run_claude_cli plugin uninstall "${name}@${MODS_MARKETPLACE_NAME}" --scope user
-        done < <(mods_plugin_names)
-        run_claude_cli plugin marketplace remove "${MODS_MARKETPLACE_NAME}" --scope user
+        remove_claude_mods
     fi
     if step_enabled hooks; then
         printf '\n%sClaude: unlink hooks directory%s\n' "${BOLD}" "${NC}"
-        unlink_owned_link "${SCRIPT_DIR}/ycc/settings/hooks" "${claude_dir}/hooks"
+        if claude_hooks_still_managed; then
+            info "kept ${claude_dir}/hooks: managed hook events outside --hooks still use it"
+        else
+            unlink_owned_link "${SCRIPT_DIR}/ycc/settings/hooks" "${claude_dir}/hooks"
+        fi
     fi
     if step_enabled mcp; then
         printf '\n%sClaude: remove MCP servers%s\n' "${BOLD}" "${NC}"
@@ -394,9 +340,9 @@ remove_claude_target() {
     fi
     if step_enabled settings; then
         printf '\n%sClaude: remove managed settings + statusline%s\n' "${BOLD}" "${NC}"
-        plugins_selection claude "$(config_groups_for_target claude)"
+        config_group_selection claude "$(config_groups_for_target claude)"
         remove_settings "claude-settings" "${SCRIPT_DIR}/ycc/settings/settings.json" \
-            "${claude_dir}/settings.json" "${PLUGINS_GROUPS}" "${PLUGINS_SELECT[@]}"
+            "${claude_dir}/settings.json" "${CONFIG_GROUPS}" "${CONFIG_SELECT[@]}"
         if [[ ${#INTENTS[@]} -eq 0 ]] || intent_requested settings; then
             remove_copied_file "${SCRIPT_DIR}/ycc/settings/statusline-command.sh" "${claude_dir}/statusline-command.sh"
         fi

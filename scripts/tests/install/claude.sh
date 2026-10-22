@@ -372,4 +372,130 @@ out="$(run_install "${home}" sync --target claude --intent plugins --plugins cla
 assert_contains "${out}" "unknown plugin 'claude-plugins-official'" "a marketplace name is not a plugin"
 if [[ ! -e "${home}/.claude/settings.json" ]]; then ok "unknown plugin writes nothing"; else ko "unknown plugin writes nothing"; fi
 
+echo
+echo "== install.sh --mods: claude =="
+
+# A two-mod fixture marketplace (status-bar plus a fake second mod) so the
+# selection is exercised; YCC_MODS_ROOT points the installer at it.
+mods_fixture="${SANDBOX_ROOT}/mods-fixture"
+mkdir -p "${mods_fixture}/.claude-plugin" "${mods_fixture}/status-bar" "${mods_fixture}/pane-glow"
+python3 - "${REPO_ROOT}/ycc/mods/.claude-plugin/marketplace.json" "${mods_fixture}/.claude-plugin/marketplace.json" <<'PY'
+import json, sys
+data = json.load(open(sys.argv[1]))
+data["plugins"] = [p for p in data["plugins"] if p["name"] == "status-bar"]
+data["plugins"].append({"name": "pane-glow", "description": "fixture mod", "version": "0.0.1",
+                        "author": {"name": "test"}, "source": "./pane-glow"})
+json.dump(data, open(sys.argv[2], "w"), indent=2)
+PY
+
+home="$(new_home)"
+YCC_MODS_ROOT="${mods_fixture}" install_must_succeed "${home}" list mods --target claude
+if [[ "${INSTALL_OUT}" == $'status-bar\npane-glow' ]]; then ok "list mods --target claude lists the marketplace's mods"; else ko "list mods --target claude lists the marketplace's mods" "${INSTALL_OUT}"; fi
+install_must_succeed "${home}" list mods --target codex,cursor,opencode,omp,agents
+if [[ -z "${INSTALL_OUT}" ]]; then ok "list mods is empty for targets without a mods step"; else ko "list mods is empty for targets without a mods step" "${INSTALL_OUT}"; fi
+
+home="$(new_home)"
+YCC_MODS_ROOT="${mods_fixture}" install_must_succeed_stubbed "${home}" sync --target claude --intent mods --mods pane-glow
+calls="$(cat "${home}/claude-calls.log" 2>/dev/null)"
+assert_contains "${calls}" "plugin marketplace add $(realpath "${mods_fixture}") --scope user" "--mods registers the YCC_MODS_ROOT marketplace"
+assert_contains "${calls}" "plugin install pane-glow@ycc-mods --scope user" "--mods installs the selected mod"
+assert_not_contains "${calls}" "status-bar@ycc-mods" "--mods installs nothing else"
+assert_contains "${INSTALL_OUT}" "Installed 1 mod(s)" "--mods counts only the selected mod"
+
+home="$(new_home)"
+cat > "${home}/.claude/settings.json" <<'JSON'
+{ "env": { "CLAUDE_CODE_PLUGIN_DIRS": "~/.claude/mods/status-bar" } }
+JSON
+YCC_MODS_ROOT="${mods_fixture}" install_must_succeed_stubbed "${home}" sync --target claude --intent mods --mods pane-glow
+assert_not_contains "${INSTALL_OUT}" "also loads a 'status-bar' folder" "--mods checks sideloads only for the selected mods"
+
+home="$(new_home)"
+cat > "${home}/.claude/settings.json" <<'JSON'
+{ "enabledPlugins": { "status-bar@ycc-mods": true, "pane-glow@ycc-mods": true } }
+JSON
+YCC_MODS_ROOT="${mods_fixture}" install_must_succeed_stubbed "${home}" remove --target claude --intent mods --mods status-bar
+calls="$(cat "${home}/claude-calls.log" 2>/dev/null)"
+assert_contains "${calls}" "plugin uninstall status-bar@ycc-mods --scope user" "remove --mods uninstalls the selected mod"
+assert_not_contains "${calls}" "pane-glow@ycc-mods" "remove --mods leaves the other mod installed"
+assert_not_contains "${calls}" "plugin marketplace remove ycc-mods" "remove --mods keeps the marketplace while another mod is enabled"
+assert_contains "${INSTALL_OUT}" "kept the ycc-mods marketplace" "remove --mods says why the marketplace stays"
+
+home="$(new_home)"
+cat > "${home}/.claude/settings.json" <<'JSON'
+{ "enabledPlugins": { "status-bar@ycc-mods": true, "other@elsewhere": true } }
+JSON
+YCC_MODS_ROOT="${mods_fixture}" install_must_succeed_stubbed "${home}" remove --target claude --intent mods --mods status-bar
+calls="$(cat "${home}/claude-calls.log" 2>/dev/null)"
+assert_contains "${calls}" "plugin marketplace remove ycc-mods --scope user" "remove --mods drops the marketplace once no ycc mod remains"
+
+home="$(new_home)"
+out="$(run_install_stubbed "${home}" sync --target codex --intent mods --mods status-bar)"
+assert_contains "${out}" "--mods needs the mods step" "--mods without a mods step rejected"
+out="$(YCC_MODS_ROOT="${mods_fixture}" run_install_stubbed "${home}" sync --target claude --intent mods --mods bogus)"
+assert_contains "${out}" "unknown mod 'bogus'" "unknown mod rejected"
+assert_not_contains "$(cat "${home}/claude-calls.log" 2>/dev/null)" "plugin" "rejected --mods calls no claude CLI"
+
+echo
+echo "== install.sh --hooks: claude =="
+
+home="$(new_home)"
+install_must_succeed "${home}" list hooks --target claude
+if [[ "${INSTALL_OUT}" == "WorktreeCreate" ]]; then ok "list hooks --target claude lists managed hook events"; else ko "list hooks --target claude lists managed hook events" "${INSTALL_OUT}"; fi
+install_must_succeed "${home}" list hooks --target codex,cursor,opencode,omp,agents
+if [[ -z "${INSTALL_OUT}" ]]; then ok "list hooks is empty for targets without a hooks group"; else ko "list hooks is empty for targets without a hooks group" "${INSTALL_OUT}"; fi
+
+# An unselected managed event (SessionStart) with its ownership state, as an
+# earlier release would have recorded it.
+home="$(new_home)"
+state="${home}/.config/ycc/managed-config-state.json"
+mkdir -p "$(dirname "${state}")"
+cat > "${home}/.claude/settings.json" <<'JSON'
+{ "hooks": { "SessionStart": [ { "hooks": [ { "type": "command", "command": "bash ~/.claude/hooks/old.sh" } ] } ] } }
+JSON
+printf '{ "claude-settings:%s": { "/hooks/SessionStart": { "last_applied_sha256": "pinned" } } }\n' \
+    "${home}/.claude/settings.json" > "${state}"
+# hook_state <state> <settings> — the recorded '/hooks/...' pointers and their sha, sorted.
+hook_state() {
+    python3 - "$1" "claude-settings:$2" <<'PY'
+import json, sys
+entry = json.load(open(sys.argv[1])).get(sys.argv[2], {})
+print(" ".join(f"{k}={v.get('last_applied_sha256')}" for k, v in sorted(entry.items()) if k.startswith("/hooks/")))
+PY
+}
+install_must_succeed "${home}" sync --target claude --intent hooks --hooks WorktreeCreate
+assert_contains "${INSTALL_OUT}" "Hook events: WorktreeCreate" "--hooks names the selection"
+merged="$(cat "${home}/.claude/settings.json")"
+assert_contains "${merged}" '"WorktreeCreate"' "--hooks merges the selected event"
+assert_contains "${merged}" 'old.sh' "--hooks leaves the unselected managed event alone"
+assert_contains "$(hook_state "${state}" "${home}/.claude/settings.json")" "/hooks/SessionStart=pinned" "--hooks leaves the unselected event's ownership state untouched"
+if [[ -L "${home}/.claude/hooks" ]]; then ok "sync --hooks links ~/.claude/hooks"; else ko "sync --hooks links ~/.claude/hooks"; fi
+
+# A trailing slash in HOME must still find the recorded state key (the
+# helper keys it by a normalised path).
+install_must_succeed "${home}/" remove --target claude --intent hooks --hooks WorktreeCreate
+merged="$(cat "${home}/.claude/settings.json")"
+assert_not_contains "${merged}" '"WorktreeCreate"' "remove --hooks takes the selected event"
+assert_contains "${merged}" 'old.sh' "remove --hooks keeps the unselected event"
+if [[ "$(hook_state "${state}" "${home}/.claude/settings.json")" == "/hooks/SessionStart=pinned" ]]; then
+    ok "remove --hooks drops only the selected event's ownership state"
+else
+    ko "remove --hooks drops only the selected event's ownership state" "$(hook_state "${state}" "${home}/.claude/settings.json")"
+fi
+if [[ -L "${home}/.claude/hooks" ]]; then ok "remove --hooks keeps the hooks link while an unselected event remains"; else ko "remove --hooks keeps the hooks link while an unselected event remains"; fi
+assert_contains "${INSTALL_OUT}" "managed hook events outside --hooks still use it" "remove --hooks says why the link stays"
+
+home="$(new_home)"
+install_must_succeed "${home}" sync --target claude --intent hooks
+install_must_succeed "${home}" remove --target claude --intent hooks --hooks WorktreeCreate
+if [[ ! -e "${home}/.claude/hooks" && ! -L "${home}/.claude/hooks" ]]; then ok "remove --hooks unlinks ~/.claude/hooks once no managed event remains"; else ko "remove --hooks unlinks ~/.claude/hooks once no managed event remains"; fi
+
+home="$(new_home)"
+out="$(run_install "${home}" sync --target claude --intent settings --hooks WorktreeCreate)"
+assert_contains "${out}" "--hooks needs the settings step (it narrows the hooks config group" "--hooks without the hooks group rejected"
+if [[ ! -e "${home}/.claude/settings.json" ]]; then ok "--hooks rejection writes nothing"; else ko "--hooks rejection writes nothing"; fi
+out="$(run_install "${home}" sync --target claude --intent hooks --hooks Bogus)"
+assert_contains "${out}" "unknown hook event 'Bogus'" "unknown hook event rejected"
+install_must_succeed_stubbed "${home}" install --target claude --hooks
+if [[ -L "${home}/.claude/hooks" ]]; then ok "install --hooks stays the boolean 'also run hooks' flag"; else ko "install --hooks stays the boolean 'also run hooks' flag" "${INSTALL_OUT}"; fi
+
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then install_tests_finish; fi

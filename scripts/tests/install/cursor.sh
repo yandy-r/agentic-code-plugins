@@ -234,4 +234,21 @@ home="$(new_home)"
 install_must_succeed "${home}" sync --target cursor --intent base
 if [[ ! -e "${home}/.cursor/commands" && ! -e "${home}/.cursor/hooks.json" ]]; then ok "default base installs no optional carriers"; else ko "default base installs no optional carriers"; fi
 
+# --hooks <events> narrows claude's hooks config group; cursor's hooks step
+# has no hook-event selection, so it is skipped (warned), never run whole.
+home="$(new_home)"
+install_must_succeed "${home}" install --target cursor --only hooks
+cursor_hooks_before="$(cat "${home}/.cursor/hooks.json"; cat "${home}/.cursor/hooks/herdr-session-start.sh")"
+install_must_succeed "${home}" sync --target claude,cursor --intent hooks --hooks WorktreeCreate
+assert_contains "${INSTALL_OUT}" "cursor has no hook-event selection — skipping its hooks step" "sync --hooks warns that cursor's hooks step is skipped"
+assert_contains "$(cat "${home}/.claude/settings.json")" '"WorktreeCreate"' "sync --hooks still merges claude's selected event"
+install_must_succeed "${home}" remove --target claude,cursor --intent hooks --hooks WorktreeCreate
+assert_contains "${INSTALL_OUT}" "cursor has no hook-event selection — skipping its hooks step" "remove --hooks warns that cursor's hooks step is skipped"
+if [[ -e "${home}/.cursor/hooks/herdr-session-start.sh" && "${cursor_hooks_before}" == "$(cat "${home}/.cursor/hooks.json"; cat "${home}/.cursor/hooks/herdr-session-start.sh")" ]]; then
+    ok "--hooks leaves cursor's hook script and hooks.json entries untouched"
+else
+    ko "--hooks leaves cursor's hook script and hooks.json entries untouched"
+fi
+assert_not_contains "$(cat "${home}/.claude/settings.json" 2>/dev/null)" '"WorktreeCreate"' "remove --hooks still takes claude's selected event"
+
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then install_tests_finish; fi
