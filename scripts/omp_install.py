@@ -1204,8 +1204,9 @@ def json_equals(path: Path, expected: Any) -> bool:
 def remove_project_residue(root: Path, owned: frozenset[str]) -> None:
     """Delete the empty ``.omp/plugins`` state ycc's project install created, after its last uninstall.
 
-    ``owned`` are the ``PROJECT_RESIDUE`` paths (relative to ``root``) absent when a ycc install there
-    started and created by it; anything else, including a legacy root with no ownership record, is kept. Of those,
+    ``owned`` are the ``PROJECT_RESIDUE`` paths (relative to ``root``) that the ycc install which
+    first claimed each one found absent and created; anything else, including a legacy root with no
+    ownership record, is kept. Of those,
     only omp's exact empty forms go (registry ``{"version": 2, "plugins": {}}``, lock with empty
     ``plugins`` and ``settings``, an empty ``node_modules/``), then the emptied dirs. Never $HOME's own.
     """

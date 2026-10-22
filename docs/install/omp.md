@@ -586,8 +586,9 @@ files omp leaves behind (`installed_plugins.json`, `omp-plugins.lock.json`
 and `node_modules/`, only while they hold nothing), then `.omp/plugins/` and
 `.omp/` when they are empty, but only the ones a ycc project install there
 created: each install records the ones missing when it starts, so a later
-install that recreates them claims them too. Anything that existed when an
-install started (or that a pre-upgrade ycc install did not record) is kept.
+install that recreates them claims them too. Anything that already existed
+when the install that would first claim it started (or that a pre-upgrade ycc
+install did not record) is kept.
 The `ycc` marketplace and the export are removed only when nothing else still
 uses them; otherwise the installer
 prints `kept marketplace ycc: <reason>`. When the
