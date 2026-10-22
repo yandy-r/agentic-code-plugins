@@ -548,6 +548,22 @@ class OmpInstallTests(unittest.TestCase):
         self.assertIn("ycc", self.marketplaces())
         self.assertTrue(omp_install.export_dir().is_dir())
 
+    def test_force_color_install_and_remove_parse_the_marketplace_list(self) -> None:
+        """YAN-1558: FORCE_COLOR makes omp colour the piped list; install and remove still parse it."""
+        with patch.dict(os.environ, {"FORCE_COLOR": "1"}):
+            self.install("user")
+            self.assertEqual(self.marketplaces(), {"ycc": str(omp_install.export_dir())})
+            self.remove("user")
+            self.assertEqual(self.marketplaces(), {})
+
+    def test_coloured_marketplace_list_is_stripped_before_parsing(self) -> None:
+        """YAN-1558: SGR sequences that survive the colour-off environment never reach the parser."""
+        self.assertEqual(self.marketplaces(FAKE_OMP_COLOR="1"), {})
+        other = make_fixture(self.tmp / "other", ("thing",), "1.0.0", name="other")
+        self.fake("plugin", "marketplace", "add", str(other))
+        self.assertIn("\x1b[", self.fake("plugin", "marketplace", "list", FAKE_OMP_COLOR="1"))
+        self.assertEqual(self.marketplaces(FAKE_OMP_COLOR="1"), {"other": str(other)})
+
     def test_foreign_marketplace_refuses_before_any_mutation(self) -> None:
         foreign = make_fixture(self.tmp / "foreign", ("ycc",), "0.1.0")
         self.fake("plugin", "marketplace", "add", str(foreign))

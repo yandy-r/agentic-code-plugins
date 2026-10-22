@@ -50,6 +50,10 @@ SCOPES = ("user", "project")
 RESTART_COMPONENTS = frozenset({"hooks", "extensions", "agents"})
 NO_MARKETPLACES = ("No marketplaces configured", "", "Add one with: omp plugin marketplace add <source>")
 MARKETPLACE_LINE = re.compile(r"^  (\S+)  (.+)$")
+# omp colours piped output when FORCE_COLOR is set (it beats NO_COLOR), so queries drop it
+# and strip any SGR sequence that still slips through before parsing.
+FORCE_COLOR_VARS = ("FORCE_COLOR",)
+ANSI_SGR = re.compile(r"\x1b\[[0-9;]*m")
 HOME_REFUSAL = "--project at $HOME: omp project scope needs a project directory (cd into a project, or use --global)"
 REPO_REFUSAL = "--mode repo needs a listed OMP package (YAN-1180)"
 TRUST = "[!!] OMP has no trust prompt: installed plugin code runs with your user privileges."
@@ -75,6 +79,13 @@ def omp_bin() -> str:
 def clean_env() -> dict[str, str]:
     """The environment without inherited GIT_* (a pre-push hook exports GIT_DIR)."""
     return {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+
+
+def query_env() -> dict[str, str]:
+    """The environment for parsed omp queries: colour off (YAN-1558)."""
+    env = {key: value for key, value in os.environ.items() if key not in FORCE_COLOR_VARS}
+    env["NO_COLOR"] = "1"
+    return env
 
 
 def version_key(version: str) -> tuple[int, ...]:
@@ -383,6 +394,7 @@ class OmpCli:
             result = subprocess.run(
                 [omp_bin(), *argv],
                 cwd=cwd,
+                env=query_env(),
                 stdin=subprocess.DEVNULL,
                 capture_output=True,
                 text=True,
@@ -391,11 +403,11 @@ class OmpCli:
         except FileNotFoundError as error:
             raise ValueError("omp not found on PATH") from error
         if result.returncode:
-            detail = (result.stderr.strip() or result.stdout.strip()).splitlines()
+            detail = ANSI_SGR.sub("", result.stderr.strip() or result.stdout.strip()).splitlines()
             raise ValueError(
                 f"'omp {' '.join(argv)}' failed (exit {result.returncode})" + (f": {detail[-1]}" if detail else "")
             )
-        return result.stdout
+        return ANSI_SGR.sub("", result.stdout)
 
     def version(self) -> str:
         output = self._query("--version").strip()
