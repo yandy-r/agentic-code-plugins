@@ -268,7 +268,8 @@ def run_rpc(argv: list[str], prompt: str, approve: bool) -> tuple[int, str, str,
     assert proc.stdin is not None and proc.stdout is not None and proc.stderr is not None
     frames: list[dict[str, Any]] = []
     stderr: list[str] = []
-    threading.Thread(target=lambda: stderr.extend(proc.stderr or []), daemon=True).start()
+    reader = threading.Thread(target=lambda: stderr.extend(proc.stderr or []), daemon=True)
+    reader.start()
     timer = threading.Timer(SESSION_TIMEOUT, proc.kill)
     timer.start()
     try:
@@ -296,6 +297,7 @@ def run_rpc(argv: list[str], prompt: str, approve: bool) -> tuple[int, str, str,
         timer.cancel()
         if proc.poll() is None:
             proc.kill()
+        reader.join(timeout=5)
     return rc, "", "".join(stderr), frames
 
 
