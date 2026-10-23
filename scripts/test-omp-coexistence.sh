@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Opt-in live checks: ycc on OMP beside the other ycc runtimes (YAN-1176), against real omp.
 # Not part of CI. No credentials, no network inside the sandbox, no model inference.
+# shellcheck disable=SC2154 # omp_in_dir comes from lib/omp-harness-common.sh
 set -euo pipefail
 umask 077
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/lib/omp-harness-common.sh"
 
 usage() {
   cat <<'EOF'
@@ -50,6 +52,7 @@ done
 for tool in git python3 timeout mktemp realpath sha256sum; do
   command -v "$tool" >/dev/null || die "missing prerequisite: $tool"
 done
+omp_h_require_gnu_tools
 
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 omp=${OMP_BIN:-$HOME/.local/bin/omp}
@@ -58,7 +61,7 @@ omp=${OMP_BIN:-$HOME/.local/bin/omp}
 omp=$(realpath "$omp")
 python=$(command -v python3)
 real_home=$(realpath "${HOME:?HOME must be set}")
-root=$(mktemp -d /tmp/omp-coexistence.XXXXXX)
+root=$(omp_h_mktemp_root omp-coexistence)
 [[ "$root" != "$real_home" && "$root" != "$real_home"/* ]] || die 'sandbox must not live under the real HOME'
 cleanup() {
   local rc=$?
@@ -80,7 +83,8 @@ mkdir -p "$root"/{work,tmp,logs,bin,markers}
 ln -s "$omp" "$root/bin/omp"
 umask 022
 cd "$root/work"
-safe_path=$root/bin:/usr/local/bin:/usr/bin:/bin
+safe_path=$(omp_h_safe_path "$allow_env_i" "$root/bin")
+omp_h_check_path_tools "$safe_path" bash git python3 timeout realpath
 
 sandbox=env-i
 wrap=()
@@ -114,6 +118,8 @@ clean() {
     PYTHONDONTWRITEBYTECODE=1 YCC_INSTALL_SKIP_BUILD=1 \
     ${extra_env[@]+"${extra_env[@]}"} "$@"
 }
+# Run the HOME guard once with stderr visible: the preflight below discards it.
+clean true
 clean ${wrap[@]+"${wrap[@]}"} timeout -k 5 30 omp --version >/dev/null 2>&1 ||
   die "OMP_BIN ($omp) does not run inside the $sandbox sandbox: it must be a self-contained binary"
 log() { printf '%s\n' "$*" | tee -a "$root/transcript.log"; }
@@ -132,7 +138,7 @@ run() {
   local label=$1 dir=$2; shift 2
   [[ ! -e "$root/logs/$label.stdout" ]] || die "duplicate label: $label"
   rc=0
-  clean ${wrap[@]+"${wrap[@]}"} timeout -k 5 180 env -C "$dir" "$@" <"$stdin_file" \
+  clean ${wrap[@]+"${wrap[@]}"} timeout -k 5 180 "${omp_in_dir[@]}" "$dir" "$@" <"$stdin_file" \
     >"$root/logs/$label.stdout" 2>"$root/logs/$label.stderr" || rc=$?
   record "$label" "$@"
 }
@@ -390,12 +396,12 @@ PY
 o version "$root/work" --version
 assert_rc 0 version
 version_text=$(<"$root/logs/version.stdout")
-pkg_skills=$(find "$repo/packages/omp/ycc/skills" -mindepth 2 -maxdepth 2 -name SKILL.md | wc -l)
-pkg_commands=$(find "$repo/packages/omp/ycc/commands" -maxdepth 1 -name '*.md' | wc -l)
-pkg_agents=$(find "$repo/packages/omp/ycc/agents" -maxdepth 1 -name '*.md' | wc -l)
+pkg_skills=$(find "$repo/packages/omp/ycc/skills" -mindepth 2 -maxdepth 2 -name SKILL.md | wc -l | tr -d "[:space:]")
+pkg_commands=$(find "$repo/packages/omp/ycc/commands" -maxdepth 1 -name '*.md' | wc -l | tr -d "[:space:]")
+pkg_agents=$(find "$repo/packages/omp/ycc/agents" -maxdepth 1 -name '*.md' | wc -l | tr -d "[:space:]")
 pkg_mcp=$("$python" -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["mcpServers"]))' \
   "$repo/packages/omp/ycc-mcp/.mcp.json")
-agents_skills=$(find "$repo/.agents-plugin/skills" -mindepth 2 -maxdepth 2 -name SKILL.md | wc -l)
+agents_skills=$(find "$repo/.agents-plugin/skills" -mindepth 2 -maxdepth 2 -name SKILL.md | wc -l | tr -d "[:space:]")
 log "omp: $version_text; checkout: $repo; sandbox=$sandbox; package: $pkg_skills skills, $pkg_commands commands, $pkg_agents agents, $pkg_mcp MCP servers"
 
 # --- C1. OMP only -------------------------------------------------------------------------------
@@ -542,7 +548,7 @@ rm -f -- "$marks"/*
 printf 'mcp:\n  enableProjectConfig: false\n' >"$root/untrusted.yml"
 rpc c7-safe "$evil" --no-extensions --config "$root/untrusted.yml"
 sleep 2
-leaked=$(find "$marks" -type f -printf '%f ' 2>/dev/null)
+leaked=$(find "$marks" -type f 2>/dev/null | sed 's#.*/##' | tr '\n' ' ')
 [[ -z "$leaked" ]] || die "c7: --no-extensions --config <overlay> still ran: $leaked"
 check c7-proof safe "$root/logs/c7-safe.stdout" "$pkg_skills" "$pkg_commands"
 log 'PASS C7 hostile project: every marker by default; none under omp --no-extensions --config <mcp.enableProjectConfig: false>'

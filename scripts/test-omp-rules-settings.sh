@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Opt-in live checks for the OMP ycc-rules package and the opt-in --settings merge (YAN-1175).
 # Not part of CI. No credentials, no network inside the sandbox, no model inference.
+# shellcheck disable=SC2154 # omp_in_dir comes from lib/omp-harness-common.sh
 set -euo pipefail
 umask 077
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/lib/omp-harness-common.sh"
 
 usage() {
   cat <<'EOF'
@@ -60,11 +62,12 @@ python=$(command -v python3 || true)
 for tool in timeout mktemp realpath; do
   command -v "$tool" >/dev/null || die "missing prerequisite: $tool"
 done
+omp_h_require_gnu_tools
 omp=$(realpath "$omp")
 rules_pkg=$repo/packages/omp/ycc-rules
 [[ -d "$rules_pkg/rules" ]] || die "$rules_pkg/rules is missing; run ./scripts/sync.sh first"
 real_home=$(realpath "${HOME:?HOME must be set}")
-root=$(mktemp -d /tmp/omp-rules-settings.XXXXXX)
+root=$(omp_h_mktemp_root omp-rules-settings)
 [[ "$root" != "$real_home" && "$root" != "$real_home"/* ]] || die 'sandbox must not live under the real HOME'
 cleanup() {
   local rc=$?
@@ -86,7 +89,8 @@ mkdir -p "$root"/{work,tmp,logs,bin}
 ln -s "$omp" "$root/bin/omp"
 umask 022
 cd "$root/work"
-safe_path=$root/bin:/usr/local/bin:/usr/bin:/bin
+safe_path=$(omp_h_safe_path "$allow_env_i" "$root/bin")
+omp_h_check_path_tools "$safe_path" bash git python3 timeout realpath
 
 sandbox=env-i
 wrap=()
@@ -121,6 +125,8 @@ clean() {
     "$@"
 }
 # bwrap works on its own; a failure here is omp needing files the sandbox hides.
+# Run the HOME guard once with stderr visible: the preflight below discards it.
+clean true
 clean ${wrap[@]+"${wrap[@]}"} timeout -k 5 30 omp --version >/dev/null 2>&1 ||
   die "OMP_BIN ($omp) does not run inside the $sandbox sandbox: it must be a self-contained binary outside \$HOME's dependencies (env -i PATH=$safe_path, real home hidden)"
 log() { printf '%s\n' "$*" | tee -a "$root/transcript.log"; }
@@ -140,7 +146,7 @@ run() {
   local label=$1 dir=$2; shift 2
   [[ ! -e "$root/logs/$label.stdout" ]] || die "duplicate label: $label"
   rc=0
-  clean ${wrap[@]+"${wrap[@]}"} timeout -k 5 180 env -C "$dir" "$@" <"$stdin_file" \
+  clean ${wrap[@]+"${wrap[@]}"} timeout -k 5 180 "${omp_in_dir[@]}" "$dir" "$@" <"$stdin_file" \
     >"$root/logs/$label.stdout" 2>"$root/logs/$label.stderr" || rc=$?
   record "$label" "$@"
 }

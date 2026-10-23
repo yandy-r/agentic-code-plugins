@@ -5,6 +5,7 @@
 # Decision record: docs/internal/adr/0002-omp-runtime-contract.md
 set -euo pipefail
 umask 077
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/lib/omp-harness-common.sh"
 
 # Print CLI usage and exit.
 usage() {
@@ -49,14 +50,15 @@ done
 for tool in git python3 timeout mktemp realpath; do
   command -v "$tool" >/dev/null || die "missing prerequisite: $tool"
 done
+omp_h_require_gnu_tools
 omp=${OMP_BIN:-$(command -v omp || true)}
 [[ -n "$omp" && -x "$omp" ]] || die 'set OMP_BIN or install omp on PATH'
 omp=$(realpath "$omp")
 real_home=$(realpath "${HOME:?HOME must be set}")
 [[ -d "$parent" ]] || die '--output-dir must exist'
 parent=$(realpath "$parent")
-[[ "$parent" == /tmp || "$parent" == /tmp/* ]] || die 'output must be under /tmp'
-root=$(mktemp -d "$parent/omp-runtime-contract-spike.XXXXXX")
+omp_h_under_tmp "$parent" || die 'output must be under /tmp'
+root=$(omp_h_mktemp_root omp-runtime-contract-spike "$parent")
 [[ "$root" != "$real_home" && "$root" != "$real_home"/* ]] || die 'sandbox must not live under the real HOME'
 # EXIT trap: report the transcript path and remove the sandbox unless --keep.
 cleanup() {
@@ -73,7 +75,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 mkdir -p "$root"/{work,tmp,logs,cases}
 cd "$root/work"
-safe_path=/usr/local/bin:/usr/bin:/bin
+safe_path=$(omp_h_safe_path "$allow_env_i")
 # clean() runs every command under env -i with safe_path; fail early if a prerequisite lives elsewhere.
 for tool in git python3 timeout; do
   PATH=$safe_path command -v "$tool" >/dev/null || die "missing prerequisite on $safe_path: $tool"
