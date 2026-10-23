@@ -139,3 +139,13 @@ A harness that prints `SKIP` (case-insensitive, at line start) fails the CI step
 a silent green in CI. On macOS every harness is passed `--allow-env-i` explicitly
 (bubblewrap is unavailable there); on Linux the step refuses to run without bwrap
 rather than weakening the sandbox.
+
+## Post-release smoke: v6.1.0 (YAN-1560)
+
+Run on 2026-10-23 against tag `v6.1.0` (commit `d59adab9fd904405e6c478bc7070728dba27a85e`).
+Host: Linux x86_64, omp 18.12.6. No model was used: only the null provider ran.
+
+| Check                                                                                                                               | Result | Evidence                                                                                                                                                                                                                                                                                                                           |
+| ----------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripts/test-omp-native-packages.sh --public https://github.com/yandy-r/ystack.git --ref d59adab9fd904405e6c478bc7070728dba27a85e` | pass   | Exit 0 in a bwrap netns sandbox. The catalog, install, discovery, `ycc-mcp` override, upgrade (6.1.0 → a lockstep bump) and uninstall checks all passed. The `ycc-mcp` start and `enabledServers` checks are documented SKIPs in `--public` mode: they need a fixture stub server, and the shipped servers cannot connect offline. |
+| Clean HOME catalog install                                                                                                          | pass   | `env -i` with HOME and every XDG_* dir in a throwaway directory. `omp plugin marketplace add https://github.com/yandy-r/ystack.git` and `omp plugin install ycc@ycc ycc-mcp@ycc ycc-rules@ycc` both exited 0. `omp plugin list` showed `ycc@ycc`, `ycc-mcp@ycc` and `ycc-rules@ycc` at 6.1.0 (user scope).                         |
