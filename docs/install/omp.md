@@ -71,12 +71,17 @@ omp plugin marketplace add https://github.com/yandy-r/ystack.git
 omp plugin install ycc@ycc ycc-mcp@ycc ycc-rules@ycc   # add --scope project for this repo only
 ```
 
-Update with `omp plugin marketplace update ycc`, then
-`omp plugin upgrade ycc@ycc ycc-mcp@ycc ycc-rules@ycc`. omp manages these
-installs on its own. `install.sh` does not record them, so its `update` and
-`remove` leave them alone. Use one path per omp profile: `install.sh` refuses
-to replace a `ycc` marketplace it did not register (see
-[Troubleshooting](#troubleshooting)). `./install.sh install --target omp --mode repo`
+Update with `omp plugin marketplace update ycc` and then `omp plugin upgrade`
+with no arguments. That upgrades every marketplace plugin with a newer
+version. `omp plugin upgrade` with package arguments upgrades only the first
+one, so name one package per call (`omp plugin upgrade ycc-mcp@ycc`).
+
+omp manages these installs on its own. `install.sh` does not record them, so
+its `update` and `remove` leave them alone. Use one path per omp profile:
+`install.sh` refuses to replace a `ycc` marketplace it did not register (see
+[Troubleshooting](#troubleshooting)). To move a catalog install to
+`install.sh`, run `omp plugin uninstall` for each package, then
+`omp plugin marketplace remove ycc`. `./install.sh install --target omp --mode repo`
 registers the same catalog and records the installs.
 
 ## Quick Start
@@ -851,8 +856,10 @@ per profile you want `ycc` in.
 `--mode local` (the default) exports the packages from your checkout.
 `--mode repo` registers `https://github.com/yandy-r/ystack.git` as the `ycc`
 marketplace instead and installs the packages listed there (the `main`
-branch). Both refuse a `ycc` marketplace with the other source; remove it
-first (`./install.sh remove --target omp --only base`).
+branch). Both refuse a `ycc` marketplace with the other source. Remove an
+`install.sh` one with `./install.sh remove --target omp --only base`; remove a
+catalog install you made with `omp plugin` as described in
+[Install From The Catalog](#install-from-the-catalog).
 
 `--target all` includes OMP when `omp >= 18.12.2` is on `PATH`. Otherwise it
 prints `--target all: skipping omp (...)` and runs the other targets.
