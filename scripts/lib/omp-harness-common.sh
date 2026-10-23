@@ -35,7 +35,7 @@ set -E
 trap 'omp_h_err_trap "$?" "$LINENO" "$BASH_COMMAND"' ERR
 
 # Portable `env -C DIR CMD...`: run as `"${omp_in_dir[@]}" DIR CMD...`.
-# shellcheck disable=SC2016 # the script is for /bin/sh, not for this shell
+# shellcheck disable=SC2016,SC2034 # SC2016: the script is for /bin/sh; SC2034: used by the sourcing harnesses
 omp_in_dir=(/bin/sh -c 'cd -- "$1" || exit 1; shift; exec "$@"' ycc-in-dir)
 
 # Probe behaviour, not a vendor string: macOS has no `timeout` and its BSD realpath has no -m;
