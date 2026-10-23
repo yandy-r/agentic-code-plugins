@@ -78,7 +78,7 @@ class DriftTests(unittest.TestCase):
 
     def test_missing_omp_skips_with_a_warning(self) -> None:
         out = io.StringIO()
-        with patch.dict(os.environ, {"OMP_BIN": "", "PATH": ""}), redirect_stdout(out):
+        with patch.dict(os.environ, {"OMP_BIN": "", "PATH": "", "YCC_OMP_REQUIRED": ""}), redirect_stdout(out):
             self.assertEqual(guard.main([]), 0)
         self.assertIn("[warn] omp not found", out.getvalue())
 
@@ -88,7 +88,7 @@ class DriftTests(unittest.TestCase):
             fake.write_text("#!/bin/sh\necho omp/18.0.0\n", encoding="utf-8")
             fake.chmod(0o755)
             out = io.StringIO()
-            with patch.dict(os.environ, {"OMP_BIN": str(fake)}), redirect_stdout(out):
+            with patch.dict(os.environ, {"OMP_BIN": str(fake), "YCC_OMP_REQUIRED": ""}), redirect_stdout(out):
                 self.assertEqual(guard.main([]), 0)
         self.assertIn(f"older than {MIN_OMP_VERSION}", out.getvalue())
 
@@ -100,7 +100,7 @@ class DriftTests(unittest.TestCase):
 
     def test_require_makes_a_missing_omp_an_error(self) -> None:
         for argv, env in (
-            (["--require"], {"OMP_BIN": "", "PATH": ""}),
+            (["--require"], {"OMP_BIN": "", "PATH": "", "YCC_OMP_REQUIRED": ""}),
             ([], {"OMP_BIN": "", "PATH": "", "YCC_OMP_REQUIRED": "1"}),
         ):
             with self.subTest(argv=argv, env=env):
@@ -140,7 +140,9 @@ class DriftTests(unittest.TestCase):
             )
             fake.chmod(0o755)
             err = io.StringIO()
-            with patch.dict(os.environ, {"OMP_BIN": str(fake)}), redirect_stdout(io.StringIO()), redirect_stderr(err):
+            with patch.dict(os.environ, {"OMP_BIN": str(fake), "YCC_OMP_REQUIRED": ""}), redirect_stdout(
+                io.StringIO()
+            ), redirect_stderr(err):
                 self.assertEqual(guard.main([]), 1)
         self.assertIn("omp --mode rpc exited 3: boom", err.getvalue())
 

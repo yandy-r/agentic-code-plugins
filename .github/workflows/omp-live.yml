@@ -99,7 +99,6 @@ jobs:
     timeout-minutes: 90
     env:
       OMP_VERSION: ${{ matrix.omp }}
-      YCC_OMP_REQUIRED: '1'
     steps:
       - uses: actions/checkout@v4
 
@@ -141,9 +140,14 @@ jobs:
         run: |
           set -euo pipefail
           brew install bash coreutils
+          # Expose only Homebrew bash and GNU coreutils; prepending all of
+          # $(brew --prefix)/bin would shadow setup-python's python3.
+          shim="$RUNNER_TEMP/gnu-shim"
+          mkdir -p "$shim"
+          ln -sf "$(brew --prefix bash)/bin/bash" "$shim/bash"
           {
-            echo "$(brew --prefix)/bin"
             echo "$(brew --prefix coreutils)/libexec/gnubin"
+            echo "$shim"
           } >> "$GITHUB_PATH"
 
       - name: Install pinned omp ${{ matrix.omp }}
@@ -181,7 +185,11 @@ jobs:
           echo "omp under test: $got ($asset, sha256 $actual)"
 
       - name: Drift guard (requires live omp)
-        run: python3 scripts/omp_builtin_commands.py --require
+        env:
+          YCC_OMP_REQUIRED: '1'
+        run: |
+          command -v python3 && python3 -c 'import yaml'
+          python3 scripts/omp_builtin_commands.py --require
 
       # Fast, deterministic unit fixtures for the guard above; complements
       # validate.yml, which owns the full validator. No omp needed here.
