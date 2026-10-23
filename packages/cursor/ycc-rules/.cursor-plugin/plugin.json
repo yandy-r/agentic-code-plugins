@@ -1,7 +1,7 @@
 {
   "name": "ycc-rules",
   "displayName": "ycc-rules",
-  "version": "6.0.0",
+  "version": "6.1.0",
   "description": "Language and common coding rules for Cursor and OMP.",
   "author": {
     "name": "yandy-r"
