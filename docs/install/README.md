@@ -13,7 +13,7 @@ every target's installer behavior.
 | Codex    | [`codex.md`](codex.md)       | Codex plugin installs, custom agents, Codex Desktop setup                  |
 | opencode | [`opencode.md`](opencode.md) | opencode-native skills, agents, commands, config, and rules                |
 | agents   | [`agents.md`](agents.md)     | Cross-tool skills in `~/.agents/skills` (Zed and others)                   |
-| OMP      | [`omp.md`](omp.md)           | OMP (oh-my-pi) native packages via `omp plugin` (pre-release, unlisted)    |
+| OMP      | [`omp.md`](omp.md)           | OMP (oh-my-pi) native packages via `omp plugin` and the repository catalog |
 
 Since v6.0.0 `ycc` is also published as native packages in the Claude, Codex,
 and Cursor marketplaces. The v6 guides cover the package IDs, the marketplace
@@ -607,18 +607,18 @@ step:
 contributors can iterate locally.
 
 `--mode repo` registers the upstream GitHub repository instead of the local
-checkout. It is supported by the `claude` and `codex` targets only (omp joins
-once an OMP package is listed, YAN-1180):
+checkout. It is supported by the `claude`, `codex` and `omp` targets only:
 
 ```bash
 ./install.sh install --target claude --mode repo
 ./install.sh install --target codex --mode repo
+./install.sh install --target omp --mode repo
 ./install.sh install --target all --mode repo
 ```
 
 With `--target all --mode repo`, Cursor and opencode are skipped because they do
 not have a remote-source install surface. `--target all` (any mode) also skips
-omp until a package is listed and `omp >= 18.12.2` is on `PATH`.
+omp unless `omp >= 18.12.2` is on `PATH`.
 
 ## Regenerate And Validate
 

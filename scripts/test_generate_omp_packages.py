@@ -69,7 +69,10 @@ class GenerateOmpPackagesTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name) / "repo"
         self.root.mkdir()
-        self.model = with_omp(load_package_model(), "ycc", status="included", listed=False)
+        # An unlisted baseline: each test lists exactly the rows it needs, whatever the shipped model says.
+        self.model = with_omp(load_package_model(), "ycc", status="included")
+        for key in omp_rows(self.model):
+            self.model = with_omp(self.model, key, listed=False)
         self.write_source()
 
     def write_source(self) -> None:

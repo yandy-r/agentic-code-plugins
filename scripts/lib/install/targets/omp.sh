@@ -42,8 +42,8 @@ omp_intent_steps() {
 # filters by intent name, so it must be 'settings'.
 omp_config_groups() { echo "settings"; }
 
-# omp_supports_repo_mode — the upstream repo carries an OMP catalog only once a
-# package row is listed (YAN-1180); until then only the local export works.
+# omp_supports_repo_mode — the upstream repo carries an OMP catalog only while a
+# package row is listed in ycc/settings/packages.json (listed since YAN-1180).
 omp_supports_repo_mode() {
     python3 "${OMP_INSTALL_HELPER}" listed >/dev/null 2>&1
 }
@@ -78,8 +78,8 @@ omp_in_all() {
 # omp_all_skip_reason — why '--target all' skipped omp.
 omp_all_skip_reason() { echo "needs omp >= 18.12.2 on PATH and a listed OMP package"; }
 
-# omp_repo_mode_hint — why --mode repo is refused while unlisted.
-omp_repo_mode_hint() { echo "omp needs a listed OMP package (YAN-1180)"; }
+# omp_repo_mode_hint — why --mode repo is refused when no OMP row is listed.
+omp_repo_mode_hint() { echo "omp needs a listed OMP package"; }
 
 # omp_preflight — fail before any target runs when omp cannot be driven. Every
 # omp step runs python helpers that import PyYAML (the package build and

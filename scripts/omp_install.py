@@ -55,7 +55,7 @@ MARKETPLACE_LINE = re.compile(r"^  (\S+)  (.+)$")
 FORCE_COLOR_VARS = ("FORCE_COLOR",)
 ANSI_SGR = re.compile(r"\x1b\[[0-9;]*m")
 HOME_REFUSAL = "--project at $HOME: omp project scope needs a project directory (cd into a project, or use --global)"
-REPO_REFUSAL = "--mode repo needs a listed OMP package (YAN-1180)"
+REPO_REFUSAL = "--mode repo needs a listed OMP package"
 TRUST = "[!!] OMP has no trust prompt: installed plugin code runs with your user privileges."
 # The omp project state a project install may create; remove deletes only the paths ycc's install created.
 PROJECT_RESIDUE = (
@@ -1358,7 +1358,9 @@ def plan_migrate(project_root: Path, *, apply: bool) -> MigratePlan | None:
                     f"[!!] kept omp link {name} → {target or path}: foreign (not this checkout's packages/omp/{name})"
                 )
 
-    # A `ycc` marketplace at this checkout root falls back to the Claude catalog while unlisted.
+    # A `ycc` marketplace at this checkout root added before the OMP catalog was listed served the
+    # Claude packages: its installs carry no .omp-plugin/plugin.json. Those legacy installs retire it;
+    # a native install, or no install while the checkout serves an OMP catalog, keeps it.
     retire_scopes: list[tuple[str, Path, list[str]]] = []
     retire_marketplace = False
     # Legacy installs migrate cannot carry over as-is: disabled ones (a fresh install is enabled, and
@@ -1394,7 +1396,7 @@ def plan_migrate(project_root: Path, *, apply: bool) -> MigratePlan | None:
                 ids.append(plugin_id)
             if ids:
                 found.append((scope, cwd, ids))
-        if native or (ROOT / ".omp-plugin/marketplace.json").is_file():
+        if native or (not found and (ROOT / ".omp-plugin/marketplace.json").is_file()):
             print(f"[!!] kept marketplace ycc at {ROOT}: it serves native OMP packages")
         elif keep:
             raise ValueError(f"kept marketplace ycc at {ROOT} and its installs: " + "; ".join(keep))

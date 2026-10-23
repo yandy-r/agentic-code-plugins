@@ -25,6 +25,8 @@ Environment:
                            the node_modules dir) so a test can leave that residue path uncreated
   FORCE_COLOR              colours `plugin marketplace list` like omp 18.12.6 (NO_COLOR does not win)
   FAKE_OMP_COLOR           colours `plugin marketplace list` whatever the colour environment
+  FAKE_OMP_CLAUDE_CATALOG  when set, catalog lookups skip .omp-plugin/marketplace.json, like a
+                           checkout from before the OMP packages were listed (legacy installs)
 
 Unsupported commands exit 2 with a usage line on stderr.
 """
@@ -258,7 +260,10 @@ def source_type(source: str) -> str:
 
 def find_catalog(directory: Path, relative_display: bool) -> tuple[str, str]:
     tried: list[str] = []
+    skip = (CATALOG_FILES[0],) if os.environ.get("FAKE_OMP_CLAUDE_CATALOG") else ()
     for rel in CATALOG_FILES:
+        if rel in skip:
+            continue
         path = directory.joinpath(*rel.split("/"))
         tried.append(rel if relative_display else str(path))
         try:

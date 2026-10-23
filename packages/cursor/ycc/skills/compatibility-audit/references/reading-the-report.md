@@ -34,8 +34,8 @@ and that plugin-root variable references are rewritten target-appropriately (kep
 `${CLAUDE_PLUGIN_ROOT}` in the Claude source tree; rewritten to the installed plugin's
 absolute path in generated Cursor and Codex bundles). For `omp`, `OM1` passes while the root
 `.omp-plugin/` is absent only if the matrix marks `INSTALL_PATH:omp` `unsupported` or `partial`
-(`partial`: unlisted, installed by `install.sh --target omp` from a generated export until
-YAN-1180); once the catalog exists, `OM2` requires a valid `.omp-plugin/marketplace.json`.
+(`partial` with no listed OMP package: installed by `install.sh --target omp` from a generated
+export); once the catalog exists, `OM2` requires a valid `.omp-plugin/marketplace.json`.
 
 **Feature-vs-matrix** — output of `audit-target-features.sh`. Cross-references
 capabilities in the source tree against `target-capability-matrix.md`. Features present

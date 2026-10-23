@@ -4,16 +4,23 @@ This guide covers installing `ycc`, `ycc-mcp` and `ycc-rules` into OMP
 (oh-my-pi) with `install.sh`, plus the opt-in global instructions, settings,
 model roles and approval default.
 
-> **Pre-release:** the OMP packages are generated but unlisted. This repository
-> publishes no OMP catalog until the release gate lists them (YAN-1180), so the
-> only install path today is `install.sh` from a checkout. `--mode repo` and
-> `--target all` do not include OMP yet.
+There are two install paths. Both need `omp` 18.12.2 or newer:
+
+- **Native catalog.** No checkout is needed. The repository publishes
+  `.omp-plugin/marketplace.json`, so `omp` installs straight from GitHub
+  (see [Install From The Catalog](#install-from-the-catalog)).
+- **`install.sh`.** Run from a checkout. It adds ownership records,
+  `update`/`remove`/`migrate`, dedupe, and the opt-in `--settings` and
+  `--rules` steps.
 
 ## Prerequisites
 
 - `omp` 18.12.2 or newer on `PATH` (`omp --version`). The installer stops
   with `omp >= 18.12.2 is required for --target omp` otherwise. The live
   acceptance run passed on 18.12.2 and 18.12.6.
+
+The catalog path needs nothing else. `install.sh` also needs:
+
 - Bash 4 or newer. Some `install.sh` paths (`--intent`, selection flags) use
   `mapfile` and associative arrays, which macOS's `/bin/bash` 3.2 lacks; put
   a newer `bash` (for example Homebrew's) first on `PATH`.
@@ -23,7 +30,7 @@ model roles and approval default.
 - A checkout of this repository.
 
 OMP has no trust prompt: installed plugin code runs with your user privileges.
-Install only from a checkout you trust (see
+Install only from a source you trust (see
 [Security And Trust](#security-and-trust)).
 
 ## Platform Support
@@ -53,9 +60,29 @@ with the Linux `omp` build. A WSL install belongs to the WSL `omp`; a Windows
 | `ycc-all`       | Excluded on OMP: OMP does not read plugin dependencies                              | no                   |
 
 The three packages share one lockstep version (`omp plugin list` shows it).
-`@ycc` names the marketplace: the export `install.sh` registers. A `ycc`
-marketplace pointing at the checkout root is an older setup; see
-[Migrate From Older Installs](#migrate-from-older-installs).
+`@ycc` names the marketplace: the repository catalog, or the export
+`install.sh` registers. A `ycc` marketplace pointing at the checkout root is
+an older setup; see [Migrate From Older Installs](#migrate-from-older-installs).
+
+## Install From The Catalog
+
+```bash
+omp plugin marketplace add https://github.com/yandy-r/ystack.git
+omp plugin install ycc@ycc ycc-mcp@ycc ycc-rules@ycc   # add --scope project for this repo only
+```
+
+Update with `omp plugin marketplace update ycc` and then `omp plugin upgrade`
+with no arguments. That upgrades every marketplace plugin with a newer
+version. `omp plugin upgrade` with package arguments upgrades only the first
+one, so name one package per call (`omp plugin upgrade ycc-mcp@ycc`).
+
+omp manages these installs on its own. `install.sh` does not record them, so
+its `update` and `remove` leave them alone. Use one path per omp profile:
+`install.sh` refuses to replace a `ycc` marketplace it did not register (see
+[Troubleshooting](#troubleshooting)). To move a catalog install to
+`install.sh`, run `omp plugin uninstall` for each package, then
+`omp plugin marketplace remove ycc`. `./install.sh install --target omp --mode repo`
+registers the same catalog and records the installs.
 
 ## Quick Start
 
@@ -771,7 +798,7 @@ for the profile.
 | `omp >= 18.12.2 is required for --target omp`                                                 | Install or upgrade omp; the next line names the reason (for example `omp not found on PATH`).                                                                                   |
 | `--target omp needs PyYAML for python3; …`                                                    | `python3 -m pip install --user pyyaml`.                                                                                                                                         |
 | `--project at $HOME: omp project scope needs a project directory …`                           | `cd` into a project, or drop `--project`.                                                                                                                                       |
-| `omp needs a listed OMP package (YAN-1180)` (with `--mode repo`)                              | Use the default `--mode local` until the packages are listed.                                                                                                                   |
+| `omp needs a listed OMP package` (with `--mode repo`)                                         | The checkout's `ycc/settings/packages.json` lists no OMP package (an old checkout). Pull, or use the default `--mode local`.                                                    |
 | `runtime package <pkg> is linked (omp plugin link); run ./install.sh migrate --target omp`    | Run `./install.sh migrate --target omp --apply`.                                                                                                                                |
 | `marketplace ycc has a different source (…); retained …`                                      | Another `ycc` marketplace is registered. Inspect it with `omp plugin marketplace list`; migrate or `omp plugin marketplace remove ycc` if it is not yours to keep.              |
 | `<export> exists but is not the recorded ycc export; rerun with --force to replace it`        | The export directory was edited or not made by ycc. Re-run with `--force`.                                                                                                      |
@@ -792,9 +819,9 @@ change. Add `--dry-run` to see each `omp` call before it runs.
 
 ## Known Limitations
 
-- **Pre-release, unlisted.** The OMP packages are not in a published catalog
-  until YAN-1180, so `install.sh` from a checkout is the only install path;
-  `--mode repo`, public fork installs and `--target all` exclude OMP.
+- **Catalog installs are unmanaged.** Packages installed with `omp plugin`
+  straight from the catalog have no `install.sh` ownership record, dedupe,
+  `--settings` or `--rules`; run those `install.sh` steps separately.
 - **Platforms.** Only Linux x86_64 has live acceptance evidence; macOS, Linux
   arm64/musl and WSL are not yet run, and native Windows is unsupported (see
   [Platform Support](#platform-support)).
@@ -826,12 +853,16 @@ per profile you want `ycc` in.
 
 ## Source Modes And `--target all`
 
-Only `--mode local` (the default) works today. `--mode repo` needs a listed
-OMP package and is refused until YAN-1180.
+`--mode local` (the default) exports the packages from your checkout.
+`--mode repo` registers `https://github.com/yandy-r/ystack.git` as the `ycc`
+marketplace instead and installs the packages listed there (the `main`
+branch). Both refuse a `ycc` marketplace with the other source. Remove an
+`install.sh` one with `./install.sh remove --target omp --only base`; remove a
+catalog install you made with `omp plugin` as described in
+[Install From The Catalog](#install-from-the-catalog).
 
-`--target all` includes OMP only once an OMP package is listed and
-`omp >= 18.12.2` is on `PATH`. Until then it prints
-`--target all: skipping omp (...)` and runs the other targets.
+`--target all` includes OMP when `omp >= 18.12.2` is on `PATH`. Otherwise it
+prints `--target all: skipping omp (...)` and runs the other targets.
 
 ## OMP Notes
 
