@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  markdown-it: 14.3.3
+
 importers:
   .:
     devDependencies:
@@ -535,9 +538,9 @@ packages:
       { integrity: sha512-4pfM1Ff0x50o0tQwb5ucw/RzNyD0/YJME6IVcStalZuMWxdt3sR3huStTtxz4PUmvZfRguvDejasvQ2kifR11g== }
     engines: { node: 20 || >=22 }
 
-  markdown-it@14.1.0:
+  markdown-it@14.3.3:
     resolution:
-      { integrity: sha512-a54IwgWPaeBCAAsv13YgmALOF1elABB08FxO9i+r4VFk5Vl4pKokRPeX8u5TCgSsPi6ec1otfLjdOpVcgbpshg== }
+      { integrity: sha512-L//tDAkjTjJCU6pBUSBTgs3Kg4InVaZuUZog/b6V12UKhcDQ7S78877ibbCanRExwPuYP1CZD7Gd2dxSy1GXRg== }
     hasBin: true
 
   markdownlint-cli@0.42.0:
@@ -1163,7 +1166,7 @@ snapshots:
 
   lru-cache@11.5.2: {}
 
-  markdown-it@14.1.0:
+  markdown-it@14.3.3:
     dependencies:
       argparse: 2.0.1
       entities: 4.5.0
@@ -1190,7 +1193,7 @@ snapshots:
 
   markdownlint@0.35.0:
     dependencies:
-      markdown-it: 14.1.0
+      markdown-it: 14.3.3
       markdownlint-micromark: 0.1.10
 
   mdurl@2.1.0: {}
