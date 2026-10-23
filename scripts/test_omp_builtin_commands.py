@@ -78,7 +78,7 @@ class DriftTests(unittest.TestCase):
 
     def test_missing_omp_skips_with_a_warning(self) -> None:
         out = io.StringIO()
-        with patch.dict(os.environ, {"OMP_BIN": "", "PATH": ""}), redirect_stdout(out):
+        with patch.dict(os.environ, {"OMP_BIN": "", "PATH": "", "YCC_OMP_REQUIRED": ""}), redirect_stdout(out):
             self.assertEqual(guard.main([]), 0)
         self.assertIn("[warn] omp not found", out.getvalue())
 
@@ -88,9 +88,70 @@ class DriftTests(unittest.TestCase):
             fake.write_text("#!/bin/sh\necho omp/18.0.0\n", encoding="utf-8")
             fake.chmod(0o755)
             out = io.StringIO()
-            with patch.dict(os.environ, {"OMP_BIN": str(fake)}), redirect_stdout(out):
+            with patch.dict(os.environ, {"OMP_BIN": str(fake), "YCC_OMP_REQUIRED": ""}), redirect_stdout(out):
                 self.assertEqual(guard.main([]), 0)
         self.assertIn(f"older than {MIN_OMP_VERSION}", out.getvalue())
+
+    def run_live(self, argv: list[str], env: dict[str, str]) -> tuple[int, str, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with patch.dict(os.environ, env), redirect_stdout(out), redirect_stderr(err):
+            code = guard.main(argv)
+        return code, out.getvalue(), err.getvalue()
+
+    def test_require_makes_a_missing_omp_an_error(self) -> None:
+        for argv, env in (
+            (["--require"], {"OMP_BIN": "", "PATH": "", "YCC_OMP_REQUIRED": ""}),
+            ([], {"OMP_BIN": "", "PATH": "", "YCC_OMP_REQUIRED": "1"}),
+        ):
+            with self.subTest(argv=argv, env=env):
+                code, out, err = self.run_live(argv, env)
+                self.assertEqual(code, 1)
+                self.assertNotIn("[warn]", out)
+                self.assertIn("a live omp is required", err)
+
+    def test_require_makes_an_old_omp_an_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = Path(tmp) / "omp"
+            fake.write_text("#!/bin/sh\necho omp/18.0.0\n", encoding="utf-8")
+            fake.chmod(0o755)
+            code, out, err = self.run_live(["--require"], {"OMP_BIN": str(fake)})
+        self.assertEqual(code, 1)
+        self.assertNotIn("[warn]", out)
+        self.assertIn(f"older than {MIN_OMP_VERSION} and a live omp is required", err)
+
+    def test_a_falsy_required_env_still_skips(self) -> None:
+        code, out, _ = self.run_live([], {"OMP_BIN": "", "PATH": "", "YCC_OMP_REQUIRED": "0"})
+        self.assertEqual(code, 0)
+        self.assertIn("[warn] omp not found", out)
+
+    def test_require_with_saved_frames_is_a_clear_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "frames.jsonl"
+            path.write_text(frame([builtin("compact")]) + "\n", encoding="utf-8")
+            err = io.StringIO()
+            with redirect_stderr(err), self.assertRaises(SystemExit) as raised:
+                guard.main(["--require", "--commands-json", str(path)])
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("cannot be combined with --commands-json", err.getvalue())
+
+    def test_the_required_env_is_ignored_for_saved_frames(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "frames.jsonl"
+            path.write_text(frame([builtin("compact")]) + "\n", encoding="utf-8")
+            code, _, err = self.run_live(["--commands-json", str(path)], {"YCC_OMP_REQUIRED": "1"})
+        self.assertEqual((code, err), (0, ""))
+
+    def test_a_failing_version_probe_is_an_error_even_without_require(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = Path(tmp) / "omp"
+            fake.write_text("#!/bin/sh\necho omp/99.0.0\necho nope >&2\nexit 4\n", encoding="utf-8")
+            fake.chmod(0o755)
+            for argv in ([], ["--require"]):
+                with self.subTest(argv=argv):
+                    code, out, err = self.run_live(argv, {"OMP_BIN": str(fake), "YCC_OMP_REQUIRED": ""})
+                    self.assertEqual(code, 1)
+                    self.assertNotIn("[warn]", out)
+                    self.assertIn("omp --version exited 4: nope", err)
 
     def test_a_failing_probe_is_an_error_not_a_skip(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -101,7 +162,9 @@ class DriftTests(unittest.TestCase):
             )
             fake.chmod(0o755)
             err = io.StringIO()
-            with patch.dict(os.environ, {"OMP_BIN": str(fake)}), redirect_stdout(io.StringIO()), redirect_stderr(err):
+            with patch.dict(os.environ, {"OMP_BIN": str(fake), "YCC_OMP_REQUIRED": ""}), redirect_stdout(
+                io.StringIO()
+            ), redirect_stderr(err):
                 self.assertEqual(guard.main([]), 1)
         self.assertIn("omp --mode rpc exited 3: boom", err.getvalue())
 

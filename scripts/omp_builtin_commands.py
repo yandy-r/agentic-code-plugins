@@ -10,12 +10,16 @@ not drift: RPC lists only the commands available to a headless session.
 
 The probe runs ``omp --mode rpc`` under ``env -i`` with a throwaway HOME/XDG tree and a
 null model provider on 127.0.0.1:9; no prompt is sent, so no request is made. When omp
-is not installed (or older than MIN_OMP_VERSION) the check prints a warning and exits 0.
+is not installed (or older than MIN_OMP_VERSION) the check prints a warning and exits 0,
+so ./scripts/validate.sh stays runnable without omp. CI sets ``--require`` (or
+``YCC_OMP_REQUIRED=1``) to turn that skip into a hard failure (YAN-1552).
 
 Usage:
   omp_builtin_commands.py                     probe OMP_BIN or omp on PATH
+  omp_builtin_commands.py --require           same, but missing/old omp is an error
   omp_builtin_commands.py --commands-json F   check a saved get_available_commands frame
-Exit 0 when clean or skipped, 1 on drift or a failed probe.
+Exit 0 when clean or skipped, 1 on drift, a failed probe, or (with --require) no usable omp;
+2 for --require with --commands-json. YCC_OMP_REQUIRED is ignored for saved frames.
 """
 
 from __future__ import annotations
@@ -157,17 +161,32 @@ def probe(omp: str) -> list[dict[str, Any]]:
         return commands_from_frames(result.stdout.splitlines())
 
 
-def live_omp() -> str | None:
-    """The omp binary to probe, or None (with a warning) when the check must skip."""
+def env_required() -> bool:
+    """True when YCC_OMP_REQUIRED is set to a truthy value (1, true, yes, on)."""
+    return os.environ.get("YCC_OMP_REQUIRED", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def live_omp(*, require: bool = False) -> str | None:
+    """The omp binary to probe; None (with a warning) when the check may skip.
+
+    With ``require`` a missing or too-old omp raises ProbeError instead of skipping.
+    """
     omp = os.environ.get("OMP_BIN") or shutil.which("omp")
     if not omp or not os.access(omp, os.X_OK):
+        if require:
+            raise ProbeError("omp not found (set OMP_BIN or install omp) and a live omp is required")
         print("[warn] omp not found (set OMP_BIN or install omp): skipping the built-in command drift check")
         return None
     try:
-        version = subprocess.run([omp, "--version"], capture_output=True, text=True, timeout=PROBE_TIMEOUT).stdout
+        result = subprocess.run([omp, "--version"], capture_output=True, text=True, timeout=PROBE_TIMEOUT)
     except subprocess.TimeoutExpired as error:
         raise ProbeError(f"omp --version timed out after {PROBE_TIMEOUT}s") from error
+    if result.returncode != 0:
+        raise ProbeError(f"omp --version exited {result.returncode}: {result.stderr.strip()[-500:]}")
+    version = result.stdout
     if version_key(version) < version_key(MIN_OMP_VERSION):
+        if require:
+            raise ProbeError(f"{version.strip()} is older than {MIN_OMP_VERSION} and a live omp is required")
         print(f"[warn] {version.strip()} is older than {MIN_OMP_VERSION}: skipping the built-in command drift check")
         return None
     # Absolute, not resolved (a shim keeps its name): the probe runs in a temp cwd.
@@ -177,12 +196,23 @@ def live_omp() -> str | None:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--commands-json", type=Path, help="saved RPC frames (JSONL) instead of a live probe")
+    parser.add_argument(
+        "--require",
+        action="store_true",
+        help="fail instead of skipping when omp is missing or older than MIN_OMP_VERSION "
+        "(also enabled by YCC_OMP_REQUIRED=1)",
+    )
     args = parser.parse_args(argv)
+    if args.require and args.commands_json is not None:
+        # A saved frame needs no omp, so --require would silently assert nothing.
+        parser.error("--require checks a live omp and cannot be combined with --commands-json")
+    # YCC_OMP_REQUIRED only gates the live probe; it is ignored for saved frames.
+    require = args.require or env_required()
     try:
         if args.commands_json is not None:
             commands = commands_from_frames(args.commands_json.read_text(encoding="utf-8").splitlines())
         else:
-            omp = live_omp()
+            omp = live_omp(require=require)
             if omp is None:
                 return 0
             commands = probe(omp)

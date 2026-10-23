@@ -1,0 +1,326 @@
+# Live OMP acceptance (YAN-1552, YAN-1555) — a slow, honest gate beside
+# validate.yml, which stays runnable without omp and keeps PR-gating on its own.
+#
+# This workflow downloads a pinned omp release binary from
+# github.com/can1357/oh-my-pi, verifies it against the release's SHA256SUMS.txt,
+# and runs the opt-in live harnesses. Installing omp or running a harness never
+# skips silently: install/download/checksum failures fail the step, and a
+# harness that reports SKIP is treated as a failure by the runner step below.
+# Only the null / scripted loopback providers on 127.0.0.1 ever serve a model,
+# and the harnesses confine every omp call to env -i with a throwaway
+# HOME/XDG tree; nothing here calls a real model or a real credential.
+#
+# Triggers: a weekly cron, pushes and PRs that touch omp-relevant paths, and
+# workflow_dispatch for manual runs. omp is pinned by exact version and SHA-256,
+# so the cron does not detect upstream releases; it re-tests the pinned versions
+# against runner-image drift (OS, Homebrew, Python, bubblewrap, AppArmor).
+# Bumping or adding an omp version means adding its checksums below. All
+# triggers exercise the full matrix.
+#
+# Harnesses run here (see docs/internal/omp-acceptance.md):
+#   scripts/test-omp-native-packages.sh
+#   scripts/test-omp-install-lifecycle.sh
+#   scripts/test-omp-coexistence.sh
+#   scripts/test-omp-rules-settings.sh
+#   scripts/test-omp-scripted-sessions.sh
+#   scripts/test-omp-runtime-contract-spike.sh
+#
+# Left out, with the reason recorded:
+#   scripts/test-omp-herdr-hooks.sh — needs a real herdr binary, and its most
+#     valuable case (L8, a live herdr pane) needs a running herdr daemon. There
+#     is no pinned upstream herdr release to install in CI yet, so the harness
+#     would only print SKIP and exit 2 in every leg. It stays a local / manual
+#     check; see docs/internal/omp-acceptance.md.
+#
+# Sandbox note (YAN-1555): every harness prefers bwrap with a private network
+# namespace and the real home hidden. GitHub-hosted macOS runners have no
+# bubblewrap, so macOS legs pass --allow-env-i EXPLICITLY in that step only:
+# sandbox = env -i with a throwaway HOME/XDG tree and the null/loopback
+# provider, no private network namespace and the real home NOT hidden behind a
+# tmpfs. Linux legs never pass --allow-env-i.
+# Ubuntu 24.04 restricts unprivileged user namespaces through AppArmor, which
+# breaks bwrap --unshare-net; the Linux step probes bwrap functionally and, if the
+# probe fails, lifts only that restriction (a runner-level sysctl) and re-probes.
+# It never falls back to --allow-env-i on Linux.
+# macOS also lacks GNU coreutils (timeout, realpath, sha256sum) and Bash 4, which the
+# harnesses and install.sh need. A macOS-only step installs them with Homebrew and
+# exposes only coreutils' gnubin plus a shim dir (bash, python3) through
+# YCC_HARNESS_EXTRA_PATH; the harnesses add exactly those directories to the
+# env -i sandbox PATH (scripts/lib/omp-harness-common.sh validates them).
+# The macOS legs are new (YAN-1555): a red macOS leg is real signal, not a flake.
+name: Live OMP checks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/*omp*'
+      - 'scripts/omp_*'
+      - 'scripts/test-omp-*.sh'
+      - 'scripts/test_omp_*.py'
+      - 'ycc/**'
+      - 'packages/omp/**'
+      - '.omp-plugin/**'
+      - 'install.sh'
+      - 'scripts/install*.sh'
+      - 'scripts/validate.sh'
+      - '.github/workflows/omp-live.yml'
+  pull_request:
+    paths:
+      - 'scripts/*omp*'
+      - 'scripts/omp_*'
+      - 'scripts/test-omp-*.sh'
+      - 'scripts/test_omp_*.py'
+      - 'ycc/**'
+      - 'packages/omp/**'
+      - '.omp-plugin/**'
+      - 'install.sh'
+      - 'scripts/install*.sh'
+      - 'scripts/validate.sh'
+      - '.github/workflows/omp-live.yml'
+  schedule:
+    # Weekly, Monday 03:17 UTC. Runs the full matrix.
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+    inputs:
+      harnesses:
+        description: 'Space-separated harness names to run (blank = all feasible)'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: omp-live-${{ github.ref }}
+  # Only superseded PR runs are cancelled; main pushes and the cron run to completion.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # The single source of the omp versions under test. The lowest one must be the
+  # floor the repository supports (MIN_OMP_VERSION), so the floor is always tested.
+  omp-pins:
+    name: omp-pins
+    runs-on: ubuntu-latest
+    outputs:
+      versions: ${{ steps.pins.outputs.versions }}
+    env:
+      OMP_VERSIONS: '["18.12.2", "18.12.6"]'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Check the matrix floor equals MIN_OMP_VERSION
+        id: pins
+        run: |
+          set -euo pipefail
+          floor=$(python3 - <<'PY'
+          import json, os
+          key = lambda v: tuple(int(p) for p in v.split("."))
+          print(min(json.loads(os.environ["OMP_VERSIONS"]), key=key))
+          PY
+          )
+          min_version=$(sed -nE 's/^MIN_OMP_VERSION = "([0-9.]+)"$/\1/p' scripts/generate_omp_packages.py)
+          test -n "$min_version" || { echo "::error::MIN_OMP_VERSION not found in scripts/generate_omp_packages.py"; exit 1; }
+          if [ "$floor" != "$min_version" ]; then
+            echo "::error::lowest omp in the matrix ($floor) != MIN_OMP_VERSION ($min_version); update OMP_VERSIONS and the checksums"
+            exit 1
+          fi
+          echo "matrix floor $floor == MIN_OMP_VERSION"
+          echo "versions=$OMP_VERSIONS" >> "$GITHUB_OUTPUT"
+
+  live-omp:
+    name: live-omp (${{ matrix.os }}, omp ${{ matrix.omp }})
+    needs: omp-pins
+    runs-on: ${{ matrix.os }}
+    # fail-fast is off so one OS/version never masks the other legs.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        omp: ${{ fromJSON(needs.omp-pins.outputs.versions) }}
+    timeout-minutes: 90
+    env:
+      OMP_VERSION: ${{ matrix.omp }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python deps
+        run: python3 -m pip install pyyaml==6.0.3
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install locked Node deps
+        run: npm ci
+
+      # The harnesses require bwrap with a private network namespace and refuse to run
+      # without it. ubuntu-latest ships bubblewrap, but Ubuntu 24.04 blocks the
+      # unprivileged user namespaces it needs (AppArmor). Probe functionally; if the
+      # probe fails, lift only that restriction, re-probe, and fail loudly if it still
+      # fails. The sandbox is never weakened.
+      - name: Ensure a working bubblewrap sandbox (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          if ! command -v bwrap >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends bubblewrap
+          fi
+          bwrap --version
+          probe() { bwrap --dev-bind / / --unshare-net /bin/true; }
+          if probe; then
+            echo "bwrap --unshare-net works"
+            exit 0
+          fi
+          echo "bwrap --unshare-net failed; lifting the AppArmor unprivileged-userns restriction"
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          if probe; then
+            echo "bwrap --unshare-net works after the sysctl"
+            exit 0
+          fi
+          echo "::error::bwrap --unshare-net still fails after kernel.apparmor_restrict_unprivileged_userns=0; refusing to run the live harnesses without network/home isolation"
+          exit 1
+
+      # install.sh and the harnesses need Bash 4 and GNU coreutils (timeout, realpath,
+      # sha256sum), which stock macOS lacks. Only coreutils' gnubin and a shim dir with
+      # bash and python3 are exposed; prepending all of $(brew --prefix)/bin would
+      # shadow setup-python's python3. YCC_HARNESS_EXTRA_PATH carries the same two
+      # directories into the harnesses' env -i sandbox PATH.
+      - name: Install GNU tools (macOS only)
+        if: runner.os == 'macOS'
+        run: |
+          set -euo pipefail
+          brew install bash coreutils
+          gnubin="$(brew --prefix coreutils)/libexec/gnubin"
+          shim="$RUNNER_TEMP/gnu-shim"
+          mkdir -p "$shim"
+          ln -sf "$(brew --prefix bash)/bin/bash" "$shim/bash"
+          ln -sf "$(command -v python3)" "$shim/python3"
+          "$shim/bash" --version | head -n 1
+          "$shim/python3" -c 'import sys, yaml; print(sys.version.split()[0], "with PyYAML", yaml.__version__)'
+          PATH="$gnubin:$PATH" timeout --version | head -n 1
+          {
+            echo "$gnubin"
+            echo "$shim"
+          } >> "$GITHUB_PATH"
+          echo "YCC_HARNESS_EXTRA_PATH=$gnubin:$shim" >> "$GITHUB_ENV"
+
+      - name: Install pinned omp ${{ matrix.omp }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${RUNNER_OS}:${RUNNER_ARCH}" in
+            Linux:X64) asset=omp-linux-x64 ;;
+            Linux:ARM64) asset=omp-linux-arm64 ;;
+            macOS:ARM64) asset=omp-darwin-arm64 ;;
+            macOS:X64) asset=omp-darwin-x64 ;;
+            *) echo "no omp release asset for ${RUNNER_OS}/${RUNNER_ARCH}"; exit 1 ;;
+          esac
+          # Pinned SHA-256 per (asset, version), from each release's SHA256SUMS.txt.
+          # Adding a version to OMP_VERSIONS means adding its four lines here.
+          case "${asset}@${OMP_VERSION}" in
+            omp-linux-x64@18.12.2) pinned=9513ef9f19d7991aac6ae0cb6077bcf16662092ddde861c002a91cedc6f47f9a ;;
+            omp-linux-arm64@18.12.2) pinned=967d64fce514586e94c9ac5f978743b4fce29b999c8763747ce4754811407d1a ;;
+            omp-darwin-arm64@18.12.2) pinned=abd9a5b0fef77f4204078e348e233faa0dd3d5d81719cf2b6a9b9478c10eee48 ;;
+            omp-darwin-x64@18.12.2) pinned=dcd3fa827ae73bdb471bb838171ef1c9c5be665a68eaec45ffc6d6e5cf128b92 ;;
+            omp-linux-x64@18.12.6) pinned=85d9daf3a05fc76e8cd425ae1904eb576af8d21cc85fcf4690742626e07ccfa4 ;;
+            omp-linux-arm64@18.12.6) pinned=eee8e586274cef2e725c218b2b28b48ca9965d46dd58f60998cb347eca4ad0cf ;;
+            omp-darwin-arm64@18.12.6) pinned=cfbb5e38cd8f8a3be55e710700be587d287deaacdc58c9b0a661c5086bccfe58 ;;
+            omp-darwin-x64@18.12.6) pinned=62d6e6fd88b6fa5de2ca82842906f152bf1aa227559b1d0bb386f25f6d606123 ;;
+            *) echo "::error::no pinned SHA-256 for ${asset}@${OMP_VERSION}; add it to this step"; exit 1 ;;
+          esac
+          sha256() {
+            if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'; else shasum -a 256 "$1" | awk '{print $1}'; fi
+          }
+          bindir="$RUNNER_TEMP/omp-bin"
+          dl="$RUNNER_TEMP/omp-download"
+          mkdir -p "$bindir" "$dl"
+          base="https://github.com/can1357/oh-my-pi/releases/download/v${OMP_VERSION}"
+          fetch() { curl --proto '=https' --tlsv1.2 -fsSL --retry 3 --retry-delay 5 -o "$2" "$1"; }
+          echo "downloading $base/$asset"
+          fetch "$base/$asset" "$dl/$asset"
+          fetch "$base/SHA256SUMS.txt" "$dl/SHA256SUMS.txt"
+          published=$(awk -v a="$asset" '$2 == a {print $1}' "$dl/SHA256SUMS.txt")
+          test -n "$published" || { echo "::error::no SHA256SUMS entry for $asset"; exit 1; }
+          test "$published" = "$pinned" || { echo "::error::SHA256SUMS.txt for v${OMP_VERSION} lists $published for $asset, pinned $pinned"; exit 1; }
+          actual=$(sha256 "$dl/$asset")
+          test "$actual" = "$pinned" || { echo "::error::checksum mismatch for $asset: got $actual, pinned $pinned"; exit 1; }
+          install -m 0755 "$dl/$asset" "$bindir/omp"
+          echo "OMP_BIN=$bindir/omp" >> "$GITHUB_ENV"
+          echo "$bindir" >> "$GITHUB_PATH"
+          "$bindir/omp" --version
+          got=$("$bindir/omp" --version | tr -d '[:space:]')
+          test "$got" = "omp/${OMP_VERSION}" || { echo "expected omp/${OMP_VERSION}, got $got"; exit 1; }
+          # Record what actually ran so a silent downgrade is visible in the log.
+          echo "omp under test: $got ($asset, sha256 $actual)"
+
+      - name: Drift guard (requires live omp)
+        env:
+          YCC_OMP_REQUIRED: '1'
+        run: |
+          command -v python3 && python3 -c 'import yaml'
+          python3 scripts/omp_builtin_commands.py --require
+
+      # Fast, deterministic unit fixtures for the guard above; complements
+      # validate.yml, which owns the full validator. No omp needed here.
+      - name: Guard fixtures
+        run: python3 scripts/test_omp_builtin_commands.py
+
+      - name: Run live harnesses
+        shell: bash
+        env:
+          HARNESS_INPUT: ${{ inputs.harnesses }}
+        run: |
+          set -uo pipefail
+          # --allow-env-i is macOS-only and explicit: bubblewrap cannot exist
+          # there, so the harness falls back to env -i + throwaway HOME/XDG.
+          # Linux legs deliberately never pass it and fail closed without bwrap.
+          sandbox_args=()
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            sandbox_args=(--allow-env-i)
+          elif ! command -v bwrap >/dev/null 2>&1; then
+            echo "bwrap is required on Linux; refusing --allow-env-i fallback" >&2
+            exit 1
+          fi
+          all="native-packages install-lifecycle coexistence rules-settings scripted-sessions runtime-contract-spike"
+          # herdr-hooks is deliberately absent: it needs a real herdr binary and,
+          # for L8, a live herdr daemon. See the header comment and acceptance doc.
+          names="$all"
+          if [ -n "${HARNESS_INPUT//[[:space:]]/}" ]; then
+            names="$HARNESS_INPUT"
+            echo "::warning::workflow_dispatch allow-list in effect: running only '${names}' (not the full harness set)"
+          fi
+          status=0
+          for name in $names; do
+            script="scripts/test-omp-${name}.sh"
+            case " $all " in
+              *" $name "*) ;;
+              *) echo "unknown harness: $name (allowed: $all)"; status=1; continue ;;
+            esac
+            echo "::group::$script $OMP_VERSION on $RUNNER_OS"
+            # A SKIP (exit 0/2) must never pass silently in CI.
+            if "./$script" ${sandbox_args[@]+"${sandbox_args[@]}"} >"$RUNNER_TEMP/${name}.log" 2>&1; then rc=0; else rc=$?; fi
+            cat "$RUNNER_TEMP/${name}.log"
+            echo "::endgroup::"
+            if grep -qiE '^[[:space:]]*\[?skip' "$RUNNER_TEMP/${name}.log"; then
+              echo "$script reported SKIP; CI treats that as a failure" >&2
+              status=1
+            elif [ "$rc" -ne 0 ]; then
+              echo "$script failed with exit $rc" >&2
+              status=1
+            fi
+          done
+          exit "$status"

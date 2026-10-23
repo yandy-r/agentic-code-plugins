@@ -4,6 +4,7 @@
 # Not part of CI. No credentials, no network inside the sandbox, no model inference.
 set -euo pipefail
 umask 077
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/lib/omp-harness-common.sh"
 
 usage() {
   cat <<'EOF'
@@ -85,6 +86,7 @@ fi
 for tool in git python3 timeout mktemp realpath; do
   command -v "$tool" >/dev/null || die "missing prerequisite: $tool"
 done
+omp_h_require_gnu_tools
 
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 checks=$repo/scripts/omp_native_smoke.py
@@ -93,7 +95,7 @@ omp=${OMP_BIN:-$(command -v omp || true)}
 omp=$(realpath "$omp")
 python=$(command -v python3)
 real_home=$(realpath "${HOME:?HOME must be set}")
-root=$(mktemp -d /tmp/omp-native-packages.XXXXXX)
+root=$(omp_h_mktemp_root omp-native-packages)
 [[ "$root" != "$real_home" && "$root" != "$real_home"/* ]] || die 'sandbox must not live under the real HOME'
 cleanup() {
   local rc=$?
@@ -115,7 +117,8 @@ mkdir -p "$root"/{work,tmp,logs,case}
 # Git keeps only the regular-file type and executable bit; a normal umask keeps payload modes.
 umask 022
 cd "$root/work"
-safe_path=/usr/local/bin:/usr/bin:/bin
+safe_path=$(omp_h_safe_path "$allow_env_i")
+omp_h_check_path_tools "$safe_path" bash git python3 timeout realpath
 url=https://omp-native.invalid/fork.git
 fork=$root/fork.git
 case_home=$root/case
@@ -151,6 +154,8 @@ clean() {
     "$@"
 }
 # bwrap works on its own; a failure here is omp needing files the sandbox hides.
+# Run the HOME guard once with stderr visible: the preflight below discards it.
+clean true
 clean ${wrap[@]+"${wrap[@]}"} timeout -k 5 30 "$omp" --version >/dev/null 2>&1 ||
   die "OMP_BIN ($omp) does not run inside the $sandbox sandbox: it must be a self-contained binary outside \$HOME's dependencies (env -i PATH=$safe_path, real home hidden)"
 log() { printf '%s\n' "$*" | tee -a "$root/transcript.log"; }
