@@ -34,17 +34,17 @@ other runtime bundles are generated from it. Keep the plugin name `ycc` stable.
 The capability contract is `ycc/skills/_shared/references/target-capability-matrix.md`;
 this table records install ownership, not a claim of runtime feature parity:
 
-| Target                 | Generated / managed surface                                                                        | User install destination                                                       |
-| ---------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Cursor file copy       | `packages/cursor/`: `ycc/{skills,agents,commands}`, `ycc-rules/rules`, `installer-fallback/config` | `~/.cursor/` via unchanged installer                                           |
-| Codex                  | `.codex-plugin/ycc/`; `.codex-plugin/agents/`                                                      | `~/.codex/plugins/ycc`; custom agents under `~/.codex/agents/`                 |
-| Codex marketplace      | User marketplace managed by Codex target                                                           | `~/.agents/plugins/marketplace.json`                                           |
-| opencode               | `.opencode-plugin/skills/`, `agents/`, `commands/`                                                 | Matching directories under `~/.config/opencode/`                               |
-| opencode settings      | `.opencode-plugin/opencode.json`, `AGENTS.md`                                                      | `~/.config/opencode/` via `install.sh install --target opencode --settings`    |
-| Cross-tool `agents`    | `.agents-plugin/skills/`, `ycc-shared/`                                                            | `~/.agents/skills/`, `~/.agents/ycc-shared/`                                   |
-| Claude native add-ons  | `packages/claude/` MCP, hooks, dependency bundle                                                   | Listed in root `.claude-plugin/marketplace.json`; `install.sh migrate` dedupes |
-| Cursor native packages | `packages/cursor/{ycc,ycc-rules,ycc-mcp,ycc-hooks}/`                                               | Listed in root `.cursor-plugin/marketplace.json`; file-copy installer remains  |
-| OMP native packages    | `packages/omp/{ycc,ycc-mcp}/`; exported by `scripts/omp_install.py` (unlisted until YAN-1180)      | `install.sh install --target omp` via `omp plugin` (user or `--project` scope) |
+| Target                 | Generated / managed surface                                                                        | User install destination                                                                         |
+| ---------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Cursor file copy       | `packages/cursor/`: `ycc/{skills,agents,commands}`, `ycc-rules/rules`, `installer-fallback/config` | `~/.cursor/` via unchanged installer                                                             |
+| Codex                  | `.codex-plugin/ycc/`; `.codex-plugin/agents/`                                                      | `~/.codex/plugins/ycc`; custom agents under `~/.codex/agents/`                                   |
+| Codex marketplace      | User marketplace managed by Codex target                                                           | `~/.agents/plugins/marketplace.json`                                                             |
+| opencode               | `.opencode-plugin/skills/`, `agents/`, `commands/`                                                 | Matching directories under `~/.config/opencode/`                                                 |
+| opencode settings      | `.opencode-plugin/opencode.json`, `AGENTS.md`                                                      | `~/.config/opencode/` via `install.sh install --target opencode --settings`                      |
+| Cross-tool `agents`    | `.agents-plugin/skills/`, `ycc-shared/`                                                            | `~/.agents/skills/`, `~/.agents/ycc-shared/`                                                     |
+| Claude native add-ons  | `packages/claude/` MCP, hooks, dependency bundle                                                   | Listed in root `.claude-plugin/marketplace.json`; `install.sh migrate` dedupes                   |
+| Cursor native packages | `packages/cursor/{ycc,ycc-rules,ycc-mcp,ycc-hooks}/`                                               | Listed in root `.cursor-plugin/marketplace.json`; file-copy installer remains                    |
+| OMP native packages    | `packages/omp/{ycc,ycc-mcp,ycc-rules}/`; listed in root `.omp-plugin/marketplace.json`             | `omp plugin install <pkg>@ycc`, or `install.sh install --target omp` (user or `--project` scope) |
 
 - The `agents` target is skills-only; never write `~/.agents/plugins/` (owned by Codex).
 - Project rules here are not user-global plugin rules. opencode's generated `AGENTS.md`

@@ -164,19 +164,41 @@ else
 fi
 assert_not_contains "$(omp_log "${home}")" "omp plugin install" "excluded package installs nothing"
 
+# --mode repo registers the upstream repository catalog (listed since YAN-1180). The fake
+# omp "clones" any git source from FAKE_OMP_REPO_CATALOG: a copy of this checkout's catalog
+# and packages, so a missing or unlisted root catalog fails the clone.
 home="$(new_home)"
-if out="$(run_install "${home}" install --target omp --mode repo)"; then
-    ko "--mode repo --target omp rejected while unlisted"
+repo_catalog="${home}/repo-catalog"
+mkdir -p "${repo_catalog}/packages"
+cp -R "${REPO_ROOT}/.omp-plugin" "${repo_catalog}/"
+cp -R "${REPO_ROOT}/packages/omp" "${repo_catalog}/packages/"
+FAKE_OMP_REPO_CATALOG="${repo_catalog}" install_must_succeed "${home}" install --target omp --mode repo
+log="$(omp_log "${home}")"
+assert_contains "${log}" "omp plugin marketplace add https://github.com/yandy-r/ystack.git" "--mode repo registers the repository catalog"
+for package in ycc ycc-mcp ycc-rules; do
+    assert_contains "${log}" "omp plugin install --scope user ${package}@ycc" "--mode repo installs ${package}@ycc from the repository catalog"
+done
+if [[ ! -e "$(omp_export "${home}")" ]]; then
+    ok "--mode repo writes no local export"
 else
-    assert_contains "${out}" "--mode repo is not supported by the omp target" "--mode repo --target omp rejected while unlisted"
-    assert_contains "${out}" "omp needs a listed OMP package (YAN-1180)" "--mode repo rejection names YAN-1180"
+    ko "--mode repo writes no local export"
+fi
+if out="$(run_install "${home}" install --target omp)"; then
+    ko "--mode local after --mode repo refuses the other ycc marketplace"
+else
+    assert_contains "${out}" "marketplace ycc has a different source (https://github.com/yandy-r/ystack.git)" "--mode local after --mode repo refuses the other ycc marketplace"
 fi
 
 home="$(new_home)"
-install_must_succeed "${home}" sync --target all --intent mcp
-assert_contains "${INSTALL_OUT}" "--target all: skipping omp (needs omp >= 18.12.2 on PATH and a listed OMP package)" "--target all prints the omp skip line"
-assert_not_contains "${INSTALL_OUT}" "omp sync complete" "--target all skips omp while unlisted"
-assert_not_contains "$(omp_log "${home}")" "omp plugin" "--target all makes no omp plugin call"
+install_must_succeed "${home}" sync --target all --intent plugins
+assert_not_contains "${INSTALL_OUT}" "--target all: skipping omp" "--target all includes omp once its packages are listed"
+assert_contains "${INSTALL_OUT}" "omp sync complete" "--target all runs the omp target"
+assert_contains "$(omp_log "${home}")" "omp plugin install --scope user ycc@ycc" "--target all installs ycc@ycc into omp"
+
+home="$(new_home)"
+FAKE_OMP_VERSION=18.12.1 install_must_succeed "${home}" sync --target all --intent mcp
+assert_contains "${INSTALL_OUT}" "--target all: skipping omp (needs omp >= 18.12.2 on PATH" "--target all skips omp below the version floor"
+assert_not_contains "$(omp_log "${home}")" "omp plugin" "--target all with an old omp makes no omp plugin call"
 
 echo
 echo "== install.sh: omp version preflight =="

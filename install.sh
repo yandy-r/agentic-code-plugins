@@ -242,11 +242,11 @@ Options:
                                 marketplace https://github.com/yandy-r/ystack.git
                                 at ref main and installs ycc@ycc and
                                 ycc-mcp@ycc from it, skipping local
-                                generation and agents-sync.
+                                generation and agents-sync; omp registers
+                                https://github.com/yandy-r/ystack.git and
+                                installs its listed packages from it.
                                 cursor, opencode and agents REJECT --mode repo
-                                (they have no remote-source concept); omp
-                                rejects it until an OMP package is listed
-                                (YAN-1180) and installs from a local export.
+                                (they have no remote-source concept).
                                 With --target all + --mode repo, cursor,
                                 opencode and agents are skipped with a warning.
   --settings          Additive: MERGE repo-managed keys into per-machine config

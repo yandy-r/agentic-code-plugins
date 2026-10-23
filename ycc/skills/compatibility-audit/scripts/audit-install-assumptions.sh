@@ -308,8 +308,8 @@ run_omp_checks() {
   local matrix="${REPO_ROOT}/ycc/skills/_shared/references/target-capability-matrix.md"
 
   # OM1: the generated catalog and the matrix INSTALL_PATH:omp verdict must agree.
-  # While no OMP package is listed (YAN-1180) the root .omp-plugin/ is absent;
-  # 'partial' then means install.sh --target omp installs from a generated export.
+  # The root .omp-plugin/ exists while an OMP package is listed in ycc/settings/packages.json;
+  # with none listed it is absent and 'partial' means install.sh --target omp installs an export.
   if [[ ! -f "$matrix" ]]; then
     record "omp" "OM1" "FAIL" "${matrix} does not exist — cannot read INSTALL_PATH:omp"; return
   fi

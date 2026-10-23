@@ -711,11 +711,25 @@ class OmpInstallTests(unittest.TestCase):
         self.assertEqual(self.snapshot(), before)
 
     def test_repo_mode_needs_a_listed_package(self) -> None:
-        self.assertFalse(omp_install.listed())
-        self.assertEqual(self.omp("listed").code, 1)
-        result = self.refused("install", "--scope", "user", "--project-root", str(self.home), "--mode", "repo")
+        self.assertTrue(omp_install.listed())
+        self.assertEqual(self.omp("listed").code, 0)
+        with patch.object(omp_install, "listed", return_value=False):
+            self.assertEqual(self.omp("listed").code, 1)
+            result = self.refused("install", "--scope", "user", "--project-root", str(self.home), "--mode", "repo")
         self.assertIn(omp_install.REPO_REFUSAL, result.err)
         self.assertEqual(self.calls(), [])
+
+    def test_repo_mode_installs_from_the_repository_catalog(self) -> None:
+        repo = self.tmp / "repo-catalog"
+        shutil.copytree(omp_install.ROOT / ".omp-plugin", repo / ".omp-plugin")
+        shutil.copytree(omp_install.ROOT / "packages/omp", repo / "packages/omp")
+        with patch.dict(os.environ, {"FAKE_OMP_REPO_CATALOG": str(repo)}):
+            self.ok("install", "--scope", "user", "--project-root", str(self.home), "--mode", "repo")
+        calls = self.calls()
+        self.assertIn(f"omp plugin marketplace add {omp_install.REPOSITORY}", calls)
+        self.assertEqual(self.marketplaces(), {"ycc": omp_install.REPOSITORY})
+        self.assert_installed(("ycc", "ycc-mcp", "ycc-rules"), "user", self.model_version)
+        self.assertFalse(omp_install.export_dir().exists())
 
     # -- migration -----------------------------------------------------------------------------
 
@@ -740,8 +754,7 @@ class OmpInstallTests(unittest.TestCase):
     def test_migrate_retires_the_checkout_root_marketplace_and_reinstalls_natively(self) -> None:
         other = make_fixture(self.tmp / "other", ("thing",), "1.0.0", name="other")
         self.fake("plugin", "marketplace", "add", str(other))
-        self.fake("plugin", "marketplace", "add", str(omp_install.ROOT))
-        self.fake("plugin", "install", "--scope", "user", "ycc@ycc")
+        self.legacy_checkout_marketplace("ycc")
         legacy = self.entry("ycc", "user")
         assert legacy is not None
         self.assertFalse((Path(legacy["installPath"]) / ".omp-plugin/plugin.json").exists())
@@ -802,9 +815,10 @@ class OmpInstallTests(unittest.TestCase):
         self.assertEqual(self.snapshot(), before)
 
     def legacy_checkout_marketplace(self, *packages: str) -> None:
-        self.fake("plugin", "marketplace", "add", str(omp_install.ROOT))
+        """A checkout-root marketplace and installs from before the OMP catalog was listed (Claude packages)."""
+        self.fake("plugin", "marketplace", "add", str(omp_install.ROOT), FAKE_OMP_CLAUDE_CATALOG="1")
         for package in packages:
-            self.fake("plugin", "install", "--scope", "user", f"{package}@ycc")
+            self.fake("plugin", "install", "--scope", "user", f"{package}@ycc", FAKE_OMP_CLAUDE_CATALOG="1")
 
     def test_migrate_refuses_a_disabled_legacy_install_and_never_toggles_it(self) -> None:
         self.legacy_checkout_marketplace("ycc")

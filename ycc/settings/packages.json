@@ -62,7 +62,7 @@
         },
         "omp": {
           "status": "included",
-          "listed": false,
+          "listed": true,
           "mechanism": "native",
           "components": ["skills", "agents", "commands", "shared"],
           "requires": [],
@@ -71,10 +71,11 @@
           "opt_in": false,
           "evidence": [
             "docs/internal/adr/0002-omp-runtime-contract.md",
-            "docs/internal/spikes/omp-runtime-contract.md"
+            "docs/internal/spikes/omp-runtime-contract.md",
+            "docs/internal/omp-acceptance.md"
           ],
-          "gates": ["YAN-1178 live acceptance matrix passes on the real ycc tree"],
-          "notes": "Generated OMP package under packages/omp/ycc (omp >=18.12.2) with .omp-plugin and .claude-plugin manifests and package.json, rewritten ${CLAUDE_PLUGIN_ROOT}, /ycc: and _shared references, agents translated to @role models, and one commands/<skill>.md entrypoint per public skill (/ycc:<skill>). install.sh --target omp exports it to a local marketplace and installs it through omp plugin (user or project scope). Unlisted: the root .omp-plugin/marketplace.json stays absent until listing."
+          "gates": [],
+          "notes": "Generated OMP package under packages/omp/ycc (omp >=18.12.2) with .omp-plugin and .claude-plugin manifests and package.json, rewritten ${CLAUDE_PLUGIN_ROOT}, /ycc: and _shared references, agents translated to @role models, and one commands/<skill>.md entrypoint per public skill (/ycc:<skill>). Listed in the root .omp-plugin/marketplace.json (YAN-1180). install.sh --target omp exports it to a local marketplace (--mode local) or registers the repository catalog (--mode repo) and installs it through omp plugin (user or project scope)."
         }
       }
     },
@@ -130,7 +131,7 @@
         },
         "omp": {
           "status": "included",
-          "listed": false,
+          "listed": true,
           "mechanism": "native",
           "components": ["mcp"],
           "requires": [],
@@ -139,10 +140,11 @@
           "opt_in": false,
           "evidence": [
             "docs/internal/adr/0002-omp-runtime-contract.md",
-            "docs/internal/spikes/omp-runtime-contract.md"
+            "docs/internal/spikes/omp-runtime-contract.md",
+            "docs/internal/omp-acceptance.md"
           ],
-          "gates": ["YAN-1178 live acceptance matrix passes on the real ycc tree"],
-          "notes": "Generated OMP package under packages/omp/ycc-mcp (omp >=18.12.2) with .omp-plugin and .claude-plugin manifests, package.json, and a root .mcp.json byte-identical to mcp-configs/mcp.json (secret-literal audited; ${VAR} env placeholders stay unexpanded until omp starts a server). Servers load as ycc-mcp:<server>. install.sh --target omp installs it next to ycc through omp plugin (user or project scope); a running session picks it up after /reload-plugins or a restart. Unlisted: root .omp-plugin/marketplace.json stays absent until listing."
+          "gates": [],
+          "notes": "Generated OMP package under packages/omp/ycc-mcp (omp >=18.12.2) with .omp-plugin and .claude-plugin manifests, package.json, and a root .mcp.json byte-identical to mcp-configs/mcp.json (secret-literal audited; ${VAR} env placeholders stay unexpanded until omp starts a server). Servers load as ycc-mcp:<server>. Listed in the root .omp-plugin/marketplace.json (YAN-1180). install.sh --target omp installs it next to ycc through omp plugin (user or project scope); a running session picks it up after /reload-plugins or a restart."
         }
       }
     },
@@ -306,7 +308,7 @@
         },
         "omp": {
           "status": "included",
-          "listed": false,
+          "listed": true,
           "mechanism": "native",
           "components": ["rules"],
           "requires": [],
@@ -316,10 +318,11 @@
           "evidence": [
             "docs/internal/adr/0002-omp-runtime-contract.md",
             "docs/internal/spikes/omp-runtime-contract.md",
-            "docs/research/yan-1175-omp-rules-settings/feature-spec.md"
+            "docs/research/yan-1175-omp-rules-settings/feature-spec.md",
+            "docs/internal/omp-acceptance.md"
           ],
-          "gates": ["YAN-1178 live acceptance matrix passes on the real ycc tree"],
-          "notes": "Generated package under packages/omp/ycc-rules (omp >=18.12.2): 31 flat rules named ycc-<family>-<stem>, paths→globs, description kept, alwaysApply only when true. Language rules are rulebook entries read via rule://; 5 description-less ycc-<family>-trigger TTSR rules (glob-gated edit/write, interruptMode never) attach them once per session and once per subagent that edits a matching file. Unlisted until YAN-1180."
+          "gates": [],
+          "notes": "Generated package under packages/omp/ycc-rules (omp >=18.12.2): 31 flat rules named ycc-<family>-<stem>, paths→globs, description kept, alwaysApply only when true. Language rules are rulebook entries read via rule://; 5 description-less ycc-<family>-trigger TTSR rules (glob-gated edit/write, interruptMode never) attach them once per session and once per subagent that edits a matching file. Listed in the root .omp-plugin/marketplace.json (YAN-1180)."
         }
       }
     },

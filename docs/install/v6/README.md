@@ -38,8 +38,7 @@ agent plugin marketplace add https://github.com/yandy-r/ystack
 
 The package truth is `ycc/settings/packages.json`; the summary below matches
 that model. Native package IDs are `<package>@ycc`. `ycc-rules@ycc` is
-listed for Cursor only; OMP also ships it unlisted (pre-release, see
-[`../omp.md`](../omp.md)). `installer-fallback` is an internal modeling key for
+listed for Cursor and OMP (see [`../omp.md`](../omp.md)). `installer-fallback` is an internal modeling key for
 installer-only artifacts — it is not an installable package ID.
 
 | Runtime  | Native packages (listed)                                                                                                                                      | Stays on `install.sh`                                                                                                                           | Not installable                                                                                                                    |
@@ -118,7 +117,7 @@ closure into existing installer steps. It is a file/config delivery route and
 never edits a catalog. The one native piece is the `base` step it selects for
 `ycc`: on Claude that registers the marketplace and installs `ycc@ycc`; on
 Codex it registers the `ycc` marketplace and installs `ycc@ycc` plus
-`ycc-mcp@ycc`; on OMP (pre-release, see [`../omp.md`](../omp.md)) it exports
+`ycc-mcp@ycc`; on OMP (see [`../omp.md`](../omp.md)) it exports
 the OMP packages and installs `ycc@ycc` through `omp plugin`, and `ycc-mcp`
 and `ycc-rules` install `ycc-mcp@ycc` and `ycc-rules@ycc` the same way.
 Accepted ids are `ycc`, `ycc-mcp`, `ycc-hooks` (not Codex or OMP; on OMP
@@ -126,9 +125,8 @@ herdr ships its own integration), and `ycc-rules` (Cursor and OMP); OMP
 accepts `ycc`, `ycc-mcp` and `ycc-rules`. OMP settings and `AGENTS.md` are
 opt-in through `--settings` and `--rules`, not `--package`. `ycc-all` is not
 accepted — install it through the Claude marketplace. `install --target all`
-includes OMP only once
-an OMP package is listed (YAN-1180) and `omp >= 18.12.2` is on `PATH`; until
-then it prints a skip line. See `./install.sh --help` for the full contract.
+includes OMP when
+`omp >= 18.12.2` is on `PATH`; otherwise it prints a skip line. See `./install.sh --help` for the full contract.
 
 ## Evidence
 
