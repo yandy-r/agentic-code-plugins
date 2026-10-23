@@ -18,7 +18,8 @@ Usage:
   omp_builtin_commands.py                     probe OMP_BIN or omp on PATH
   omp_builtin_commands.py --require           same, but missing/old omp is an error
   omp_builtin_commands.py --commands-json F   check a saved get_available_commands frame
-Exit 0 when clean or skipped, 1 on drift, a failed probe, or (with --require) no usable omp.
+Exit 0 when clean or skipped, 1 on drift, a failed probe, or (with --require) no usable omp;
+2 for --require with --commands-json. YCC_OMP_REQUIRED is ignored for saved frames.
 """
 
 from __future__ import annotations
@@ -177,9 +178,12 @@ def live_omp(*, require: bool = False) -> str | None:
         print("[warn] omp not found (set OMP_BIN or install omp): skipping the built-in command drift check")
         return None
     try:
-        version = subprocess.run([omp, "--version"], capture_output=True, text=True, timeout=PROBE_TIMEOUT).stdout
+        result = subprocess.run([omp, "--version"], capture_output=True, text=True, timeout=PROBE_TIMEOUT)
     except subprocess.TimeoutExpired as error:
         raise ProbeError(f"omp --version timed out after {PROBE_TIMEOUT}s") from error
+    if result.returncode != 0:
+        raise ProbeError(f"omp --version exited {result.returncode}: {result.stderr.strip()[-500:]}")
+    version = result.stdout
     if version_key(version) < version_key(MIN_OMP_VERSION):
         if require:
             raise ProbeError(f"{version.strip()} is older than {MIN_OMP_VERSION} and a live omp is required")
@@ -199,6 +203,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         "(also enabled by YCC_OMP_REQUIRED=1)",
     )
     args = parser.parse_args(argv)
+    if args.require and args.commands_json is not None:
+        # A saved frame needs no omp, so --require would silently assert nothing.
+        parser.error("--require checks a live omp and cannot be combined with --commands-json")
+    # YCC_OMP_REQUIRED only gates the live probe; it is ignored for saved frames.
     require = args.require or env_required()
     try:
         if args.commands_json is not None:

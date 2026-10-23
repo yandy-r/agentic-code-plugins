@@ -72,14 +72,14 @@ and add `ycc-mcp:smoke` through a user `mcp.json` override.
 
 None of these is a release blocker for v6.1.0.
 
-| Cell                                       | Status        | Reason                                                                                                                                                                                                                                                                                                                                            |
-| ------------------------------------------ | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| macOS (`omp-darwin-*`)                     | CI (YAN-1555) | `.github/workflows/omp-live.yml` runs a macos-latest (arm64) leg with `--allow-env-i` passed explicitly in that step only (bubblewrap is Linux only; sandbox = env -i + throwaway HOME/XDG + null/loopback provider, no netns, real home not tmpfs-hidden). Linux legs never pass it. First live result is the workflow run linked from YAN-1555. |
-| Windows (`omp-windows-*.exe`)              | unsupported   | `install.sh` and the harnesses are Bash and no Windows host was available. Decision (YAN-1556): native Windows is unsupported, WSL 2 expected but unverified; see [Platform Support](../install/omp.md#platform-support).                                                                                                                         |
-| Linux arm64 and musl builds                | not run       | No such host. The packages hold no native code, so the result is expected to match x64 `[INFERENCE]`.                                                                                                                                                                                                                                             |
-| Public fork install (`--public URL --ref`) | pass          | YAN-1180, omp 18.12.6 (bwrap netns): `test-omp-native-packages.sh --public https://github.com/yandy-r/ystack.git --ref 8e11f232…` passed every catalog, install, discovery, `ycc-mcp`, upgrade and uninstall check.                                                                                                                               |
-| Real-model workflow runs                   | not run       | No model credentials are used. The scripted model proves loading and tool plumbing, not workflow reasoning. Per-skill headless behaviour is in `omp-workflow-semantics.md`.                                                                                                                                                                       |
-| Interactive TUI prompts                    | via RPC       | The same approval path is driven through `--mode rpc` `extension_ui_request` frames. The TUI renderer is not exercised.                                                                                                                                                                                                                           |
+| Cell                                       | Status                     | Reason                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------------ | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| macOS (`omp-darwin-*`)                     | pending first green CI run | `.github/workflows/omp-live.yml` has a macos-latest (arm64) leg that passes `--allow-env-i` explicitly in that step only (bubblewrap is Linux only; sandbox = env -i + throwaway HOME/XDG + null/loopback provider, no netns, real home not tmpfs-hidden). Not proven until that leg is green (YAN-1555); this row is updated with the run id then. |
+| Windows (`omp-windows-*.exe`)              | unsupported                | `install.sh` and the harnesses are Bash and no Windows host was available. Decision (YAN-1556): native Windows is unsupported, WSL 2 expected but unverified; see [Platform Support](../install/omp.md#platform-support).                                                                                                                           |
+| Linux arm64 and musl builds                | not run                    | No such host. The packages hold no native code, so the result is expected to match x64 `[INFERENCE]`.                                                                                                                                                                                                                                               |
+| Public fork install (`--public URL --ref`) | pass                       | YAN-1180, omp 18.12.6 (bwrap netns): `test-omp-native-packages.sh --public https://github.com/yandy-r/ystack.git --ref 8e11f232…` passed every catalog, install, discovery, `ycc-mcp`, upgrade and uninstall check.                                                                                                                                 |
+| Real-model workflow runs                   | not run                    | No model credentials are used. The scripted model proves loading and tool plumbing, not workflow reasoning. Per-skill headless behaviour is in `omp-workflow-semantics.md`.                                                                                                                                                                         |
+| Interactive TUI prompts                    | via RPC                    | The same approval path is driven through `--mode rpc` `extension_ui_request` frames. The TUI renderer is not exercised.                                                                                                                                                                                                                             |
 
 ## Harness fixes made during this run
 
@@ -119,7 +119,23 @@ and `macos-latest`, omp `18.12.2` (the `MIN_OMP_VERSION` floor) and `18.12.6`,
 | `test-omp-runtime-contract-spike.sh` | yes   | null provider, no prompt sent                                                                                                                                                                  |
 | `test-omp-herdr-hooks.sh`            | no    | Needs a real `herdr` binary and, for L8, a live herdr daemon/pane; there is no pinned upstream herdr release to install in CI yet, so it would only SKIP (exit 2). Stays a local/manual check. |
 
-A harness that prints `SKIP` fails the CI step: opting out locally must never become
+Omp is pinned by version and SHA-256 per asset in the workflow (also cross-checked against
+the release's `SHA256SUMS.txt`); a job checks that the lowest matrix version equals
+`MIN_OMP_VERSION`. The weekly cron re-tests those pins against runner-image drift; it does
+not discover new omp releases.
+
+Linux legs probe `bwrap --dev-bind / / --unshare-net /bin/true`; on Ubuntu 24.04 this fails
+until `kernel.apparmor_restrict_unprivileged_userns=0` (a runner-level sysctl, applied only
+when the probe fails and re-probed). The legs fail if bwrap still does not work; they never
+fall back to `--allow-env-i`.
+
+The harnesses are portable to macOS through `scripts/lib/omp-harness-common.sh`: resolved
+sandbox root (`/tmp` is a symlink to `/private/tmp`), a `/bin/sh` directory wrapper instead of
+GNU-only `env -C`, bsdtar-compatible options, and an explicit sandbox `PATH` extension
+(`YCC_HARNESS_EXTRA_PATH`, validated absolute directories, honoured only with `--allow-env-i`
+on Darwin) that carries GNU coreutils and Homebrew bash into the `env -i` sandbox.
+
+A harness that prints `SKIP` (case-insensitive, at line start) fails the CI step: opting out locally must never become
 a silent green in CI. On macOS every harness is passed `--allow-env-i` explicitly
 (bubblewrap is unavailable there); on Linux the step refuses to run without bwrap
 rather than weakening the sandbox.

@@ -124,12 +124,34 @@ class DriftTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("[warn] omp not found", out)
 
-    def test_require_does_not_affect_saved_frames(self) -> None:
+    def test_require_with_saved_frames_is_a_clear_error(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "frames.jsonl"
             path.write_text(frame([builtin("compact")]) + "\n", encoding="utf-8")
-            code, _, err = self.run_live(["--require", "--commands-json", str(path)], {})
+            err = io.StringIO()
+            with redirect_stderr(err), self.assertRaises(SystemExit) as raised:
+                guard.main(["--require", "--commands-json", str(path)])
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("cannot be combined with --commands-json", err.getvalue())
+
+    def test_the_required_env_is_ignored_for_saved_frames(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "frames.jsonl"
+            path.write_text(frame([builtin("compact")]) + "\n", encoding="utf-8")
+            code, _, err = self.run_live(["--commands-json", str(path)], {"YCC_OMP_REQUIRED": "1"})
         self.assertEqual((code, err), (0, ""))
+
+    def test_a_failing_version_probe_is_an_error_even_without_require(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = Path(tmp) / "omp"
+            fake.write_text("#!/bin/sh\necho omp/99.0.0\necho nope >&2\nexit 4\n", encoding="utf-8")
+            fake.chmod(0o755)
+            for argv in ([], ["--require"]):
+                with self.subTest(argv=argv):
+                    code, out, err = self.run_live(argv, {"OMP_BIN": str(fake), "YCC_OMP_REQUIRED": ""})
+                    self.assertEqual(code, 1)
+                    self.assertNotIn("[warn]", out)
+                    self.assertIn("omp --version exited 4: nope", err)
 
     def test_a_failing_probe_is_an_error_not_a_skip(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
