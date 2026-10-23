@@ -72,14 +72,14 @@ and add `ycc-mcp:smoke` through a user `mcp.json` override.
 
 None of these is a release blocker for v6.1.0.
 
-| Cell                                       | Status      | Reason                                                                                                                                                                                                                    |
-| ------------------------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| macOS (`omp-darwin-*`)                     | not run     | No macOS host was available. The harnesses need bubblewrap (Linux only) or `--allow-env-i`. Follow-up: run them on a macOS CI runner.                                                                                     |
-| Windows (`omp-windows-*.exe`)              | unsupported | `install.sh` and the harnesses are Bash and no Windows host was available. Decision (YAN-1556): native Windows is unsupported, WSL 2 expected but unverified; see [Platform Support](../install/omp.md#platform-support). |
-| Linux arm64 and musl builds                | not run     | No such host. The packages hold no native code, so the result is expected to match x64 `[INFERENCE]`.                                                                                                                     |
-| Public fork install (`--public URL --ref`) | pass        | YAN-1180, omp 18.12.6 (bwrap netns): `test-omp-native-packages.sh --public https://github.com/yandy-r/ystack.git --ref 8e11f232…` passed every catalog, install, discovery, `ycc-mcp`, upgrade and uninstall check.       |
-| Real-model workflow runs                   | not run     | No model credentials are used. The scripted model proves loading and tool plumbing, not workflow reasoning. Per-skill headless behaviour is in `omp-workflow-semantics.md`.                                               |
-| Interactive TUI prompts                    | via RPC     | The same approval path is driven through `--mode rpc` `extension_ui_request` frames. The TUI renderer is not exercised.                                                                                                   |
+| Cell                                       | Status        | Reason                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------ | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| macOS (`omp-darwin-*`)                     | CI (YAN-1555) | `.github/workflows/omp-live.yml` runs a macos-latest (arm64) leg with `--allow-env-i` passed explicitly in that step only (bubblewrap is Linux only; sandbox = env -i + throwaway HOME/XDG + null/loopback provider, no netns, real home not tmpfs-hidden). Linux legs never pass it. First live result is the workflow run linked from YAN-1555. |
+| Windows (`omp-windows-*.exe`)              | unsupported   | `install.sh` and the harnesses are Bash and no Windows host was available. Decision (YAN-1556): native Windows is unsupported, WSL 2 expected but unverified; see [Platform Support](../install/omp.md#platform-support).                                                                                                                         |
+| Linux arm64 and musl builds                | not run       | No such host. The packages hold no native code, so the result is expected to match x64 `[INFERENCE]`.                                                                                                                                                                                                                                             |
+| Public fork install (`--public URL --ref`) | pass          | YAN-1180, omp 18.12.6 (bwrap netns): `test-omp-native-packages.sh --public https://github.com/yandy-r/ystack.git --ref 8e11f232…` passed every catalog, install, discovery, `ycc-mcp`, upgrade and uninstall check.                                                                                                                               |
+| Real-model workflow runs                   | not run       | No model credentials are used. The scripted model proves loading and tool plumbing, not workflow reasoning. Per-skill headless behaviour is in `omp-workflow-semantics.md`.                                                                                                                                                                       |
+| Interactive TUI prompts                    | via RPC       | The same approval path is driven through `--mode rpc` `extension_ui_request` frames. The TUI renderer is not exercised.                                                                                                                                                                                                                           |
 
 ## Harness fixes made during this run
 
@@ -93,3 +93,33 @@ expectations, not product bugs:
   `ycc@ycc` ships the scope guard. L7 now reads each declared extension (it must stay inside the
   package) and fails only when one contains a herdr reporter marker (`herdr`,
   `HERDR_SOCKET_PATH`, `report_agent_session`).
+
+## Live CI (YAN-1552 / YAN-1555)
+
+`.github/workflows/omp-live.yml` is the live gate beside `validate.yml` (which stays
+runnable without omp). It downloads a pinned omp release binary from
+`can1357/oh-my-pi` (asset per OS/arch: `omp-linux-x64`, `omp-darwin-arm64`, ...),
+verifies it against that release's `SHA256SUMS.txt`, fails the job if the download,
+checksum or `omp --version` does not match the pin, then runs
+`python3 scripts/omp_builtin_commands.py --require`,
+`python3 scripts/test_omp_builtin_commands.py`, and the harnesses below. Triggers: weekly
+cron, pushes/PRs touching `scripts/*omp*`, `ycc/**`,
+`packages/omp/**`, `.omp-plugin/**`, the workflow itself and related paths, and
+`workflow_dispatch` (with an optional harness allow-list). Matrix: `ubuntu-latest`
+and `macos-latest`, omp `18.12.2` (the `MIN_OMP_VERSION` floor) and `18.12.6`,
+`fail-fast: false`.
+
+| Harness                              | In CI | Notes                                                                                                                                                                                          |
+| ------------------------------------ | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `test-omp-native-packages.sh`        | yes   | null provider only                                                                                                                                                                             |
+| `test-omp-install-lifecycle.sh`      | yes   | `YCC_INSTALL_SKIP_BUILD=1` inside the harness; checkout never written                                                                                                                          |
+| `test-omp-coexistence.sh`            | yes   |                                                                                                                                                                                                |
+| `test-omp-rules-settings.sh`         | yes   | needs PyYAML, installed in the workflow                                                                                                                                                        |
+| `test-omp-scripted-sessions.sh`      | yes   | scripted loopback provider, no inference                                                                                                                                                       |
+| `test-omp-runtime-contract-spike.sh` | yes   | null provider, no prompt sent                                                                                                                                                                  |
+| `test-omp-herdr-hooks.sh`            | no    | Needs a real `herdr` binary and, for L8, a live herdr daemon/pane; there is no pinned upstream herdr release to install in CI yet, so it would only SKIP (exit 2). Stays a local/manual check. |
+
+A harness that prints `SKIP` fails the CI step: opting out locally must never become
+a silent green in CI. On macOS every harness is passed `--allow-env-i` explicitly
+(bubblewrap is unavailable there); on Linux the step refuses to run without bwrap
+rather than weakening the sandbox.

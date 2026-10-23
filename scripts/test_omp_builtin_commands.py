@@ -92,6 +92,45 @@ class DriftTests(unittest.TestCase):
                 self.assertEqual(guard.main([]), 0)
         self.assertIn(f"older than {MIN_OMP_VERSION}", out.getvalue())
 
+    def run_live(self, argv: list[str], env: dict[str, str]) -> tuple[int, str, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with patch.dict(os.environ, env), redirect_stdout(out), redirect_stderr(err):
+            code = guard.main(argv)
+        return code, out.getvalue(), err.getvalue()
+
+    def test_require_makes_a_missing_omp_an_error(self) -> None:
+        for argv, env in (
+            (["--require"], {"OMP_BIN": "", "PATH": ""}),
+            ([], {"OMP_BIN": "", "PATH": "", "YCC_OMP_REQUIRED": "1"}),
+        ):
+            with self.subTest(argv=argv, env=env):
+                code, out, err = self.run_live(argv, env)
+                self.assertEqual(code, 1)
+                self.assertNotIn("[warn]", out)
+                self.assertIn("a live omp is required", err)
+
+    def test_require_makes_an_old_omp_an_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = Path(tmp) / "omp"
+            fake.write_text("#!/bin/sh\necho omp/18.0.0\n", encoding="utf-8")
+            fake.chmod(0o755)
+            code, out, err = self.run_live(["--require"], {"OMP_BIN": str(fake)})
+        self.assertEqual(code, 1)
+        self.assertNotIn("[warn]", out)
+        self.assertIn(f"older than {MIN_OMP_VERSION} and a live omp is required", err)
+
+    def test_a_falsy_required_env_still_skips(self) -> None:
+        code, out, _ = self.run_live([], {"OMP_BIN": "", "PATH": "", "YCC_OMP_REQUIRED": "0"})
+        self.assertEqual(code, 0)
+        self.assertIn("[warn] omp not found", out)
+
+    def test_require_does_not_affect_saved_frames(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "frames.jsonl"
+            path.write_text(frame([builtin("compact")]) + "\n", encoding="utf-8")
+            code, _, err = self.run_live(["--require", "--commands-json", str(path)], {})
+        self.assertEqual((code, err), (0, ""))
+
     def test_a_failing_probe_is_an_error_not_a_skip(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             fake = Path(tmp) / "omp"
